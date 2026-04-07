@@ -13,7 +13,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -109,6 +109,17 @@ class AuthService:
         return result.scalar_one_or_none()
 
     async def create_user(self, org_id: UUID, req: UserCreate) -> User:
+        org = await self.get_org(org_id)
+        if org:
+            count_result = await self.db.execute(
+                select(func.count(User.id)).where(User.org_id == org_id, User.is_active == True)  # noqa: E712
+            )
+            active_members = count_result.scalar_one()
+            if active_members >= org.member_quota:
+                raise ValueError(
+                    f"Member quota reached ({org.member_quota} active users allowed on this plan). "
+                    "Upgrade your workspace plan to add more members."
+                )
         user = User(
             org_id=org_id,
             email=req.email,
