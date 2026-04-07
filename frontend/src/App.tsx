@@ -3,6 +3,7 @@ import { AppLayout } from './components/Layout/AppLayout'
 import { LoginPage } from './pages/Login/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPassword/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPassword/ResetPasswordPage'
+import { ChangePasswordPage } from './pages/ChangePassword/ChangePasswordPage'
 import { DashboardPage } from './pages/Dashboard/DashboardPage'
 import { OpportunitiesPage } from './pages/Opportunities/OpportunitiesPage'
 import { InitiativesPage } from './pages/Initiatives/InitiativesPage'
@@ -21,6 +22,11 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* ── SP-A01: Change-password — authenticated but outside AppLayout ── */}
+        {/* The page renders full-screen and is accessible even when             */}
+        {/* must_change_password=true (otherwise there is no escape route).      */}
+        <Route path="/app/change-password" element={<ChangePasswordPage />} />
 
         {/* ── Authenticated app shell ───────────────────────────────────── */}
         <Route path="/app" element={<AppLayout />}>

@@ -10,6 +10,8 @@ interface AuthContextValue {
   loginWithPasskey: (email: string) => Promise<void>
   registerCurrentPasskey: () => Promise<void>
   logout: () => void
+  /** Replace the in-memory user without a network round-trip. */
+  refreshUser: (updated: User) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -21,6 +23,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     authApi.logout().catch(() => undefined)
     setUser(null)
+  }, [])
+
+  /** Accept a freshly-returned User from the API and store it in context. */
+  const refreshUser = useCallback(async (updated: User) => {
+    setUser(updated)
   }, [])
 
   useEffect(() => {
@@ -35,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await authApi.login(email, password)
     setUser(data.user)
   }, [])
-
   const base64urlToBuffer = useCallback((base64url: string) => {
     const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
@@ -184,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithPasskey,
         registerCurrentPasskey,
         logout,
+        refreshUser,
       }}
     >
       {children}

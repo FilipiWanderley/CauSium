@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     passkey_enabled: bool
+    must_change_password: bool
     created_at: datetime
     org_name: str = ""
 
@@ -154,4 +155,11 @@ class ForgotPasswordResponse(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
+    new_password: str = Field(..., min_length=8)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Authenticated user changing their own password (satisfies must_change_password)."""
+
+    current_password: str
     new_password: str = Field(..., min_length=8)

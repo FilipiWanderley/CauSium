@@ -1,10 +1,11 @@
-import { Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Sidebar } from '../Sidebar/Sidebar'
 import { Header } from '../Header/Header'
 
 export function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -15,6 +16,11 @@ export function AppLayout() {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  // SP-A01: Block access to all app routes until the forced password change is satisfied.
+  if (user?.must_change_password && location.pathname !== '/app/change-password') {
+    return <Navigate to="/app/change-password" replace />
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

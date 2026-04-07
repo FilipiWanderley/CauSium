@@ -134,6 +134,8 @@ class AuthService:
             full_name=req.full_name,
             hashed_password=hash_password(req.password),
             role=req.role,
+            # SP-A01: admin-created accounts must change password on first login.
+            must_change_password=True,
         )
         self.db.add(user)
         await self.db.flush()
@@ -156,6 +158,36 @@ class AuthService:
         await self.db.flush()
         await self.db.refresh(org)
         return org
+
+    async def change_password(self, user: User, current_password: str, new_password: str) -> User:
+        """SP-A01: Authenticated user changes their own password.
+
+        Verifies ``current_password`` against the stored hash, then sets the new
+        password, clears ``must_change_password``, and records ``password_changed_at``.
+
+        Raises:
+            ValueError: when ``current_password`` is wrong, the new password
+                equals the current one, or the user's org disallows passwords.
+        """
+        if not verify_password(current_password, user.hashed_password):
+            raise ValueError("Current password is incorrect")
+        if verify_password(new_password, user.hashed_password):
+            raise ValueError("New password must differ from the current password")
+
+        user.hashed_password = hash_password(new_password)
+        user.must_change_password = False
+        user.password_changed_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.password.changed",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"forced": False},
+        )
+        await self.db.refresh(user)
+        return user
 
     @staticmethod
     def _new_challenge() -> str:

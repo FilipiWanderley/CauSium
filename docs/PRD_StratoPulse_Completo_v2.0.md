@@ -389,7 +389,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | MFA TOTP setup, verify, enable, disable | ❌ | Não existe | Implementar totalmente |
 | Reset de MFA por admin | ❌ | Não existe | Dependência do MFA TOTP |
 | Token em cookie httpOnly (não localStorage) | ✅ commit 745d828 | `_set_auth_cookies()` em todos os endpoints; `withCredentials: true` no frontend; sem localStorage | — |
-| Forçar troca de senha configurável | ❌ | Não existe | SP-A01 |
+| Forçar troca de senha configurável | ✅ SP-A01 | `must_change_password` em User; AppLayout bloqueia acesso; `POST /auth/change-password`; auditado | — |
 | Rate limiting por workspace (org) | ❌ | Apenas por IP | Adicionar granularidade por org_id |
 | Validação de origin/referer no login | ✅ SP-A04 | `_check_origin()` no middleware; rejeita origem desconhecida com 403; ausência de Origin tolerada fora de produção | — |
 | Headers HTTP completos em produção | 🔶 | Implementados no middleware, sem validação CI | Gate automático no CI |
@@ -623,7 +623,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 | ID | Requisito | Prioridade | Critério de aceite | Depende de |
 |----|-----------|-----------|-------------------|-----------|
-| SP-A01 | Forçar troca de senha em condições configuradas (first login, expiração, reset por admin) | P0 | Usuário redirecionado a /change-password; acesso bloqueado até conclusão; StratoAudit registra evento | SP-A03, SP-U01 |
+| SP-A01 | Forçar troca de senha em condições configuradas (first login, expiração, reset por admin) | P0 | Usuário redirecionado a /change-password; acesso bloqueado até conclusão; StratoAudit registra evento | SP-A03, SP-U01 | ✅ |
 | SP-A02 | Migrar token do frontend de localStorage para cookie httpOnly | P0 | Zero ocorrências de token em localStorage no bundle de produção; verificado por teste e2e | — |
 | SP-A03 | Rate limiting por workspace (org_id) e por IP em todos endpoints de autenticação | P0 | Bloqueia após N tentativas configuráveis; retorna 429 com Retry-After | — |
 | SP-A04 | Validação de origin/referer no endpoint de login | P0 | Rejeita requests de origens não autorizadas com 403; configurável por ambiente | — | ✅ |

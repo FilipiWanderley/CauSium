@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
@@ -368,3 +369,31 @@ async def reset_password(
         await service.reset_password(req.token, req.new_password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+# ── SP-A01: Forced / voluntary password change ───────────────────────────
+
+
+@router.post("/change-password", response_model=UserOut)
+async def change_password(
+    req: ChangePasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    """Authenticated user changes their own password.
+
+    Clears the ``must_change_password`` flag on success.  The updated
+    ``UserOut`` is returned so the frontend can refresh its auth state
+    without an extra round-trip.
+    """
+    service = AuthService(db)
+    try:
+        user = await service.change_password(
+            current_user,
+            req.current_password,
+            req.new_password,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    org_name = await service.get_org_name(user.org_id)
+    return _user_out(user, org_name)

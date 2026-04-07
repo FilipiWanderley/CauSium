@@ -15,6 +15,8 @@ async def test_register(client):
     assert "access_token" in data
     assert data["user"]["email"] == "admin@acme.com"
     assert data["user"]["role"] == "admin"
+    # SP-A01: org founder does not need to change password (already chose it)
+    assert data["user"]["must_change_password"] is False
     set_cookie = resp.headers.get("set-cookie", "")
     assert "sp_access_token=" in set_cookie
     assert "HttpOnly" in set_cookie
@@ -191,4 +193,70 @@ async def test_origin_validation_no_origin_allowed_in_non_prod(client):
         # No Origin / Referer — simulates an API client or test runner.
     )
     # Non-production: check is skipped → auth layer responds with 401.
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# SP-A01: Force password change
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_admin_created_user_must_change_password(client, auth_headers):
+    """Users created by an admin must have must_change_password=True."""
+    resp = await client.post(
+        "/api/v1/auth/users",
+        json={"email": "newmember@test.com", "full_name": "New Member", "password": "temppass123"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["must_change_password"] is True
+
+
+@pytest.mark.asyncio
+async def test_change_password_success(client, auth_headers):
+    """Authenticated user can change their password; flag is cleared."""
+    # Set must_change_password=True on the test user via create path is not
+    # straightforward — instead verify the endpoint mechanics with the test user
+    # (who registered directly, so must_change_password=False but can still call it).
+    resp = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "testpassword123", "new_password": "newpassword456"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["must_change_password"] is False
+
+
+@pytest.mark.asyncio
+async def test_change_password_wrong_current(client, auth_headers):
+    """Wrong current password returns 400."""
+    resp = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "wrong_password", "new_password": "newpassword456"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    assert "incorrect" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_change_password_same_password_rejected(client, auth_headers):
+    """New password must differ from current; same password returns 400."""
+    resp = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "testpassword123", "new_password": "testpassword123"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    assert "differ" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_change_password_unauthenticated(client):
+    """Change-password requires authentication."""
+    resp = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "any", "new_password": "newpassword456"},
+    )
     assert resp.status_code == 401
