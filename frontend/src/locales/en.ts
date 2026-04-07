@@ -21,6 +21,22 @@ export interface Translations {
     colLastSync: string
     never: string
   }
+  budget: {
+    title: string
+    notConfigured: string
+    consumed: string
+    projectedEom: string
+    of: string
+    configure: string
+    save: string
+    cancel: string
+    period_monthly: string
+    period_quarterly: string
+    period_annual: string
+    amount: string
+    period: string
+    thresholds: string
+  }
   header: {
     logout: string
   }
@@ -48,6 +64,22 @@ export const en: Translations = {
     colStatus: 'Status',
     colLastSync: 'Last Sync',
     never: 'Never',
+  },
+  budget: {
+    title: 'Workspace Budget',
+    notConfigured: 'No budget configured for this workspace.',
+    consumed: 'Consumed',
+    projectedEom: 'Projected EOM',
+    of: 'of',
+    configure: 'Configure',
+    save: 'Save',
+    cancel: 'Cancel',
+    period_monthly: 'Monthly',
+    period_quarterly: 'Quarterly',
+    period_annual: 'Annual',
+    amount: 'Budget Amount (USD)',
+    period: 'Period',
+    thresholds: 'Alert Thresholds (%)',
   },
   header: {
     logout: 'Logout',

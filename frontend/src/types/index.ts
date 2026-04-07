@@ -199,6 +199,31 @@ export interface ScorecardResponse {
   org_efficiency_score: number
 }
 
+// Economics — SP-EC01
+export type FinancialBudgetPeriod = 'monthly' | 'quarterly' | 'annual'
+
+export interface WorkspaceBudget {
+  id: string
+  org_id: string
+  amount_usd: number
+  period: FinancialBudgetPeriod
+  currency: string
+  alert_thresholds: number[]
+  created_at: string
+  updated_at: string
+  // Live consumption (computed server-side from ClickHouse)
+  consumed_usd: number
+  consumed_pct: number
+  projected_eom_usd: number | null
+}
+
+export interface WorkspaceBudgetUpsert {
+  amount_usd: number
+  period: FinancialBudgetPeriod
+  currency?: string
+  alert_thresholds?: number[]
+}
+
 // Risk Budgets
 export type BudgetType = 'blast_radius' | 'cost_variance' | 'error_rate' | 'change_frequency'
 export type BudgetPeriod = 'daily' | 'weekly' | 'monthly'

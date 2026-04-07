@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
+import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
@@ -165,9 +166,11 @@ export function DashboardPage() {
         />
       </div>
 
+      {/* Budget widget — SP-EC01 */}
+      <BudgetWidget />
+
       {/* Charts row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Cost trend + change events overlay */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">        {/* Cost trend + change events overlay */}
         <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">{d.costTrend}</h2>

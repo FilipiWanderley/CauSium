@@ -18,6 +18,7 @@ import app.domains.risk_budgets.models  # noqa: F401
 import app.domains.change_events.models  # noqa: F401
 import app.domains.audit_chain.models  # noqa: F401
 import app.domains.policy.models  # noqa: F401
+import app.domains.economics.models  # noqa: F401
 
 config = context.config
 
