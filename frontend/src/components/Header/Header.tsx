@@ -1,0 +1,58 @@
+import { LogOut } from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
+import { useI18n, type Language } from '../../contexts/I18nContext'
+import { UserAvatar } from '../Avatar/UserAvatar'
+
+const LANG_LABELS: Record<Language, string> = { en: 'EN', pt: 'PT' }
+const LANGS: Language[] = ['en', 'pt']
+
+export function Header() {
+  const { user, logout } = useAuth()
+  const { lang, setLang, t } = useI18n()
+
+  return (
+    <header className="flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
+      <div />
+      <div className="flex items-center gap-4">
+        {/* Language switcher */}
+        <div className="flex items-center rounded-lg border border-gray-200 p-0.5">
+          {LANGS.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                lang === l
+                  ? 'bg-brand-500 text-white'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {LANG_LABELS[l]}
+            </button>
+          ))}
+        </div>
+
+        {/* User + org */}
+        {user && (
+          <div className="flex items-center gap-2.5">
+            <UserAvatar name={user.full_name} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-medium text-gray-900">{user.full_name}</span>
+              <span className="text-xs text-gray-400">{user.org_name}</span>
+            </div>
+            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+              {user.role}
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={logout}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          {t.header.logout}
+        </button>
+      </div>
+    </header>
+  )
+}

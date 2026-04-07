@@ -1,0 +1,57 @@
+import { NavLink } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Lightbulb,
+  ListTodo,
+  BarChart3,
+  Settings,
+  Cloud,
+  FlaskConical,
+  Activity,
+  ShieldAlert,
+} from 'lucide-react'
+import clsx from 'clsx'
+
+const NAV = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/opportunities', icon: Lightbulb, label: 'Opportunities' },
+  { to: '/initiatives', icon: ListTodo, label: 'Initiatives' },
+  { to: '/experiments', icon: FlaskConical, label: 'Experiments' },
+  { to: '/risk-budgets', icon: ShieldAlert, label: 'Risk Budgets' },
+  { to: '/change-events', icon: Activity, label: 'Change Events' },
+  { to: '/executive', icon: BarChart3, label: 'Executive' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
+]
+
+export function Sidebar() {
+  return (
+    <aside className="flex w-60 flex-col bg-gray-900 text-white">
+      <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
+        <Cloud className="h-6 w-6 text-brand-500" />
+        <span className="font-bold text-lg tracking-tight">NimbusOps</span>
+      </div>
+      <nav className="flex-1 py-4 space-y-1 px-2">
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-brand-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              )
+            }
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="px-5 py-4 border-t border-gray-700 text-xs text-gray-400">
+        v0.1.0 · Azure-first MVP
+      </div>
+    </aside>
+  )
+}
