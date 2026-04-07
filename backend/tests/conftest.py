@@ -71,3 +71,75 @@ async def auth_headers(client) -> dict:
     assert resp.status_code == 201, resp.text
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def org_a(client) -> dict:
+    """Register org A and return {headers, org_id, user_id}."""
+    resp = await client.post("/api/v1/auth/register", json={
+        "org_name": "Org Alpha",
+        "org_slug": "org-alpha",
+        "email": "admin@org-alpha.com",
+        "full_name": "Alpha Admin",
+        "password": "alphapassword123",
+    })
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    return {
+        "headers": {"Authorization": f"Bearer {data['access_token']}"},
+        "org_id": data["user"]["org_id"],
+        "user_id": data["user"]["id"],
+    }
+
+
+@pytest_asyncio.fixture
+async def org_b(client) -> dict:
+    """Register org B and return {headers, org_id, user_id}."""
+    resp = await client.post("/api/v1/auth/register", json={
+        "org_name": "Org Beta",
+        "org_slug": "org-beta",
+        "email": "admin@org-beta.com",
+        "full_name": "Beta Admin",
+        "password": "betapassword123",
+    })
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    return {
+        "headers": {"Authorization": f"Bearer {data['access_token']}"},
+        "org_id": data["user"]["org_id"],
+        "user_id": data["user"]["id"],
+    }
+
+
+@pytest_asyncio.fixture
+async def platform_admin_headers(client, db) -> dict:
+    """
+    Register org C, then directly elevate its admin to PLATFORM_ADMIN in the DB,
+    and return auth headers.
+    """
+    from sqlalchemy import select, update
+
+    from app.domains.auth.models import User, UserRole
+
+    resp = await client.post("/api/v1/auth/register", json={
+        "org_name": "Platform Org",
+        "org_slug": "platform-org",
+        "email": "superadmin@platform.com",
+        "full_name": "Platform Superadmin",
+        "password": "superpassword123",
+    })
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    user_id = data["user"]["id"]
+
+    await db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(role=UserRole.PLATFORM_ADMIN)
+    )
+    await db.flush()
+
+    # Re-login to get a fresh token reflecting the new role isn't needed for
+    # authorization — role is read from the DB on each request, not from JWT.
+    token = data["access_token"]
+    return {"Authorization": f"Bearer {token}"}
