@@ -56,14 +56,15 @@ Objetivo: fechar lacunas críticas de segurança, isolamento e operação para h
   - Backend routers: [backend/app/api/v1](backend/app/api/v1)
   - Evidência: contrato `Page[T]` com `page/page_size/total` em todas as listagens
 
-- [ ] SP-FE06: /app/platform/workspaces
-  - Frontend pages: [frontend/src/pages](frontend/src/pages)
-  - Evidência: CRUD de workspace e ações de status
+- [x] SP-FE06: /app/platform/workspaces — `commit 8307faa`
+  - Frontend: [frontend/src/pages/Platform/WorkspacesPage.tsx](frontend/src/pages/Platform/WorkspacesPage.tsx)
+  - API client: [frontend/src/api/admin.ts](frontend/src/api/admin.ts)
+  - Evidência: tabela paginada de orgs com ações de lifecycle (suspender/restaurar/arquivar); expand inline para listar usuários; guard de rota (platform_admin only); item no Sidebar condicional
 
-- [ ] SP-FE08: /forgot-password e /reset-password completos
-  - Frontend auth pages: [frontend/src/pages](frontend/src/pages)
-  - Backend auth routes: [backend/app/domains/auth/router.py](backend/app/domains/auth/router.py)
-  - Evidência: fluxo e2e ponta a ponta
+- [x] SP-FE08: /forgot-password e /reset-password completos — `commit 8307faa`
+  - Frontend pages: [frontend/src/pages/ForgotPassword/ForgotPasswordPage.tsx](frontend/src/pages/ForgotPassword/ForgotPasswordPage.tsx), [frontend/src/pages/ResetPassword/ResetPasswordPage.tsx](frontend/src/pages/ResetPassword/ResetPasswordPage.tsx)
+  - Backend auth routes: [backend/app/domains/auth/router.py](backend/app/domains/auth/router.py) — POST /auth/forgot-password, POST /auth/reset-password
+  - Evidência: fluxo e2e ponta a ponta; token via AuthChallenge (1h TTL); prevenção de enumeração de e-mail; link 'Forgot password?' na tela de login; token retornado no response para teste sem SMTP (Wave 1: integrar serviço de e-mail)
 
 ## Operação
 
@@ -79,4 +80,4 @@ Objetivo: fechar lacunas críticas de segurança, isolamento e operação para h
 - [x] Evidência de backup/restore documentada
 - [x] Todos os PRs da wave mapeados para requisito SP-*
 - [x] OIDC seguro implementado e unit-tested (staging na Wave 1)
-- [ ] SP-FE06 e SP-FE08 entregues (pendentes)
+- [x] SP-FE06 e SP-FE08 entregues
