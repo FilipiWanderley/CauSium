@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.domains.admin.models import DlqStatus
 from app.domains.auth.models import UserRole, WorkspaceLifecycleState
 
 
@@ -35,3 +36,24 @@ class AdminUserItem(BaseModel):
 
 class AdminForceLifecycle(BaseModel):
     reason: str
+
+
+class DlqMessageOut(BaseModel):
+    id: UUID
+    queue_name: str
+    org_id: UUID | None
+    account_id: UUID | None
+    original_payload: str
+    error_message: str
+    retry_count: int
+    status: DlqStatus
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DlqRequeueResponse(BaseModel):
+    dlq_id: UUID
+    queue_name: str
+    requeued: bool

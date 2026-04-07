@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import require_platform_admin
 from app.core.schemas import Page, PageParams
-from app.domains.admin.schemas import AdminForceLifecycle, AdminOrgListItem, AdminUserItem
+from app.domains.admin.schemas import (
+    AdminForceLifecycle,
+    AdminOrgListItem,
+    AdminUserItem,
+    DlqMessageOut,
+    DlqRequeueResponse,
+)
 from app.domains.admin.service import PlatformAdminService
 from app.domains.workspaces.schemas import WorkspaceOut
 
@@ -93,3 +99,28 @@ async def force_archive_org(
     org = await service.force_archive(org_id, req.reason)
     await db.commit()
     return WorkspaceOut.model_validate(org)
+
+
+@router.get("/dlq", response_model=Page[DlqMessageOut])
+async def list_dlq_messages(
+    current_user=Depends(require_platform_admin),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    params: Annotated[PageParams, Depends(PageParams)] = ...,
+) -> Page[DlqMessageOut]:
+    """List DLQ messages to support operational triage and UI dashboards."""
+    service = PlatformAdminService(db, current_user.id)
+    items, total = await service.list_dlq(params)
+    return Page.of(items, total, params)
+
+
+@router.post("/dlq/{dlq_id}/requeue", response_model=DlqRequeueResponse)
+async def requeue_dlq_message(
+    dlq_id: UUID,
+    current_user=Depends(require_platform_admin),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> DlqRequeueResponse:
+    """Requeue a DLQ message back to its original queue for reprocessing."""
+    service = PlatformAdminService(db, current_user.id)
+    msg = await service.requeue_dlq(dlq_id)
+    await db.commit()
+    return DlqRequeueResponse(dlq_id=msg.id, queue_name=msg.queue_name, requeued=True)

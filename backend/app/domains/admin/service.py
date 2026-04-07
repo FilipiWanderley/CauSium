@@ -7,7 +7,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redis import get_redis_pool
 from app.core.schemas import PageParams
+from app.domains.admin.models import DlqMessage, DlqStatus
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import Organization, User, WorkspaceLifecycleState
 
@@ -121,3 +123,28 @@ class PlatformAdminService:
             entity_id=str(org_id),
             payload=payload,
         )
+
+    async def list_dlq(self, params: PageParams) -> tuple[list[DlqMessage], int]:
+        count_result = await self.db.execute(select(func.count(DlqMessage.id)))
+        total = count_result.scalar_one()
+
+        result = await self.db.execute(
+            select(DlqMessage)
+            .order_by(DlqMessage.created_at.desc())
+            .limit(params.limit)
+            .offset(params.offset)
+        )
+        return list(result.scalars().all()), total
+
+    async def requeue_dlq(self, dlq_id: UUID) -> DlqMessage:
+        result = await self.db.execute(select(DlqMessage).where(DlqMessage.id == dlq_id))
+        msg = result.scalar_one_or_none()
+        if not msg:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "DLQ message not found")
+
+        redis = get_redis_pool()
+        await redis.lpush(msg.queue_name, msg.original_payload)
+        msg.status = DlqStatus.REQUEUED
+        await self.db.flush()
+        await self.db.refresh(msg)
+        return msg

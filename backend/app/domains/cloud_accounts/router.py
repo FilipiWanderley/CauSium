@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from typing import Annotated, List
 from uuid import UUID
 
@@ -109,7 +110,13 @@ async def trigger_sync(
     from app.core.redis import get_redis_pool
 
     redis = get_redis_pool()
-    await redis.lpush("ingestion:queue", str(account_id))
+    payload = json.dumps(
+        {
+            "org_id": str(current_user.org_id),
+            "account_id": str(account_id),
+        }
+    )
+    await redis.lpush("ingestion:queue", payload)
     return SyncStatusOut(account_id=account_id, triggered=True, message="Sync job queued")
 
 
