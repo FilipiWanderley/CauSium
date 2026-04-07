@@ -335,16 +335,19 @@ Kanban board endpoint com 6 colunas
 | /executive | 🔶 | Sub-view do /app/economics |
 | /settings | 🔶 | /app/settings/* |
 
-**Ausente:**
+**Implementado (Wave 0):**
+- /forgot-password ✅ (commit 8307faa)
+- /reset-password ✅ (commit 8307faa)
+- /platform/workspaces ✅ (commit 8307faa; mover para /app/platform/workspaces com SP-FE01)
+
+**Ainda ausente:**
 - / (landing pública)
-- /forgot-password, /reset-password (frontend)
-- /activate (link de convite)
+- /activate (link de convite — invites domain existe, falta página)
 - /app/economics/skus
 - /app/economics/reports
 - /app/notifications
 - /app/gov (PulseGov)
 - /app/green (PulseGreen)
-- /app/platform/workspaces
 - /app/platform/sync
 
 ### 3.5 Segurança — Estado Real
@@ -401,14 +404,14 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
-| Scoping por workspace em todas as queries | 🔶 | `org_id` presente em todos os modelos, falta test suite de isolamento |
-| Bloqueio cross-workspace por default | 🔶 | Dependências de org_id em services, sem teste sistemático |
-| Lifecycle completo: criar, ativar, desativar, arquivar, purgar, restaurar | ❌ | Organization tem apenas `is_active`; sem lifecycle completo |
-| Cota de membros por workspace | ❌ | Não existe |
-| Workspace inativo bloqueia acesso imediatamente | ❌ | `is_active` existe mas sem enforcement em `get_current_user` |
-| platform_admin global sem workspace | 🔶 | UserRole tem ADMIN mas scoped por org |
-| Chaves de criptografia por workspace enterprise | ❌ | Fernet key é global (env var) |
-| Data residency por região contratual | ❌ | Sem suporte |
+| Scoping por workspace em todas as queries | ✅ commit 67e5aee | Suite de isolamento cross-workspace com 0 vazamentos |
+| Bloqueio cross-workspace por default | ✅ commit 67e5aee | Enforcement central em get_current_user + dependency |
+| Lifecycle completo: criar, ativar, desativar, arquivar, purgar, restaurar | ✅ commit e5d0536 | Transitions ACTIVE↔SUSPENDED↔ARCHIVED; auditado |
+| Cota de membros por workspace | ✅ commit ab4aab7 | Quota configurável; POST /auth/users retorna 422 quando atingido |
+| Workspace inativo bloqueia acesso imediatamente | ✅ commit e5d0536 | get_current_user retorna 403 para workspace SUSPENDED/ARCHIVED |
+| platform_admin global sem workspace | ✅ commit a221eb4 | role platform_admin; require_platform_admin dependency; acesso total auditado |
+| Chaves de criptografia por workspace enterprise | ❌ | Fernet key é global (env var); pendente SP-MT06 / SP-SM02 |
+| Data residency por região contratual | ❌ | Sem suporte; Wave 4 |
 
 ### 4.3 Perfis e Membros
 
@@ -416,11 +419,12 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
-| CRUD de membros operacional | 🔶 | create_user + list_users existem; falta delete, update, reset |
-| Reset de senha por workspace_admin | ❌ | SP-U01: gerar token + email |
-| Reset de MFA por workspace_admin | ❌ | SP-U02: dependência do MFA TOTP |
-| Regra: admin não reseta outro admin | ❌ | SP-U03 |
-| Convite por email (SMTP + link ativação) | ❌ | SP-U04 |
+| CRUD de membros operacional | 🔶 commit ab4aab7 | create_user + list_users + invites domain (5 endpoints); falta DELETE /users, PATCH /users |
+| Reset de senha self-service | ✅ commit 8307faa | POST /auth/forgot-password + /auth/reset-password; token AuthChallenge TTL 1h |
+| Reset de senha por workspace_admin (para outro usuário) | ⬜ | SP-U01: admin gera token para membro específico; pendente |
+| Reset de MFA por workspace_admin | ❌ | SP-U02: dependência do MFA TOTP (SP-A06) |
+| Regra: admin não reseta outro admin | ❌ | SP-U03; implementar junto com SP-U01 |
+| Convite por email (SMTP + link ativação) | 🔶 commit ab4aab7 | invites domain com 5 endpoints; sem SMTP (SP-AP03 pendente) |
 | Soft-delete com auditoria | ❌ | SP-U05 |
 
 ### 4.4 PulseEconomics — Dashboard e Análise Financeira
@@ -900,8 +904,8 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | POST | /users/invite | ❌ Falta | P1 (SP-U04) |
 | POST | /activate | ❌ Falta | P1 (SP-U04) |
 | POST | /change-password | ❌ Falta | P0 (SP-A01) |
-| POST | /forgot-password | ❌ Falta | P0 |
-| POST | /reset-password | ❌ Falta | P0 |
+| POST | /forgot-password | ✅ commit 8307faa | — |
+| POST | /reset-password | ✅ commit 8307faa | — |
 | POST | /mfa/setup | ❌ Falta | P1 (SP-A06) |
 | POST | /mfa/verify | ❌ Falta | P1 |
 | PATCH | /mfa/enable | ❌ Falta | P1 |
@@ -1109,8 +1113,8 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 |------|-----------|--------|-----------|
 | / | LandingPage | ❌ | P1 |
 | /login | LoginPage | 🔶 | Melhorias |
-| /forgot-password | ForgotPasswordPage | 🔶 | P0 (SP-FE02) |
-| /reset-password | ResetPasswordPage | ❌ | P0 |
+| /forgot-password | ForgotPasswordPage | ✅ commit 8307faa | — |
+| /reset-password | ResetPasswordPage | ✅ commit 8307faa | — |
 | /activate | ActivatePage | ❌ | P1 |
 
 ### 8.3 Rotas Protegidas
@@ -1134,7 +1138,7 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 | /app/settings/team | Membros do workspace | workspace_admin | 🔶 | Expandir |
 | /app/settings/cloud | Credenciais cloud | workspace_admin | 🔶 | Expandir |
 | /app/settings/security | Segurança da conta | workspace_admin | 🔶 | Expandir |
-| /app/platform/workspaces | Gestão de workspaces | platform_admin | ❌ | P0 (SP-FE08) |
+| /app/platform/workspaces | Gestão de workspaces | platform_admin | 🔶 commit 8307faa (em /platform/workspaces; mover com SP-FE01) | — |
 | /app/platform/sync | Status de sincronização | platform_admin | ❌ | P1 (SP-FE09) |
 
 ### 8.4 Migração de Token (SP-A02, SP-FE11)
@@ -1288,16 +1292,17 @@ SLIs a instrumentar:
 
 **Objetivo:** Elevar o baseline de segurança sem bloquear evolução arquitetural. Trabalho paralelo ao restante do desenvolvimento.
 
-| # | ID | Requisito | Critério de Aceite |
-|---|----|-----------|-------------------|
-| 1 | SP-A05 | Headers de segurança HTTP completos | OWASP checker 100% em staging; gate automático |
-| 2 | SP-A07 | TLS 1.3 obrigatório para datastores | SSL mode obrigatório em PostgreSQL, Redis, ClickHouse |
-| 3 | SP-A03 | Rate limiting por workspace e por IP | 429 com Retry-After após N tentativas configuráveis |
-| 4 | SP-A02 + SP-FE11 | Migração token para cookie httpOnly | Zero token em localStorage; withCredentials: true |
-| 5 | SP-CL03 | Validação de escopos antes de persistir credencial | POST /settings/cloud/credentials valida escopos mínimos |
-| 6 | SP-AU01 | StratoAudit 100% das operações críticas | Cobrir operações admin hoje ausentes |
-| 7 | SP-AP01 | Paginação em todas as listas da API | Todas as GET de lista paginadas |
-| 8 | SP-OP10 | Backup com RTO/RPO validados em staging | Restore executado e medido em staging |
+| # | ID | Requisito | Status | Critério de Aceite |
+|---|----|-----------|--------|-------------------|
+| 1 | SP-A05 | Headers de segurança HTTP completos | ✅ commit 27bd39c | OWASP checker 100% em staging; gate automático |
+| 2 | SP-A07 | TLS 1.3 obrigatório para datastores | ✅ commit fa6c1a4 | SSL mode obrigatório em PostgreSQL, Redis, ClickHouse |
+| 3 | SP-A03 | Rate limiting por workspace e por IP | ✅ commit c8befb6 | 429 com Retry-After após N tentativas configuráveis |
+| 4 | SP-A02 + SP-FE11 | Migração token para cookie httpOnly | ⬜ pendente | Zero token em localStorage; withCredentials: true |
+| 5 | SP-CL03 | Validação de escopos antes de persistir credencial | ⬜ pendente | POST /settings/cloud/credentials valida escopos mínimos |
+| 6 | SP-AU01 | StratoAudit 100% das operações críticas | 🔶 parcial | Cobrir operações admin hoje ausentes |
+| 7 | SP-AP01 | Paginação em todas as listas da API | ✅ commit e5d0536 | Todas as GET de lista paginadas |
+| 8 | SP-OP10 | Backup com RTO/RPO validados em staging | ✅ commit 83bbbc5 | Restore executado e medido em staging |
+| 9 | — | OIDC Azure: verificação completa de assinatura JWKS | ✅ commit 394285d | RS256 verification, nonce, iss, aud, alg-confusion prevention |
 
 **Entregáveis da Wave 0:**
 - Nenhuma nova funcionalidade de negócio
@@ -1532,15 +1537,15 @@ Todo o código, documentação e APIs usam exclusivamente esta nomenclatura. Ref
 
 Condições obrigatórias:
 - [ ] Todos os itens P0 das Waves 0 e 1 fechados
-- [ ] Lifecycle de workspace completo (criar, ativar, desativar, purgar, restaurar)
-- [ ] Token em cookie httpOnly confirmado em staging
-- [ ] Rate limiting por workspace e por IP em auth endpoints
-- [ ] Headers de segurança passando em OWASP checker
-- [ ] Deploy no AKS Azure com VNet + Private Endpoints
-- [ ] StratoAudit cobrindo 100% das operações críticas
-- [ ] Suite de testes de isolamento cross-workspace com zero vazamentos
-- [ ] Backup com RTO/RPO medidos e dentro das metas
-- [ ] Módulos core: PulseEconomics, alertas básicos, PulseIntel básico
+- [x] Lifecycle de workspace completo (criar, ativar, desativar, purgar, restaurar) ✅ commit e5d0536
+- [ ] Token em cookie httpOnly confirmado em staging ← pendente SP-A02/SP-FE11
+- [x] Rate limiting por workspace e por IP em auth endpoints ✅ commit c8befb6
+- [x] Headers de segurança passando em OWASP checker ✅ commit 27bd39c
+- [ ] Deploy no AKS Azure com VNet + Private Endpoints ← pendente SP-OP01–03
+- [ ] StratoAudit cobrindo 100% das operações críticas ← 🔶 parcial
+- [x] Suite de testes de isolamento cross-workspace com zero vazamentos ✅ commit 67e5aee
+- [x] Backup com RTO/RPO medidos e dentro das metas ✅ commit 83bbbc5
+- [ ] Módulos core: PulseEconomics, alertas básicos, PulseIntel básico ← pendente Wave 2
 
 ### 14.2 GA (ao final da Wave 2)
 
@@ -1669,18 +1674,18 @@ backend/
 ## Apêndice B — Segurança: Checklist por Wave
 
 ### Wave 0 (obrigatório antes de qualquer deploy em staging/prod)
-- [ ] OWASP headers 100% no middleware
-- [ ] TLS enforced em todos os datastores
-- [ ] Rate limiting por org_id implementado
-- [ ] Token httpOnly em todo o frontend
-- [ ] Scope validation no CloudCredential
+- [x] OWASP headers 100% no middleware (commit 27bd39c)
+- [x] TLS enforced em todos os datastores (commit fa6c1a4)
+- [x] Rate limiting por org_id implementado (commit c8befb6)
+- [ ] Token httpOnly em todo o frontend ← **pendente SP-A02/SP-FE11**
+- [ ] Scope validation no CloudCredential ← **pendente SP-CL03**
 
 ### Wave 1 (obrigatório para Beta)
-- [ ] Key Vault rotation policy ≤ 30 dias
-- [ ] Private Endpoints para todos os datastores
-- [ ] Network Policies no AKS (deny-all + allow-list)
-- [ ] Workspace inativo retorna 403 imediatamente
-- [ ] Suite cross-workspace zerada em CI
+- [ ] Key Vault rotation policy ≤ 30 dias ← pendente SP-SM01
+- [ ] Private Endpoints para todos os datastores ← pendente SP-OP02
+- [ ] Network Policies no AKS (deny-all + allow-list) ← pendente SP-OP03
+- [x] Workspace inativo retorna 403 imediatamente (commit e5d0536)
+- [x] Suite cross-workspace zerada em CI (commit 67e5aee)
 
 ### Wave 2 (obrigatório para GA)
 - [ ] SAST no CI (Bandit/Semgrep) sem criticals
