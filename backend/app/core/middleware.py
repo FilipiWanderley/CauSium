@@ -155,18 +155,59 @@ async def _check_sliding_window(
     return is_blocked, remaining, reset_at
 
 
-def _apply_security_headers(response: Response) -> None:
+def _apply_security_headers(response: Response, *, is_api_path: bool = False) -> None:
+    """
+    Apply OWASP-recommended security headers to every outbound response.
+
+    Header rationale:
+      X-Content-Type-Options       — prevents MIME-type sniffing (all browsers).
+      X-Frame-Options              — legacy clickjacking protection for older UAs
+                                     that don't support CSP frame-ancestors.
+      Referrer-Policy              — leaks only the origin on cross-origin nav,
+                                     nothing on downgrade (HTTPS→HTTP).
+      Permissions-Policy           — deny access to high-risk browser features
+                                     that the platform does not need.
+      Content-Security-Policy      — injected from settings so operators can
+                                     tune it per environment without a redeploy.
+      Strict-Transport-Security    — production only; 1-year max-age + subdomains.
+                                     preload is intentionally omitted until the
+                                     domain is submitted to the HSTS preload list.
+      Cross-Origin-Opener-Policy   — isolates the browsing context to prevent
+                                     Spectre-style cross-origin leaks; required
+                                     to enable SharedArrayBuffer.
+      Cross-Origin-Resource-Policy — restricts which origins can read responses
+                                     (same-origin by default; relaxed to
+                                     same-site for first-party sub-domains).
+      Cross-Origin-Embedder-Policy — pairs with COOP for full cross-origin
+                                     isolation when SharedArrayBuffer is needed.
+      X-Permitted-Cross-Domain-Policies — blocks Adobe Flash/PDF cross-domain
+                                     policy files; belt-and-suspenders for
+                                     legacy plugin environments.
+      Cache-Control                — prevents sensitive API responses from being
+                                     stored in shared or private HTTP caches.
+    """
     settings = get_settings()
     if not settings.security_headers_enabled:
         return
 
+    # --- Universal headers (dev + staging + production) ----------------------
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Permissions-Policy"] = settings.permissions_policy
     response.headers["Content-Security-Policy"] = settings.csp_policy
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+
+    # Suppress caching for all /api/* responses — static assets remain cacheable.
+    if is_api_path:
+        response.headers["Cache-Control"] = "no-store"
+
+    # --- Production-only headers ---------------------------------------------
     if settings.is_production:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = settings.hsts_header_value
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +223,7 @@ def install_middlewares(app: FastAPI) -> None:
 
         if not settings.rate_limit_enabled or not path.startswith("/api/"):
             response = await call_next(request)
-            _apply_security_headers(response)
+            _apply_security_headers(response, is_api_path=path.startswith("/api/"))
             return response
 
         ip = _extract_real_ip(request, settings.rate_limit_trusted_proxy_header)
@@ -245,7 +286,7 @@ def install_middlewares(app: FastAPI) -> None:
                     resp.headers["X-RateLimit-Limit"] = str(limit)
                     resp.headers["X-RateLimit-Remaining"] = "0"
                     resp.headers["X-RateLimit-Reset"] = str(reset_at)
-                    _apply_security_headers(resp)
+                    _apply_security_headers(resp, is_api_path=True)
                     return resp
 
         except Exception as exc:
@@ -254,7 +295,7 @@ def install_middlewares(app: FastAPI) -> None:
             log.error("rate_limit.redis_error", error=str(exc))
 
         response = await call_next(request)
-        _apply_security_headers(response)
+        _apply_security_headers(response, is_api_path=True)
         response.headers["X-RateLimit-Limit"] = str(primary_limit)
         response.headers["X-RateLimit-Remaining"] = str(max(0, primary_remaining))
         response.headers["X-RateLimit-Reset"] = str(primary_reset)

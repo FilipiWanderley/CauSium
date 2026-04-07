@@ -65,14 +65,50 @@ class Settings(BaseSettings):
     csp_policy: str = (
         "default-src 'self'; "
         "script-src 'self'; "
-        "style-src 'self'; "
-        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
         "font-src 'self'; "
         "connect-src 'self'; "
+        "media-src 'none'; "
+        "object-src 'none'; "
+        "frame-src 'none'; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
-        "form-action 'self'"
+        "form-action 'self'; "
+        "upgrade-insecure-requests"
     )
+    permissions_policy: str = (
+        "accelerometer=(), "
+        "ambient-light-sensor=(), "
+        "autoplay=(), "
+        "battery=(), "
+        "camera=(), "
+        "cross-origin-isolated=(), "
+        "display-capture=(), "
+        "document-domain=(), "
+        "encrypted-media=(), "
+        "execution-while-not-rendered=(), "
+        "execution-while-out-of-viewport=(), "
+        "fullscreen=(), "
+        "geolocation=(), "
+        "gyroscope=(), "
+        "keyboard-map=(), "
+        "magnetometer=(), "
+        "microphone=(), "
+        "midi=(), "
+        "navigation-override=(), "
+        "payment=(), "
+        "picture-in-picture=(), "
+        "publickey-credentials-get=(self), "
+        "screen-wake-lock=(), "
+        "sync-xhr=(), "
+        "usb=(), "
+        "web-share=(), "
+        "xr-spatial-tracking=()"
+    )
+    # HSTS: 1 year, includeSubDomains. 'preload' intentionally omitted until
+    # the domain is registered in the HSTS preload list.
+    hsts_max_age: int = 31_536_000
 
     # Rate limiting
     rate_limit_enabled: bool = True
@@ -92,6 +128,10 @@ class Settings(BaseSettings):
     scoring_interval_hours: int = 1
     audit_checkpoint_interval_minutes: int = 60
     audit_checkpoint_retention_count: int = 200
+
+    @property
+    def hsts_header_value(self) -> str:
+        return f"max-age={self.hsts_max_age}; includeSubDomains"
 
     @property
     def cors_origins_list(self) -> List[str]:
@@ -119,6 +159,14 @@ class Settings(BaseSettings):
         if not self.is_production or not self.force_secure_datastores_in_production:
             return
 
+        if self.secret_key == "change-me-in-production-at-least-32-chars":
+            raise ValueError("SECRET_KEY must be changed from the default value in production")
+        if len(self.secret_key) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters in production")
+
+        if not self.security_headers_enabled:
+            raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
+
         db_url = self.database_url.lower()
         if "sslmode=" not in db_url:
             raise ValueError("DATABASE_URL must include sslmode in production")
@@ -130,6 +178,16 @@ class Settings(BaseSettings):
 
         if not self.clickhouse_secure:
             raise ValueError("CLICKHOUSE_SECURE must be true in production")
+
+        if "upgrade-insecure-requests" not in self.csp_policy:
+            raise ValueError(
+                "CSP_POLICY must include 'upgrade-insecure-requests' in production"
+            )
+
+        if self.hsts_max_age < 31_536_000:
+            raise ValueError(
+                "HSTS_MAX_AGE must be at least 31536000 (1 year) in production"
+            )
 
 
 @lru_cache
