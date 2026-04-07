@@ -189,6 +189,94 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
+    # ------------------------------------------------------------------
+    # SP-U01 + SP-U03: Admin-initiated password reset with hierarchy guard
+    # ------------------------------------------------------------------
+
+    # Role precedence used for SP-U03 cross-admin protection.
+    # Higher number = higher privilege.
+    _ROLE_RANK: dict = {
+        UserRole.VIEWER: 0,
+        UserRole.EXECUTIVE: 1,
+        UserRole.ENGINEER: 1,
+        UserRole.FINOPS: 1,
+        UserRole.ADMIN: 2,
+        UserRole.PLATFORM_ADMIN: 3,
+    }
+
+    def _can_manage(self, actor: User, target: User) -> bool:
+        """SP-U03: Return True only when actor outranks target.
+
+        Rules (explicit from PRD):
+        - ``platform_admin`` → can manage any role (including other admins).
+        - ``admin`` → can manage roles strictly below admin
+          (engineer, finops, executive, viewer).
+        - Any other role → cannot manage anyone (should be blocked before
+          this is called, but guard is here for defence-in-depth).
+        """
+        actor_rank = self._ROLE_RANK.get(actor.role, 0)
+        target_rank = self._ROLE_RANK.get(target.role, 0)
+        return actor_rank > target_rank
+
+    async def admin_reset_password(
+        self, actor: User, target_user_id: UUID
+    ) -> tuple[User, str]:
+        """SP-U01: Admin sets a secure temporary password for another user.
+
+        The target user is forced to change it on next login
+        (``must_change_password=True``).
+
+        Returns
+        -------
+        tuple[User, str]
+            The updated target User and the plaintext temporary password
+            (returned once by the API; never persisted).
+
+        Raises
+        ------
+        ValueError
+            - Target user not found or belongs to a different org
+              (unless actor is platform_admin).
+            - SP-U03 hierarchy violation (actor rank ≤ target rank).
+        """
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+
+        # Org-scope check: admins can only manage users in their own workspace.
+        # platform_admin is a super-role and may cross workspace boundaries.
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+
+        # SP-U03: hierarchy guard
+        if not self._can_manage(actor, target):
+            raise PermissionError(
+                f"Role '{actor.role.value}' cannot reset the password of a user "
+                f"with role '{target.role.value}'"
+            )
+
+        # Generate a 16-char alphanumeric temporary password (high entropy,
+        # URL-safe, no ambiguous chars) and force change on next login.
+        temp_password = secrets.token_urlsafe(12)  # 12 bytes → 16 base64url chars
+        target.hashed_password = hash_password(temp_password)
+        target.must_change_password = True
+        await self.db.flush()
+
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.password.admin_reset",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "target_email": target.email,
+                "actor_role": actor.role.value,
+                "target_role": target.role.value,
+            },
+        )
+        await self.db.refresh(target)
+        return target, temp_password
+
     @staticmethod
     def _new_challenge() -> str:
         return secrets.token_urlsafe(48)

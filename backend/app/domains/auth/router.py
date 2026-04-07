@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
+    AdminResetPasswordResponse,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
@@ -397,3 +398,48 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     org_name = await service.get_org_name(user.org_id)
     return _user_out(user, org_name)
+
+
+# ── SP-U01 + SP-U03: Admin-initiated reset of another user's password ────
+
+
+@router.post(
+    "/users/{user_id}/reset-password",
+    response_model=AdminResetPasswordResponse,
+    summary="Admin resets another user's password",
+    responses={
+        403: {"description": "Caller outranked or cross-admin violation (SP-U03)"},
+        404: {"description": "Target user not found"},
+    },
+)
+async def admin_reset_password(
+    user_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(
+        require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)
+    ),
+):
+    """Admin generates a secure temporary password for *user_id*.
+
+    The target user is forced to change it on next login
+    (``must_change_password=True``).  The temporary password is returned
+    exactly once — the calling admin is responsible for delivering it
+    to the user out-of-band (email, Slack, etc.).
+
+    **SP-U03**: An ``admin`` may only reset passwords of roles that are
+    strictly below ``admin`` in the hierarchy (engineer, finops, executive,
+    viewer).  Attempting to reset another ``admin`` or a ``platform_admin``
+    returns **403**.
+    """
+    service = AuthService(db)
+    try:
+        target, temp_password = await service.admin_reset_password(current_user, user_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    org_name = await service.get_org_name(target.org_id)
+    return AdminResetPasswordResponse(
+        temporary_password=temp_password,
+        user=_user_out(target, org_name),
+    )

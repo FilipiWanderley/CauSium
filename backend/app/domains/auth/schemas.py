@@ -163,3 +163,18 @@ class ChangePasswordRequest(BaseModel):
 
     current_password: str
     new_password: str = Field(..., min_length=8)
+
+
+# ── SP-U01: admin reset another user's password ─────────────────────────────
+
+
+class AdminResetPasswordResponse(BaseModel):
+    """One-time response containing the temporary password set by an admin.
+
+    The ``temporary_password`` is returned exactly once so the calling admin
+    can communicate it to the target user out-of-band.  The user will be forced
+    to change it on next login (``must_change_password=True``).
+    """
+
+    temporary_password: str
+    user: UserOut
