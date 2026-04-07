@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.domains.audit_chain.service import AuditChainService
 from app.domains.workflow.models import (
     Initiative,
     InitiativeComment,
@@ -27,8 +28,11 @@ log = get_logger(__name__)
 class WorkflowService:
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.audit_chain = AuditChainService(db)
 
-    async def create_initiative(self, org_id: UUID, req: InitiativeCreate) -> Initiative:
+    async def create_initiative(
+        self, org_id: UUID, req: InitiativeCreate, actor_user_id: UUID | None = None
+    ) -> Initiative:
         initiative = Initiative(
             org_id=org_id,
             opportunity_id=req.opportunity_id,
@@ -53,6 +57,19 @@ class WorkflowService:
             if opp and opp.status == OpportunityStatus.OPEN:
                 opp.status = OpportunityStatus.IN_PROGRESS
 
+        if actor_user_id:
+            await self.audit_chain.append_event(
+                org_id=org_id,
+                actor_user_id=actor_user_id,
+                event_type="initiative.created",
+                entity_type="initiative",
+                entity_id=str(initiative.id),
+                payload={
+                    "title": initiative.title,
+                    "opportunity_id": str(req.opportunity_id) if req.opportunity_id else None,
+                    "owner_id": str(req.owner_id) if req.owner_id else None,
+                },
+            )
         log.info("initiative.created", initiative_id=str(initiative.id), org_id=str(org_id))
         return initiative
 
@@ -106,7 +123,8 @@ class WorkflowService:
         return initiative
 
     async def transition_status(
-        self, org_id: UUID, initiative_id: UUID, req: InitiativeStatusTransition
+        self, org_id: UUID, initiative_id: UUID, req: InitiativeStatusTransition,
+        actor_user_id: UUID | None = None,
     ) -> Initiative:
         initiative = await self.get_initiative(org_id, initiative_id)
         if not initiative:
@@ -119,6 +137,7 @@ class WorkflowService:
                 f"Allowed: {[s.value for s in allowed]}"
             )
 
+        prev_status = initiative.status.value
         initiative.status = req.status
         if req.status == InitiativeStatus.DONE:
             initiative.completed_at = datetime.now(timezone.utc)
@@ -136,6 +155,16 @@ class WorkflowService:
 
         await self.db.flush()
         await self.db.refresh(initiative)
+
+        if actor_user_id:
+            await self.audit_chain.append_event(
+                org_id=org_id,
+                actor_user_id=actor_user_id,
+                event_type="initiative.transitioned",
+                entity_type="initiative",
+                entity_id=str(initiative_id),
+                payload={"from": prev_status, "to": req.status.value},
+            )
         log.info("initiative.transitioned", initiative_id=str(initiative_id), new_status=req.status.value)
         return initiative
 
@@ -163,7 +192,7 @@ class WorkflowService:
         return list(result.scalars().all())
 
     async def get_board(self, org_id: UUID) -> InitiativeBoard:
-        all_initiatives = await self.list_initiatives(org_id, limit=500)
+        all_initiatives, _ = await self.list_initiatives(org_id, limit=500)
         by_status: dict[InitiativeStatus, list[InitiativeOut]] = {s: [] for s in InitiativeStatus}
         for i in all_initiatives:
             by_status[i.status].append(InitiativeOut.from_model(i))

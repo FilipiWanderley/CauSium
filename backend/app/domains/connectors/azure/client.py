@@ -80,6 +80,56 @@ class AzureConnectorClient(BaseConnector):
         subs = list(client.subscriptions.list())
         log.info("azure.validate_connection.ok", subscriptions=len(subs))
 
+    async def validate_cost_management_scope(self, subscription_id: str) -> None:
+        """Verify the SP has at minimum Cost Management Reader on the given subscription.
+
+        Raises PermissionError if the required role assignment is absent.
+        The check is best-effort: if the ARM API is unreachable we log a warning
+        and continue rather than blocking account creation.
+        """
+        try:
+            from azure.mgmt.authorization import AuthorizationManagementClient
+
+            cred = self._get_credential()
+            auth_client = AuthorizationManagementClient(cred, subscription_id)
+            scope = f"/subscriptions/{subscription_id}"
+            assignments = list(auth_client.role_assignments.list_for_scope(scope))
+
+            COST_READER_ID = "72fafb9e-0641-4937-9268-a91bfd8191a3"
+            COST_CONTRIBUTOR_ID = "434105ed-43f6-45c7-a02f-909b2ba83430"
+            OWNER_ID = "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+            CONTRIBUTOR_ID = "b24988ac-6180-42a0-ab88-20f7382dd24c"
+            READER_ID = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+
+            allowed_role_ids = {
+                COST_READER_ID,
+                COST_CONTRIBUTOR_ID,
+                OWNER_ID,
+                CONTRIBUTOR_ID,
+                READER_ID,
+            }
+
+            has_permission = any(
+                a.role_definition_id and a.role_definition_id.split("/")[-1] in allowed_role_ids
+                for a in assignments
+            )
+
+            if not has_permission:
+                raise PermissionError(
+                    "The service principal lacks Cost Management Reader (or higher) "
+                    f"on subscription '{subscription_id}'. "
+                    "Grant the role before adding this account."
+                )
+            log.info("azure.scope_validation.ok", subscription_id=subscription_id)
+        except PermissionError:
+            raise
+        except Exception as exc:
+            log.warning(
+                "azure.scope_validation.skipped",
+                subscription_id=subscription_id,
+                reason=str(exc),
+            )
+
     async def fetch_costs(
         self, subscription_id: str, start: date, end: date
     ) -> list[CanonicalCostRecord]:

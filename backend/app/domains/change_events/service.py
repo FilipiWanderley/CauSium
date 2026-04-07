@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domains.audit_chain.service import AuditChainService
 from app.domains.change_events.models import ChangeEvent, ChangeEventType
 from app.domains.change_events.schemas import ChangeEventCreate
 
@@ -12,12 +13,29 @@ from app.domains.change_events.schemas import ChangeEventCreate
 class ChangeEventService:
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.audit_chain = AuditChainService(db)
 
-    async def create(self, org_id: UUID, req: ChangeEventCreate) -> ChangeEvent:
+    async def create(
+        self, org_id: UUID, req: ChangeEventCreate, actor_user_id: UUID | None = None
+    ) -> ChangeEvent:
         event = ChangeEvent(org_id=org_id, **req.model_dump())
         self.db.add(event)
         await self.db.flush()
         await self.db.refresh(event)
+        if actor_user_id:
+            await self.audit_chain.append_event(
+                org_id=org_id,
+                actor_user_id=actor_user_id,
+                event_type="change_event.created",
+                entity_type="change_event",
+                entity_id=str(event.id),
+                payload={
+                    "event_type": event.event_type.value,
+                    "environment": event.environment,
+                    "owner_team": event.owner_team,
+                    "description": str(event.description)[:200],
+                },
+            )
         return event
 
     async def list(

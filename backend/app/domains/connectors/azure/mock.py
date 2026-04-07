@@ -40,6 +40,9 @@ class AzureMockClient(BaseConnector):
     async def validate_connection(self) -> None:
         log.info("azure.mock.validate_connection.ok")
 
+    async def validate_cost_management_scope(self, subscription_id: str) -> None:
+        log.info("azure.mock.scope_validation.ok", subscription_id=subscription_id)
+
     async def fetch_costs(
         self, subscription_id: str, start: date, end: date
     ) -> list[CanonicalCostRecord]:

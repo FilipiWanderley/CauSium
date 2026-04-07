@@ -26,7 +26,11 @@ async def create_account(
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
 ):
     service = CloudAccountService(db)
-    account = await service.create_account(current_user.org_id, req)
+    try:
+        account = await service.create_account(current_user.org_id, req)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    await service.audit_create(current_user.org_id, current_user.id, account)
     return CloudAccountOut.model_validate(account)
 
 
@@ -60,7 +64,7 @@ async def delete_account(
     current_user=Depends(require_roles(UserRole.ADMIN)),
 ):
     service = CloudAccountService(db)
-    deleted = await service.delete_account(current_user.org_id, account_id)
+    deleted = await service.delete_account(current_user.org_id, account_id, actor_user_id=current_user.id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
 

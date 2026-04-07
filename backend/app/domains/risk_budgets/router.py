@@ -21,7 +21,7 @@ async def create_budget(
     current_user=Depends(get_current_user),
 ):
     svc = RiskBudgetService(db)
-    budget = await svc.create(current_user.org_id, req)
+    budget = await svc.create(current_user.org_id, req, actor_user_id=current_user.id)
     return RiskBudgetOut.model_validate(budget)
 
 
@@ -63,7 +63,7 @@ async def update_budget(
     current_user=Depends(get_current_user),
 ):
     svc = RiskBudgetService(db)
-    budget = await svc.update(current_user.org_id, budget_id, req)
+    budget = await svc.update(current_user.org_id, budget_id, req, actor_user_id=current_user.id)
     if not budget:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Risk budget not found")
     return RiskBudgetOut.model_validate(budget)
@@ -76,6 +76,6 @@ async def delete_budget(
     current_user=Depends(get_current_user),
 ):
     svc = RiskBudgetService(db)
-    deleted = await svc.delete(current_user.org_id, budget_id)
+    deleted = await svc.delete(current_user.org_id, budget_id, actor_user_id=current_user.id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Risk budget not found")

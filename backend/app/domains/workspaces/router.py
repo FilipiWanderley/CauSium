@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
+from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import UserRole, WorkspaceLifecycleState
 from app.domains.auth.service import AuthService
 from app.domains.workspaces.schemas import WorkspaceLifecycleUpdate, WorkspaceOut
@@ -81,8 +82,23 @@ async def update_workspace_status(
         org.suspended_at = None
         org.suspended_reason = None
 
+    prev_state = org.lifecycle_state.value
     org.lifecycle_state = req.lifecycle_state
     await db.flush()
     await db.refresh(org)
+
+    audit = AuditChainService(db)
+    await audit.append_event(
+        org_id=org.id,
+        actor_user_id=current_user.id,
+        event_type="workspace.lifecycle_changed",
+        entity_type="organization",
+        entity_id=str(org.id),
+        payload={
+            "from": prev_state,
+            "to": req.lifecycle_state.value,
+            "reason": req.reason,
+        },
+    )
 
     return WorkspaceOut.model_validate(org)

@@ -30,7 +30,7 @@ async def create_initiative(
     current_user=Depends(get_current_user),
 ):
     service = WorkflowService(db)
-    initiative = await service.create_initiative(current_user.org_id, req)
+    initiative = await service.create_initiative(current_user.org_id, req, actor_user_id=current_user.id)
     return InitiativeOut.from_model(initiative)
 
 
@@ -98,7 +98,9 @@ async def transition_status(
 ):
     service = WorkflowService(db)
     try:
-        initiative = await service.transition_status(current_user.org_id, initiative_id, req)
+        initiative = await service.transition_status(
+            current_user.org_id, initiative_id, req, actor_user_id=current_user.id
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     return InitiativeOut.from_model(initiative)

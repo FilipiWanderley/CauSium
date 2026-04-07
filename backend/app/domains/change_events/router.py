@@ -22,7 +22,7 @@ async def create_event(
     current_user=Depends(get_current_user),
 ):
     svc = ChangeEventService(db)
-    event = await svc.create(current_user.org_id, req)
+    event = await svc.create(current_user.org_id, req, actor_user_id=current_user.id)
     return ChangeEventOut.model_validate(event)
 
 

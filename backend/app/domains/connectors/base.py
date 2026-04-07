@@ -45,6 +45,10 @@ class BaseConnector(ABC):
         """Raise if connection fails."""
 
     @abstractmethod
+    async def validate_cost_management_scope(self, subscription_id: str) -> None:
+        """Raise PermissionError if the SP lacks Cost Management Reader or higher."""
+
+    @abstractmethod
     async def fetch_costs(self, subscription_id: str, start: date, end: date) -> list[CanonicalCostRecord]:
         """Fetch daily cost records for the given date range."""
 
