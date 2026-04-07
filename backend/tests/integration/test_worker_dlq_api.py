@@ -17,7 +17,7 @@ async def test_platform_admin_lists_dlq(client, db, platform_admin_headers):
         status=DlqStatus.OPEN,
     )
     db.add(msg)
-    await db.flush()
+    await db.commit()
 
     resp = await client.get("/api/v1/admin/dlq", headers=platform_admin_headers)
     assert resp.status_code == 200, resp.text
@@ -38,7 +38,7 @@ async def test_platform_admin_requeues_dlq(client, db, platform_admin_headers, m
         status=DlqStatus.OPEN,
     )
     db.add(msg)
-    await db.flush()
+    await db.commit()
 
     pushed = {"queue": None, "payload": None}
 

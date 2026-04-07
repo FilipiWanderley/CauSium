@@ -61,7 +61,7 @@ async def _elevate_to_platform_admin(db, user_id: str) -> None:
     from sqlalchemy import update
     from app.domains.auth.models import User, UserRole
     await db.execute(update(User).where(User.id == user_id).values(role=UserRole.PLATFORM_ADMIN))
-    await db.flush()
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------

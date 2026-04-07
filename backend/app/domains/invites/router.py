@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -86,7 +86,8 @@ async def revoke_invite(
     invite_id: UUID,
     current_user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> None:
+) -> Response:
     service = InviteService(db)
     await service.revoke_invite(current_user.org_id, invite_id, current_user.id)
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

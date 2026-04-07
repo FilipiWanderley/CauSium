@@ -39,7 +39,7 @@ async def _make_platform_admin(db, user_id: str) -> None:
     await db.execute(
         update(User).where(User.id == user_id).values(role=UserRole.PLATFORM_ADMIN)
     )
-    await db.flush()
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ async def test_platform_admin_not_blocked_by_suspended_own_org(client, db):
         .where(Organization.id == pa["org_id"])
         .values(lifecycle_state=WorkspaceLifecycleState.SUSPENDED)
     )
-    await db.flush()
+    await db.commit()
 
     # Must still be able to list orgs
     resp = await client.get("/api/v1/admin/orgs", headers=pa["headers"])

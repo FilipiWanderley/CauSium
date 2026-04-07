@@ -325,7 +325,7 @@ async def test_suspended_workspace_blocks_api_access(client, db):
         .where(Organization.id == org_id)
         .values(lifecycle_state=WorkspaceLifecycleState.SUSPENDED)
     )
-    await db.flush()
+    await db.commit()
 
     after = await client.get("/api/v1/risk-budgets", headers=headers)
     assert after.status_code == 403
