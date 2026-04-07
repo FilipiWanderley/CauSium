@@ -28,7 +28,7 @@ export function Sidebar() {
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
         <Cloud className="h-6 w-6 text-brand-500" />
-        <span className="font-bold text-lg tracking-tight">NimbusOps</span>
+        <span className="font-bold text-lg tracking-tight">StratoPulse</span>
       </div>
       <nav className="flex-1 py-4 space-y-1 px-2">
         {NAV.map(({ to, icon: Icon, label }) => (

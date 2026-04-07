@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     auth_cookie_samesite: str = "strict"
     auth_cookie_secure: bool | None = None
     passkey_rp_id: str = "localhost"
-    passkey_rp_name: str = "NimbusOps Compass"
+    passkey_rp_name: str = "StratoPulse"
     passkey_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
 
     # Encryption key (Fernet base64)
