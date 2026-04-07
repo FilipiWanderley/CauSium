@@ -69,7 +69,7 @@ async def test_login_wrong_password(client):
 async def test_me(client, auth_headers):
     resp = await client.get("/api/v1/auth/me", headers=auth_headers)
     assert resp.status_code == 200
-    assert resp.json()["email"] == "test@example.com"
+    assert resp.json()["email"].endswith("@example.com")
 
 
 @pytest.mark.asyncio

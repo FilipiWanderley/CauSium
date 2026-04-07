@@ -16,7 +16,7 @@ os.environ.setdefault("CLICKHOUSE_PORT", "8123")
 os.environ.setdefault("CLICKHOUSE_USER", "default")
 os.environ.setdefault("CLICKHOUSE_PASSWORD", "")
 os.environ.setdefault("CLICKHOUSE_DB", "default")
-os.environ.setdefault("ENCRYPTION_KEY", "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItdGVzdHM=")
+os.environ.setdefault("ENCRYPTION_KEY", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 from app.core.database import Base, get_db
@@ -25,10 +25,12 @@ from app.main import app
 TEST_DB_URL = os.environ["DATABASE_URL"]
 
 
-@pytest_asyncio.fixture(scope="session", loop_scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def engine():
     eng = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
     async with eng.begin() as conn:
+        # Ensure a clean schema for every pytest session.
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield eng
     async with eng.begin() as conn:
@@ -68,10 +70,11 @@ async def client(session_factory) -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture
 async def auth_headers(client) -> dict:
     """Register a test org+user and return auth headers."""
+    suffix = uuid4().hex[:8]
     resp = await client.post("/api/v1/auth/register", json={
         "org_name": "Test Org",
-        "org_slug": "test-org",
-        "email": "test@example.com",
+        "org_slug": f"test-org-{suffix}",
+        "email": f"test-{suffix}@example.com",
         "full_name": "Test User",
         "password": "testpassword123",
     })
@@ -83,10 +86,11 @@ async def auth_headers(client) -> dict:
 @pytest_asyncio.fixture
 async def org_a(client) -> dict:
     """Register org A and return {headers, org_id, user_id}."""
+    suffix = uuid4().hex[:8]
     resp = await client.post("/api/v1/auth/register", json={
         "org_name": "Org Alpha",
-        "org_slug": "org-alpha",
-        "email": "admin@org-alpha.com",
+        "org_slug": f"org-alpha-{suffix}",
+        "email": f"admin-{suffix}@org-alpha.com",
         "full_name": "Alpha Admin",
         "password": "alphapassword123",
     })
@@ -102,10 +106,11 @@ async def org_a(client) -> dict:
 @pytest_asyncio.fixture
 async def org_b(client) -> dict:
     """Register org B and return {headers, org_id, user_id}."""
+    suffix = uuid4().hex[:8]
     resp = await client.post("/api/v1/auth/register", json={
         "org_name": "Org Beta",
-        "org_slug": "org-beta",
-        "email": "admin@org-beta.com",
+        "org_slug": f"org-beta-{suffix}",
+        "email": f"admin-{suffix}@org-beta.com",
         "full_name": "Beta Admin",
         "password": "betapassword123",
     })

@@ -134,10 +134,10 @@ async def test_sliding_window_eval_called_with_two_keys():
 
     call_args = redis.eval.call_args
     # numkeys must be 2
-    assert call_args[0][2] == 2
+    assert call_args[0][1] == 2
     # Key prefixes must use the same namespace
+    assert call_args[0][2].startswith("rl:ns:abc:")
     assert call_args[0][3].startswith("rl:ns:abc:")
-    assert call_args[0][4].startswith("rl:ns:abc:")
 
 
 @pytest.mark.asyncio
@@ -163,8 +163,8 @@ async def test_sliding_window_window_passed_to_lua():
 
     call_args = redis.eval.call_args
     # ARGV[1]=limit, ARGV[2]=weight, ARGV[3]=window
-    assert call_args[0][5] == 5    # limit
-    assert call_args[0][7] == 30   # window
+    assert call_args[0][4] == 5    # limit
+    assert call_args[0][6] == 30   # window
 
 
 # ---------------------------------------------------------------------------

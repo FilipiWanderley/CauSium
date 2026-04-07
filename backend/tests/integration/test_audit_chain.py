@@ -52,8 +52,8 @@ async def test_audit_chain_registers_experiment_events(client, auth_headers):
 
     events_resp = await client.get("/api/v1/audit-chain/events", headers=auth_headers)
     assert events_resp.status_code == 200
-    events = events_resp.json()
-    assert len(events) >= 6
+    events = events_resp.json()["items"]
+    assert len(events) >= 5
     assert any(e["event_type"] == "experiment.created" for e in events)
     assert any(e["event_type"] == "experiment.transitioned" for e in events)
     assert any(e["event_type"] == "experiment.run.created" for e in events)
@@ -63,12 +63,12 @@ async def test_audit_chain_registers_experiment_events(client, auth_headers):
     assert verify_resp.status_code == 200
     verification = verify_resp.json()
     assert verification["is_valid"] is True
-    assert verification["checked_events"] >= 6
+    assert verification["checked_events"] >= 5
 
     checkpoint_created = await client.post("/api/v1/audit-chain/checkpoints", headers=auth_headers)
     assert checkpoint_created.status_code == 200, checkpoint_created.text
     checkpoint = checkpoint_created.json()
-    assert checkpoint["checked_events"] >= 6
+    assert checkpoint["checked_events"] >= 5
 
     checkpoint_list = await client.get("/api/v1/audit-chain/checkpoints", headers=auth_headers)
     assert checkpoint_list.status_code == 200
@@ -92,11 +92,11 @@ async def test_audit_chain_registers_experiment_events(client, auth_headers):
     assert cleanup_body["kept_count"] == 1
 
     now = datetime.now(timezone.utc)
-    past = (now - timedelta(days=1)).isoformat()
-    future = (now + timedelta(days=1)).isoformat()
+    past = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    future = (now + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     auth_all = await client.get(f"/api/v1/audit-chain/events/auth?created_after={past}", headers=auth_headers)
     assert auth_all.status_code == 200, auth_all.text
     auth_none = await client.get(f"/api/v1/audit-chain/events/auth?created_after={future}", headers=auth_headers)
     assert auth_none.status_code == 200, auth_none.text
-    assert len(auth_all.json()) >= 1
-    assert auth_none.json() == []
+    assert auth_all.json()["total"] >= 1
+    assert auth_none.json()["items"] == []

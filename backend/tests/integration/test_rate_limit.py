@@ -12,10 +12,23 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.core.config import get_settings
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _enable_rate_limit_for_this_module():
+    settings = get_settings()
+    prev = settings.rate_limit_enabled
+    settings.rate_limit_enabled = True
+    try:
+        yield
+    finally:
+        settings.rate_limit_enabled = prev
 
 async def _register_and_login(client) -> tuple[dict, dict]:
     """Register a user and return (auth_headers, login_payload)."""

@@ -27,7 +27,7 @@ async def _register_get_token_and_id(client, suffix: str, role: str = "admin") -
         json={
             "org_name": f"Org {suffix}",
             "org_slug": f"org-{suffix}",
-            "email": f"admin-{suffix}@reset.test",
+            "email": f"admin-{suffix}@reset.com",
             "full_name": "Admin",
             "password": "adminpassword123",
         },
@@ -46,7 +46,7 @@ async def _create_member(client, admin_headers: dict, role: str, suffix: str) ->
     resp = await client.post(
         "/api/v1/auth/users",
         json={
-            "email": f"{role}-{suffix}@reset.test",
+            "email": f"{role}-{suffix}@reset.com",
             "full_name": f"{role.title()} Member",
             "password": "memberpassword123",
             "role": role,
@@ -106,7 +106,7 @@ async def test_temporary_password_works_for_login(client):
     """Temporary password set by admin actually authenticates the target user."""
     ctx = await _register_get_token_and_id(client, "u01-c")
     suffix = "u01-c"
-    member_email = f"engineer-{suffix}@reset.test"
+    member_email = f"engineer-{suffix}@reset.com"
     await _create_member(client, ctx["headers"], "engineer", suffix)
 
     # Find the created user's ID via list
@@ -148,7 +148,7 @@ async def test_admin_cannot_reset_another_admin(client):
     resp = await client.post(
         "/api/v1/auth/users",
         json={
-            "email": "admin2-u03-aa@reset.test",
+            "email": "admin2-u03-aa@reset.com",
             "full_name": "Admin 2",
             "password": "adminpassword123",
             "role": "admin",  # create as admin
@@ -244,7 +244,7 @@ async def test_engineer_cannot_reset_password(client):
     engineer = await _create_member(client, ctx["headers"], "engineer", "u01-eng")
 
     # Login as engineer
-    eng_email = f"engineer-u01-eng@reset.test"
+    eng_email = f"engineer-u01-eng@reset.com"
     # We need to know the temp password — since the engineer was just created
     # with must_change_password=True, we reset it first so we can log in.
     reset_resp = await client.post(

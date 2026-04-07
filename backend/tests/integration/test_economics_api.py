@@ -38,7 +38,7 @@ async def _register_and_get_headers(client, suffix: str) -> dict:
         json={
             "org_name": f"Budget Org {suffix}",
             "org_slug": f"budget-org-{suffix}",
-            "email": f"admin-{suffix}@budget.test",
+            "email": f"admin-{suffix}@budget.com",
             "full_name": "Budget Admin",
             "password": "budgetpassword123",
         },

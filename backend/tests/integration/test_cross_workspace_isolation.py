@@ -13,6 +13,8 @@ Domains covered:
   - invites
   - workspace lifecycle
 """
+from uuid import uuid4
+
 import pytest
 
 
@@ -21,13 +23,14 @@ import pytest
 # ---------------------------------------------------------------------------
 
 async def _register(client, *, org_name, org_slug, email, name="User", pw="password12345"):
+    forwarded_for = f"10.0.{int(uuid4().hex[:2], 16)}.{int(uuid4().hex[2:4], 16)}"
     resp = await client.post("/api/v1/auth/register", json={
         "org_name": org_name,
         "org_slug": org_slug,
         "email": email,
         "full_name": name,
         "password": pw,
-    })
+    }, headers={"X-Forwarded-For": forwarded_for})
     assert resp.status_code == 201, resp.text
     data = resp.json()
     return {
@@ -93,10 +96,11 @@ async def test_risk_budget_not_visible_to_other_org(client):
 
     create = await client.post("/api/v1/risk-budgets", json={
         "name": "Org A Budget",
-        "provider": "azure",
+        "domain": "finops",
         "environment": "production",
-        "monthly_limit_usd": 5000.0,
-        "alert_threshold_pct": 80.0,
+        "budget_type": "cost_variance",
+        "period": "weekly",
+        "limit_value": 5000.0,
     }, headers=a["headers"])
     assert create.status_code == 201
     budget_id = create.json()["id"]
@@ -117,10 +121,11 @@ async def test_risk_budget_update_not_allowed_by_other_org(client):
 
     create = await client.post("/api/v1/risk-budgets", json={
         "name": "A Budget",
-        "provider": "azure",
+        "domain": "finops",
         "environment": "staging",
-        "monthly_limit_usd": 1000.0,
-        "alert_threshold_pct": 90.0,
+        "budget_type": "cost_variance",
+        "period": "weekly",
+        "limit_value": 1000.0,
     }, headers=a["headers"])
     assert create.status_code == 201
     budget_id = create.json()["id"]
@@ -189,10 +194,11 @@ async def test_change_events_not_visible_to_other_org(client):
     b = await _register(client, org_name="B7", org_slug="iso-ce-b7", email="iso-ce-b7@test.com")
 
     create = await client.post("/api/v1/change-events", json={
-        "event_type": "deployment",
+        "event_type": "deploy",
         "title": "Org A Deploy",
         "environment": "production",
         "description": "secret deploy",
+        "occurred_at": "2026-01-01T12:00:00Z",
     }, headers=a["headers"])
     assert create.status_code == 201
     event_id = create.json()["id"]
@@ -215,17 +221,18 @@ async def test_audit_events_not_visible_to_other_org(client):
     # Trigger at least one audit event for Org A
     await client.post("/api/v1/risk-budgets", json={
         "name": "Audit Trigger Budget",
-        "provider": "azure",
+        "domain": "finops",
         "environment": "dev",
-        "monthly_limit_usd": 100.0,
-        "alert_threshold_pct": 75.0,
+        "budget_type": "cost_variance",
+        "period": "weekly",
+        "limit_value": 100.0,
     }, headers=a["headers"])
 
-    list_a = await client.get("/api/v1/audit", headers=a["headers"])
+    list_a = await client.get("/api/v1/audit-chain/events", headers=a["headers"])
     assert list_a.status_code == 200
     a_ids = {item["id"] for item in list_a.json()["items"]}
 
-    list_b = await client.get("/api/v1/audit", headers=b["headers"])
+    list_b = await client.get("/api/v1/audit-chain/events", headers=b["headers"])
     assert list_b.status_code == 200
     b_ids = {item["id"] for item in list_b.json()["items"]}
 

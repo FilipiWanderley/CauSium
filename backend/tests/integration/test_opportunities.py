@@ -43,13 +43,13 @@ async def test_list_and_filter_opportunities(client, auth_headers):
 
     all_resp = await client.get("/api/v1/opportunities", headers=auth_headers)
     assert all_resp.status_code == 200
-    assert len(all_resp.json()) >= 2
+    assert all_resp.json()["total"] >= 2
 
     filtered = await client.get(
         "/api/v1/opportunities?category=idle_resources", headers=auth_headers
     )
     assert filtered.status_code == 200
-    assert all(o["category"] == "idle_resources" for o in filtered.json())
+    assert all(o["category"] == "idle_resources" for o in filtered.json()["items"])
 
 
 @pytest.mark.asyncio
