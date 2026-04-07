@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     azure_client_secret: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
+    # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering
+    # Microsoft's well-known endpoint while still picking up key rotations promptly.
+    oidc_jwks_cache_ttl_seconds: int = 300
 
     # Frontend
     frontend_url: str = "http://localhost:5174"

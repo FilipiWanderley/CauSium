@@ -3,6 +3,7 @@ import base64
 import json
 import re
 import secrets
+import time as _time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from uuid import UUID
@@ -12,6 +13,7 @@ from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from jose import exceptions as jose_exceptions
 from jose import jwt
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,12 @@ from app.core.security import create_access_token, create_refresh_token, hash_pa
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
 from app.domains.auth.schemas import RegisterRequest, UserCreate
+
+# ---------------------------------------------------------------------------
+# Module-level JWKS cache (avoids a round-trip on every OIDC callback).
+# Replaced atomically; the dict reference is reassigned, not mutated.
+# ---------------------------------------------------------------------------
+_JWKS_CACHE: dict = {"data": None, "fetched_at": 0.0}
 
 
 class AuthService:
@@ -619,10 +627,11 @@ class AuthService:
         settings = get_settings()
         if not settings.azure_client_id:
             raise ValueError("Azure OIDC not configured: azure_client_id is empty")
+        nonce = secrets.token_urlsafe(16)
         state_payload = {
             "type": "oidc_state",
             "provider": "azure",
-            "nonce": secrets.token_urlsafe(16),
+            "nonce": nonce,
             "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
         }
         state = jwt.encode(state_payload, settings.secret_key, algorithm="HS256")
@@ -634,6 +643,7 @@ class AuthService:
                 "redirect_uri": settings.azure_oidc_redirect_uri,
                 "response_mode": "query",
                 "scope": settings.azure_oidc_scopes,
+                "nonce": nonce,
                 "state": state,
             }
         )
@@ -646,8 +656,14 @@ class AuthService:
             state_payload = jwt.decode(state, settings.secret_key, algorithms=["HS256"])
             if state_payload.get("type") != "oidc_state" or state_payload.get("provider") != "azure":
                 raise ValueError("Invalid OIDC state")
+        except jose_exceptions.ExpiredSignatureError as e:
+            raise ValueError("OIDC state has expired") from e
         except Exception as e:
             raise ValueError("Invalid OIDC state") from e
+
+        nonce = state_payload.get("nonce")
+        if not nonce:
+            raise ValueError("OIDC state missing nonce")
 
         token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
         form = {
@@ -662,11 +678,20 @@ class AuthService:
             resp = await client.post(token_url, data=form)
         if resp.status_code >= 400:
             raise ValueError(f"OIDC token exchange failed: {resp.text[:300]}")
-        payload = resp.json()
-        id_token = payload.get("id_token")
+        token_payload = resp.json()
+        id_token = token_payload.get("id_token")
         if not id_token:
             raise ValueError("OIDC id_token missing")
-        claims = jwt.get_unverified_claims(id_token)
+
+        jwks = await self._fetch_azure_jwks(tenant, settings.oidc_jwks_cache_ttl_seconds)
+        claims = self._verify_azure_id_token(
+            id_token,
+            jwks=jwks,
+            nonce=nonce,
+            tenant=tenant,
+            client_id=settings.azure_client_id,
+        )
+
         email = claims.get("preferred_username") or claims.get("email") or claims.get("upn")
         if not email:
             raise ValueError("OIDC email claim missing")
@@ -688,3 +713,107 @@ class AuthService:
         refresh = create_refresh_token(str(user.id))
         await self.db.flush()
         return user, access, refresh
+
+    # -----------------------------------------------------------------------
+    # Azure OIDC helpers — JWKS fetch and id_token full verification
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _azure_jwks_url(tenant: str) -> str:
+        return f"https://login.microsoftonline.com/{tenant}/v2.0/keys"
+
+    @classmethod
+    async def _fetch_azure_jwks(cls, tenant: str, ttl: int) -> dict:
+        """Fetch the Azure AD JWKS, returning a cached copy within *ttl* seconds."""
+        global _JWKS_CACHE
+        now = _time.monotonic()
+        if _JWKS_CACHE["data"] and (now - _JWKS_CACHE["fetched_at"]) < ttl:
+            return _JWKS_CACHE["data"]
+        url = cls._azure_jwks_url(tenant)
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
+        if resp.status_code >= 400:
+            raise ValueError(f"Failed to fetch Azure JWKS ({resp.status_code}): {resp.text[:200]}")
+        jwks = resp.json()
+        if not isinstance(jwks.get("keys"), list):
+            raise ValueError("Azure JWKS response malformed: missing 'keys' array")
+        _JWKS_CACHE = {"data": jwks, "fetched_at": now}
+        return jwks
+
+    @staticmethod
+    def _verify_azure_id_token(
+        id_token: str,
+        *,
+        jwks: dict,
+        nonce: str,
+        tenant: str,
+        client_id: str,
+    ) -> dict:
+        """
+        Validate an Azure AD id_token fully:
+          1. Parse the JOSE header to extract kid + alg.
+          2. Locate the matching public key in the JWKS.
+          3. Verify the signature and standard JWT claims (exp, nbf, aud) via python-jose.
+          4. Validate the issuer against the expected Azure AD tenant URL.
+          5. Verify the nonce to prevent replay attacks.
+
+        Returns the verified claims dict.
+        Raises ValueError for any validation failure.
+        """
+        try:
+            header = jwt.get_unverified_header(id_token)
+        except Exception as e:
+            raise ValueError("Cannot parse id_token header") from e
+
+        kid = header.get("kid")
+        alg = header.get("alg", "RS256")
+        # Azure AD uses RS256; reject other algorithms to prevent alg-confusion attacks.
+        if alg not in {"RS256", "RS384", "RS512"}:
+            raise ValueError(f"Unsupported id_token algorithm: {alg!r}")
+
+        matching_key = next(
+            (k for k in jwks.get("keys", []) if k.get("kid") == kid),
+            None,
+        )
+        if not matching_key:
+            raise ValueError(f"No JWKS key found for kid={kid!r} — JWKS may be stale")
+
+        try:
+            claims = jwt.decode(
+                id_token,
+                matching_key,
+                algorithms=[alg],
+                audience=client_id,
+            )
+        except jose_exceptions.ExpiredSignatureError as e:
+            raise ValueError("id_token has expired") from e
+        except jose_exceptions.JWTClaimsError as e:
+            raise ValueError(f"id_token claims invalid: {e}") from e
+        except jose_exceptions.JWTError as e:
+            raise ValueError(f"id_token signature verification failed: {e}") from e
+        except Exception as e:
+            raise ValueError(f"id_token verification failed: {e}") from e
+
+        # Validate issuer.
+        # Single-tenant: must match exactly.
+        # Multi-tenant ("common"): Azure replaces {tenant} with the actual tenant GUID;
+        # accept any valid Azure AD v2 issuer URL pattern.
+        iss = claims.get("iss", "")
+        if tenant == "common":
+            if not (
+                iss.startswith("https://login.microsoftonline.com/")
+                and iss.endswith("/v2.0")
+            ):
+                raise ValueError(f"id_token issuer not a valid Azure AD v2 URL: {iss!r}")
+        else:
+            expected_iss = f"https://login.microsoftonline.com/{tenant}/v2.0"
+            if iss != expected_iss:
+                raise ValueError(
+                    f"id_token issuer mismatch: got {iss!r}, expected {expected_iss!r}"
+                )
+
+        # Validate nonce — prevents replay attacks.
+        if claims.get("nonce") != nonce:
+            raise ValueError("id_token nonce mismatch")
+
+        return claims
