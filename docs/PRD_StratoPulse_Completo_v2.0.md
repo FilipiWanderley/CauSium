@@ -338,7 +338,7 @@ Kanban board endpoint com 6 colunas
 **Implementado (Wave 0):**
 - /forgot-password ✅ (commit 8307faa)
 - /reset-password ✅ (commit 8307faa)
-- /platform/workspaces ✅ (commit 8307faa; mover para /app/platform/workspaces com SP-FE01)
+- /platform/workspaces ✅ (commit 8307faa; movida para /app/platform/workspaces ✅ SP-FE01)
 
 **Ainda ausente:**
 - / (landing pública)
@@ -559,7 +559,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | /forgot-password | 🔶 | Backend ausente (SP-A01); frontend básico pode existir |
 | /reset-password | ❌ | — |
 | /activate (convite) | ❌ | — |
-| /app/economics (rota estruturada) | 🔶 | Era /dashboard — precisa reestruturar rotas para /app/* |
+| /app/economics (rota estruturada) | ✅ SP-FE01 | /app/dashboard implementado; renomear para /app/economics é Wave 2 (SP-FE03) |
 | /app/economics/costs | 🔶 | Era parte de /dashboard |
 | /app/economics/usage | 🔶 | Parcial via /dashboard |
 | /app/economics/skus | ❌ | — |
@@ -760,7 +760,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 | ID | Página | Prioridade | Critério de aceite |
 |----|--------|-----------|-------------------|
-| SP-FE01 | Reestruturação de rotas para /app/* (reestruturar Router sem perder estado) | P0 | Todas as rotas atuais migradas para /app/*; zero quebra de links existentes |
+| SP-FE01 | Reestruturação de rotas para /app/* (reestruturar Router sem perder estado) | P0 | Todas as rotas atuais migradas para /app/*; zero quebra de links existentes | ✅ |
 | SP-FE02 | /forgot-password e /reset-password completos | P0 | Formulários funcionais; token validado; redirect para login com mensagem |
 | SP-FE03 | /app/economics/skus — Análise de SKUs | P1 | Top N SKUs por custo, variação %; filtrável e exportável |
 | SP-FE04 | /app/economics/reports — Relatórios com exportação | P1 | Visão analítica + botão export; download assíncrono com status |
@@ -1121,7 +1121,7 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 
 | Rota | Módulo | Perfil Mínimo | Status | Prioridade |
 |------|--------|-------------|--------|-----------|
-| /app | Shell principal | viewer | 🔶 | SP-FE01 (reestruturar) |
+| /app | Shell principal | viewer | ✅ SP-FE01 | — |
 | /app/economics | PulseEconomics Dashboard | viewer | 🔶 | Mover de /dashboard |
 | /app/economics/costs | Custos detalhados | viewer | 🔶 | Expandir |
 | /app/economics/usage | Uso e eficiência | viewer | 🔶 | Expandir |
@@ -1138,8 +1138,7 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 | /app/settings/team | Membros do workspace | workspace_admin | 🔶 | Expandir |
 | /app/settings/cloud | Credenciais cloud | workspace_admin | 🔶 | Expandir |
 | /app/settings/security | Segurança da conta | workspace_admin | 🔶 | Expandir |
-| /app/platform/workspaces | Gestão de workspaces | platform_admin | 🔶 commit 8307faa (em /platform/workspaces; mover com SP-FE01) | — |
-| /app/platform/sync | Status de sincronização | platform_admin | ❌ | P1 (SP-FE09) |
+| /app/platform/workspaces | Gestão de workspaces | platform_admin | ✅ commit 8307faa + SP-FE01 | — |
 
 ### 8.4 Migração de Token (SP-A02, SP-FE11)
 

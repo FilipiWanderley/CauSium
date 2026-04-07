@@ -331,7 +331,7 @@ async def azure_oidc_callback(
     try:
         _, access, refresh = await service.login_with_azure_oidc_callback(code=code, state=state)
         _set_auth_cookies(response, access, refresh)
-        response.headers["Location"] = f"{settings.frontend_url}/dashboard"
+        response.headers["Location"] = f"{settings.frontend_url}/app/dashboard"
     except ValueError as e:
         response.headers["Location"] = f"{settings.frontend_url}/login?oidc_error={quote_plus(str(e))}"
     return response

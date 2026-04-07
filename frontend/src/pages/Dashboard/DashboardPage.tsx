@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
@@ -87,6 +88,7 @@ function EventFeedRow({ ev }: { ev: ChangeEvent }) {
 
 export function DashboardPage() {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const d = t.dashboard
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
@@ -220,16 +222,13 @@ export function DashboardPage() {
         <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-900">Recent Changes</h2>
-            <a
-              href="/change-events"
+            <button
+              type="button"
               className="text-xs text-brand-600 hover:underline"
-              onClick={(e) => {
-                e.preventDefault()
-                window.location.href = '/change-events'
-              }}
+              onClick={() => navigate('/app/change-events')}
             >
               View all →
-            </a>
+            </button>
           </div>
           {feedEvents.length > 0 ? (
             <div>

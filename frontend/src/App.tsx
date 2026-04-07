@@ -17,22 +17,28 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ── Public routes ─────────────────────────────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/opportunities" element={<OpportunitiesPage />} />
-          <Route path="/initiatives" element={<InitiativesPage />} />
-          <Route path="/experiments" element={<ExperimentsPage />} />
-          <Route path="/risk-budgets" element={<RiskBudgetsPage />} />
-          <Route path="/change-events" element={<ChangeEventsPage />} />
-          <Route path="/executive" element={<ExecutivePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/platform/workspaces" element={<WorkspacesPage />} />
+
+        {/* ── Authenticated app shell ───────────────────────────────────── */}
+        <Route path="/app" element={<AppLayout />}>
+          <Route index element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="opportunities" element={<OpportunitiesPage />} />
+          <Route path="initiatives" element={<InitiativesPage />} />
+          <Route path="experiments" element={<ExperimentsPage />} />
+          <Route path="risk-budgets" element={<RiskBudgetsPage />} />
+          <Route path="change-events" element={<ChangeEventsPage />} />
+          <Route path="executive" element={<ExecutivePage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="platform/workspaces" element={<WorkspacesPage />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+        {/* ── Fallback: redirect bare / and unmatched paths ─────────────── */}
+        <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   )

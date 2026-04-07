@@ -32,7 +32,7 @@ export function WorkspacesPage() {
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
 
   if (user?.role !== 'platform_admin') {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/app/dashboard" replace />
   }
 
   const { data, isLoading } = useQuery({

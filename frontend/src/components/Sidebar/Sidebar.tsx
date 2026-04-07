@@ -15,14 +15,14 @@ import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/opportunities', icon: Lightbulb, label: 'Opportunities' },
-  { to: '/initiatives', icon: ListTodo, label: 'Initiatives' },
-  { to: '/experiments', icon: FlaskConical, label: 'Experiments' },
-  { to: '/risk-budgets', icon: ShieldAlert, label: 'Risk Budgets' },
-  { to: '/change-events', icon: Activity, label: 'Change Events' },
-  { to: '/executive', icon: BarChart3, label: 'Executive' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/app/opportunities', icon: Lightbulb, label: 'Opportunities' },
+  { to: '/app/initiatives', icon: ListTodo, label: 'Initiatives' },
+  { to: '/app/experiments', icon: FlaskConical, label: 'Experiments' },
+  { to: '/app/risk-budgets', icon: ShieldAlert, label: 'Risk Budgets' },
+  { to: '/app/change-events', icon: Activity, label: 'Change Events' },
+  { to: '/app/executive', icon: BarChart3, label: 'Executive' },
+  { to: '/app/settings', icon: Settings, label: 'Settings' },
 ]
 
 export function Sidebar() {
@@ -58,7 +58,7 @@ export function Sidebar() {
           <>
             <div className="my-2 mx-3 border-t border-gray-700" />
             <NavLink
-              to="/platform/workspaces"
+              to="/app/platform/workspaces"
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
