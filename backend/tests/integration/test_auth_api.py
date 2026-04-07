@@ -111,3 +111,84 @@ async def test_logout_clears_cookie_session(client):
 
     me_after = await client.get("/api/v1/auth/me")
     assert me_after.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# SP-A04: Origin / Referer validation
+# ---------------------------------------------------------------------------
+
+# In non-production tests, requests without an Origin header are allowed
+# (automated test clients don't send browser headers). These tests confirm:
+#   - A valid allowed origin is accepted
+#   - An unknown origin is rejected with 403
+#   - Referer is accepted as fallback
+#   - GET requests on the same path are never blocked (not state-mutating)
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_allowed_origin_accepted(client):
+    """Requests from a configured allowed origin must pass the origin check."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@test.com", "password": "irrelevant"},
+        headers={"Origin": "http://localhost:5173"},
+    )
+    # Credentials are wrong, but 401 means origin check passed.
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_unknown_origin_rejected(client):
+    """Requests from an unrecognised origin must be rejected with 403."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@test.com", "password": "irrelevant"},
+        headers={"Origin": "https://evil.example.com"},
+    )
+    assert resp.status_code == 403
+    assert "Origin not allowed" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_referer_fallback_accepted(client):
+    """A valid Referer header must be accepted when Origin is absent."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@test.com", "password": "irrelevant"},
+        headers={"Referer": "http://localhost:5173/login"},
+    )
+    assert resp.status_code == 401  # origin ok, credentials wrong → 401
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_referer_unknown_rejected(client):
+    """An unrecognised Referer origin must be rejected with 403."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@test.com", "password": "irrelevant"},
+        headers={"Referer": "https://evil.example.com/phishing"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_get_not_blocked(client, auth_headers):
+    """GET requests are never subject to origin validation."""
+    resp = await client.get(
+        "/api/v1/auth/me",
+        headers={**auth_headers, "Origin": "https://evil.example.com"},
+    )
+    # GET /auth/me is not in the validated paths; unknown origin is irrelevant.
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_origin_validation_no_origin_allowed_in_non_prod(client):
+    """In non-production, requests without any Origin/Referer are allowed through."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@test.com", "password": "wrong"},
+        # No Origin / Referer — simulates an API client or test runner.
+    )
+    # Non-production: check is skipped → auth layer responds with 401.
+    assert resp.status_code == 401

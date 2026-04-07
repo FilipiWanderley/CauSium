@@ -117,6 +117,104 @@ def _email_to_key(email: str) -> str:
     return hashlib.sha256(email.encode()).hexdigest()[:24]
 
 
+# ---------------------------------------------------------------------------
+# SP-A04: Origin / Referer validation
+# ---------------------------------------------------------------------------
+
+# Endpoints where the caller MUST be a known-origin browser context.
+# OIDC callbacks are excluded — their Origin is the IdP server, not the SPA.
+# Password-reset endpoints are excluded — they use a signed token, not a cookie.
+_ORIGIN_VALIDATED_PATHS: frozenset[str] = frozenset({
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/passkey/login/verify",
+    "/api/v1/auth/passkey/register/verify",
+})
+
+
+def _extract_request_origin(request: Request) -> str | None:
+    """
+    Return the effective origin of the request, normalised to scheme://host.
+
+    Precedence:
+        1. ``Origin`` header — set by browsers on all cross-origin requests and
+           most same-origin POST/PUT/DELETE requests.
+        2. ``Referer`` header — used as fallback when Origin is absent (e.g.
+           some redirect scenarios or older browser versions).
+
+    Returns ``None`` when neither header is present or parseable.
+    """
+    from urllib.parse import urlparse
+
+    origin_header = request.headers.get("origin", "").strip()
+    if origin_header:
+        return origin_header.rstrip("/")
+
+    referer = request.headers.get("referer", "").strip()
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    return None
+
+
+def _is_origin_allowed(origin: str, allowed: list[str]) -> bool:
+    """Case-insensitive exact match against the allowed origins list."""
+    needle = origin.rstrip("/").lower()
+    return any(a.rstrip("/").lower() == needle for a in allowed)
+
+
+def _check_origin(request: Request, settings) -> JSONResponse | None:
+    """
+    Validate the request origin for endpoints in ``_ORIGIN_VALIDATED_PATHS``.
+
+    Returns a 403 JSONResponse if the check fails, otherwise ``None``.
+    The check is skipped entirely when ``origin_validation_enabled`` is False.
+    """
+    if not settings.origin_validation_enabled:
+        return None
+
+    if request.url.path not in _ORIGIN_VALIDATED_PATHS:
+        return None
+
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+
+    origin = _extract_request_origin(request)
+
+    if origin is None:
+        if settings.is_production:
+            log.warning(
+                "origin_validation.missing",
+                path=request.url.path,
+                method=request.method,
+            )
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Missing Origin or Referer header."},
+            )
+        # Non-production: allow through (API clients / automated tests have no Origin).
+        log.debug("origin_validation.absent_non_prod", path=request.url.path)
+        return None
+
+    if not _is_origin_allowed(origin, settings.cors_origins_list):
+        log.warning(
+            "origin_validation.rejected",
+            origin=origin,
+            path=request.url.path,
+            allowed=settings.cors_origins_list,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Origin not allowed."},
+        )
+
+    return None
+
+
 async def _check_sliding_window(
     redis,
     key_prefix: str,
@@ -220,6 +318,13 @@ def install_middlewares(app: FastAPI) -> None:
         settings = get_settings()
         path = request.url.path
         method = request.method
+
+        # SP-A04: Origin / Referer validation — runs before rate limiting so that
+        # invalid-origin probing does not consume rate-limit quota.
+        origin_error = _check_origin(request, settings)
+        if origin_error is not None:
+            _apply_security_headers(origin_error, is_api_path=True)
+            return origin_error
 
         if not settings.rate_limit_enabled or not path.startswith("/api/"):
             response = await call_next(request)

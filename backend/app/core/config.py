@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
+    # SP-A04: Origin / Referer validation on auth state-mutation endpoints.
+    # Provides defense-in-depth against CSRF for clients that bypass SameSite=Strict.
+    # In production, requests without a recognisable Origin/Referer are rejected.
+    # In non-production environments they are logged and allowed through, so that
+    # automated API tests (which send no browser headers) continue to work.
+    origin_validation_enabled: bool = True
+
     # Security hardening
     security_headers_enabled: bool = True
     csp_policy: str = (

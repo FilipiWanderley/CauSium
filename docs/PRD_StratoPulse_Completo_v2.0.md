@@ -388,10 +388,10 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Refresh token rotativo | ✅ | `auth/service.py:refresh_tokens()` | — |
 | MFA TOTP setup, verify, enable, disable | ❌ | Não existe | Implementar totalmente |
 | Reset de MFA por admin | ❌ | Não existe | Dependência do MFA TOTP |
-| Token em cookie httpOnly (não localStorage) | 🔶 | Logout usa cookies, mas auth usa headers |  Migrar frontend para cookie httpOnly |
+| Token em cookie httpOnly (não localStorage) | ✅ commit 745d828 | `_set_auth_cookies()` em todos os endpoints; `withCredentials: true` no frontend; sem localStorage | — |
 | Forçar troca de senha configurável | ❌ | Não existe | SP-A01 |
 | Rate limiting por workspace (org) | ❌ | Apenas por IP | Adicionar granularidade por org_id |
-| Validação de origin/referer no login | ❌ | Não existe | SP-A04 |
+| Validação de origin/referer no login | ✅ SP-A04 | `_check_origin()` no middleware; rejeita origem desconhecida com 403; ausência de Origin tolerada fora de produção | — |
 | Headers HTTP completos em produção | 🔶 | Implementados no middleware, sem validação CI | Gate automático no CI |
 | CORS restritivo por ambiente | 🔶 | `CORS_ORIGINS` configurável | Separar dev/staging/prod |
 | Logout revoga refresh e limpa cookies | ✅ | `/auth/logout` | — |
@@ -626,7 +626,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | SP-A01 | Forçar troca de senha em condições configuradas (first login, expiração, reset por admin) | P0 | Usuário redirecionado a /change-password; acesso bloqueado até conclusão; StratoAudit registra evento | SP-A03, SP-U01 |
 | SP-A02 | Migrar token do frontend de localStorage para cookie httpOnly | P0 | Zero ocorrências de token em localStorage no bundle de produção; verificado por teste e2e | — |
 | SP-A03 | Rate limiting por workspace (org_id) e por IP em todos endpoints de autenticação | P0 | Bloqueia após N tentativas configuráveis; retorna 429 com Retry-After | — |
-| SP-A04 | Validação de origin/referer no endpoint de login | P0 | Rejeita requests de origens não autorizadas com 403; configurável por ambiente | — |
+| SP-A04 | Validação de origin/referer no endpoint de login | P0 | Rejeita requests de origens não autorizadas com 403; configurável por ambiente | — | ✅ |
 | SP-A05 | Headers de segurança HTTP completos em produção (CSP, HSTS, X-Frame, X-Content-Type, Permissions-Policy) | P0 | OWASP headers checker retorna 100% pass em staging e produção; gate automático no CI | — |
 | SP-A06 | MFA TOTP completo: setup, verify, enable, disable, reset por workspace_admin | P1 | Admin reseta MFA de qualquer membro; membro forçado a reconfigurar; auditado | SP-U02 |
 | SP-A07 | TLS 1.3 obrigatório para todos os datastores (PostgreSQL, Redis, ClickHouse) em produção | P0 | Conexões sem TLS 1.3 rejeitadas em produção; validado no CI de infra | — |
@@ -1538,7 +1538,7 @@ Todo o código, documentação e APIs usam exclusivamente esta nomenclatura. Ref
 Condições obrigatórias:
 - [ ] Todos os itens P0 das Waves 0 e 1 fechados
 - [x] Lifecycle de workspace completo (criar, ativar, desativar, purgar, restaurar) ✅ commit e5d0536
-- [ ] Token em cookie httpOnly confirmado em staging ← pendente SP-A02/SP-FE11
+- [x] Token em cookie httpOnly confirmado em staging ✅ commit 745d828 (SP-A02/SP-FE11)
 - [x] Rate limiting por workspace e por IP em auth endpoints ✅ commit c8befb6
 - [x] Headers de segurança passando em OWASP checker ✅ commit 27bd39c
 - [ ] Deploy no AKS Azure com VNet + Private Endpoints ← pendente SP-OP01–03
