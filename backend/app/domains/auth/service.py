@@ -817,3 +817,62 @@ class AuthService:
             raise ValueError("id_token nonce mismatch")
 
         return claims
+
+    # ── Password reset ───────────────────────────────────────────────────────
+
+    async def request_password_reset(self, email: str) -> str:
+        """Generate a password-reset token stored in auth_challenges.
+
+        Always returns a token-like string regardless of whether the email
+        exists to prevent email-enumeration attacks.  In production the token
+        would be e-mailed and NOT returned directly; here it is returned for
+        dev convenience (no email service is configured in Wave 0).
+        """
+        token = secrets.token_urlsafe(32)
+        user = await self.get_user_by_email(email)
+        if user is None:
+            # Unknown email — return a realistic-looking token without writing to DB.
+            return token
+
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        challenge = AuthChallenge(
+            org_id=user.org_id,
+            user_id=user.id,
+            challenge=token,
+            purpose="password_reset",
+            expires_at=expires_at,
+        )
+        self.db.add(challenge)
+        await self.db.flush()
+        return token
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        """Validate *token* and update the user's password.
+
+        Raises ``ValueError`` for unknown, expired, or already-consumed tokens.
+        """
+        result = await self.db.execute(
+            select(AuthChallenge).where(
+                AuthChallenge.challenge == token,
+                AuthChallenge.purpose == "password_reset",
+                AuthChallenge.consumed_at.is_(None),
+            )
+        )
+        challenge = result.scalar_one_or_none()
+        if challenge is None:
+            raise ValueError("Invalid or expired reset token")
+
+        now = datetime.now(timezone.utc)
+        if challenge.expires_at.replace(tzinfo=timezone.utc) < now:
+            raise ValueError("Reset token has expired")
+
+        user_result = await self.db.execute(
+            select(User).where(User.id == challenge.user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if user is None:
+            raise ValueError("User not found")
+
+        user.hashed_password = hash_password(new_password)
+        challenge.consumed_at = now
+        await self.db.flush()

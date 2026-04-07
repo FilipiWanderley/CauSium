@@ -13,6 +13,8 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     PasswordlessPolicyOut,
     PasswordlessPolicyUpdate,
@@ -25,6 +27,7 @@ from app.domains.auth.schemas import (
     PasskeyRegistrationVerifyRequest,
     RefreshRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserCreate,
     UserOut,
@@ -332,3 +335,36 @@ async def azure_oidc_callback(
     except ValueError as e:
         response.headers["Location"] = f"{settings.frontend_url}/login?oidc_error={quote_plus(str(e))}"
     return response
+
+
+# ── Password reset ────────────────────────────────────────────────────────
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    req: ForgotPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Initiate a password-reset flow.
+
+    Always returns 200 with a token.  In production the token would be sent
+    via email and NOT included in the response body (prevents enumeration).
+    For Wave 0 (no email service) the token is returned directly so the flow
+    can be tested end-to-end without an SMTP server.
+    """
+    service = AuthService(db)
+    token = await service.request_password_reset(req.email)
+    return ForgotPasswordResponse(token=token)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(
+    req: ResetPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Complete a password-reset using the token received via forgot-password."""
+    service = AuthService(db)
+    try:
+        await service.reset_password(req.token, req.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

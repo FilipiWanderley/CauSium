@@ -20,9 +20,11 @@ Objetivo: fechar lacunas críticas de segurança, isolamento e operação para h
   - Evidência: 24 unit tests (`test_tls.py`); `validate_production_security()` rejeita versão < TLS 1.3
   - Escopo: asyncpg (SSLContext), redis.asyncio (SSLContext), ClickHouse (ca_cert + server-side disableProtocols)
 
-- [ ] OIDC seguro (pré-condição de produção)
+- [x] OIDC seguro (pré-condição de produção) — `commit 394285d`
   - Backend: [backend/app/domains/auth/service.py](backend/app/domains/auth/service.py)
-  - Evidência: validação jwks, iss, aud, nonce e testes negativos
+  - Config: [backend/app/core/config.py](backend/app/core/config.py) — `oidc_jwks_cache_ttl_seconds`
+  - Evidência: 20 unit tests (`test_oidc.py`) + 10 route-level tests (`test_oidc_azure.py`)
+  - Fixes: JWKS RS256 verification, alg-confusion prevention (HS256 rejeitado), nonce no URL + validação, iss/aud/exp via jose.jwt.decode, cache JWKS com TTL 300s
 
 ## Multi-workspace
 
@@ -76,5 +78,5 @@ Objetivo: fechar lacunas críticas de segurança, isolamento e operação para h
 - [x] Suíte de isolamento cross-workspace com zero vazamentos
 - [x] Evidência de backup/restore documentada
 - [x] Todos os PRs da wave mapeados para requisito SP-*
-- [ ] OIDC seguro validado em staging
+- [x] OIDC seguro implementado e unit-tested (staging na Wave 1)
 - [ ] SP-FE06 e SP-FE08 entregues (pendentes)

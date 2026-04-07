@@ -131,3 +131,27 @@ class PasskeyCredentialOut(BaseModel):
     last_used_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+# ── Password reset ──────────────────────────────────────────────────────────
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Token returned directly for dev convenience (no email service configured).
+    In production, this token would be delivered via email and NOT included here.
+    """
+
+    token: str
+    message: str = (
+        "If this email is registered you will receive reset instructions. "
+        "In development the token is returned in this response."
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8)

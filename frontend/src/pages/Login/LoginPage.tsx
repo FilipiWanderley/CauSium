@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { Cloud } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -8,6 +8,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [resetSuccess, setResetSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [oidcLoading, setOidcLoading] = useState(false)
@@ -17,6 +18,10 @@ export function LoginPage() {
     const params = new URLSearchParams(window.location.search)
     const oidcError = params.get('oidc_error')
     if (oidcError) setError(`OIDC falhou: ${oidcError}`)
+    if (params.get('reset') === 'success') {
+      setResetSuccess(true)
+      setError('')
+    }
   }, [])
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />
@@ -77,6 +82,12 @@ export function LoginPage() {
             </div>
           )}
 
+          {resetSuccess && (
+            <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+              Password updated successfully. Sign in with your new password.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -92,7 +103,15 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Password</label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}

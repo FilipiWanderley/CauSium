@@ -1,5 +1,5 @@
 // Auth
-export type UserRole = 'admin' | 'engineer' | 'finops' | 'executive' | 'viewer'
+export type UserRole = 'platform_admin' | 'admin' | 'engineer' | 'finops' | 'executive' | 'viewer'
 
 export interface User {
   id: string

@@ -76,4 +76,10 @@ export const authApi = {
   listPasskeys: () => apiClient.get<PasskeyCredential[]>('/auth/passkeys'),
 
   revokePasskey: (passkeyId: string) => apiClient.delete(`/auth/passkeys/${passkeyId}`),
+
+  forgotPassword: (email: string) =>
+    apiClient.post<{ token: string; message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, new_password: string) =>
+    apiClient.post('/auth/reset-password', { token, new_password }),
 }

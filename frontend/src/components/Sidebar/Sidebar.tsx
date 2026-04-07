@@ -9,8 +9,10 @@ import {
   FlaskConical,
   Activity,
   ShieldAlert,
+  Building2,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../../hooks/useAuth'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -24,6 +26,9 @@ const NAV = [
 ]
 
 export function Sidebar() {
+  const { user } = useAuth()
+  const isPlatformAdmin = user?.role === 'platform_admin'
+
   return (
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
@@ -48,6 +53,26 @@ export function Sidebar() {
             {label}
           </NavLink>
         ))}
+
+        {isPlatformAdmin && (
+          <>
+            <div className="my-2 mx-3 border-t border-gray-700" />
+            <NavLink
+              to="/platform/workspaces"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Building2 className="h-4 w-4" />
+              Platform Workspaces
+            </NavLink>
+          </>
+        )}
       </nav>
       <div className="px-5 py-4 border-t border-gray-700 text-xs text-gray-400">
         v0.1.0 · Azure-first MVP
