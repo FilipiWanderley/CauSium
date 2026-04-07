@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.policy import authorize_experiment_action
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_session_context
+from app.core.schemas import Page, PageParams
 from app.domains.experiments.models import ExperimentStatus
 from app.domains.experiments.schemas import (
     ExperimentApprovalCreate,
@@ -85,17 +86,21 @@ async def get_summary(
     return await svc.get_summary(current_user.org_id)
 
 
-@router.get("", response_model=List[ExperimentOut])
+@router.get("", response_model=Page[ExperimentOut])
 async def list_experiments(
     exp_status: Optional[ExperimentStatus] = Query(default=None, alias="status"),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     svc = ExperimentService(db)
-    exps = await svc.list(current_user.org_id, status=exp_status, limit=limit, offset=offset)
-    return [ExperimentOut.model_validate(e) for e in exps]
+    exps, total = await svc.list(
+        current_user.org_id,
+        status=exp_status,
+        limit=page_params.limit,
+        offset=page_params.offset,
+    )
+    return Page.of([ExperimentOut.model_validate(e) for e in exps], total, page_params)
 
 
 @router.get("/{experiment_id}", response_model=ExperimentOut)

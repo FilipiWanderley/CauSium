@@ -10,6 +10,7 @@ from app.domains.experiments.router import router as experiments_router
 from app.domains.risk_budgets.router import router as risk_budgets_router
 from app.domains.change_events.router import router as change_events_router
 from app.domains.audit_chain.router import router as audit_chain_router
+from app.domains.workspaces.router import router as workspaces_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -23,3 +24,4 @@ api_router.include_router(experiments_router)
 api_router.include_router(risk_budgets_router)
 api_router.include_router(change_events_router)
 api_router.include_router(audit_chain_router)
+api_router.include_router(workspaces_router)

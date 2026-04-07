@@ -129,21 +129,32 @@ class AuditChainService:
         created_before: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[AuditChainEvent]:
-        q = select(AuditChainEvent).where(AuditChainEvent.org_id == org_id)
+    ) -> tuple[list[AuditChainEvent], int]:
+        filters = [AuditChainEvent.org_id == org_id]
         if event_type:
-            q = q.where(AuditChainEvent.event_type == event_type)
+            filters.append(AuditChainEvent.event_type == event_type)
         if event_prefix:
-            q = q.where(AuditChainEvent.event_type.like(f"{event_prefix}%"))
+            filters.append(AuditChainEvent.event_type.like(f"{event_prefix}%"))
         if entity_type:
-            q = q.where(AuditChainEvent.entity_type == entity_type)
+            filters.append(AuditChainEvent.entity_type == entity_type)
         if created_after:
-            q = q.where(AuditChainEvent.created_at >= created_after)
+            filters.append(AuditChainEvent.created_at >= created_after)
         if created_before:
-            q = q.where(AuditChainEvent.created_at <= created_before)
-        q = q.order_by(AuditChainEvent.created_at.desc(), AuditChainEvent.id.desc()).limit(limit).offset(offset)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(AuditChainEvent.created_at <= created_before)
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(AuditChainEvent).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(AuditChainEvent)
+            .where(*filters)
+            .order_by(AuditChainEvent.created_at.desc(), AuditChainEvent.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def export_events_jsonl(
         self,
@@ -157,7 +168,7 @@ class AuditChainService:
         limit: int = 1000,
         offset: int = 0,
     ) -> str:
-        events = await self.list_events(
+        events, _ = await self.list_events(
             org_id,
             event_type=event_type,
             event_prefix=event_prefix,

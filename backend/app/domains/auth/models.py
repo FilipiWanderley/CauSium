@@ -4,10 +4,16 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+
+class WorkspaceLifecycleState(str, enum.Enum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    ARCHIVED = "archived"
 
 
 class UserRole(str, enum.Enum):
@@ -27,6 +33,14 @@ class Organization(Base):
     plan: Mapped[str] = mapped_column(String(50), default="growth")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     passwordless_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    lifecycle_state: Mapped[WorkspaceLifecycleState] = mapped_column(
+        Enum(WorkspaceLifecycleState, values_callable=lambda x: [e.value for e in x]),
+        default=WorkspaceLifecycleState.ACTIVE,
+        nullable=False,
+    )
+    member_quota: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    suspended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     users: Mapped[list["User"]] = relationship("User", back_populates="organization")

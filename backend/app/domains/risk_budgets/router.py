@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.schemas import Page, PageParams
 from app.domains.risk_budgets.schemas import RiskBudgetCreate, RiskBudgetOut, RiskBudgetUpdate
 from app.domains.risk_budgets.service import RiskBudgetService
 
@@ -24,15 +25,21 @@ async def create_budget(
     return RiskBudgetOut.model_validate(budget)
 
 
-@router.get("", response_model=List[RiskBudgetOut])
+@router.get("", response_model=Page[RiskBudgetOut])
 async def list_budgets(
     active_only: bool = Query(default=False),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     svc = RiskBudgetService(db)
-    budgets = await svc.list(current_user.org_id, active_only=active_only)
-    return [RiskBudgetOut.model_validate(b) for b in budgets]
+    budgets, total = await svc.list(
+        current_user.org_id,
+        active_only=active_only,
+        limit=page_params.limit,
+        offset=page_params.offset,
+    )
+    return Page.of([RiskBudgetOut.model_validate(b) for b in budgets], total, page_params)
 
 
 @router.get("/{budget_id}", response_model=RiskBudgetOut)

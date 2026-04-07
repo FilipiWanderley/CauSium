@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
+from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
 from app.domains.decision_engine.models import OpportunityCategory, OpportunityStatus
 from app.domains.decision_engine.schemas import (
@@ -20,22 +21,25 @@ from app.domains.decision_engine.service import DecisionEngineService
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
-@router.get("", response_model=List[OpportunityOut])
+@router.get("", response_model=Page[OpportunityOut])
 async def list_opportunities(
     status: Optional[OpportunityStatus] = None,
     category: Optional[OpportunityCategory] = None,
     owner_team: Optional[str] = None,
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     service = DecisionEngineService(db)
-    opps = await service.list_opportunities(
-        current_user.org_id, status=status, category=category, owner_team=owner_team,
-        limit=limit, offset=offset,
+    opps, total = await service.list_opportunities(
+        current_user.org_id,
+        status=status,
+        category=category,
+        owner_team=owner_team,
+        limit=page_params.limit,
+        offset=page_params.offset,
     )
-    return [OpportunityOut.model_validate(o) for o in opps]
+    return Page.of([OpportunityOut.model_validate(o) for o in opps], total, page_params)
 
 
 @router.get("/summary", response_model=OpportunitySummary)

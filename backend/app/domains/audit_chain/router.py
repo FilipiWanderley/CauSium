@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.schemas import Page, PageParams
 from app.domains.audit_chain.schemas import (
     AuditCheckpointCleanupOut,
     AuditCheckpointOut,
@@ -21,51 +22,49 @@ from app.domains.audit_chain.service import AuditChainService
 router = APIRouter(prefix="/audit-chain", tags=["audit-chain"])
 
 
-@router.get("/events", response_model=List[AuditEventOut])
+@router.get("/events", response_model=Page[AuditEventOut])
 async def list_audit_events(
     event_type: Optional[str] = Query(default=None),
     event_prefix: Optional[str] = Query(default=None),
     entity_type: Optional[str] = Query(default=None),
     created_after: Optional[datetime] = Query(default=None),
     created_before: Optional[datetime] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     svc = AuditChainService(db)
-    events = await svc.list_events(
+    events, total = await svc.list_events(
         current_user.org_id,
         event_type=event_type,
         event_prefix=event_prefix,
         entity_type=entity_type,
         created_after=created_after,
         created_before=created_before,
-        limit=limit,
-        offset=offset,
+        limit=page_params.limit,
+        offset=page_params.offset,
     )
-    return [AuditEventOut.model_validate(e) for e in events]
+    return Page.of([AuditEventOut.model_validate(e) for e in events], total, page_params)
 
 
-@router.get("/events/auth", response_model=List[AuditEventOut])
+@router.get("/events/auth", response_model=Page[AuditEventOut])
 async def list_auth_audit_events(
     created_after: Optional[datetime] = Query(default=None),
     created_before: Optional[datetime] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     svc = AuditChainService(db)
-    events = await svc.list_events(
+    events, total = await svc.list_events(
         current_user.org_id,
         event_prefix="auth.",
         created_after=created_after,
         created_before=created_before,
-        limit=limit,
-        offset=offset,
+        limit=page_params.limit,
+        offset=page_params.offset,
     )
-    return [AuditEventOut.model_validate(e) for e in events]
+    return Page.of([AuditEventOut.model_validate(e) for e in events], total, page_params)
 
 
 @router.get("/events/export/jsonl")

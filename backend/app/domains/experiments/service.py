@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,13 +88,24 @@ class ExperimentService:
         status: Optional[ExperimentStatus] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[OptimizationExperiment]:
-        q = select(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id)
+    ) -> tuple[list[OptimizationExperiment], int]:
+        filters = [OptimizationExperiment.org_id == org_id]
         if status:
-            q = q.where(OptimizationExperiment.status == status)
-        q = q.order_by(OptimizationExperiment.updated_at.desc()).limit(limit).offset(offset)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(OptimizationExperiment.status == status)
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(OptimizationExperiment).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(OptimizationExperiment)
+            .where(*filters)
+            .order_by(OptimizationExperiment.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def update(
         self, org_id: UUID, experiment_id: UUID, req: ExperimentUpdate

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.schemas import Page, PageParams
 from app.domains.workflow.models import InitiativeStatus
 from app.domains.workflow.schemas import (
     CommentCreate,
@@ -42,20 +43,23 @@ async def get_board(
     return await service.get_board(current_user.org_id)
 
 
-@router.get("", response_model=List[InitiativeOut])
+@router.get("", response_model=Page[InitiativeOut])
 async def list_initiatives(
     status: Optional[InitiativeStatus] = None,
     owner_id: Optional[UUID] = None,
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     service = WorkflowService(db)
-    initiatives = await service.list_initiatives(
-        current_user.org_id, status=status, owner_id=owner_id, limit=limit, offset=offset
+    initiatives, total = await service.list_initiatives(
+        current_user.org_id,
+        status=status,
+        owner_id=owner_id,
+        limit=page_params.limit,
+        offset=page_params.offset,
     )
-    return [InitiativeOut.from_model(i) for i in initiatives]
+    return Page.of([InitiativeOut.from_model(i) for i in initiatives], total, page_params)
 
 
 @router.get("/{initiative_id}", response_model=InitiativeOut)

@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -63,15 +63,26 @@ class WorkflowService:
         owner_id: UUID | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[Initiative]:
-        q = select(Initiative).where(Initiative.org_id == org_id)
+    ) -> tuple[list[Initiative], int]:
+        filters = [Initiative.org_id == org_id]
         if status:
-            q = q.where(Initiative.status == status)
+            filters.append(Initiative.status == status)
         if owner_id:
-            q = q.where(Initiative.owner_id == owner_id)
-        q = q.order_by(Initiative.updated_at.desc()).limit(limit).offset(offset)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(Initiative.owner_id == owner_id)
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(Initiative).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(Initiative)
+            .where(*filters)
+            .order_by(Initiative.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def get_initiative(self, org_id: UUID, initiative_id: UUID) -> Initiative | None:
         result = await self.db.execute(

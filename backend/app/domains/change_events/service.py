@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.change_events.models import ChangeEvent, ChangeEventType
@@ -28,17 +28,28 @@ class ChangeEventService:
         team: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[ChangeEvent]:
-        q = select(ChangeEvent).where(ChangeEvent.org_id == org_id)
+    ) -> tuple[list[ChangeEvent], int]:
+        filters = [ChangeEvent.org_id == org_id]
         if event_type:
-            q = q.where(ChangeEvent.event_type == event_type)
+            filters.append(ChangeEvent.event_type == event_type)
         if environment:
-            q = q.where(ChangeEvent.environment == environment)
+            filters.append(ChangeEvent.environment == environment)
         if team:
-            q = q.where(ChangeEvent.owner_team == team)
-        q = q.order_by(ChangeEvent.occurred_at.desc()).limit(limit).offset(offset)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(ChangeEvent.owner_team == team)
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(ChangeEvent).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(ChangeEvent)
+            .where(*filters)
+            .order_by(ChangeEvent.occurred_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def get(self, org_id: UUID, event_id: UUID) -> Optional[ChangeEvent]:
         result = await self.db.execute(

@@ -154,17 +154,28 @@ class DecisionEngineService:
         owner_team: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[OptimizationOpportunity]:
-        q = select(OptimizationOpportunity).where(OptimizationOpportunity.org_id == org_id)
+    ) -> tuple[list[OptimizationOpportunity], int]:
+        filters = [OptimizationOpportunity.org_id == org_id]
         if status:
-            q = q.where(OptimizationOpportunity.status == status)
+            filters.append(OptimizationOpportunity.status == status)
         if category:
-            q = q.where(OptimizationOpportunity.category == category)
+            filters.append(OptimizationOpportunity.category == category)
         if owner_team:
-            q = q.where(OptimizationOpportunity.owner_team == owner_team)
-        q = q.order_by(OptimizationOpportunity.composite_score.desc()).limit(limit).offset(offset)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(OptimizationOpportunity.owner_team == owner_team)
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(OptimizationOpportunity).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(OptimizationOpportunity)
+            .where(*filters)
+            .order_by(OptimizationOpportunity.composite_score.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def get_opportunity(self, org_id: UUID, opp_id: UUID) -> OptimizationOpportunity | None:
         result = await self.db.execute(

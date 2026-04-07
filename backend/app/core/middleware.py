@@ -14,18 +14,28 @@ log = get_logger(__name__)
 
 
 def _extract_org_id(request: Request) -> str | None:
+    token: str | None = None
+
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
-        return None
-    token = auth.split(" ", 1)[1].strip()
+    if auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1].strip() or None
+
+    if not token:
+        from app.core.config import get_settings
+
+        token = request.cookies.get(get_settings().auth_cookie_access_name)
+
     if not token:
         return None
+
     try:
         payload = decode_token(token)
     except Exception:
         return None
+
     if payload.get("type") != "access":
         return None
+
     org_id = payload.get("org_id")
     return str(org_id) if org_id else None
 

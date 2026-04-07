@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.schemas import Page, PageParams
 from app.domains.change_events.models import ChangeEventType
 from app.domains.change_events.schemas import ChangeEventCreate, ChangeEventOut
 from app.domains.change_events.service import ChangeEventService
@@ -25,26 +26,25 @@ async def create_event(
     return ChangeEventOut.model_validate(event)
 
 
-@router.get("", response_model=List[ChangeEventOut])
+@router.get("", response_model=Page[ChangeEventOut])
 async def list_events(
     event_type: Optional[ChangeEventType] = Query(default=None),
     environment: Optional[str] = Query(default=None),
     team: Optional[str] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ):
     svc = ChangeEventService(db)
-    events = await svc.list(
+    events, total = await svc.list(
         current_user.org_id,
         event_type=event_type,
         environment=environment,
         team=team,
-        limit=limit,
-        offset=offset,
+        limit=page_params.limit,
+        offset=page_params.offset,
     )
-    return [ChangeEventOut.model_validate(e) for e in events]
+    return Page.of([ChangeEventOut.model_validate(e) for e in events], total, page_params)
 
 
 @router.get("/{event_id}", response_model=ChangeEventOut)

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.risk_budgets.models import RiskBudget
@@ -20,13 +20,26 @@ class RiskBudgetService:
         await self.db.refresh(budget)
         return budget
 
-    async def list(self, org_id: UUID, active_only: bool = False) -> list[RiskBudget]:
-        q = select(RiskBudget).where(RiskBudget.org_id == org_id)
+    async def list(
+        self, org_id: UUID, active_only: bool = False, limit: int = 100, offset: int = 0
+    ) -> tuple[list[RiskBudget], int]:
+        filters = [RiskBudget.org_id == org_id]
         if active_only:
-            q = q.where(RiskBudget.is_active.is_(True))
-        q = q.order_by(RiskBudget.domain, RiskBudget.environment)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
+            filters.append(RiskBudget.is_active.is_(True))
+
+        count_result = await self.db.execute(
+            select(func.count()).select_from(RiskBudget).where(*filters)
+        )
+        total = count_result.scalar_one()
+
+        items_result = await self.db.execute(
+            select(RiskBudget)
+            .where(*filters)
+            .order_by(RiskBudget.domain, RiskBudget.environment)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(items_result.scalars().all()), total
 
     async def get(self, org_id: UUID, budget_id: UUID) -> Optional[RiskBudget]:
         result = await self.db.execute(

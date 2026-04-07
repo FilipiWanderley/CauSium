@@ -46,11 +46,21 @@ async def get_current_user(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    from app.domains.auth.models import WorkspaceLifecycleState
     from app.domains.auth.service import AuthService
 
-    user = await AuthService(db).get_user_by_id(user_id)
+    service = AuthService(db)
+    user = await service.get_user_by_id(user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or not found")
+
+    org = await service.get_org(user.org_id)
+    if org and org.lifecycle_state != WorkspaceLifecycleState.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Workspace is {org.lifecycle_state.value}. Contact your administrator.",
+        )
+
     return user
 
 
