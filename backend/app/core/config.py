@@ -76,7 +76,11 @@ class Settings(BaseSettings):
 
     # Rate limiting
     rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = 60
+    rate_limit_trusted_proxy_header: str = "X-Forwarded-For"
     rate_limit_auth_ip_per_minute: int = 20
+    rate_limit_auth_login_ip_per_window: int = 10
+    rate_limit_auth_email_per_window: int = 5
     rate_limit_api_ip_per_minute: int = 300
     rate_limit_api_tenant_per_minute: int = 1200
 
