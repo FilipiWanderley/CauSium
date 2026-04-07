@@ -12,15 +12,21 @@ def get_clickhouse_client():
     global _client
     if _client is None:
         settings = get_settings()
-        _client = clickhouse_connect.get_client(
-            host=settings.clickhouse_host,
-            port=settings.clickhouse_port,
-            username=settings.clickhouse_user,
-            password=settings.clickhouse_password,
-            database=settings.clickhouse_db,
-            secure=settings.clickhouse_secure,
-            verify=settings.clickhouse_verify,
-        )
+        kwargs: dict = {
+            "host": settings.clickhouse_host,
+            "port": settings.clickhouse_port,
+            "username": settings.clickhouse_user,
+            "password": settings.clickhouse_password,
+            "database": settings.clickhouse_db,
+            "secure": settings.clickhouse_secure,
+            "verify": settings.clickhouse_verify,
+        }
+        # ca_cert pins the server certificate chain. When omitted, the
+        # system trust store is used. Minimum TLS version for ClickHouse is
+        # enforced server-side via config.xml <disableProtocols>.
+        if settings.clickhouse_ca_cert:
+            kwargs["ca_cert"] = settings.clickhouse_ca_cert
+        _client = clickhouse_connect.get_client(**kwargs)
     return _client
 
 

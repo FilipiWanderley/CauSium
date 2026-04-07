@@ -35,6 +35,24 @@ class Settings(BaseSettings):
     clickhouse_secure: bool = False
     clickhouse_verify: bool = True
 
+    # TLS enforcement for datastores (SP-A07)
+    # PostgreSQL — ssl.SSLContext is injected into asyncpg when enabled or in production.
+    db_ssl_enabled: bool = False
+    db_ssl_verify: bool = True
+    db_ssl_ca_file: str = ""
+    db_ssl_min_version: str = "TLSv1.3"
+
+    # Redis — ssl.SSLContext is injected when the URL scheme is rediss://.
+    redis_ssl_verify: bool = True
+    redis_ssl_ca_file: str = ""
+    redis_ssl_min_version: str = "TLSv1.3"
+
+    # ClickHouse — ca_cert pins the server certificate.
+    # TLS minimum version is enforced server-side via ClickHouse config.xml
+    # <disableProtocols>sslv2,sslv3,tlsv1,tlsv1_1,tlsv1_2</disableProtocols>.
+    clickhouse_ca_cert: str = ""
+    clickhouse_ssl_min_version: str = "TLSv1.3"
+
     # Azure
     azure_tenant_id: str = ""
     azure_client_id: str = ""
@@ -187,6 +205,21 @@ class Settings(BaseSettings):
         if self.hsts_max_age < 31_536_000:
             raise ValueError(
                 "HSTS_MAX_AGE must be at least 31536000 (1 year) in production"
+            )
+
+        if self.db_ssl_min_version != "TLSv1.3":
+            raise ValueError("DB_SSL_MIN_VERSION must be TLSv1.3 in production")
+
+        if self.redis_ssl_min_version != "TLSv1.3":
+            raise ValueError("REDIS_SSL_MIN_VERSION must be TLSv1.3 in production")
+
+        if not self.clickhouse_verify:
+            raise ValueError("CLICKHOUSE_VERIFY must be true in production")
+
+        if self.clickhouse_ssl_min_version != "TLSv1.3":
+            raise ValueError(
+                "CLICKHOUSE_SSL_MIN_VERSION must be TLSv1.3 in production "
+                "(enforce via ClickHouse config.xml disableProtocols)"
             )
 
 
