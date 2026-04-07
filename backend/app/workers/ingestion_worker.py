@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from app.core.database import async_session_factory
+from app.core.email import EmailService
 from app.core.logging import get_logger
 from app.core.redis import get_redis_pool
 
@@ -61,6 +62,14 @@ async def process_account(account_id_str: str) -> None:
 
     except Exception as e:
         log.error("ingestion.failed", account_id=account_id_str, error=str(e))
+        await EmailService().send_critical_alert(
+            subject="[StratoPulse][Critical] Ingestion worker failure",
+            text_body=(
+                "A critical failure occurred in ingestion worker.\n\n"
+                f"account_id: {account_id_str}\n"
+                f"error: {str(e)}\n"
+            ),
+        )
     finally:
         await redis.delete(lock_key)
 

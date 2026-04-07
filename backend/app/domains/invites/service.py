@@ -8,6 +8,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.core.email import EmailService
 from app.core.schemas import PageParams
 from app.core.security import hash_password
 from app.domains.audit_chain.service import AuditChainService
@@ -20,6 +22,7 @@ class InviteService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.audit_chain = AuditChainService(db)
+        self.email = EmailService()
 
     async def create_invite(
         self,
@@ -70,6 +73,20 @@ class InviteService:
                 "expires_in_days": req.expires_in_days,
             },
         )
+
+        # SP-AP03: send workspace invite email when SMTP is enabled.
+        accept_url = f"{get_settings().frontend_url}/invites/{invite.token}"
+        await self.email.send_email(
+            to_email=req.email,
+            subject="[StratoPulse] Voce foi convidado para um workspace",
+            text_body=(
+                "Voce recebeu um convite para entrar em um workspace no StratoPulse.\n\n"
+                f"Funcao: {req.role.value}\n"
+                f"Aceitar convite: {accept_url}\n"
+                f"Expira em: {invite.expires_at.isoformat()}\n"
+            ),
+        )
+
         await self.db.refresh(invite)
         return invite
 

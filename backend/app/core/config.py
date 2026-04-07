@@ -75,6 +75,20 @@ class Settings(BaseSettings):
     passkey_rp_name: str = "StratoPulse"
     passkey_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
 
+    # SMTP (SP-AP03)
+    smtp_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@stratopulse.local"
+    smtp_from_name: str = "StratoPulse"
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_timeout_seconds: int = 10
+    # Comma-separated recipients for operational critical alerts.
+    smtp_alert_to: str = ""
+
     # Encryption key (Fernet base64)
     encryption_key: str = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
 
@@ -176,6 +190,10 @@ class Settings(BaseSettings):
     @property
     def passkey_allowed_origins_list(self) -> List[str]:
         return [o.strip() for o in self.passkey_allowed_origins.split(",") if o.strip()]
+
+    @property
+    def smtp_alert_to_list(self) -> List[str]:
+        return [o.strip() for o in self.smtp_alert_to.split(",") if o.strip()]
 
     @property
     def auth_cookie_secure_effective(self) -> bool:

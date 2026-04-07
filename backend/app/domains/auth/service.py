@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.email import EmailService
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
@@ -35,6 +36,7 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_chain = AuditChainService(db)
+        self.email = EmailService()
 
     async def register(self, req: RegisterRequest) -> tuple[Organization, User]:
         org = Organization(name=req.org_name, slug=req.org_slug)
@@ -274,6 +276,20 @@ class AuthService:
                 "target_role": target.role.value,
             },
         )
+
+        # SP-AP03: notify the affected user when SMTP is configured.
+        login_url = f"{get_settings().frontend_url}/login"
+        await self.email.send_email(
+            to_email=target.email,
+            subject="[StratoPulse] Sua senha foi redefinida pelo administrador",
+            text_body=(
+                "Sua senha foi redefinida por um administrador do workspace.\n\n"
+                f"Senha temporaria: {temp_password}\n"
+                "Voce devera trocar essa senha no primeiro acesso.\n\n"
+                f"Login: {login_url}\n"
+            ),
+        )
+
         await self.db.refresh(target)
         return target, temp_password
 
@@ -964,6 +980,19 @@ class AuthService:
         )
         self.db.add(challenge)
         await self.db.flush()
+
+        # SP-AP03: email transport configurable via SMTP env vars.
+        reset_url = f"{get_settings().frontend_url}/reset-password?token={token}"
+        await self.email.send_email(
+            to_email=user.email,
+            subject="[StratoPulse] Password reset",
+            text_body=(
+                "You requested a password reset for your StratoPulse account.\n\n"
+                f"Reset link: {reset_url}\n"
+                "This link expires in 1 hour.\n"
+                "If you did not request this, you can ignore this email.\n"
+            ),
+        )
         return token
 
     async def reset_password(self, token: str, new_password: str) -> None:

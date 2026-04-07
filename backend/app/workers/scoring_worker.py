@@ -4,6 +4,7 @@ import asyncio
 from uuid import UUID
 
 from app.core.database import async_session_factory
+from app.core.email import EmailService
 from app.core.logging import get_logger
 from app.core.redis import get_redis_pool
 
@@ -32,6 +33,14 @@ async def process_scoring(account_id_str: str) -> None:
             log.info("scoring.completed", account_id=account_id_str, opportunities=len(opps))
     except Exception as e:
         log.error("scoring.failed", account_id=account_id_str, error=str(e))
+        await EmailService().send_critical_alert(
+            subject="[StratoPulse][Critical] Scoring worker failure",
+            text_body=(
+                "A critical failure occurred in scoring worker.\n\n"
+                f"account_id: {account_id_str}\n"
+                f"error: {str(e)}\n"
+            ),
+        )
 
 
 async def run_scoring_worker() -> None:
