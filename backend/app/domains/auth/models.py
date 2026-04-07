@@ -17,6 +17,7 @@ class WorkspaceLifecycleState(str, enum.Enum):
 
 
 class UserRole(str, enum.Enum):
+    PLATFORM_ADMIN = "platform_admin"
     ADMIN = "admin"
     ENGINEER = "engineer"
     FINOPS = "finops"

@@ -12,6 +12,7 @@ from app.domains.change_events.router import router as change_events_router
 from app.domains.audit_chain.router import router as audit_chain_router
 from app.domains.workspaces.router import router as workspaces_router
 from app.domains.invites.router import router as invites_router
+from app.domains.admin.router import router as admin_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -27,3 +28,4 @@ api_router.include_router(change_events_router)
 api_router.include_router(audit_chain_router)
 api_router.include_router(workspaces_router)
 api_router.include_router(invites_router)
+api_router.include_router(admin_router)

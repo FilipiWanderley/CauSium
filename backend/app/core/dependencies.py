@@ -46,13 +46,17 @@ async def get_current_user(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    from app.domains.auth.models import WorkspaceLifecycleState
+    from app.domains.auth.models import UserRole, WorkspaceLifecycleState
     from app.domains.auth.service import AuthService
 
     service = AuthService(db)
     user = await service.get_user_by_id(user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or not found")
+
+    # PLATFORM_ADMIN bypasses workspace lifecycle enforcement — must still be active themselves.
+    if user.role == UserRole.PLATFORM_ADMIN:
+        return user
 
     org = await service.get_org(user.org_id)
     if org and org.lifecycle_state != WorkspaceLifecycleState.ACTIVE:
@@ -66,6 +70,11 @@ async def get_current_user(
 
 def require_roles(*roles: str):
     async def _check(current_user=Depends(get_current_user)):
+        from app.domains.auth.models import UserRole
+
+        # PLATFORM_ADMIN is a super-role that satisfies any role requirement.
+        if current_user.role == UserRole.PLATFORM_ADMIN:
+            return current_user
         if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -74,6 +83,18 @@ def require_roles(*roles: str):
         return current_user
 
     return _check
+
+
+async def require_platform_admin(current_user=Depends(get_current_user)):
+    """Dependency that restricts access exclusively to PLATFORM_ADMIN users."""
+    from app.domains.auth.models import UserRole
+
+    if current_user.role != UserRole.PLATFORM_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform administrator access required.",
+        )
+    return current_user
 
 
 async def get_session_context(
