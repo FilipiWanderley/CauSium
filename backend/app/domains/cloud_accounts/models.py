@@ -38,6 +38,9 @@ class CloudAccount(Base):
     credentials_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[ConnectorStatus] = mapped_column(Enum(ConnectorStatus, values_callable=lambda x: [e.value for e in x]), default=ConnectorStatus.PENDING)
     last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # SP-CL03: scope validation result (stamped after successful validate call)
+    scopes_validated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    validated_scopes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON list[str]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     organization: Mapped = relationship("Organization", back_populates="cloud_accounts")

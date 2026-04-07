@@ -12,6 +12,7 @@ from app.domains.cloud_accounts.schemas import (
     CloudAccountCreate,
     CloudAccountOut,
     ConnectorHealthOut,
+    ScopeValidationOut,
     SyncStatusOut,
 )
 from app.domains.cloud_accounts.service import CloudAccountService
@@ -110,3 +111,29 @@ async def trigger_sync(
     redis = get_redis_pool()
     await redis.lpush("ingestion:queue", str(account_id))
     return SyncStatusOut(account_id=account_id, triggered=True, message="Sync job queued")
+
+
+@router.post("/{account_id}/validate", response_model=ScopeValidationOut)
+async def validate_account_scopes(
+    account_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
+):
+    """SP-CL03: Validate minimum credential scopes before operational usage."""
+    service = CloudAccountService(db)
+    account = await service.get_account(current_user.org_id, account_id)
+    if not account:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+
+    result = await service.validate_account_scopes(account)
+    if not result.ok:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=result.message)
+
+    return ScopeValidationOut(
+        account_id=account.id,
+        provider=account.provider,
+        ok=True,
+        message=result.message,
+        validated_scopes=result.validated_scopes,
+        scopes_validated_at=account.scopes_validated_at,
+    )

@@ -12,6 +12,7 @@ from app.core.security import decrypt_secret, encrypt_secret
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
 from app.domains.cloud_accounts.schemas import AzureCredentials, CloudAccountCreate
+from app.domains.cloud_accounts.validators import ScopeValidationResult
 
 log = get_logger(__name__)
 
@@ -59,6 +60,60 @@ class CloudAccountService:
         await self.db.refresh(account)
         log.info("cloud_account.created", account_id=str(account.id), provider=req.provider)
         return account
+
+    async def validate_account_scopes(self, account: CloudAccount) -> ScopeValidationResult:
+        """SP-CL03: Validate minimum provider scopes for an existing credential.
+
+        This endpoint is explicit and idempotent. On success we persist:
+          - account.scopes_validated_at
+          - account.validated_scopes (JSON list[str])
+        """
+        if account.provider != CloudProvider.AZURE:
+            return ScopeValidationResult(
+                ok=False,
+                validated_scopes=[],
+                message=f"Scope validation for provider '{account.provider.value}' is not implemented yet",
+            )
+
+        creds = await self.get_azure_credentials(account)
+        if creds is None:
+            return ScopeValidationResult(
+                ok=False,
+                validated_scopes=[],
+                message="Azure credentials not found for this account",
+            )
+
+        from app.domains.connectors.azure.client import AzureConnectorClient
+
+        client = AzureConnectorClient(
+            tenant_id=creds.tenant_id,
+            client_id=creds.client_id,
+            client_secret=creds.client_secret,
+        )
+
+        try:
+            await client.validate_connection()
+            await client.validate_cost_management_scope(creds.subscription_id)
+        except PermissionError as exc:
+            return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
+        except Exception as exc:
+            return ScopeValidationResult(
+                ok=False,
+                validated_scopes=[],
+                message=f"Could not validate scopes with provider API: {exc}",
+            )
+
+        scopes = ["CostManagementReaderOrHigher"]
+        account.scopes_validated_at = datetime.now(timezone.utc)
+        account.validated_scopes = json.dumps(scopes)
+        await self.db.flush()
+        await self.db.refresh(account)
+
+        return ScopeValidationResult(
+            ok=True,
+            validated_scopes=scopes,
+            message="Credential scopes validated successfully",
+        )
 
     async def audit_create(self, org_id: UUID, actor_user_id: UUID, account: CloudAccount) -> None:
         await self.audit_chain.append_event(

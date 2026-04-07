@@ -51,3 +51,12 @@ class SyncStatusOut(BaseModel):
     account_id: UUID
     triggered: bool
     message: str
+
+
+class ScopeValidationOut(BaseModel):
+    account_id: UUID
+    provider: CloudProvider
+    ok: bool
+    message: str
+    validated_scopes: list[str] = []
+    scopes_validated_at: datetime | None = None
