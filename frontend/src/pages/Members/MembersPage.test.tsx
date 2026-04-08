@@ -181,4 +181,58 @@ describe('MembersPage UX state safety', () => {
       expect(screen.getByText('Invite revoked for invite@company.com.')).toBeInTheDocument()
     })
   })
+
+  it('shows error feedback with red tone when invite creation fails', async () => {
+    createInviteMock.mockRejectedValue(new Error('Invite service unavailable'))
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invites' }))
+
+    fireEvent.change(screen.getByPlaceholderText('member@company.com'), {
+      target: { value: 'new@company.com' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Invite' }))
+
+    const errorMessage = await screen.findByText('Invite service unavailable')
+    expect(errorMessage).toBeInTheDocument()
+    expect(errorMessage.closest('div')).toHaveClass('text-red-700')
+    expect(errorMessage.closest('div')).toHaveClass('bg-red-50')
+  })
+
+  it('disables tab switch while create member is pending', async () => {
+    let resolveCreateMember: (() => void) | undefined
+    createMemberMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreateMember = () => resolve({ data: {} })
+        })
+    )
+
+    renderPage()
+
+    fireEvent.change(screen.getByPlaceholderText('member@company.com'), {
+      target: { value: 'person@company.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Person Test' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Temporary password'), {
+      target: { value: 'StrongPass123!' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Member' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled()
+    })
+
+    expect(screen.getByRole('button', { name: 'Invites' })).toBeDisabled()
+
+    resolveCreateMember?.()
+    await waitFor(() => {
+      expect(screen.getByText('Member created successfully.')).toBeInTheDocument()
+    })
+  })
 })
