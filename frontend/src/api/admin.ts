@@ -111,4 +111,7 @@ export const adminApi = {
 
   resetUserMfa: (userId: string) =>
     apiClient.post<AdminResetMFAResponse>(`/auth/users/${userId}/reset-mfa`),
+
+  deactivateUser: (userId: string, reason: string) =>
+    apiClient.patch<AdminUserItem>(`/auth/users/${userId}/deactivate`, { reason }),
 }

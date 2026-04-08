@@ -342,6 +342,56 @@ class AuthService:
         await self.db.refresh(target)
         return target, revoked_count
 
+    async def admin_deactivate_user(
+        self,
+        actor: User,
+        target_user_id: UUID,
+        reason: str,
+    ) -> User:
+        """SP-U05: Admin deactivates a member with soft-delete semantics.
+
+        The user record is preserved, but access is immediately blocked by
+        auth checks that enforce ``is_active``.
+        """
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+
+        if actor.id == target.id:
+            raise PermissionError("You cannot deactivate your own account")
+
+        if not self._can_manage(actor, target):
+            raise PermissionError(
+                f"Role '{actor.role.value}' cannot deactivate a user with role '{target.role.value}'"
+            )
+
+        if not target.is_active:
+            raise ValueError("User is already inactive")
+
+        target.is_active = False
+        target.passkey_enabled = False
+
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.user.deactivated",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "target_email": target.email,
+                "actor_role": actor.role.value,
+                "target_role": target.role.value,
+                "reason": reason,
+            },
+        )
+
+        await self.db.flush()
+        await self.db.refresh(target)
+        return target
+
     @staticmethod
     def _new_challenge() -> str:
         return secrets.token_urlsafe(48)

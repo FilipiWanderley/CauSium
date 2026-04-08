@@ -190,3 +190,9 @@ class AdminResetMFAResponse(BaseModel):
 
     revoked_passkeys: int
     user: UserOut
+
+
+class AdminDeactivateUserRequest(BaseModel):
+    """SP-U05: Reason payload for admin-driven user deactivation."""
+
+    reason: str = Field(..., min_length=3, max_length=500)

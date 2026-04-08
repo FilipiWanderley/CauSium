@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
+    AdminDeactivateUserRequest,
     AdminResetMFAResponse,
     AdminResetPasswordResponse,
     ChangePasswordRequest,
@@ -478,3 +479,34 @@ async def admin_reset_mfa(
         revoked_passkeys=revoked_count,
         user=_user_out(target, org_name),
     )
+
+
+@router.patch(
+    "/users/{user_id}/deactivate",
+    response_model=UserOut,
+    summary="Admin deactivates a user",
+    responses={
+        403: {"description": "Caller outranked or forbidden by hierarchy"},
+        404: {"description": "Target user not found"},
+        409: {"description": "Target user already inactive"},
+    },
+)
+async def admin_deactivate_user(
+    user_id: UUID,
+    req: AdminDeactivateUserRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    """SP-U05: Soft-deactivate member access while preserving user record."""
+    service = AuthService(db)
+    try:
+        target = await service.admin_deactivate_user(current_user, user_id, req.reason)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ValueError as e:
+        detail = str(e)
+        if detail == "User is already inactive":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from e
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from e
+    org_name = await service.get_org_name(target.org_id)
+    return _user_out(target, org_name)

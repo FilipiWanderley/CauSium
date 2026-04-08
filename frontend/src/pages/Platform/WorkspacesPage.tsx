@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
 import { auditChainApi } from '../../api/auditChain'
-import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key } from 'lucide-react'
+import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key, UserX } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate, useSearchParams } from 'react-router-dom'
@@ -235,6 +235,26 @@ export function WorkspacesPage() {
     },
   })
 
+  const deactivateUserMutation = useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason: string }) =>
+      adminApi.deactivateUser(userId, reason).then((r) => r.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
+      const targetUser = expandedUsers?.items.find((u) => u.id === variables.userId)
+      const userLabel = targetUser?.email ?? 'Selected user'
+      setUserFeedback({
+        level: 'success',
+        message: `User ${userLabel} was deactivated and access is now blocked.`,
+      })
+    },
+    onError: (error) => {
+      setUserFeedback({
+        level: 'error',
+        message: (error as Error)?.message ?? 'Could not deactivate this user.',
+      })
+    },
+  })
+
   const openDialog = (action: ActionType, org: AdminOrgListItem) => {
     setDialog({ action, org, reason: '' })
   }
@@ -270,6 +290,18 @@ export function WorkspacesPage() {
     setUserFeedback(null)
     setPasswordResetResult(null)
     resetPasswordMutation.mutate(member.id)
+  }
+
+  const handleDeactivateUser = (member: AdminUserItem) => {
+    if (!member.is_active) return
+    const confirmed = window.confirm(
+      `Deactivate ${member.email}? This blocks login immediately while keeping audit history.`
+    )
+    if (!confirmed) return
+    const reason = window.prompt('Reason for deactivation (required):', 'Member offboarding')
+    if (!reason || reason.trim().length < 3) return
+    setUserFeedback(null)
+    deactivateUserMutation.mutate({ userId: member.id, reason: reason.trim() })
   }
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
@@ -484,7 +516,11 @@ export function WorkspacesPage() {
                                   )}
                                   <button
                                     onClick={() => handleResetMfa(u)}
-                                    disabled={resetMfaMutation.isPending || resetPasswordMutation.isPending}
+                                    disabled={
+                                      resetMfaMutation.isPending ||
+                                      resetPasswordMutation.isPending ||
+                                      deactivateUserMutation.isPending
+                                    }
                                     title="Reset MFA / Passkeys"
                                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                                   >
@@ -495,7 +531,11 @@ export function WorkspacesPage() {
                                   </button>
                                   <button
                                     onClick={() => handleResetPassword(u)}
-                                    disabled={resetMfaMutation.isPending || resetPasswordMutation.isPending}
+                                    disabled={
+                                      resetMfaMutation.isPending ||
+                                      resetPasswordMutation.isPending ||
+                                      deactivateUserMutation.isPending
+                                    }
                                     title="Reset password"
                                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                                   >
@@ -503,6 +543,23 @@ export function WorkspacesPage() {
                                     {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
                                       ? 'Resetting...'
                                       : 'Reset Password'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeactivateUser(u)}
+                                    disabled={
+                                      !u.is_active ||
+                                      resetMfaMutation.isPending ||
+                                      resetPasswordMutation.isPending ||
+                                      deactivateUserMutation.isPending
+                                    }
+                                    title="Deactivate user"
+                                    className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                  >
+                                    <UserX className="h-3.5 w-3.5" />
+                                    {deactivateUserMutation.isPending &&
+                                    deactivateUserMutation.variables?.userId === u.id
+                                      ? 'Deactivating...'
+                                      : 'Deactivate'}
                                   </button>
                                 </div>
                               </div>
