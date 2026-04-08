@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, RefreshCw, ServerCog } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw, ServerCog } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
@@ -21,6 +21,7 @@ function formatDate(value: string | null): string {
 
 type AttentionFilter = 'all' | 'needs_attention' | 'healthy'
 type SortKey = 'attention_first' | 'open_dlq_desc' | 'last_sync_desc' | 'name_asc'
+type PageSize = 10 | 25 | 50
 
 export function SyncStatusPage() {
   const { user } = useAuth()
@@ -29,6 +30,8 @@ export function SyncStatusPage() {
   const [statusFilter, setStatusFilter] = useState<ConnectorStatus | 'all'>('all')
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('attention_first')
+  const [pageSize, setPageSize] = useState<PageSize>(25)
+  const [page, setPage] = useState(1)
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -90,6 +93,17 @@ export function SyncStatusPage() {
 
     return items
   }, [data, providerFilter, statusFilter, attentionFilter, sortKey])
+
+  useEffect(() => {
+    setPage(1)
+  }, [providerFilter, statusFilter, attentionFilter, sortKey, pageSize])
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredData.slice(start, start + pageSize)
+  }, [filteredData, currentPage, pageSize])
 
   const syncingAccountId = syncMutation.isPending ? syncMutation.variables : null
 
@@ -188,6 +202,16 @@ export function SyncStatusPage() {
                 <option value="last_sync_desc">Sort: Latest sync</option>
                 <option value="name_asc">Sort: Name A-Z</option>
               </select>
+
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value={10}>10 / page</option>
+                <option value={25}>25 / page</option>
+                <option value={50}>50 / page</option>
+              </select>
             </div>
           </div>
         </div>
@@ -223,7 +247,7 @@ export function SyncStatusPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredData.map((item) => (
+              {paginatedData.map((item) => (
                 <tr key={item.account_id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5">
                     <p className="font-semibold text-gray-900">{item.display_name}</p>
@@ -294,6 +318,36 @@ export function SyncStatusPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {!isLoading && filteredData.length > 0 && (
+          <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3 text-xs text-gray-500">
+            <span>
+              Showing {(currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span>
+                Page {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
