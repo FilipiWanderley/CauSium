@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
-import type { AdminOrgListItem } from '../../api/admin'
-import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
+import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate } from 'react-router-dom'
@@ -21,6 +21,11 @@ interface ActionDialogState {
   reason: string
 }
 
+interface UserActionFeedback {
+  level: 'success' | 'error'
+  message: string
+}
+
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
@@ -30,6 +35,7 @@ export function WorkspacesPage() {
   const [page, setPage] = useState(1)
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
+  const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -59,6 +65,25 @@ export function WorkspacesPage() {
     },
   })
 
+  const resetMfaMutation = useMutation({
+    mutationFn: (userId: string) => adminApi.resetUserMfa(userId).then((r) => r.data),
+    onSuccess: (payload, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
+      const targetUser = expandedUsers?.items.find((u) => u.id === userId)
+      const userLabel = targetUser?.email ?? 'Selected user'
+      setUserFeedback({
+        level: 'success',
+        message: `MFA reset completed for ${userLabel}. Revoked passkeys: ${payload.revoked_passkeys}.`,
+      })
+    },
+    onError: (error) => {
+      setUserFeedback({
+        level: 'error',
+        message: (error as Error)?.message ?? 'Could not reset MFA for this user.',
+      })
+    },
+  })
+
   const openDialog = (action: ActionType, org: AdminOrgListItem) => {
     setDialog({ action, org, reason: '' })
   }
@@ -75,6 +100,15 @@ export function WorkspacesPage() {
       orgId: dialog.org.id,
       reason: dialog.reason.trim() || 'No reason provided',
     })
+  }
+
+  const handleResetMfa = (member: AdminUserItem) => {
+    const confirmed = window.confirm(
+      `Reset MFA for ${member.email}? This will revoke all registered passkeys.`
+    )
+    if (!confirmed) return
+    setUserFeedback(null)
+    resetMfaMutation.mutate(member.id)
   }
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
@@ -214,6 +248,18 @@ export function WorkspacesPage() {
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                               Users ({expandedUsers.total})
                             </p>
+                            {userFeedback && (
+                              <div
+                                className={clsx(
+                                  'mb-2 rounded border px-3 py-2 text-xs',
+                                  userFeedback.level === 'success'
+                                    ? 'border-green-200 bg-green-50 text-green-700'
+                                    : 'border-red-200 bg-red-50 text-red-700'
+                                )}
+                              >
+                                {userFeedback.message}
+                              </div>
+                            )}
                             {expandedUsers.items.map((u) => (
                               <div
                                 key={u.id}
@@ -234,6 +280,17 @@ export function WorkspacesPage() {
                                       inactive
                                     </span>
                                   )}
+                                  <button
+                                    onClick={() => handleResetMfa(u)}
+                                    disabled={resetMfaMutation.isPending}
+                                    title="Reset MFA / Passkeys"
+                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                                  >
+                                    <KeyRound className="h-3.5 w-3.5" />
+                                    {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
+                                      ? 'Resetting...'
+                                      : 'Reset MFA'}
+                                  </button>
                                 </div>
                               </div>
                             ))}

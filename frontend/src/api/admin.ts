@@ -33,6 +33,22 @@ export interface AdminUserItem {
   last_login: string | null
 }
 
+export interface AdminResetMFAResponse {
+  revoked_passkeys: number
+  user: {
+    id: string
+    org_id: string
+    email: string
+    full_name: string
+    role: string
+    is_active: boolean
+    passkey_enabled: boolean
+    must_change_password: boolean
+    created_at: string
+    org_name: string
+  }
+}
+
 export interface Page<T> {
   items: T[]
   total: number
@@ -61,4 +77,7 @@ export const adminApi = {
 
   archiveOrg: (orgId: string, reason: string) =>
     apiClient.post<AdminOrgDetail>(`/admin/orgs/${orgId}/archive`, { reason }),
+
+  resetUserMfa: (userId: string) =>
+    apiClient.post<AdminResetMFAResponse>(`/auth/users/${userId}/reset-mfa`),
 }
