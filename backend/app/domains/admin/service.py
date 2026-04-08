@@ -20,12 +20,26 @@ class PlatformAdminService:
         self.actor_user_id = actor_user_id
         self.audit_chain = AuditChainService(db)
 
-    async def list_orgs(self, params: PageParams) -> tuple[list[Organization], int]:
-        count_result = await self.db.execute(select(func.count(Organization.id)))
+    async def list_orgs(
+        self,
+        params: PageParams,
+        *,
+        q: str | None = None,
+        lifecycle_state: WorkspaceLifecycleState | None = None,
+    ) -> tuple[list[Organization], int]:
+        filters = []
+        if q:
+            needle = f"%{q.strip()}%"
+            filters.append((Organization.name.ilike(needle)) | (Organization.slug.ilike(needle)))
+        if lifecycle_state:
+            filters.append(Organization.lifecycle_state == lifecycle_state)
+
+        count_result = await self.db.execute(select(func.count(Organization.id)).where(*filters))
         total = count_result.scalar_one()
 
         items_result = await self.db.execute(
             select(Organization)
+            .where(*filters)
             .order_by(Organization.created_at.desc())
             .limit(params.limit)
             .offset(params.offset)

@@ -53,6 +53,12 @@ export function WorkspacesPage() {
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
 
   const expandedOrgId = searchParams.get('expandedOrgId')
+  const searchQuery = searchParams.get('q') ?? ''
+  const stateRaw = searchParams.get('state')
+  const stateFilter: 'all' | 'active' | 'suspended' | 'archived' =
+    stateRaw === 'active' || stateRaw === 'suspended' || stateRaw === 'archived'
+      ? stateRaw
+      : 'all'
   const pageRaw = Number(searchParams.get('page'))
   const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
@@ -66,8 +72,14 @@ export function WorkspacesPage() {
   }
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-orgs', page],
-    queryFn: () => adminApi.listOrgs(page, PAGE_SIZE).then((r) => r.data),
+    queryKey: ['admin-orgs', page, searchQuery, stateFilter],
+    queryFn: () =>
+      adminApi
+        .listOrgs(page, PAGE_SIZE, {
+          q: searchQuery || undefined,
+          lifecycle_state: stateFilter === 'all' ? undefined : stateFilter,
+        })
+        .then((r) => r.data),
   })
 
   const { data: expandedUsers, isLoading: usersLoading } = useQuery({
@@ -103,6 +115,22 @@ export function WorkspacesPage() {
     } else {
       next.set('page', String(nextPage))
     }
+    setSearchParams(next)
+  }
+
+  const setSearchQuery = (query: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (!query.trim()) next.delete('q')
+    else next.set('q', query.trim())
+    next.delete('page')
+    setSearchParams(next)
+  }
+
+  const setStateFilter = (state: 'all' | 'active' | 'suspended' | 'archived') => {
+    const next = new URLSearchParams(searchParams)
+    if (state === 'all') next.delete('state')
+    else next.set('state', state)
+    next.delete('page')
     setSearchParams(next)
   }
 
@@ -260,9 +288,27 @@ export function WorkspacesPage() {
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">
-            All Organizations{data ? ` (${data.total})` : ''}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700">
+              All Organizations{data ? ` (${data.total})` : ''}
+            </span>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or slug"
+              className="w-56 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            <select
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value as 'all' | 'active' | 'suspended' | 'archived')}
+              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
+              <option value="all">All states</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}

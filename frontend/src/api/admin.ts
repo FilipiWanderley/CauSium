@@ -73,9 +73,21 @@ export interface Page<T> {
 }
 
 export const adminApi = {
-  listOrgs: (page = 1, pageSize = 20) =>
+  listOrgs: (
+    page = 1,
+    pageSize = 20,
+    filters?: {
+      q?: string
+      lifecycle_state?: 'active' | 'suspended' | 'archived'
+    }
+  ) =>
     apiClient.get<Page<AdminOrgListItem>>('/admin/orgs', {
-      params: { page, page_size: pageSize },
+      params: {
+        page,
+        page_size: pageSize,
+        q: filters?.q || undefined,
+        lifecycle_state: filters?.lifecycle_state || undefined,
+      },
     }),
 
   getOrg: (orgId: string) => apiClient.get<AdminOrgDetail>(`/admin/orgs/${orgId}`),

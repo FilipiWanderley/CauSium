@@ -76,6 +76,41 @@ async def test_platform_admin_can_list_all_orgs(client, db):
 
 
 @pytest.mark.asyncio
+async def test_platform_admin_can_filter_orgs_by_query(client, db):
+    pa = await _register(client, org_name="PA FilterQ", org_slug="pa-filterq-pa", email="pa-filterq-pa@test.com")
+    await _make_platform_admin(db, pa["user_id"])
+
+    await _register(client, org_name="Finance Workspace", org_slug="finance-workspace-pa", email="finance-pa@test.com")
+    await _register(client, org_name="Engineering Workspace", org_slug="eng-workspace-pa", email="eng-pa@test.com")
+
+    resp = await client.get("/api/v1/admin/orgs?q=finance", headers=pa["headers"])
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] >= 1
+    assert any("finance" in item["name"].lower() or "finance" in item["slug"].lower() for item in body["items"])
+
+
+@pytest.mark.asyncio
+async def test_platform_admin_can_filter_orgs_by_lifecycle_state(client, db):
+    pa = await _register(client, org_name="PA FilterState", org_slug="pa-filterstate-pa", email="pa-filterstate-pa@test.com")
+    await _make_platform_admin(db, pa["user_id"])
+
+    target = await _register(client, org_name="Suspensible Org", org_slug="suspensible-org-pa", email="suspensible-pa@test.com")
+    suspend = await client.post(
+        f"/api/v1/admin/orgs/{target['org_id']}/suspend",
+        json={"reason": "Filter test"},
+        headers=pa["headers"],
+    )
+    assert suspend.status_code == 200, suspend.text
+
+    resp = await client.get("/api/v1/admin/orgs?lifecycle_state=suspended", headers=pa["headers"])
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] >= 1
+    assert all(item["lifecycle_state"] == "suspended" for item in body["items"])
+
+
+@pytest.mark.asyncio
 async def test_platform_admin_can_get_any_org_detail(client, db):
     pa = await _register(client, org_name="PA Detail", org_slug="pa-detail-pa", email="pa-detail-pa@test.com")
     await _make_platform_admin(db, pa["user_id"])

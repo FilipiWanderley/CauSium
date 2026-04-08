@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -16,6 +16,7 @@ from app.domains.admin.schemas import (
     DlqMessageOut,
     DlqRequeueResponse,
 )
+from app.domains.auth.models import WorkspaceLifecycleState
 from app.domains.admin.service import PlatformAdminService
 from app.domains.workspaces.schemas import WorkspaceOut
 
@@ -24,13 +25,15 @@ router = APIRouter(prefix="/admin", tags=["platform-admin"])
 
 @router.get("/orgs", response_model=Page[AdminOrgListItem])
 async def list_all_orgs(
+    q: str | None = Query(default=None, min_length=1, max_length=120),
+    lifecycle_state: WorkspaceLifecycleState | None = Query(default=None),
     current_user=Depends(require_platform_admin),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     params: Annotated[PageParams, Depends(PageParams)] = ...,
 ) -> Page[AdminOrgListItem]:
     """List every organization on the platform (PLATFORM_ADMIN only)."""
     service = PlatformAdminService(db, current_user.id)
-    items, total = await service.list_orgs(params)
+    items, total = await service.list_orgs(params, q=q, lifecycle_state=lifecycle_state)
     return Page.of(items, total, params)
 
 
