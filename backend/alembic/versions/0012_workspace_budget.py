@@ -33,8 +33,6 @@ _PERIOD_ENUM = sa.Enum(
 
 
 def upgrade() -> None:
-    _PERIOD_ENUM.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "workspace_budgets",
         sa.Column("id", sa.UUID(), nullable=False),

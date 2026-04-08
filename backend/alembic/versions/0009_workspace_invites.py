@@ -17,14 +17,17 @@ down_revision: Union[str, None] = "0008"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-_invite_status_enum = sa.Enum(
-    "pending", "accepted", "expired", "revoked",
-    name="invitestatus",
-)
-
-
 def upgrade() -> None:
-    _invite_status_enum.create(op.get_bind(), checkfirst=True)
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'invitestatus') THEN
+                CREATE TYPE invitestatus AS ENUM ('pending', 'accepted', 'expired', 'revoked');
+            END IF;
+        END$$;
+        """
+    )
 
     op.create_table(
         "workspace_invites",
@@ -53,7 +56,7 @@ def upgrade() -> None:
         sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "status",
-            _invite_status_enum,
+            sa.String(20),
             nullable=False,
             server_default="pending",
         ),
@@ -68,10 +71,14 @@ def upgrade() -> None:
     op.create_index("ix_workspace_invites_token", "workspace_invites", ["token"], unique=True)
     op.create_index("ix_workspace_invites_invited_email", "workspace_invites", ["invited_email"])
 
+    op.execute("ALTER TABLE workspace_invites ALTER COLUMN status DROP DEFAULT")
+    op.execute("ALTER TABLE workspace_invites ALTER COLUMN status TYPE invitestatus USING status::invitestatus")
+    op.execute("ALTER TABLE workspace_invites ALTER COLUMN status SET DEFAULT 'pending'::invitestatus")
+
 
 def downgrade() -> None:
     op.drop_index("ix_workspace_invites_invited_email", table_name="workspace_invites")
     op.drop_index("ix_workspace_invites_token", table_name="workspace_invites")
     op.drop_index("ix_workspace_invites_org_id", table_name="workspace_invites")
     op.drop_table("workspace_invites")
-    _invite_status_enum.drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS invitestatus")

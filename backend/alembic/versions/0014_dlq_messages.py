@@ -17,7 +17,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     dlq_status = sa.Enum("open", "requeued", "resolved", name="dlqstatus")
-    dlq_status.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "dlq_messages",
