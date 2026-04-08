@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { ledgerApi } from '../../api/ledger'
 import { opportunitiesApi } from '../../api/opportunities'
 import { authApi } from '../../api/auth'
-import { invitesApi, type InviteOut, type InviteRole } from '../../api/invites'
 import { Plus, Trash2, RefreshCw, Activity, Zap } from 'lucide-react'
 import { format, subDays } from 'date-fns'
 import type { CloudAccount } from '../../types'
@@ -20,13 +20,6 @@ export function SettingsPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [registeringPasskey, setRegisteringPasskey] = useState(false)
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null)
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'viewer' as InviteRole, expiresInDays: 7 })
-  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null)
-  const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'expired' | 'revoked'>('all')
-  const [inviteQuery, setInviteQuery] = useState('')
-  const [invitePage, setInvitePage] = useState(1)
-
-  const INVITES_PAGE_SIZE = 10
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ['cloud-accounts'],
@@ -36,18 +29,6 @@ export function SettingsPage() {
   const { data: passkeys } = useQuery({
     queryKey: ['auth-passkeys'],
     queryFn: () => authApi.listPasskeys().then((r) => r.data),
-  })
-
-  const { data: invitesPage } = useQuery({
-    queryKey: ['workspace-invites', invitePage, inviteStatusFilter, inviteQuery],
-    queryFn: () =>
-      invitesApi
-        .list(invitePage, INVITES_PAGE_SIZE, {
-          status: inviteStatusFilter === 'all' ? undefined : inviteStatusFilter,
-          q: inviteQuery || undefined,
-        })
-        .then((r) => r.data),
-    enabled: user?.role === 'admin' || user?.role === 'platform_admin',
   })
 
   const createMutation = useMutation({
@@ -82,36 +63,6 @@ export function SettingsPage() {
       const me = await authApi.me()
       queryClient.setQueryData(['auth-user'], me.data)
       setPasskeyMessage('Passkey revogada com sucesso')
-    },
-  })
-
-  const createInviteMutation = useMutation({
-    mutationFn: () =>
-      invitesApi.create({
-        email: inviteForm.email.trim().toLowerCase(),
-        role: inviteForm.role,
-        expires_in_days: inviteForm.expiresInDays,
-      }),
-    onSuccess: async ({ data }) => {
-      await queryClient.invalidateQueries({ queryKey: ['workspace-invites'] })
-      setInvitePage(1)
-      setInviteForm({ email: '', role: 'viewer', expiresInDays: 7 })
-      const link = `${window.location.origin}/activate?token=${data.token}`
-      setInviteFeedback(`Invite created for ${data.invited_email}. Activation link: ${link}`)
-    },
-    onError: (error) => {
-      setInviteFeedback((error as Error)?.message ?? 'Could not create invite')
-    },
-  })
-
-  const revokeInviteMutation = useMutation({
-    mutationFn: (inviteId: string) => invitesApi.revoke(inviteId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['workspace-invites'] })
-      setInviteFeedback('Invite revoked successfully')
-    },
-    onError: (error) => {
-      setInviteFeedback((error as Error)?.message ?? 'Could not revoke invite')
     },
   })
 
@@ -151,19 +102,6 @@ export function SettingsPage() {
       setRegisteringPasskey(false)
     }
   }
-
-  const copyInviteLink = async (invite: InviteOut) => {
-    const link = `${window.location.origin}/activate?token=${invite.token}`
-    try {
-      await navigator.clipboard.writeText(link)
-      setInviteFeedback(`Activation link copied for ${invite.invited_email}`)
-    } catch {
-      setInviteFeedback(`Copy failed. Link: ${link}`)
-    }
-  }
-
-  const invites = invitesPage?.items ?? []
-  const totalInvitePages = invitesPage ? Math.max(1, Math.ceil(invitesPage.total / invitesPage.page_size)) : 1
   const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
 
   return (
@@ -173,146 +111,22 @@ export function SettingsPage() {
         <p className="text-sm text-gray-500 mt-1">Manage cloud accounts and connector configuration</p>
       </div>
 
-      {/* Cloud Accounts */}
+      {/* Workspace Access */}
       {isAdmin && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Member Invites</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Workspace Access</h2>
               <p className="text-xs text-gray-500 mt-1">
-                Create and manage activation links for new workspace members.
+                Members and invites are managed in the dedicated Members workspace.
               </p>
             </div>
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-              {invitesPage?.total ?? 0} invites
-            </span>
-          </div>
-
-          <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-            <input
-              type="text"
-              value={inviteQuery}
-              onChange={(e) => {
-                setInviteQuery(e.target.value)
-                setInvitePage(1)
-              }}
-              placeholder="Search by invited email"
-              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
-            <select
-              value={inviteStatusFilter}
-              onChange={(e) => {
-                setInviteStatusFilter(
-                  e.target.value as 'all' | 'pending' | 'accepted' | 'expired' | 'revoked'
-                )
-                setInvitePage(1)
-              }}
-              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            <Link
+              to="/app/members"
+              className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
             >
-              <option value="all">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="accepted">Accepted</option>
-              <option value="expired">Expired</option>
-              <option value="revoked">Revoked</option>
-            </select>
-            <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
-              <button
-                onClick={() => setInvitePage((p) => Math.max(1, p - 1))}
-                disabled={invitePage <= 1}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <span>
-                Page {invitePage} / {totalInvitePages}
-              </span>
-              <button
-                onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
-                disabled={invitePage >= totalInvitePages}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <input
-              type="email"
-              value={inviteForm.email}
-              onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
-              placeholder="member@company.com"
-              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
-            <select
-              value={inviteForm.role}
-              onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value as InviteRole }))}
-              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value="viewer">viewer</option>
-              <option value="executive">executive</option>
-              <option value="finops">finops</option>
-              <option value="engineer">engineer</option>
-              <option value="admin">admin</option>
-            </select>
-            <select
-              value={inviteForm.expiresInDays}
-              onChange={(e) => setInviteForm((prev) => ({ ...prev, expiresInDays: Number(e.target.value) }))}
-              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value={3}>3 days</option>
-              <option value={7}>7 days</option>
-              <option value={14}>14 days</option>
-              <option value={30}>30 days</option>
-            </select>
-            <button
-              onClick={() => createInviteMutation.mutate()}
-              disabled={!inviteForm.email.trim() || createInviteMutation.isPending}
-              className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-            >
-              {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}
-            </button>
-          </div>
-
-          {inviteFeedback && (
-            <div className="mt-3 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              {inviteFeedback}
-            </div>
-          )}
-
-          <div className="mt-4 space-y-2">
-            {!invites.length ? (
-              <div className="text-xs text-gray-500">No invites created yet.</div>
-            ) : (
-              invites.map((invite) => (
-                <div
-                  key={invite.id}
-                  className="flex items-center justify-between rounded border border-gray-200 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-800">{invite.invited_email}</div>
-                    <div className="text-xs text-gray-500">
-                      {invite.role} · {invite.status} · expires {new Date(invite.expires_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="ml-3 flex items-center gap-2">
-                    <button
-                      onClick={() => copyInviteLink(invite)}
-                      className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Copy Link
-                    </button>
-                    <button
-                      onClick={() => revokeInviteMutation.mutate(invite.id)}
-                      disabled={invite.status !== 'pending' || revokeInviteMutation.isPending}
-                      className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      Revoke
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+              Open Members
+            </Link>
           </div>
         </div>
       )}
