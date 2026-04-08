@@ -39,6 +39,9 @@ const ExecutivePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 )
+const MembersPage = lazy(() =>
+  import('./pages/Members/MembersPage').then((m) => ({ default: m.MembersPage }))
+)
 const WorkspacesPage = lazy(() =>
   import('./pages/Platform/WorkspacesPage').then((m) => ({ default: m.WorkspacesPage }))
 )
@@ -72,6 +75,7 @@ export default function App() {
             <Route path="risk-budgets" element={<RiskBudgetsPage />} />
             <Route path="change-events" element={<ChangeEventsPage />} />
             <Route path="executive" element={<ExecutivePage />} />
+            <Route path="members" element={<MembersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="platform/workspaces" element={<WorkspacesPage />} />
             <Route path="platform/sync" element={<SyncStatusPage />} />

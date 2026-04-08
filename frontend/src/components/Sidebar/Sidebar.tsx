@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   ListTodo,
+  Users,
   BarChart3,
   Settings,
   Cloud,
@@ -29,6 +30,7 @@ const NAV = [
 export function Sidebar() {
   const { user } = useAuth()
   const isPlatformAdmin = user?.role === 'platform_admin'
+  const isAdmin = user?.role === 'admin' || isPlatformAdmin
 
   return (
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
@@ -54,6 +56,23 @@ export function Sidebar() {
             {label}
           </NavLink>
         ))}
+
+        {isAdmin && (
+          <NavLink
+            to="/app/members"
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-brand-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              )
+            }
+          >
+            <Users className="h-4 w-4" />
+            Members
+          </NavLink>
+        )}
 
         {isPlatformAdmin && (
           <>
