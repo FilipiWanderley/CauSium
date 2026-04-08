@@ -50,9 +50,10 @@ export function WorkspacesPage() {
 
   const [page, setPage] = useState(1)
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
-  const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
   const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
+
+  const expandedOrgId = searchParams.get('expandedOrgId')
 
   const auditWindowRaw = searchParams.get('auditWindow')
   const auditWindow: AuditWindow = AUDIT_WINDOW_OPTIONS.includes(auditWindowRaw as AuditWindow)
@@ -90,6 +91,18 @@ export function WorkspacesPage() {
       next.delete('auditWindow')
     } else {
       next.set('auditWindow', window)
+    }
+    setSearchParams(next)
+  }
+
+  const setExpandedOrgId = (orgId: string | null) => {
+    const next = new URLSearchParams(searchParams)
+    if (!orgId) {
+      next.delete('expandedOrgId')
+      setUserFeedback(null)
+      setPasswordResetResult(null)
+    } else {
+      next.set('expandedOrgId', orgId)
     }
     setSearchParams(next)
   }
@@ -306,9 +319,7 @@ export function WorkspacesPage() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() =>
-                            setExpandedOrgId(expandedOrgId === org.id ? null : org.id)
-                          }
+                          onClick={() => setExpandedOrgId(expandedOrgId === org.id ? null : org.id)}
                           title="View users"
                           className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
