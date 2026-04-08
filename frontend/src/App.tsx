@@ -49,6 +49,12 @@ const WorkspacesPage = lazy(() =>
 const SyncStatusPage = lazy(() =>
   import('./pages/Platform/SyncStatusPage').then((m) => ({ default: m.SyncStatusPage }))
 )
+const EconomicsSkusPage = lazy(() =>
+  import('./pages/EconomicsSkus/EconomicsSkusPage').then((m) => ({ default: m.EconomicsSkusPage }))
+)
+const EconomicsReportsPage = lazy(() =>
+  import('./pages/EconomicsReports/EconomicsReportsPage').then((m) => ({ default: m.EconomicsReportsPage }))
+)
 
 export default function App() {
   return (
@@ -91,21 +97,11 @@ export default function App() {
             />
             <Route
               path="economics/skus"
-              element={
-                <ComingSoonPage
-                  title="Economics SKUs"
-                  description="SKU concentration, anomalies and breakdown analysis will be connected here."
-                />
-              }
+              element={<EconomicsSkusPage />}
             />
             <Route
               path="economics/reports"
-              element={
-                <ComingSoonPage
-                  title="Economics Reports"
-                  description="Asynchronous exports and report management will be connected here."
-                />
-              }
+              element={<EconomicsReportsPage />}
             />
             <Route path="opportunities" element={<OpportunitiesPage />} />
             <Route path="intel" element={<OpportunitiesPage />} />
