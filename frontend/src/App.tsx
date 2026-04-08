@@ -1,7 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/Layout/AppLayout'
-import { ComingSoonPage } from './pages/ComingSoon/ComingSoonPage'
 
 const LoginPage = lazy(() => import('./pages/Login/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ForgotPasswordPage = lazy(() =>
@@ -61,6 +60,15 @@ const EconomicsCostsPage = lazy(() =>
 const EconomicsUsagePage = lazy(() =>
   import('./pages/EconomicsUsage/EconomicsUsagePage').then((m) => ({ default: m.EconomicsUsagePage }))
 )
+const NotificationsPage = lazy(() =>
+  import('./pages/Notifications/NotificationsPage').then((m) => ({ default: m.NotificationsPage }))
+)
+const GovPage = lazy(() =>
+  import('./pages/Gov/GovPage').then((m) => ({ default: m.GovPage }))
+)
+const GreenPage = lazy(() =>
+  import('./pages/Green/GreenPage').then((m) => ({ default: m.GreenPage }))
+)
 
 export default function App() {
   return (
@@ -73,9 +81,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/activate" element={<ActivateInvitePage />} />
 
-          {/* ── SP-A01: Change-password — authenticated but outside AppLayout ── */}
-          {/* The page renders full-screen and is accessible even when             */}
-          {/* must_change_password=true (otherwise there is no escape route).      */}
+          {/* ── SP-A01: Change-password — outside AppLayout ── */}
           <Route path="/app/change-password" element={<ChangePasswordPage />} />
 
           {/* ── Authenticated app shell ───────────────────────────────────── */}
@@ -83,22 +89,10 @@ export default function App() {
             <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="economics" element={<DashboardPage />} />
-            <Route
-              path="economics/costs"
-              element={<EconomicsCostsPage />}
-            />
-            <Route
-              path="economics/usage"
-              element={<EconomicsUsagePage />}
-            />
-            <Route
-              path="economics/skus"
-              element={<EconomicsSkusPage />}
-            />
-            <Route
-              path="economics/reports"
-              element={<EconomicsReportsPage />}
-            />
+            <Route path="economics/costs" element={<EconomicsCostsPage />} />
+            <Route path="economics/usage" element={<EconomicsUsagePage />} />
+            <Route path="economics/skus" element={<EconomicsSkusPage />} />
+            <Route path="economics/reports" element={<EconomicsReportsPage />} />
             <Route path="opportunities" element={<OpportunitiesPage />} />
             <Route path="intel" element={<OpportunitiesPage />} />
             <Route path="initiatives" element={<InitiativesPage />} />
@@ -107,33 +101,9 @@ export default function App() {
             <Route path="risk-budgets" element={<RiskBudgetsPage />} />
             <Route path="change-events" element={<ChangeEventsPage />} />
             <Route path="executive" element={<ExecutivePage />} />
-            <Route
-              path="notifications"
-              element={
-                <ComingSoonPage
-                  title="Notifications"
-                  description="Centralized alert management and notification preferences will be connected here."
-                />
-              }
-            />
-            <Route
-              path="gov"
-              element={
-                <ComingSoonPage
-                  title="PulseGov"
-                  description="Governance and compliance controls for resources will be connected here."
-                />
-              }
-            />
-            <Route
-              path="green"
-              element={
-                <ComingSoonPage
-                  title="PulseGreen"
-                  description="Sustainability and carbon analytics will be connected here."
-                />
-              }
-            />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="gov" element={<GovPage />} />
+            <Route path="green" element={<GreenPage />} />
             <Route path="members" element={<MembersPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="settings/team" element={<SettingsPage />} />
@@ -143,7 +113,7 @@ export default function App() {
             <Route path="platform/sync" element={<SyncStatusPage />} />
           </Route>
 
-          {/* ── Fallback: redirect bare / and unmatched paths ─────────────── */}
+          {/* ── Fallback ─────────────────────────────────────────────── */}
           <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
         </Routes>
