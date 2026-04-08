@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw, ServerCog } from 'lucide-react'
 import clsx from 'clsx'
@@ -23,15 +23,52 @@ type AttentionFilter = 'all' | 'needs_attention' | 'healthy'
 type SortKey = 'attention_first' | 'open_dlq_desc' | 'last_sync_desc' | 'name_asc'
 type PageSize = 10 | 25 | 50
 
+const DEFAULT_PROVIDER: CloudProvider | 'all' = 'all'
+const DEFAULT_STATUS: ConnectorStatus | 'all' = 'all'
+const DEFAULT_ATTENTION: AttentionFilter = 'all'
+const DEFAULT_SORT: SortKey = 'attention_first'
+const DEFAULT_PAGE_SIZE: PageSize = 25
+
+const PROVIDER_OPTIONS: Array<CloudProvider | 'all'> = ['all', 'azure', 'aws', 'gcp']
+const STATUS_OPTIONS: Array<ConnectorStatus | 'all'> = ['all', 'active', 'pending', 'inactive', 'error']
+const ATTENTION_OPTIONS: AttentionFilter[] = ['all', 'needs_attention', 'healthy']
+const SORT_OPTIONS: SortKey[] = ['attention_first', 'open_dlq_desc', 'last_sync_desc', 'name_asc']
+const PAGE_SIZE_OPTIONS: PageSize[] = [10, 25, 50]
+
+function isInOptions<T extends string>(value: string | null, options: readonly T[]): value is T {
+  return value !== null && options.includes(value as T)
+}
+
 export function SyncStatusPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [providerFilter, setProviderFilter] = useState<CloudProvider | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<ConnectorStatus | 'all'>('all')
-  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all')
-  const [sortKey, setSortKey] = useState<SortKey>('attention_first')
-  const [pageSize, setPageSize] = useState<PageSize>(25)
-  const [page, setPage] = useState(1)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const providerRaw = searchParams.get('provider')
+  const statusRaw = searchParams.get('status')
+  const attentionRaw = searchParams.get('attention')
+  const sortRaw = searchParams.get('sort')
+
+  const providerFilter = isInOptions(providerRaw, PROVIDER_OPTIONS)
+    ? providerRaw
+    : DEFAULT_PROVIDER
+  const statusFilter = isInOptions(statusRaw, STATUS_OPTIONS)
+    ? statusRaw
+    : DEFAULT_STATUS
+  const attentionFilter = isInOptions(attentionRaw, ATTENTION_OPTIONS)
+    ? attentionRaw
+    : DEFAULT_ATTENTION
+  const sortKey = isInOptions(sortRaw, SORT_OPTIONS)
+    ? sortRaw
+    : DEFAULT_SORT
+
+  const pageSizeRaw = Number(searchParams.get('pageSize'))
+  const pageSize: PageSize = PAGE_SIZE_OPTIONS.includes(pageSizeRaw as PageSize)
+    ? (pageSizeRaw as PageSize)
+    : DEFAULT_PAGE_SIZE
+
+  const pageRaw = Number(searchParams.get('page'))
+  const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -94,10 +131,6 @@ export function SyncStatusPage() {
     return items
   }, [data, providerFilter, statusFilter, attentionFilter, sortKey])
 
-  useEffect(() => {
-    setPage(1)
-  }, [providerFilter, statusFilter, attentionFilter, sortKey, pageSize])
-
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const paginatedData = useMemo(() => {
@@ -106,6 +139,40 @@ export function SyncStatusPage() {
   }, [filteredData, currentPage, pageSize])
 
   const syncingAccountId = syncMutation.isPending ? syncMutation.variables : null
+
+  const updateParams = (
+    updates: Partial<Record<'provider' | 'status' | 'attention' | 'sort' | 'pageSize' | 'page', string>>
+  ) => {
+    const next = new URLSearchParams(searchParams)
+    const merged = {
+      provider: updates.provider ?? providerFilter,
+      status: updates.status ?? statusFilter,
+      attention: updates.attention ?? attentionFilter,
+      sort: updates.sort ?? sortKey,
+      pageSize: updates.pageSize ?? String(pageSize),
+      page: updates.page ?? String(page),
+    }
+
+    if (merged.provider === DEFAULT_PROVIDER) next.delete('provider')
+    else next.set('provider', merged.provider)
+
+    if (merged.status === DEFAULT_STATUS) next.delete('status')
+    else next.set('status', merged.status)
+
+    if (merged.attention === DEFAULT_ATTENTION) next.delete('attention')
+    else next.set('attention', merged.attention)
+
+    if (merged.sort === DEFAULT_SORT) next.delete('sort')
+    else next.set('sort', merged.sort)
+
+    if (Number(merged.pageSize) === DEFAULT_PAGE_SIZE) next.delete('pageSize')
+    else next.set('pageSize', merged.pageSize)
+
+    if (Number(merged.page) <= 1) next.delete('page')
+    else next.set('page', merged.page)
+
+    setSearchParams(next)
+  }
 
   const handleTriggerSync = (accountId: string) => {
     if (!syncMutation.isPending) {
@@ -161,7 +228,7 @@ export function SyncStatusPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={providerFilter}
-                onChange={(e) => setProviderFilter(e.target.value as CloudProvider | 'all')}
+                onChange={(e) => updateParams({ provider: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="all">All providers</option>
@@ -172,7 +239,7 @@ export function SyncStatusPage() {
 
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ConnectorStatus | 'all')}
+                onChange={(e) => updateParams({ status: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="all">All status</option>
@@ -184,7 +251,7 @@ export function SyncStatusPage() {
 
               <select
                 value={attentionFilter}
-                onChange={(e) => setAttentionFilter(e.target.value as AttentionFilter)}
+                onChange={(e) => updateParams({ attention: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="all">All attention</option>
@@ -194,7 +261,7 @@ export function SyncStatusPage() {
 
               <select
                 value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                onChange={(e) => updateParams({ sort: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="attention_first">Sort: Attention first</option>
@@ -205,7 +272,7 @@ export function SyncStatusPage() {
 
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                onChange={(e) => updateParams({ pageSize: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value={10}>10 / page</option>
@@ -328,7 +395,7 @@ export function SyncStatusPage() {
             </span>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => updateParams({ page: String(Math.max(1, currentPage - 1)) })}
                 disabled={currentPage <= 1}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
                 aria-label="Previous page"
@@ -339,7 +406,7 @@ export function SyncStatusPage() {
                 Page {currentPage} / {totalPages}
               </span>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => updateParams({ page: String(Math.min(totalPages, currentPage + 1)) })}
                 disabled={currentPage >= totalPages}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
                 aria-label="Next page"
