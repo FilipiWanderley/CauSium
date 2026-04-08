@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, RefreshCw, ServerCog } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
-import type { ConnectorStatus } from '../../types'
+import type { CloudProvider, ConnectorStatus } from '../../types'
 
 const STATUS_BADGE: Record<ConnectorStatus, string> = {
   active: 'bg-green-100 text-green-700',
@@ -19,8 +19,16 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString()
 }
 
+type AttentionFilter = 'all' | 'needs_attention' | 'healthy'
+type SortKey = 'attention_first' | 'open_dlq_desc' | 'last_sync_desc' | 'name_asc'
+
 export function SyncStatusPage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const [providerFilter, setProviderFilter] = useState<CloudProvider | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<ConnectorStatus | 'all'>('all')
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('attention_first')
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -32,6 +40,13 @@ export function SyncStatusPage() {
     refetchInterval: 30000,
   })
 
+  const syncMutation = useMutation({
+    mutationFn: (accountId: string) => cloudAccountsApi.sync(accountId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-sync-status'] })
+    },
+  })
+
   const summary = useMemo(() => {
     const items = data ?? []
     return {
@@ -41,6 +56,48 @@ export function SyncStatusPage() {
       openDlq: items.reduce((acc, item) => acc + item.open_dlq_count, 0),
     }
   }, [data])
+
+  const filteredData = useMemo(() => {
+    const items = [...(data ?? [])]
+      .filter((item) => (providerFilter === 'all' ? true : item.provider === providerFilter))
+      .filter((item) => (statusFilter === 'all' ? true : item.connector_status === statusFilter))
+      .filter((item) => {
+        if (attentionFilter === 'all') return true
+        if (attentionFilter === 'needs_attention') return item.needs_attention
+        return !item.needs_attention
+      })
+
+    items.sort((a, b) => {
+      if (sortKey === 'open_dlq_desc') {
+        return b.open_dlq_count - a.open_dlq_count
+      }
+
+      if (sortKey === 'last_sync_desc') {
+        const aTs = a.last_sync_at ? new Date(a.last_sync_at).getTime() : 0
+        const bTs = b.last_sync_at ? new Date(b.last_sync_at).getTime() : 0
+        return bTs - aTs
+      }
+
+      if (sortKey === 'name_asc') {
+        return a.display_name.localeCompare(b.display_name)
+      }
+
+      if (a.needs_attention !== b.needs_attention) {
+        return a.needs_attention ? -1 : 1
+      }
+      return b.open_dlq_count - a.open_dlq_count
+    })
+
+    return items
+  }, [data, providerFilter, statusFilter, attentionFilter, sortKey])
+
+  const syncingAccountId = syncMutation.isPending ? syncMutation.variables : null
+
+  const handleTriggerSync = (accountId: string) => {
+    if (!syncMutation.isPending) {
+      syncMutation.mutate(accountId)
+    }
+  }
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -85,12 +142,71 @@ export function SyncStatusPage() {
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100">
-          <span className="text-sm font-semibold text-gray-700">Connector Operations</span>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <span className="text-sm font-semibold text-gray-700">Connector Operations</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={providerFilter}
+                onChange={(e) => setProviderFilter(e.target.value as CloudProvider | 'all')}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="all">All providers</option>
+                <option value="azure">Azure</option>
+                <option value="aws">AWS</option>
+                <option value="gcp">GCP</option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as ConnectorStatus | 'all')}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="all">All status</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+                <option value="error">Error</option>
+              </select>
+
+              <select
+                value={attentionFilter}
+                onChange={(e) => setAttentionFilter(e.target.value as AttentionFilter)}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="all">All attention</option>
+                <option value="needs_attention">Needs attention</option>
+                <option value="healthy">Healthy only</option>
+              </select>
+
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="attention_first">Sort: Attention first</option>
+                <option value="open_dlq_desc">Sort: DLQ high to low</option>
+                <option value="last_sync_desc">Sort: Latest sync</option>
+                <option value="name_asc">Sort: Name A-Z</option>
+              </select>
+            </div>
+          </div>
         </div>
+
+        {syncMutation.isError && (
+          <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            Could not trigger sync for this account. Please try again.
+          </div>
+        )}
+
+        {syncMutation.isSuccess && (
+          <div className="mx-5 mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Sync job queued successfully.
+          </div>
+        )}
 
         {isLoading ? (
           <div className="py-12 text-center text-sm text-gray-400">Loading sync status...</div>
-        ) : !data?.length ? (
+        ) : !filteredData.length ? (
           <div className="py-12 text-center text-sm text-gray-500">No cloud accounts found.</div>
         ) : (
           <table className="w-full text-sm">
@@ -103,10 +219,11 @@ export function SyncStatusPage() {
                 <th className="px-4 py-3">Last Health Check</th>
                 <th className="px-4 py-3">Open DLQ</th>
                 <th className="px-4 py-3 text-center">Attention</th>
+                <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((item) => (
+              {filteredData.map((item) => (
                 <tr key={item.account_id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5">
                     <p className="font-semibold text-gray-900">{item.display_name}</p>
@@ -154,6 +271,23 @@ export function SyncStatusPage() {
                           OK
                         </span>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleTriggerSync(item.account_id)}
+                        disabled={syncMutation.isPending}
+                        className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-60"
+                      >
+                        <RefreshCw
+                          className={clsx(
+                            'h-3.5 w-3.5',
+                            syncingAccountId === item.account_id && 'animate-spin'
+                          )}
+                        />
+                        {syncingAccountId === item.account_id ? 'Queueing...' : 'Trigger Sync'}
+                      </button>
                     </div>
                   </td>
                 </tr>
