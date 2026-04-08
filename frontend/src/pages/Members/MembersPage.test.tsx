@@ -235,4 +235,44 @@ describe('MembersPage UX state safety', () => {
       expect(screen.getByText('Member created successfully.')).toBeInTheDocument()
     })
   })
+
+  it('disables invite filters and pagination while create invite is pending', async () => {
+    let resolveCreateInvite: (() => void) | undefined
+    createInviteMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreateInvite = () =>
+            resolve({
+              data: {
+                invited_email: 'new@company.com',
+                token: 'tok-new',
+              },
+            })
+        })
+    )
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invites' }))
+
+    fireEvent.change(screen.getByPlaceholderText('member@company.com'), {
+      target: { value: 'new@company.com' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Invite' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled()
+    })
+
+    expect(screen.getByPlaceholderText('Search by invited email')).toBeDisabled()
+    expect(screen.getByDisplayValue('all')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Prev' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+    resolveCreateInvite?.()
+    await waitFor(() => {
+      expect(screen.getByText(/Invite created for new@company.com./)).toBeInTheDocument()
+    })
+  })
 })

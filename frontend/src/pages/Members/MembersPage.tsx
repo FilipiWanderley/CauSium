@@ -419,6 +419,7 @@ export function MembersPage() {
               <input
                 type="text"
                 value={inviteQuery}
+                disabled={hasInviteMutationInFlight}
                 onChange={(e) => {
                   setInviteQuery(e.target.value)
                   setInvitePage(1)
@@ -428,6 +429,7 @@ export function MembersPage() {
               />
               <select
                 value={inviteStatusFilter}
+                disabled={hasInviteMutationInFlight}
                 onChange={(e) => {
                   setInviteStatusFilter(e.target.value as 'all' | InviteStatus)
                   setInvitePage(1)
