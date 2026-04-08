@@ -75,7 +75,7 @@ class InviteService:
         )
 
         # SP-AP03: send workspace invite email when SMTP is enabled.
-        accept_url = f"{get_settings().frontend_url}/invites/{invite.token}"
+        accept_url = f"{get_settings().frontend_url}/activate?token={invite.token}"
         await self.email.send_email(
             to_email=req.email,
             subject="[StratoPulse] Voce foi convidado para um workspace",
