@@ -6,7 +6,7 @@ import { auditChainApi } from '../../api/auditChain'
 import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 
 const STATE_BADGE: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -39,18 +39,25 @@ interface UserAuditState {
 
 type AuditWindow = '24h' | '7d' | '30d' | 'all'
 
+const AUDIT_WINDOW_OPTIONS: AuditWindow[] = ['24h', '7d', '30d', 'all']
+
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [page, setPage] = useState(1)
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
-  const [auditWindow, setAuditWindow] = useState<AuditWindow>('7d')
   const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
+
+  const auditWindowRaw = searchParams.get('auditWindow')
+  const auditWindow: AuditWindow = AUDIT_WINDOW_OPTIONS.includes(auditWindowRaw as AuditWindow)
+    ? (auditWindowRaw as AuditWindow)
+    : '7d'
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -75,6 +82,16 @@ export function WorkspacesPage() {
     if (window === '7d') from.setDate(from.getDate() - 7)
     if (window === '30d') from.setDate(from.getDate() - 30)
     return from.toISOString()
+  }
+
+  const setAuditWindow = (window: AuditWindow) => {
+    const next = new URLSearchParams(searchParams)
+    if (window === '7d') {
+      next.delete('auditWindow')
+    } else {
+      next.set('auditWindow', window)
+    }
+    setSearchParams(next)
   }
 
   const { data: auditEventsPage } = useQuery({
