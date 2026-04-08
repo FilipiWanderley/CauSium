@@ -293,6 +293,55 @@ class AuthService:
         await self.db.refresh(target)
         return target, temp_password
 
+    async def admin_reset_mfa(
+        self, actor: User, target_user_id: UUID
+    ) -> tuple[User, int]:
+        """SP-U02: Admin resets target user's MFA credentials.
+
+        In the passkey-first implementation this revokes all passkeys for the
+        target user, forcing a fresh registration flow on the next secure login.
+        """
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+
+        if not self._can_manage(actor, target):
+            raise PermissionError(
+                f"Role '{actor.role.value}' cannot reset MFA for a user "
+                f"with role '{target.role.value}'"
+            )
+
+        result = await self.db.execute(
+            select(PasskeyCredential).where(PasskeyCredential.user_id == target.id)
+        )
+        passkeys = list(result.scalars().all())
+        revoked_count = len(passkeys)
+        for passkey in passkeys:
+            await self.db.delete(passkey)
+
+        target.passkey_enabled = False
+
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.mfa.admin_reset",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "target_email": target.email,
+                "actor_role": actor.role.value,
+                "target_role": target.role.value,
+                "revoked_passkeys": revoked_count,
+            },
+        )
+
+        await self.db.flush()
+        await self.db.refresh(target)
+        return target, revoked_count
+
     @staticmethod
     def _new_challenge() -> str:
         return secrets.token_urlsafe(48)

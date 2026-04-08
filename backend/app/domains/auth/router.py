@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
+    AdminResetMFAResponse,
     AdminResetPasswordResponse,
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -441,5 +442,39 @@ async def admin_reset_password(
     org_name = await service.get_org_name(target.org_id)
     return AdminResetPasswordResponse(
         temporary_password=temp_password,
+        user=_user_out(target, org_name),
+    )
+
+
+@router.post(
+    "/users/{user_id}/reset-mfa",
+    response_model=AdminResetMFAResponse,
+    summary="Admin resets another user's MFA",
+    responses={
+        403: {"description": "Caller outranked or cross-admin violation (SP-U03)"},
+        404: {"description": "Target user not found"},
+    },
+)
+async def admin_reset_mfa(
+    user_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    """Admin revokes all MFA credentials from *user_id*.
+
+    In the current passkey-first auth model, this removes all registered
+    passkeys from the target account and disables passkey login until the
+    user re-registers credentials.
+    """
+    service = AuthService(db)
+    try:
+        target, revoked_count = await service.admin_reset_mfa(current_user, user_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    org_name = await service.get_org_name(target.org_id)
+    return AdminResetMFAResponse(
+        revoked_passkeys=revoked_count,
         user=_user_out(target, org_name),
     )

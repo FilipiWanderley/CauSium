@@ -178,3 +178,15 @@ class AdminResetPasswordResponse(BaseModel):
 
     temporary_password: str
     user: UserOut
+
+
+class AdminResetMFAResponse(BaseModel):
+    """Response for admin-initiated MFA reset on a target user.
+
+    In the current passkey-first model, MFA reset revokes all registered
+    passkey credentials from the target account and disables passkey login
+    until the user re-registers new credentials.
+    """
+
+    revoked_passkeys: int
+    user: UserOut
