@@ -4,13 +4,14 @@ import time
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.security import decrypt_secret, encrypt_secret
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
+from app.domains.admin.models import DlqMessage, DlqStatus
 from app.domains.cloud_accounts.schemas import AzureCredentials, CloudAccountCreate
 from app.domains.cloud_accounts.validators import ScopeValidationResult
 
@@ -134,6 +135,61 @@ class CloudAccountService:
             select(CloudAccount).where(CloudAccount.org_id == org_id).order_by(CloudAccount.created_at)
         )
         return list(result.scalars().all())
+
+    async def list_sync_status(self, org_id: UUID) -> list[dict]:
+        accounts = await self.list_accounts(org_id)
+        if not accounts:
+            return []
+
+        account_ids = [a.id for a in accounts]
+
+        latest_health_rows = await self.db.execute(
+            select(
+                ConnectorHealth.account_id,
+                func.max(ConnectorHealth.checked_at).label("last_health_check_at"),
+            )
+            .where(ConnectorHealth.account_id.in_(account_ids))
+            .group_by(ConnectorHealth.account_id)
+        )
+        latest_health_by_account = {
+            row.account_id: row.last_health_check_at for row in latest_health_rows
+        }
+
+        dlq_rows = await self.db.execute(
+            select(
+                DlqMessage.account_id,
+                func.count(DlqMessage.id).label("open_dlq_count"),
+            )
+            .where(
+                DlqMessage.org_id == org_id,
+                DlqMessage.status == DlqStatus.OPEN,
+                DlqMessage.account_id.in_(account_ids),
+            )
+            .group_by(DlqMessage.account_id)
+        )
+        dlq_by_account = {
+            row.account_id: int(row.open_dlq_count) for row in dlq_rows
+        }
+
+        items: list[dict] = []
+        for account in accounts:
+            open_dlq_count = dlq_by_account.get(account.id, 0)
+            last_health_check_at = latest_health_by_account.get(account.id)
+            needs_attention = account.status != ConnectorStatus.ACTIVE or open_dlq_count > 0
+            items.append(
+                {
+                    "account_id": account.id,
+                    "provider": account.provider,
+                    "display_name": account.display_name,
+                    "connector_status": account.status,
+                    "last_sync_at": account.last_sync_at,
+                    "last_health_check_at": last_health_check_at,
+                    "open_dlq_count": open_dlq_count,
+                    "needs_attention": needs_attention,
+                }
+            )
+
+        return items
 
     async def get_account(self, org_id: UUID, account_id: UUID) -> CloudAccount | None:
         result = await self.db.execute(

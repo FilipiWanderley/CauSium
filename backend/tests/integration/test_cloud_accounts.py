@@ -1,4 +1,7 @@
 import pytest
+from uuid import UUID
+
+from app.domains.admin.models import DlqMessage, DlqStatus
 
 
 @pytest.mark.asyncio
@@ -71,3 +74,62 @@ async def test_health_check_uses_mock(client, auth_headers):
     assert health_resp.status_code == 200
     health = health_resp.json()
     assert health["status"] in ("active", "error")
+
+
+@pytest.mark.asyncio
+async def test_sync_status_returns_operational_fields(client, auth_headers, db):
+    create_resp = await client.post(
+        "/api/v1/cloud-accounts",
+        json={
+            "provider": "azure",
+            "external_id": "sub-sync-status",
+            "display_name": "Sync Status Sub",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    account = create_resp.json()
+    account_id = account["id"]
+
+    db.add(
+        DlqMessage(
+            queue_name="ingestion:queue",
+            org_id=UUID(account["org_id"]),
+            account_id=UUID(account_id),
+            original_payload='{"account_id": "sub-sync-status"}',
+            error_message="boom",
+            retry_count=3,
+            status=DlqStatus.OPEN,
+        )
+    )
+    await db.commit()
+
+    resp = await client.get("/api/v1/cloud-accounts/sync-status", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    items = resp.json()
+
+    target = next(item for item in items if item["account_id"] == account_id)
+    assert target["display_name"] == "Sync Status Sub"
+    assert target["provider"] == "azure"
+    assert target["connector_status"] == "pending"
+    assert target["open_dlq_count"] == 1
+    assert target["needs_attention"] is True
+
+
+@pytest.mark.asyncio
+async def test_sync_status_respects_workspace_isolation(client, org_a, org_b):
+    create_resp = await client.post(
+        "/api/v1/cloud-accounts",
+        json={
+            "provider": "azure",
+            "external_id": "sub-iso-sync",
+            "display_name": "Org B Sync Sub",
+        },
+        headers=org_b["headers"],
+    )
+    assert create_resp.status_code == 201
+    account_id = create_resp.json()["id"]
+
+    resp_a = await client.get("/api/v1/cloud-accounts/sync-status", headers=org_a["headers"])
+    assert resp_a.status_code == 200
+    assert all(item["account_id"] != account_id for item in resp_a.json())

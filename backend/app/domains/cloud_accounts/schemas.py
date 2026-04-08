@@ -53,6 +53,17 @@ class SyncStatusOut(BaseModel):
     message: str
 
 
+class ConnectorSyncStatusOut(BaseModel):
+    account_id: UUID
+    provider: CloudProvider
+    display_name: str
+    connector_status: ConnectorStatus
+    last_sync_at: datetime | None
+    last_health_check_at: datetime | None
+    open_dlq_count: int
+    needs_attention: bool
+
+
 class ScopeValidationOut(BaseModel):
     account_id: UUID
     provider: CloudProvider

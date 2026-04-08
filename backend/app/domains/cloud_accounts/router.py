@@ -12,6 +12,7 @@ from app.domains.auth.models import UserRole
 from app.domains.cloud_accounts.schemas import (
     CloudAccountCreate,
     CloudAccountOut,
+    ConnectorSyncStatusOut,
     ConnectorHealthOut,
     ScopeValidationOut,
     SyncStatusOut,
@@ -44,6 +45,15 @@ async def list_accounts(
     service = CloudAccountService(db)
     accounts = await service.list_accounts(current_user.org_id)
     return [CloudAccountOut.model_validate(a) for a in accounts]
+
+
+@router.get("/sync-status", response_model=List[ConnectorSyncStatusOut])
+async def get_sync_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    service = CloudAccountService(db)
+    return await service.list_sync_status(current_user.org_id)
 
 
 @router.get("/{account_id}", response_model=CloudAccountOut)
