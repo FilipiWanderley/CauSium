@@ -48,12 +48,13 @@ export function WorkspacesPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [page, setPage] = useState(1)
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
   const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
 
   const expandedOrgId = searchParams.get('expandedOrgId')
+  const pageRaw = Number(searchParams.get('page'))
+  const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
   const auditWindowRaw = searchParams.get('auditWindow')
   const auditWindow: AuditWindow = AUDIT_WINDOW_OPTIONS.includes(auditWindowRaw as AuditWindow)
@@ -91,6 +92,16 @@ export function WorkspacesPage() {
       next.delete('auditWindow')
     } else {
       next.set('auditWindow', window)
+    }
+    setSearchParams(next)
+  }
+
+  const setPage = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (nextPage <= 1) {
+      next.delete('page')
+    } else {
+      next.set('page', String(nextPage))
     }
     setSearchParams(next)
   }
@@ -254,7 +265,7 @@ export function WorkspacesPage() {
           </span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
             >
@@ -264,7 +275,7 @@ export function WorkspacesPage() {
               {page} / {totalPages}
             </span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page >= totalPages}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
             >
