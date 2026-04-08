@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
+import { auditChainApi } from '../../api/auditChain'
 import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
@@ -31,6 +32,11 @@ interface PasswordResetResult {
   temporaryPassword: string
 }
 
+interface UserAuditState {
+  lastPasswordResetAt: string | null
+  lastMfaResetAt: string | null
+}
+
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
@@ -57,6 +63,37 @@ export function WorkspacesPage() {
     queryFn: () => adminApi.listOrgUsers(expandedOrgId!, 1, 50).then((r) => r.data),
     enabled: !!expandedOrgId,
   })
+
+  const { data: auditEventsPage } = useQuery({
+    queryKey: ['audit-auth-events-org', expandedOrgId],
+    queryFn: () => auditChainApi.listAuthEvents(expandedOrgId!, 200).then((r) => r.data),
+    enabled: !!expandedOrgId,
+  })
+
+  const userAuditMap = (() => {
+    const map = new Map<string, UserAuditState>()
+    const items = auditEventsPage?.items ?? []
+    for (const evt of items) {
+      if (evt.entity_type !== 'user') continue
+      if (evt.event_type !== 'auth.password.admin_reset' && evt.event_type !== 'auth.mfa.admin_reset') {
+        continue
+      }
+      const prev = map.get(evt.entity_id) ?? { lastPasswordResetAt: null, lastMfaResetAt: null }
+      if (evt.event_type === 'auth.password.admin_reset' && !prev.lastPasswordResetAt) {
+        prev.lastPasswordResetAt = evt.created_at
+      }
+      if (evt.event_type === 'auth.mfa.admin_reset' && !prev.lastMfaResetAt) {
+        prev.lastMfaResetAt = evt.created_at
+      }
+      map.set(evt.entity_id, prev)
+    }
+    return map
+  })()
+
+  const formatAuditDate = (value: string | null) => {
+    if (!value) return null
+    return new Date(value).toLocaleString()
+  }
 
   const actionMutation = useMutation({
     mutationFn: ({ action, orgId, reason }: { action: ActionType; orgId: string; reason: string }) => {
@@ -309,6 +346,18 @@ export function WorkspacesPage() {
                                     {u.full_name}
                                   </span>
                                   <span className="ml-2 text-xs text-gray-500">{u.email}</span>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                    {userAuditMap.get(u.id)?.lastPasswordResetAt && (
+                                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                        pwd reset: {formatAuditDate(userAuditMap.get(u.id)?.lastPasswordResetAt ?? null)}
+                                      </span>
+                                    )}
+                                    {userAuditMap.get(u.id)?.lastMfaResetAt && (
+                                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                                        mfa reset: {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
