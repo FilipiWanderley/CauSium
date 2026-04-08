@@ -12,19 +12,38 @@ import {
   ShieldAlert,
   Building2,
   RefreshCw,
+  Bell,
+  Leaf,
+  Landmark,
+  Receipt,
+  Boxes,
+  FileSpreadsheet,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 
-const NAV = [
-  { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/app/opportunities', icon: Lightbulb, label: 'Opportunities' },
+type NavItem = {
+  to: string
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  soon?: boolean
+}
+
+const CORE_NAV: NavItem[] = [
+  { to: '/app/economics', icon: LayoutDashboard, label: 'Economics' },
+  { to: '/app/economics/costs', icon: Receipt, label: 'Economics Costs', soon: true },
+  { to: '/app/economics/usage', icon: BarChart3, label: 'Economics Usage', soon: true },
+  { to: '/app/economics/skus', icon: Boxes, label: 'Economics SKUs', soon: true },
+  { to: '/app/economics/reports', icon: FileSpreadsheet, label: 'Economics Reports', soon: true },
+  { to: '/app/intel', icon: Lightbulb, label: 'PulseIntel' },
+  { to: '/app/lab', icon: FlaskConical, label: 'PulseLab' },
+  { to: '/app/notifications', icon: Bell, label: 'Notifications', soon: true },
+  { to: '/app/gov', icon: Landmark, label: 'PulseGov', soon: true },
+  { to: '/app/green', icon: Leaf, label: 'PulseGreen', soon: true },
   { to: '/app/initiatives', icon: ListTodo, label: 'Initiatives' },
-  { to: '/app/experiments', icon: FlaskConical, label: 'Experiments' },
   { to: '/app/risk-budgets', icon: ShieldAlert, label: 'Risk Budgets' },
   { to: '/app/change-events', icon: Activity, label: 'Change Events' },
   { to: '/app/executive', icon: BarChart3, label: 'Executive' },
-  { to: '/app/settings', icon: Settings, label: 'Settings' },
 ]
 
 export function Sidebar() {
@@ -38,8 +57,8 @@ export function Sidebar() {
         <Cloud className="h-6 w-6 text-brand-500" />
         <span className="font-bold text-lg tracking-tight">StratoPulse</span>
       </div>
-      <nav className="flex-1 py-4 space-y-1 px-2">
-        {NAV.map(({ to, icon: Icon, label }) => (
+      <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
+        {CORE_NAV.map(({ to, icon: Icon, label, soon }) => (
           <NavLink
             key={to}
             to={to}
@@ -53,26 +72,91 @@ export function Sidebar() {
             }
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex-1 truncate">{label}</span>
+            {soon && (
+              <span className="rounded bg-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
+                Soon
+              </span>
+            )}
           </NavLink>
         ))}
 
         {isAdmin && (
-          <NavLink
-            to="/app/members"
-            className={({ isActive }) =>
-              clsx(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-brand-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )
-            }
-          >
-            <Users className="h-4 w-4" />
-            Members
-          </NavLink>
+          <>
+            <div className="my-2 mx-3 border-t border-gray-700" />
+            <NavLink
+              to="/app/members"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Users className="h-4 w-4" />
+              Members
+            </NavLink>
+            <NavLink
+              to="/app/settings/team"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Settings className="h-4 w-4" />
+              Settings Team
+            </NavLink>
+            <NavLink
+              to="/app/settings/cloud"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Settings className="h-4 w-4" />
+              Settings Cloud
+            </NavLink>
+            <NavLink
+              to="/app/settings/security"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Settings className="h-4 w-4" />
+              Settings Security
+            </NavLink>
+          </>
         )}
+
+        <NavLink
+          to="/app/settings"
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-brand-600 text-white'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            )
+          }
+        >
+          <Settings className="h-4 w-4" />
+          Settings
+        </NavLink>
 
         {isPlatformAdmin && (
           <>

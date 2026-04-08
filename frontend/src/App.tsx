@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/Layout/AppLayout'
+import { ComingSoonPage } from './pages/ComingSoon/ComingSoonPage'
 
 const LoginPage = lazy(() => import('./pages/Login/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ForgotPasswordPage = lazy(() =>
@@ -69,14 +70,83 @@ export default function App() {
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="economics" element={<DashboardPage />} />
+            <Route
+              path="economics/costs"
+              element={
+                <ComingSoonPage
+                  title="Economics Costs"
+                  description="Detailed cost analysis with advanced filters will be connected here."
+                />
+              }
+            />
+            <Route
+              path="economics/usage"
+              element={
+                <ComingSoonPage
+                  title="Economics Usage"
+                  description="Usage and efficiency analytics per service and team will be connected here."
+                />
+              }
+            />
+            <Route
+              path="economics/skus"
+              element={
+                <ComingSoonPage
+                  title="Economics SKUs"
+                  description="SKU concentration, anomalies and breakdown analysis will be connected here."
+                />
+              }
+            />
+            <Route
+              path="economics/reports"
+              element={
+                <ComingSoonPage
+                  title="Economics Reports"
+                  description="Asynchronous exports and report management will be connected here."
+                />
+              }
+            />
             <Route path="opportunities" element={<OpportunitiesPage />} />
+            <Route path="intel" element={<OpportunitiesPage />} />
             <Route path="initiatives" element={<InitiativesPage />} />
             <Route path="experiments" element={<ExperimentsPage />} />
+            <Route path="lab" element={<ExperimentsPage />} />
             <Route path="risk-budgets" element={<RiskBudgetsPage />} />
             <Route path="change-events" element={<ChangeEventsPage />} />
             <Route path="executive" element={<ExecutivePage />} />
+            <Route
+              path="notifications"
+              element={
+                <ComingSoonPage
+                  title="Notifications"
+                  description="Centralized alert management and notification preferences will be connected here."
+                />
+              }
+            />
+            <Route
+              path="gov"
+              element={
+                <ComingSoonPage
+                  title="PulseGov"
+                  description="Governance and compliance controls for resources will be connected here."
+                />
+              }
+            />
+            <Route
+              path="green"
+              element={
+                <ComingSoonPage
+                  title="PulseGreen"
+                  description="Sustainability and carbon analytics will be connected here."
+                />
+              }
+            />
             <Route path="members" element={<MembersPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings/team" element={<SettingsPage />} />
+            <Route path="settings/cloud" element={<SettingsPage />} />
+            <Route path="settings/security" element={<SettingsPage />} />
             <Route path="platform/workspaces" element={<WorkspacesPage />} />
             <Route path="platform/sync" element={<SyncStatusPage />} />
           </Route>
