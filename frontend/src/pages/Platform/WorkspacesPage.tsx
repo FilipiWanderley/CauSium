@@ -37,6 +37,8 @@ interface UserAuditState {
   lastMfaResetAt: string | null
 }
 
+type AuditWindow = '24h' | '7d' | '30d' | 'all'
+
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
@@ -46,6 +48,7 @@ export function WorkspacesPage() {
   const [page, setPage] = useState(1)
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
+  const [auditWindow, setAuditWindow] = useState<AuditWindow>('7d')
   const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
 
@@ -64,9 +67,22 @@ export function WorkspacesPage() {
     enabled: !!expandedOrgId,
   })
 
+  const createdAfterByWindow = (window: AuditWindow): string | undefined => {
+    if (window === 'all') return undefined
+    const now = new Date()
+    const from = new Date(now)
+    if (window === '24h') from.setHours(from.getHours() - 24)
+    if (window === '7d') from.setDate(from.getDate() - 7)
+    if (window === '30d') from.setDate(from.getDate() - 30)
+    return from.toISOString()
+  }
+
   const { data: auditEventsPage } = useQuery({
-    queryKey: ['audit-auth-events-org', expandedOrgId],
-    queryFn: () => auditChainApi.listAuthEvents(expandedOrgId!, 200).then((r) => r.data),
+    queryKey: ['audit-auth-events-org', expandedOrgId, auditWindow],
+    queryFn: () =>
+      auditChainApi
+        .listAuthEvents(expandedOrgId!, 200, createdAfterByWindow(auditWindow))
+        .then((r) => r.data),
     enabled: !!expandedOrgId,
   })
 
@@ -324,6 +340,19 @@ export function WorkspacesPage() {
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                               Users ({expandedUsers.total})
                             </p>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <span className="text-[11px] text-gray-500">Audit timeline window</span>
+                              <select
+                                value={auditWindow}
+                                onChange={(e) => setAuditWindow(e.target.value as AuditWindow)}
+                                className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                              >
+                                <option value="24h">Last 24h</option>
+                                <option value="7d">Last 7 days</option>
+                                <option value="30d">Last 30 days</option>
+                                <option value="all">All time</option>
+                              </select>
+                            </div>
                             {userFeedback && (
                               <div
                                 className={clsx(
