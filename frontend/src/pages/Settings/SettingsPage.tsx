@@ -4,6 +4,7 @@ import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { ledgerApi } from '../../api/ledger'
 import { opportunitiesApi } from '../../api/opportunities'
 import { authApi } from '../../api/auth'
+import { invitesApi, type InviteOut, type InviteRole } from '../../api/invites'
 import { Plus, Trash2, RefreshCw, Activity, Zap } from 'lucide-react'
 import { format, subDays } from 'date-fns'
 import type { CloudAccount } from '../../types'
@@ -19,6 +20,8 @@ export function SettingsPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [registeringPasskey, setRegisteringPasskey] = useState(false)
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null)
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'viewer' as InviteRole, expiresInDays: 7 })
+  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null)
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ['cloud-accounts'],
@@ -28,6 +31,12 @@ export function SettingsPage() {
   const { data: passkeys } = useQuery({
     queryKey: ['auth-passkeys'],
     queryFn: () => authApi.listPasskeys().then((r) => r.data),
+  })
+
+  const { data: invitesPage } = useQuery({
+    queryKey: ['workspace-invites'],
+    queryFn: () => invitesApi.list(1, 50).then((r) => r.data),
+    enabled: user?.role === 'admin' || user?.role === 'platform_admin',
   })
 
   const createMutation = useMutation({
@@ -62,6 +71,35 @@ export function SettingsPage() {
       const me = await authApi.me()
       queryClient.setQueryData(['auth-user'], me.data)
       setPasskeyMessage('Passkey revogada com sucesso')
+    },
+  })
+
+  const createInviteMutation = useMutation({
+    mutationFn: () =>
+      invitesApi.create({
+        email: inviteForm.email.trim().toLowerCase(),
+        role: inviteForm.role,
+        expires_in_days: inviteForm.expiresInDays,
+      }),
+    onSuccess: async ({ data }) => {
+      await queryClient.invalidateQueries({ queryKey: ['workspace-invites'] })
+      setInviteForm({ email: '', role: 'viewer', expiresInDays: 7 })
+      const link = `${window.location.origin}/activate?token=${data.token}`
+      setInviteFeedback(`Invite created for ${data.invited_email}. Activation link: ${link}`)
+    },
+    onError: (error) => {
+      setInviteFeedback((error as Error)?.message ?? 'Could not create invite')
+    },
+  })
+
+  const revokeInviteMutation = useMutation({
+    mutationFn: (inviteId: string) => invitesApi.revoke(inviteId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['workspace-invites'] })
+      setInviteFeedback('Invite revoked successfully')
+    },
+    onError: (error) => {
+      setInviteFeedback((error as Error)?.message ?? 'Could not revoke invite')
     },
   })
 
@@ -102,6 +140,19 @@ export function SettingsPage() {
     }
   }
 
+  const copyInviteLink = async (invite: InviteOut) => {
+    const link = `${window.location.origin}/activate?token=${invite.token}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setInviteFeedback(`Activation link copied for ${invite.invited_email}`)
+    } catch {
+      setInviteFeedback(`Copy failed. Link: ${link}`)
+    }
+  }
+
+  const invites = invitesPage?.items ?? []
+  const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
@@ -110,6 +161,101 @@ export function SettingsPage() {
       </div>
 
       {/* Cloud Accounts */}
+      {isAdmin && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Member Invites</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Create and manage activation links for new workspace members.
+              </p>
+            </div>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+              {invites.length} invites
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <input
+              type="email"
+              value={inviteForm.email}
+              onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
+              placeholder="member@company.com"
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+            <select
+              value={inviteForm.role}
+              onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value as InviteRole }))}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value="viewer">viewer</option>
+              <option value="executive">executive</option>
+              <option value="finops">finops</option>
+              <option value="engineer">engineer</option>
+              <option value="admin">admin</option>
+            </select>
+            <select
+              value={inviteForm.expiresInDays}
+              onChange={(e) => setInviteForm((prev) => ({ ...prev, expiresInDays: Number(e.target.value) }))}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value={3}>3 days</option>
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+            </select>
+            <button
+              onClick={() => createInviteMutation.mutate()}
+              disabled={!inviteForm.email.trim() || createInviteMutation.isPending}
+              className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}
+            </button>
+          </div>
+
+          {inviteFeedback && (
+            <div className="mt-3 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              {inviteFeedback}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-2">
+            {!invites.length ? (
+              <div className="text-xs text-gray-500">No invites created yet.</div>
+            ) : (
+              invites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="flex items-center justify-between rounded border border-gray-200 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-800">{invite.invited_email}</div>
+                    <div className="text-xs text-gray-500">
+                      {invite.role} · {invite.status} · expires {new Date(invite.expires_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="ml-3 flex items-center gap-2">
+                    <button
+                      onClick={() => copyInviteLink(invite)}
+                      className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Copy Link
+                    </button>
+                    <button
+                      onClick={() => revokeInviteMutation.mutate(invite.id)}
+                      disabled={invite.status !== 'pending' || revokeInviteMutation.isPending}
+                      className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
