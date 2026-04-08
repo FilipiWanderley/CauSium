@@ -9,6 +9,9 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('./pages/ResetPassword/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage }))
 )
+const ActivateInvitePage = lazy(() =>
+  import('./pages/ActivateInvite/ActivateInvitePage').then((m) => ({ default: m.ActivateInvitePage }))
+)
 const ChangePasswordPage = lazy(() =>
   import('./pages/ChangePassword/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage }))
 )
@@ -52,6 +55,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/activate" element={<ActivateInvitePage />} />
 
           {/* ── SP-A01: Change-password — authenticated but outside AppLayout ── */}
           {/* The page renders full-screen and is accessible even when             */}

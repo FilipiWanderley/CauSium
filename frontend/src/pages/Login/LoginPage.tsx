@@ -9,6 +9,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [resetSuccess, setResetSuccess] = useState(false)
+  const [activationSuccess, setActivationSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [oidcLoading, setOidcLoading] = useState(false)
@@ -20,6 +21,10 @@ export function LoginPage() {
     if (oidcError) setError(`OIDC falhou: ${oidcError}`)
     if (params.get('reset') === 'success') {
       setResetSuccess(true)
+      setError('')
+    }
+    if (params.get('activated') === 'success') {
+      setActivationSuccess(true)
       setError('')
     }
   }, [])
@@ -85,6 +90,12 @@ export function LoginPage() {
           {resetSuccess && (
             <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
               Password updated successfully. Sign in with your new password.
+            </div>
+          )}
+
+          {activationSuccess && (
+            <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+              Invite accepted successfully. Sign in with your new account.
             </div>
           )}
 
