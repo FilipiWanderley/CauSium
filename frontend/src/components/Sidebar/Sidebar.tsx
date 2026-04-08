@@ -31,8 +31,8 @@ type NavItem = {
 
 const CORE_NAV: NavItem[] = [
   { to: '/app/economics', icon: LayoutDashboard, label: 'Economics' },
-  { to: '/app/economics/costs', icon: Receipt, label: 'Economics Costs', soon: true },
-  { to: '/app/economics/usage', icon: BarChart3, label: 'Economics Usage', soon: true },
+  { to: '/app/economics/costs', icon: Receipt, label: 'Economics Costs' },
+  { to: '/app/economics/usage', icon: BarChart3, label: 'Economics Usage' },
   { to: '/app/economics/skus', icon: Boxes, label: 'Economics SKUs' },
   { to: '/app/economics/reports', icon: FileSpreadsheet, label: 'Economics Reports' },
   { to: '/app/intel', icon: Lightbulb, label: 'PulseIntel' },

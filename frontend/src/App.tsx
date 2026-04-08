@@ -55,6 +55,12 @@ const EconomicsSkusPage = lazy(() =>
 const EconomicsReportsPage = lazy(() =>
   import('./pages/EconomicsReports/EconomicsReportsPage').then((m) => ({ default: m.EconomicsReportsPage }))
 )
+const EconomicsCostsPage = lazy(() =>
+  import('./pages/EconomicsCosts/EconomicsCostsPage').then((m) => ({ default: m.EconomicsCostsPage }))
+)
+const EconomicsUsagePage = lazy(() =>
+  import('./pages/EconomicsUsage/EconomicsUsagePage').then((m) => ({ default: m.EconomicsUsagePage }))
+)
 
 export default function App() {
   return (
@@ -79,21 +85,11 @@ export default function App() {
             <Route path="economics" element={<DashboardPage />} />
             <Route
               path="economics/costs"
-              element={
-                <ComingSoonPage
-                  title="Economics Costs"
-                  description="Detailed cost analysis with advanced filters will be connected here."
-                />
-              }
+              element={<EconomicsCostsPage />}
             />
             <Route
               path="economics/usage"
-              element={
-                <ComingSoonPage
-                  title="Economics Usage"
-                  description="Usage and efficiency analytics per service and team will be connected here."
-                />
-              }
+              element={<EconomicsUsagePage />}
             />
             <Route
               path="economics/skus"
