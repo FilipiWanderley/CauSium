@@ -1,9 +1,17 @@
 import { apiClient } from './client'
 import type { RiskBudget, BudgetType, BudgetPeriod } from '../types'
 
+interface ApiPage<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  has_next: boolean
+}
+
 export const riskBudgetsApi = {
   list: (params?: { active_only?: boolean }) =>
-    apiClient.get<RiskBudget[]>('/risk-budgets', { params }),
+    apiClient.get<ApiPage<RiskBudget>>('/risk-budgets', { params }),
 
   get: (id: string) => apiClient.get<RiskBudget>(`/risk-budgets/${id}`),
 

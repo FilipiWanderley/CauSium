@@ -109,7 +109,7 @@ export function DashboardPage() {
 
   const { data: recentEvents = [] } = useQuery({
     queryKey: ['change-events', 'dashboard'],
-    queryFn: () => changeEventsApi.list({ limit: 50 }).then((r) => r.data),
+    queryFn: () => changeEventsApi.list({ limit: 50 }).then((r) => r.data.items),
   })
 
   if (metricsLoading) {

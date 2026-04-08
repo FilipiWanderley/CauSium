@@ -1,9 +1,17 @@
 import { apiClient } from './client'
 import type { Comment, Initiative, InitiativeBoard } from '../types'
 
+interface ApiPage<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  has_next: boolean
+}
+
 export const initiativesApi = {
   list: (params?: { status?: string; owner_id?: string }) =>
-    apiClient.get<Initiative[]>('/initiatives', { params }),
+    apiClient.get<ApiPage<Initiative>>('/initiatives', { params }),
 
   board: () => apiClient.get<InitiativeBoard>('/initiatives/board'),
 

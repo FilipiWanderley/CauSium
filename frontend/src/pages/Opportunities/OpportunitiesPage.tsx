@@ -33,7 +33,7 @@ export function OpportunitiesPage() {
     queryFn: () =>
       opportunitiesApi
         .list({ category: selectedCategory || undefined, status: 'open' })
-        .then((r) => r.data),
+        .then((r) => r.data.items),
   })
 
   const updateStatus = useMutation({

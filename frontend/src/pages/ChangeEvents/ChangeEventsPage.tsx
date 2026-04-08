@@ -104,7 +104,7 @@ export function ChangeEventsPage() {
     queryFn: () =>
       changeEventsApi
         .list({ event_type: filterType || undefined, limit: 200 })
-        .then((r) => r.data),
+        .then((r) => r.data.items),
   })
 
   const createMutation = useMutation({

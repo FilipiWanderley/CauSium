@@ -1,6 +1,14 @@
 import { apiClient } from './client'
 import type { Opportunity, OpportunitySummary } from '../types'
 
+interface ApiPage<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  has_next: boolean
+}
+
 export const opportunitiesApi = {
   list: (params?: {
     status?: string
@@ -8,7 +16,7 @@ export const opportunitiesApi = {
     owner_team?: string
     limit?: number
     offset?: number
-  }) => apiClient.get<Opportunity[]>('/opportunities', { params }),
+  }) => apiClient.get<ApiPage<Opportunity>>('/opportunities', { params }),
 
   summary: () => apiClient.get<OpportunitySummary>('/opportunities/summary'),
 

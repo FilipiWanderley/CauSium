@@ -171,7 +171,7 @@ export function RiskBudgetsPage() {
 
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ['risk-budgets', activeOnly],
-    queryFn: () => riskBudgetsApi.list({ active_only: activeOnly }).then((r) => r.data),
+    queryFn: () => riskBudgetsApi.list({ active_only: activeOnly }).then((r) => r.data.items),
   })
 
   const createMutation = useMutation({

@@ -113,7 +113,7 @@ export function ExperimentsPage() {
 
   const { data: experiments = [], isLoading } = useQuery({
     queryKey: ['experiments'],
-    queryFn: () => experimentsApi.list({ limit: 200 }).then((r) => r.data),
+    queryFn: () => experimentsApi.list({ limit: 200 }).then((r) => r.data.items),
   })
 
   const { data: summary } = useQuery({

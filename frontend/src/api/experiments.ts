@@ -1,9 +1,17 @@
 import { apiClient } from './client'
 import type { Experiment, ExperimentRun, ExperimentSummary, ExperimentStatus } from '../types'
 
+interface ApiPage<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  has_next: boolean
+}
+
 export const experimentsApi = {
   list: (params?: { status?: ExperimentStatus; limit?: number; offset?: number }) =>
-    apiClient.get<Experiment[]>('/experiments', { params }),
+    apiClient.get<ApiPage<Experiment>>('/experiments', { params }),
 
   summary: () => apiClient.get<ExperimentSummary>('/experiments/summary'),
 
