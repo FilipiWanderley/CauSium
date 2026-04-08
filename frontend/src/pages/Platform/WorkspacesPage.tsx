@@ -35,6 +35,7 @@ interface PasswordResetResult {
 interface UserAuditState {
   lastPasswordResetAt: string | null
   lastMfaResetAt: string | null
+  lastDeactivatedAt: string | null
 }
 
 type AuditWindow = '24h' | '7d' | '30d' | 'all'
@@ -160,15 +161,26 @@ export function WorkspacesPage() {
     const items = auditEventsPage?.items ?? []
     for (const evt of items) {
       if (evt.entity_type !== 'user') continue
-      if (evt.event_type !== 'auth.password.admin_reset' && evt.event_type !== 'auth.mfa.admin_reset') {
+      if (
+        evt.event_type !== 'auth.password.admin_reset' &&
+        evt.event_type !== 'auth.mfa.admin_reset' &&
+        evt.event_type !== 'auth.user.deactivated'
+      ) {
         continue
       }
-      const prev = map.get(evt.entity_id) ?? { lastPasswordResetAt: null, lastMfaResetAt: null }
+      const prev = map.get(evt.entity_id) ?? {
+        lastPasswordResetAt: null,
+        lastMfaResetAt: null,
+        lastDeactivatedAt: null,
+      }
       if (evt.event_type === 'auth.password.admin_reset' && !prev.lastPasswordResetAt) {
         prev.lastPasswordResetAt = evt.created_at
       }
       if (evt.event_type === 'auth.mfa.admin_reset' && !prev.lastMfaResetAt) {
         prev.lastMfaResetAt = evt.created_at
+      }
+      if (evt.event_type === 'auth.user.deactivated' && !prev.lastDeactivatedAt) {
+        prev.lastDeactivatedAt = evt.created_at
       }
       map.set(evt.entity_id, prev)
     }
@@ -501,6 +513,11 @@ export function WorkspacesPage() {
                                     {userAuditMap.get(u.id)?.lastMfaResetAt && (
                                       <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
                                         mfa reset: {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
+                                      </span>
+                                    )}
+                                    {userAuditMap.get(u.id)?.lastDeactivatedAt && (
+                                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+                                        deactivated: {formatAuditDate(userAuditMap.get(u.id)?.lastDeactivatedAt ?? null)}
                                       </span>
                                     )}
                                   </div>
