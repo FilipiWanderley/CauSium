@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
-import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound } from 'lucide-react'
+import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate } from 'react-router-dom'
@@ -26,6 +26,11 @@ interface UserActionFeedback {
   message: string
 }
 
+interface PasswordResetResult {
+  email: string
+  temporaryPassword: string
+}
+
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
@@ -36,6 +41,7 @@ export function WorkspacesPage() {
   const [dialog, setDialog] = useState<ActionDialogState>({ action: null, org: null, reason: '' })
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
   const [userFeedback, setUserFeedback] = useState<UserActionFeedback | null>(null)
+  const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResult | null>(null)
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -84,6 +90,29 @@ export function WorkspacesPage() {
     },
   })
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (userId: string) => adminApi.resetUserPassword(userId).then((r) => r.data),
+    onSuccess: (payload, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
+      const targetUser = expandedUsers?.items.find((u) => u.id === userId)
+      const userLabel = targetUser?.email ?? payload.user.email
+      setPasswordResetResult({
+        email: userLabel,
+        temporaryPassword: payload.temporary_password,
+      })
+      setUserFeedback({
+        level: 'success',
+        message: `Password reset completed for ${userLabel}. User must change password on next login.`,
+      })
+    },
+    onError: (error) => {
+      setUserFeedback({
+        level: 'error',
+        message: (error as Error)?.message ?? 'Could not reset password for this user.',
+      })
+    },
+  })
+
   const openDialog = (action: ActionType, org: AdminOrgListItem) => {
     setDialog({ action, org, reason: '' })
   }
@@ -109,6 +138,16 @@ export function WorkspacesPage() {
     if (!confirmed) return
     setUserFeedback(null)
     resetMfaMutation.mutate(member.id)
+  }
+
+  const handleResetPassword = (member: AdminUserItem) => {
+    const confirmed = window.confirm(
+      `Reset password for ${member.email}? A temporary password will be generated.`
+    )
+    if (!confirmed) return
+    setUserFeedback(null)
+    setPasswordResetResult(null)
+    resetPasswordMutation.mutate(member.id)
   }
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
@@ -282,7 +321,7 @@ export function WorkspacesPage() {
                                   )}
                                   <button
                                     onClick={() => handleResetMfa(u)}
-                                    disabled={resetMfaMutation.isPending}
+                                    disabled={resetMfaMutation.isPending || resetPasswordMutation.isPending}
                                     title="Reset MFA / Passkeys"
                                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                                   >
@@ -290,6 +329,17 @@ export function WorkspacesPage() {
                                     {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
                                       ? 'Resetting...'
                                       : 'Reset MFA'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleResetPassword(u)}
+                                    disabled={resetMfaMutation.isPending || resetPasswordMutation.isPending}
+                                    title="Reset password"
+                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                                  >
+                                    <Key className="h-3.5 w-3.5" />
+                                    {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
+                                      ? 'Resetting...'
+                                      : 'Reset Password'}
                                   </button>
                                 </div>
                               </div>
@@ -392,6 +442,34 @@ export function WorkspacesPage() {
                     : dialog.action === 'restore'
                       ? 'Restore'
                       : 'Archive'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordResetResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={(e) => e.target === e.currentTarget && setPasswordResetResult(null)}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Temporary Password Generated</h3>
+            <p className="text-sm text-gray-500 mb-3">
+              User: <span className="font-medium text-gray-800">{passwordResetResult.email}</span>
+            </p>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
+              Share this password securely. It is shown only once and the user must change it on next login.
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-800 break-all">
+              {passwordResetResult.temporaryPassword}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setPasswordResetResult(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Close
               </button>
             </div>
           </div>
