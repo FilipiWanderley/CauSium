@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import type { UserRole } from '../../types'
 
 type MembersTab = 'members' | 'invites'
+type FeedbackTone = 'success' | 'error' | 'info'
 
 const ROLES: UserRole[] = ['viewer', 'executive', 'finops', 'engineer', 'admin']
 
@@ -27,7 +28,9 @@ export function MembersPage() {
   const queryClient = useQueryClient()
 
   const [tab, setTab] = useState<MembersTab>('members')
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ tone: FeedbackTone; message: string } | null>(null)
+  const [memberActionId, setMemberActionId] = useState<string | null>(null)
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null)
 
   const [memberForm, setMemberForm] = useState<MemberCreatePayload>({
     email: '',
@@ -49,6 +52,9 @@ export function MembersPage() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
   if (!isAdmin) return <Navigate to="/app/dashboard" replace />
+
+  const showSuccess = (message: string) => setFeedback({ tone: 'success', message })
+  const showError = (message: string) => setFeedback({ tone: 'error', message })
 
   const membersQuery = useQuery({
     queryKey: ['members-list'],
@@ -74,49 +80,73 @@ export function MembersPage() {
         email: memberForm.email.trim().toLowerCase(),
         full_name: memberForm.full_name.trim(),
       }),
+    onMutate: () => {
+      setFeedback(null)
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['members-list'] })
       setMemberForm({ email: '', full_name: '', password: '', role: 'viewer' })
-      setFeedback('Member created successfully.')
+      showSuccess('Member created successfully.')
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not create member.')
+      showError((error as Error)?.message ?? 'Could not create member.')
     },
   })
 
   const resetPasswordMutation = useMutation({
     mutationFn: (member: MemberItem) => adminApi.resetUserPassword(member.id).then((r) => ({ member, payload: r.data })),
+    onMutate: (member) => {
+      setMemberActionId(member.id)
+      setFeedback(null)
+    },
     onSuccess: ({ member, payload }) => {
       setTempPasswordModal({
         email: member.email,
         password: payload.temporary_password,
       })
-      setFeedback(`Password reset completed for ${member.email}.`)
+      showSuccess(`Password reset completed for ${member.email}.`)
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not reset password.')
+      showError((error as Error)?.message ?? 'Could not reset password.')
+    },
+    onSettled: () => {
+      setMemberActionId(null)
     },
   })
 
   const resetMfaMutation = useMutation({
     mutationFn: (member: MemberItem) => adminApi.resetUserMfa(member.id).then((r) => ({ member, payload: r.data })),
+    onMutate: (member) => {
+      setMemberActionId(member.id)
+      setFeedback(null)
+    },
     onSuccess: ({ member, payload }) => {
-      setFeedback(`MFA reset completed for ${member.email}. Revoked passkeys: ${payload.revoked_passkeys}.`)
+      showSuccess(`MFA reset completed for ${member.email}. Revoked passkeys: ${payload.revoked_passkeys}.`)
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not reset MFA.')
+      showError((error as Error)?.message ?? 'Could not reset MFA.')
+    },
+    onSettled: () => {
+      setMemberActionId(null)
     },
   })
 
   const deactivateMutation = useMutation({
     mutationFn: ({ member, reason }: { member: MemberItem; reason: string }) =>
       adminApi.deactivateUser(member.id, reason).then((r) => ({ member, payload: r.data })),
+    onMutate: ({ member }) => {
+      setMemberActionId(member.id)
+      setFeedback(null)
+    },
     onSuccess: async ({ member }) => {
       await queryClient.invalidateQueries({ queryKey: ['members-list'] })
-      setFeedback(`User ${member.email} was deactivated.`)
+      showSuccess(`User ${member.email} was deactivated.`)
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not deactivate user.')
+      showError((error as Error)?.message ?? 'Could not deactivate user.')
+    },
+    onSettled: () => {
+      setMemberActionId(null)
     },
   })
 
@@ -127,25 +157,35 @@ export function MembersPage() {
         role: inviteForm.role,
         expires_in_days: inviteForm.expiresInDays,
       }),
+    onMutate: () => {
+      setFeedback(null)
+    },
     onSuccess: async ({ data }) => {
       await queryClient.invalidateQueries({ queryKey: ['members-invites'] })
       setInviteForm({ email: '', role: 'viewer', expiresInDays: 7 })
       const link = `${window.location.origin}/activate?token=${data.token}`
-      setFeedback(`Invite created for ${data.invited_email}. Link: ${link}`)
+      showSuccess(`Invite created for ${data.invited_email}. Link: ${link}`)
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not create invite.')
+      showError((error as Error)?.message ?? 'Could not create invite.')
     },
   })
 
   const revokeInviteMutation = useMutation({
     mutationFn: (invite: InviteOut) => invitesApi.revoke(invite.id).then(() => invite),
+    onMutate: (invite) => {
+      setInviteActionId(invite.id)
+      setFeedback(null)
+    },
     onSuccess: async (invite) => {
       await queryClient.invalidateQueries({ queryKey: ['members-invites'] })
-      setFeedback(`Invite revoked for ${invite.invited_email}.`)
+      showSuccess(`Invite revoked for ${invite.invited_email}.`)
     },
     onError: (error) => {
-      setFeedback((error as Error)?.message ?? 'Could not revoke invite.')
+      showError((error as Error)?.message ?? 'Could not revoke invite.')
+    },
+    onSettled: () => {
+      setInviteActionId(null)
     },
   })
 
@@ -162,6 +202,12 @@ export function MembersPage() {
       memberForm.password.length >= 8
     )
   }, [memberForm])
+  const hasMemberMutationInFlight =
+    createMemberMutation.isPending ||
+    resetPasswordMutation.isPending ||
+    resetMfaMutation.isPending ||
+    deactivateMutation.isPending
+  const hasInviteMutationInFlight = createInviteMutation.isPending || revokeInviteMutation.isPending
 
   const handleDeactivate = (member: MemberItem) => {
     if (!member.is_active) return
@@ -176,9 +222,9 @@ export function MembersPage() {
     const link = `${window.location.origin}/activate?token=${invite.token}`
     try {
       await navigator.clipboard.writeText(link)
-      setFeedback(`Activation link copied for ${invite.invited_email}.`)
+      showSuccess(`Activation link copied for ${invite.invited_email}.`)
     } catch {
-      setFeedback(`Copy failed. Link: ${link}`)
+      showError(`Copy failed. Link: ${link}`)
     }
   }
 
@@ -195,8 +241,9 @@ export function MembersPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTab('members')}
+            disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
             className={clsx(
-              'rounded-lg px-3 py-1.5 text-sm font-medium',
+              'rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
               tab === 'members' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             )}
           >
@@ -204,8 +251,9 @@ export function MembersPage() {
           </button>
           <button
             onClick={() => setTab('invites')}
+            disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
             className={clsx(
-              'rounded-lg px-3 py-1.5 text-sm font-medium',
+              'rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
               tab === 'invites' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             )}
           >
@@ -215,7 +263,16 @@ export function MembersPage() {
       </div>
 
       {feedback && (
-        <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">{feedback}</div>
+        <div
+          className={clsx(
+            'rounded px-3 py-2 text-sm',
+            feedback.tone === 'success' && 'border border-green-200 bg-green-50 text-green-700',
+            feedback.tone === 'error' && 'border border-red-200 bg-red-50 text-red-700',
+            feedback.tone === 'info' && 'border border-blue-200 bg-blue-50 text-blue-700'
+          )}
+        >
+          {feedback.message}
+        </div>
       )}
 
       {tab === 'members' && (
@@ -259,7 +316,7 @@ export function MembersPage() {
             <div className="mt-3">
               <button
                 onClick={() => createMemberMutation.mutate()}
-                disabled={!canCreateMember || createMemberMutation.isPending}
+                disabled={!canCreateMember || hasMemberMutationInFlight}
                 className="rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
@@ -286,22 +343,24 @@ export function MembersPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => resetMfaMutation.mutate(member)}
+                        disabled={hasMemberMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        Reset MFA
+                        {resetMfaMutation.isPending && memberActionId === member.id ? 'Resetting MFA...' : 'Reset MFA'}
                       </button>
                       <button
                         onClick={() => resetPasswordMutation.mutate(member)}
+                        disabled={hasMemberMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        Reset Password
+                        {resetPasswordMutation.isPending && memberActionId === member.id ? 'Resetting...' : 'Reset Password'}
                       </button>
                       <button
                         onClick={() => handleDeactivate(member)}
-                        disabled={!member.is_active}
+                        disabled={!member.is_active || hasMemberMutationInFlight}
                         className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                       >
-                        Deactivate
+                        {deactivateMutation.isPending && memberActionId === member.id ? 'Deactivating...' : 'Deactivate'}
                       </button>
                     </div>
                   </div>
@@ -347,7 +406,7 @@ export function MembersPage() {
               </select>
               <button
                 onClick={() => createInviteMutation.mutate()}
-                disabled={!inviteForm.email.trim() || createInviteMutation.isPending}
+                disabled={!inviteForm.email.trim() || hasInviteMutationInFlight}
                 className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}
@@ -384,7 +443,7 @@ export function MembersPage() {
               <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
                 <button
                   onClick={() => setInvitePage((p) => Math.max(1, p - 1))}
-                  disabled={invitePage <= 1}
+                  disabled={invitePage <= 1 || hasInviteMutationInFlight}
                   className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Prev
@@ -394,7 +453,7 @@ export function MembersPage() {
                 </span>
                 <button
                   onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
-                  disabled={invitePage >= totalInvitePages}
+                  disabled={invitePage >= totalInvitePages || hasInviteMutationInFlight}
                   className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   Next
@@ -417,16 +476,17 @@ export function MembersPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => copyInviteLink(invite)}
+                        disabled={hasInviteMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
                         Copy Link
                       </button>
                       <button
                         onClick={() => revokeInviteMutation.mutate(invite)}
-                        disabled={invite.status !== 'pending' || revokeInviteMutation.isPending}
+                        disabled={invite.status !== 'pending' || hasInviteMutationInFlight}
                         className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                       >
-                        Revoke
+                        {revokeInviteMutation.isPending && inviteActionId === invite.id ? 'Revoking...' : 'Revoke'}
                       </button>
                     </div>
                   </div>
