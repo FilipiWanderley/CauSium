@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -11,6 +11,7 @@ from app.core.dependencies import get_current_user, require_roles
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import User, UserRole
 from app.domains.auth.schemas import UserOut
+from app.domains.invites.models import InviteStatus
 from app.domains.invites.schemas import InviteAccept, InviteCreate, InviteOut, InvitePreview
 from app.domains.invites.service import InviteService
 
@@ -75,9 +76,16 @@ async def list_invites(
     current_user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
     db: Annotated[AsyncSession, Depends(get_db)],
     params: Annotated[PageParams, Depends(PageParams)],
+    invite_status: Annotated[InviteStatus | None, Query(alias="status")] = None,
+    q: Annotated[str | None, Query(min_length=1, max_length=255)] = None,
 ) -> Page[InviteOut]:
     service = InviteService(db)
-    items, total = await service.list_invites(current_user.org_id, params)
+    items, total = await service.list_invites(
+        current_user.org_id,
+        params,
+        invite_status=invite_status,
+        q=q,
+    )
     return Page.of(items, total, params)
 
 

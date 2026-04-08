@@ -22,6 +22,11 @@ export function SettingsPage() {
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null)
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'viewer' as InviteRole, expiresInDays: 7 })
   const [inviteFeedback, setInviteFeedback] = useState<string | null>(null)
+  const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'expired' | 'revoked'>('all')
+  const [inviteQuery, setInviteQuery] = useState('')
+  const [invitePage, setInvitePage] = useState(1)
+
+  const INVITES_PAGE_SIZE = 10
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ['cloud-accounts'],
@@ -34,8 +39,14 @@ export function SettingsPage() {
   })
 
   const { data: invitesPage } = useQuery({
-    queryKey: ['workspace-invites'],
-    queryFn: () => invitesApi.list(1, 50).then((r) => r.data),
+    queryKey: ['workspace-invites', invitePage, inviteStatusFilter, inviteQuery],
+    queryFn: () =>
+      invitesApi
+        .list(invitePage, INVITES_PAGE_SIZE, {
+          status: inviteStatusFilter === 'all' ? undefined : inviteStatusFilter,
+          q: inviteQuery || undefined,
+        })
+        .then((r) => r.data),
     enabled: user?.role === 'admin' || user?.role === 'platform_admin',
   })
 
@@ -83,6 +94,7 @@ export function SettingsPage() {
       }),
     onSuccess: async ({ data }) => {
       await queryClient.invalidateQueries({ queryKey: ['workspace-invites'] })
+      setInvitePage(1)
       setInviteForm({ email: '', role: 'viewer', expiresInDays: 7 })
       const link = `${window.location.origin}/activate?token=${data.token}`
       setInviteFeedback(`Invite created for ${data.invited_email}. Activation link: ${link}`)
@@ -151,6 +163,7 @@ export function SettingsPage() {
   }
 
   const invites = invitesPage?.items ?? []
+  const totalInvitePages = invitesPage ? Math.max(1, Math.ceil(invitesPage.total / invitesPage.page_size)) : 1
   const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
 
   return (
@@ -171,8 +184,56 @@ export function SettingsPage() {
               </p>
             </div>
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-              {invites.length} invites
+              {invitesPage?.total ?? 0} invites
             </span>
+          </div>
+
+          <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+            <input
+              type="text"
+              value={inviteQuery}
+              onChange={(e) => {
+                setInviteQuery(e.target.value)
+                setInvitePage(1)
+              }}
+              placeholder="Search by invited email"
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+            <select
+              value={inviteStatusFilter}
+              onChange={(e) => {
+                setInviteStatusFilter(
+                  e.target.value as 'all' | 'pending' | 'accepted' | 'expired' | 'revoked'
+                )
+                setInvitePage(1)
+              }}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="accepted">Accepted</option>
+              <option value="expired">Expired</option>
+              <option value="revoked">Revoked</option>
+            </select>
+            <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
+              <button
+                onClick={() => setInvitePage((p) => Math.max(1, p - 1))}
+                disabled={invitePage <= 1}
+                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <span>
+                Page {invitePage} / {totalInvitePages}
+              </span>
+              <button
+                onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
+                disabled={invitePage >= totalInvitePages}
+                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">

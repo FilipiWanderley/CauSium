@@ -49,11 +49,20 @@ export const invitesApi = {
   accept: (token: string, payload: InviteAcceptPayload) =>
     apiClient.post('/invites/' + token + '/accept', payload),
 
-  list: (page = 1, pageSize = 50) =>
+  list: (
+    page = 1,
+    pageSize = 20,
+    filters?: {
+      status?: InviteStatus
+      q?: string
+    }
+  ) =>
     apiClient.get<ApiPage<InviteOut>>('/invites', {
       params: {
         page,
         page_size: pageSize,
+        status: filters?.status,
+        q: filters?.q?.trim() || undefined,
       },
     }),
 

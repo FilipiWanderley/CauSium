@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -160,6 +160,8 @@ class InviteService:
         self,
         org_id: UUID,
         params: PageParams,
+        invite_status: InviteStatus | None = None,
+        q: str | None = None,
     ) -> tuple[list[WorkspaceInvite], int]:
         now = datetime.now(timezone.utc)
         stale_result = await self.db.execute(
@@ -172,19 +174,31 @@ class InviteService:
         for stale in stale_result.scalars().all():
             stale.status = InviteStatus.EXPIRED
 
+        normalized_q = q.strip().lower() if q else None
+        base_query = select(WorkspaceInvite).where(WorkspaceInvite.org_id == org_id)
+        if invite_status is not None:
+            base_query = base_query.where(WorkspaceInvite.status == invite_status)
+        if normalized_q:
+            base_query = base_query.where(
+                func.lower(WorkspaceInvite.invited_email).contains(normalized_q)
+            )
+
         count_result = await self.db.execute(
-            select(func.count(WorkspaceInvite.id)).where(WorkspaceInvite.org_id == org_id)
+            self._build_count_query(base_query)
         )
         total = count_result.scalar_one()
 
         items_result = await self.db.execute(
-            select(WorkspaceInvite)
-            .where(WorkspaceInvite.org_id == org_id)
+            base_query
             .order_by(WorkspaceInvite.created_at.desc())
             .limit(params.limit)
             .offset(params.offset)
         )
         return list(items_result.scalars().all()), total
+
+    @staticmethod
+    def _build_count_query(base_query: Select[tuple[WorkspaceInvite]]) -> Select[tuple[int]]:
+        return select(func.count()).select_from(base_query.order_by(None).subquery())
 
     async def revoke_invite(
         self,
