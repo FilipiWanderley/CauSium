@@ -10,6 +10,7 @@ import {
   Activity,
   ShieldAlert,
   Building2,
+  RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
@@ -70,6 +71,20 @@ export function Sidebar() {
             >
               <Building2 className="h-4 w-4" />
               Platform Workspaces
+            </NavLink>
+            <NavLink
+              to="/app/platform/sync"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <RefreshCw className="h-4 w-4" />
+              Platform Sync
             </NavLink>
           </>
         )}

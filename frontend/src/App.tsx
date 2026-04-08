@@ -13,6 +13,7 @@ import { ChangeEventsPage } from './pages/ChangeEvents/ChangeEventsPage'
 import { ExecutivePage } from './pages/Executive/ExecutivePage'
 import { SettingsPage } from './pages/Settings/SettingsPage'
 import { WorkspacesPage } from './pages/Platform/WorkspacesPage'
+import { SyncStatusPage } from './pages/Platform/SyncStatusPage'
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="executive" element={<ExecutivePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="platform/workspaces" element={<WorkspacesPage />} />
+          <Route path="platform/sync" element={<SyncStatusPage />} />
         </Route>
 
         {/* ── Fallback: redirect bare / and unmatched paths ─────────────── */}

@@ -46,6 +46,17 @@ export interface ConnectorHealth {
   message: string | null
 }
 
+export interface ConnectorSyncStatus {
+  account_id: string
+  provider: CloudProvider
+  display_name: string
+  connector_status: ConnectorStatus
+  last_sync_at: string | null
+  last_health_check_at: string | null
+  open_dlq_count: number
+  needs_attention: boolean
+}
+
 // Cloud Ledger
 export interface CostTrend {
   date: string
