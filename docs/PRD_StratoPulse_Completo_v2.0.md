@@ -539,7 +539,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
 | Paginação em todas as listas | 🔶 | Ausente na maioria dos endpoints |
-| Idempotency keys em mutações críticas | ❌ | Não existe |
+| Idempotency keys em mutações críticas | ✅ | Implementado para `sync`, `experiments.create` e `experiments.approvals` (commit `7b7ff19`) |
 | SMTP configurável | ❌ | Não existe |
 | StratoGraph (GraphQL Federation) | ❌ | Não existe |
 | AsyncAPI para contratos públicos | ❌ | Não existe |
@@ -1334,7 +1334,7 @@ SLIs a instrumentar:
 | 18 | SP-U04 | Convite de membro com email | P1 |
 | 19 | SP-WK01 | DLQ com alertas | P1 |
 | 20 | SP-WK02 | Workers resilientes por workspace | P1 |
-| 21 | SP-AP02 | Idempotency keys | P1 |
+| 21 | SP-AP02 | Idempotency keys (✅ commit 7b7ff19) | P1 |
 | 22 | SP-CL04 | Consolidação CloudAccount | P1 |
 | 23 | SP-FE08 | /app/platform/workspaces | P0 |
 | 24 | SP-FE02 | /forgot-password + /reset-password completos | P0 |
