@@ -444,7 +444,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 |-----------|-------------|-----|
 | ActivityEvent (log de atividade do provider) | ❌ | `change_events` é diferente — cobre mudanças operacionais, não atividade de provider |
 | AlertRecord por categoria | ✅ | Modelo/migração `alert_records` + API `/notifications` |
-| NotificationPreference por membro | ❌ | Não existe |
+| NotificationPreference por membro | ✅ | API `GET/PUT /notifications/preferences` com persistência por membro/workspace |
 | Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
 | PATCH notificação lida/arquivada | ✅ | `PATCH /notifications/{id}` e `PATCH /notifications/mark-all-read` |
 | Envio por email (SMTP) | ✅ commit 43ac7ae | `EmailService` configurável por env vars e template de produto para alertas críticos |
@@ -1369,7 +1369,7 @@ SLIs a instrumentar:
 | 9 | SP-RI02 | Atualização de status de ProviderRecommendation | P1 |
 | 10 | SP-NT01 | ActivityEvent storage | P1 |
 | 11 | SP-NT02 | AlertRecord por categoria | P1 |
-| 12 | SP-NT03 | NotificationPreference por membro | P1 |
+| 12 | SP-NT03 | NotificationPreference por membro (✅ implementado) | P1 |
 | 13 | SP-NT04 | GET /notifications/new (polling) | P1 |
 | 14 | SP-NT05 | PATCH notificação lida/arquivada | P1 |
 | 15 | SP-NT06 | Envio por email SMTP (✅ commit 43ac7ae) | P1 |

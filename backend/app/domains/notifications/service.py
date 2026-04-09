@@ -11,6 +11,8 @@ from app.core.logging import get_logger
 from app.domains.notifications.models import (
     AlertCategory,
     AlertRecord,
+    NotificationPreference,
+    NotificationFrequency,
     AlertSeverity,
     AlertStatus,
 )
@@ -184,3 +186,64 @@ class NotificationsService:
         await self.db.flush()
         await self.db.refresh(alert)
         return alert
+
+    # ------------------------------------------------------------------
+    # Notification preferences (SP-NT03)
+    # ------------------------------------------------------------------
+
+    async def get_preference(self, org_id: UUID, user_id: UUID) -> NotificationPreference:
+        result = await self.db.execute(
+            select(NotificationPreference).where(
+                NotificationPreference.org_id == org_id,
+                NotificationPreference.user_id == user_id,
+            )
+        )
+        pref = result.scalar_one_or_none()
+        if pref is None:
+            pref = NotificationPreference(
+                org_id=org_id,
+                user_id=user_id,
+                in_app_enabled=True,
+                email_enabled=True,
+                slack_enabled=False,
+                frequency=NotificationFrequency.INSTANT,
+                categories={
+                    "financial": True,
+                    "optimization": True,
+                    "governance": True,
+                    "activity": True,
+                    "security": True,
+                },
+            )
+            self.db.add(pref)
+            await self.db.flush()
+            await self.db.refresh(pref)
+        return pref
+
+    async def upsert_preference(
+        self,
+        org_id: UUID,
+        user_id: UUID,
+        *,
+        in_app_enabled: bool | None = None,
+        email_enabled: bool | None = None,
+        slack_enabled: bool | None = None,
+        frequency: NotificationFrequency | None = None,
+        categories: dict | None = None,
+    ) -> NotificationPreference:
+        pref = await self.get_preference(org_id, user_id)
+
+        if in_app_enabled is not None:
+            pref.in_app_enabled = in_app_enabled
+        if email_enabled is not None:
+            pref.email_enabled = email_enabled
+        if slack_enabled is not None:
+            pref.slack_enabled = slack_enabled
+        if frequency is not None:
+            pref.frequency = frequency
+        if categories is not None:
+            pref.categories = categories
+
+        await self.db.flush()
+        await self.db.refresh(pref)
+        return pref

@@ -6,7 +6,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.domains.notifications.models import AlertCategory, AlertSeverity, AlertStatus
+from app.domains.notifications.models import (
+    AlertCategory,
+    AlertSeverity,
+    AlertStatus,
+    NotificationFrequency,
+)
 
 
 class AlertRecordOut(BaseModel):
@@ -42,3 +47,21 @@ class NotificationsNewOut(BaseModel):
     critical: int
     total: int
     items: list[AlertRecordOut]
+
+
+class NotificationPreferenceOut(BaseModel):
+    in_app_enabled: bool
+    email_enabled: bool
+    slack_enabled: bool
+    frequency: NotificationFrequency
+    categories: Optional[dict]
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    in_app_enabled: Optional[bool] = None
+    email_enabled: Optional[bool] = None
+    slack_enabled: Optional[bool] = None
+    frequency: Optional[NotificationFrequency] = None
+    categories: Optional[dict] = None

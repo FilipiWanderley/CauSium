@@ -13,6 +13,8 @@ from app.domains.notifications.models import AlertCategory, AlertStatus
 from app.domains.notifications.schemas import (
     AlertRecordOut,
     AlertStatusPatch,
+    NotificationPreferenceOut,
+    NotificationPreferenceUpdate,
     NotificationsNewOut,
     UnreadCountOut,
 )
@@ -102,3 +104,32 @@ async def patch_alert(
     if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
     return AlertRecordOut.model_validate(alert)
+
+
+@router.get("/preferences", response_model=NotificationPreferenceOut)
+async def get_preferences(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> NotificationPreferenceOut:
+    svc = NotificationsService(db)
+    pref = await svc.get_preference(current_user.org_id, current_user.id)
+    return NotificationPreferenceOut.model_validate(pref)
+
+
+@router.put("/preferences", response_model=NotificationPreferenceOut)
+async def update_preferences(
+    body: NotificationPreferenceUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> NotificationPreferenceOut:
+    svc = NotificationsService(db)
+    pref = await svc.upsert_preference(
+        org_id=current_user.org_id,
+        user_id=current_user.id,
+        in_app_enabled=body.in_app_enabled,
+        email_enabled=body.email_enabled,
+        slack_enabled=body.slack_enabled,
+        frequency=body.frequency,
+        categories=body.categories,
+    )
+    return NotificationPreferenceOut.model_validate(pref)

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +32,12 @@ class AlertStatus(str, enum.Enum):
     UNREAD = "unread"
     READ = "read"
     ARCHIVED = "archived"
+
+
+class NotificationFrequency(str, enum.Enum):
+    INSTANT = "instant"
+    DAILY = "daily"
+    WEEKLY = "weekly"
 
 
 class AlertRecord(Base):
@@ -81,4 +87,36 @@ class AlertRecord(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    __table_args__ = (
+        UniqueConstraint("org_id", "user_id", name="uq_notification_preferences_org_user"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    in_app_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    slack_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    frequency: Mapped[NotificationFrequency] = mapped_column(
+        Enum(NotificationFrequency, values_callable=_VC),
+        nullable=False,
+        default=NotificationFrequency.INSTANT,
+    )
+    categories: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
