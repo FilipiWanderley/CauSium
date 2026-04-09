@@ -1,9 +1,14 @@
 # StratoPulse — PRD de Implementação Completa v2.0
 ## Cloud Efficiency Intelligence Platform
 
-*Gap Analysis Real (código auditado em 07/04/2026) + Roadmap de Fechamento Total*
+*Gap Analysis Real (baseline auditado em 07/04/2026 + atualização incremental de código validada em 09/04/2026) + Roadmap de Fechamento Total*
 
 Versão 2.0 | Abril 2026 | CONFIDENCIAL
+
+Atualização incremental (09/04/2026):
+- Delta validado nos commits de 08/04/2026: `23a1242`, `8a0f34a`, `00fa262`.
+- Implementações confirmadas no código: módulos `notifications`, `gov`, `green` (backend + frontend) e rotas `/app/economics/costs`, `/app/economics/usage`, `/app/economics/skus`, `/app/economics/reports`.
+- Este update reclassifica status de capacidade e rotas. Itens de backlog estratégico permanecem válidos quando marcados como "parcial".
 
 ---
 
@@ -50,17 +55,16 @@ O repositório tem uma base técnica sólida. Não é um projeto vazio — é um
 - Risk budgets por domínio/ambiente
 - Dashboard executivo com KPIs e scorecard por time
 - Workers assíncronos (ingestion, scoring, audit checkpoint)
-- 7 migrações de banco de dados aplicadas
-- 8 módulos de API client no frontend
-- 8 páginas no frontend cobrindo fluxos principais
+- Módulo de orçamento financeiro por workspace (`/economics/budget`)
+- Módulos de Notifications, PulseGov e PulseGreen com rotas e páginas dedicadas
+- Rotas PulseEconomics expandidas: costs, usage, skus e reports
 
 **Não existe ou é insuficiente:**
 - Sistema completo de workspaces (lifecycle, cotas, platform_admin)
-- Notificações e alertas
-- Governança de recursos (PulseGov)
-- Sustentabilidade (PulseGreen)
-- Análise de SKUs e exportação de relatórios
-- Orçamento financeiro por workspace
+- Notificações avançadas (preferências por membro e dispatch SMTP/Slack)
+- PulseGov avançado (inventário persistente e governança com políticas automáticas)
+- PulseGreen avançado (coleta de emissões por provider e consolidação histórica)
+- Análise de SKUs e relatórios no backend dedicado (modelo/endpoint específicos)
 - Conectores AWS/GCP reais
 - Infraestrutura cloud (ainda em Docker Compose local)
 - Observabilidade com OpenTelemetry
@@ -342,13 +346,6 @@ Kanban board endpoint com 6 colunas
 
 **Ainda ausente:**
 - / (landing pública)
-- /activate (link de convite — invites domain existe, falta página)
-- /app/economics/skus
-- /app/economics/reports
-- /app/notifications
-- /app/gov (PulseGov)
-- /app/green (PulseGreen)
-- /app/platform/sync
 
 ### 3.5 Segurança — Estado Real
 
@@ -432,12 +429,12 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
 | Dashboard com KPIs e tendências | 🔶 | `cloud_ledger/service.py:get_dashboard_metrics()` funcional |
-| Orçamento financeiro por workspace (WorkspaceBudget) | ❌ | **Modelo não existe** — RiskBudget é diferente |
+| Orçamento financeiro por workspace (WorkspaceBudget) | ✅ | `economics/router.py` com GET/PUT `/economics/budget` e consumo projetado |
 | Tendência de custo por serviço | ✅ | `get_top_services()`, `get_cost_trend()` |
 | Custo detalhado com filtros combinados e paginação | 🔶 | Filtros básicos sem paginação |
-| Análise de SKUs (SkuObservation) | ❌ | Modelo e endpoint inexistentes |
+| Análise de SKUs (SkuObservation) | 🔶 | Frontend em produção consumindo agregação de serviços (SKU dedicado ainda pendente) |
 | Métricas de uso por recurso (UsageObservation) | 🔶 | `event_facts` presente, sem model dedicado |
-| Exportação CSV/Excel | ❌ | Inexistente |
+| Exportação CSV/Excel | 🔶 | Export CSV no frontend de reports (backend assíncrono dedicado ainda pendente) |
 | Forecast probabilístico P50/P90 | 🔶 | Forecast linear básico em `executive/service.py` |
 | Savings previsto vs realizado com confiança | 🔶 | `total_potential_savings_usd` vs `total_realized_savings_usd` presentes, sem intervalo |
 
@@ -446,10 +443,10 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
 | ActivityEvent (log de atividade do provider) | ❌ | `change_events` é diferente — cobre mudanças operacionais, não atividade de provider |
-| AlertRecord por categoria | ❌ | Não existe |
+| AlertRecord por categoria | ✅ | Modelo/migração `alert_records` + API `/notifications` |
 | NotificationPreference por membro | ❌ | Não existe |
-| Endpoint GET /notifications/new (polling) | ❌ | Não existe |
-| PATCH notificação lida/arquivada | ❌ | Não existe |
+| Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
+| PATCH notificação lida/arquivada | ✅ | `PATCH /notifications/{id}` e `PATCH /notifications/mark-all-read` |
 | Envio por email (SMTP) | ❌ | Não existe |
 | Envio por Slack (webhook por workspace) | ❌ | Não existe |
 
@@ -467,27 +464,27 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 ### 4.7 PulseGov — Governança
 
-> Completamente não iniciado.
+> MVP implementado (summary, unowned costs e label compliance). Itens avançados ainda pendentes.
 
 | Capacidade | Status Real |
 |-----------|-------------|
-| ResourceInventory (inventário de recursos) | ❌ |
-| Compliance de labels obrigatórias | ❌ |
+| ResourceInventory (inventário de recursos) | 🔶 |
+| Compliance de labels obrigatórias | 🔶 |
 | Configuração de labels por workspace | ❌ |
-| Recursos sem owner com custo associado | ❌ |
+| Recursos sem owner com custo associado | ✅ |
 | TopologyMap (grafo de dependências) | ❌ |
 | Blast radius como restrição automática | ❌ |
 
 ### 4.8 PulseGreen — Sustentabilidade
 
-> Completamente não iniciado.
+> MVP implementado (summary, série temporal e breakdown com dados derivados). Integrações de emissões por provider ainda pendentes.
 
 | Capacidade | Status Real |
 |-----------|-------------|
-| CarbonRecord (emissões por conta) | ❌ |
-| Série temporal de emissões com delta % | ❌ |
-| Breakdown por dimensão | ❌ |
-| Página PulseGreen no frontend | ❌ |
+| CarbonRecord (emissões por conta) | 🔶 |
+| Série temporal de emissões com delta % | ✅ |
+| Breakdown por dimensão | ✅ |
+| Página PulseGreen no frontend | ✅ |
 
 ### 4.9 PulseLink — Conectores
 
@@ -556,24 +553,24 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 |------|--------|-----------|
 | / (landing pública) | ❌ | — |
 | /login | 🔶 | Passkey e email/senha funcionais, UX melhorável |
-| /forgot-password | 🔶 | Backend ausente (SP-A01); frontend básico pode existir |
-| /reset-password | ❌ | — |
-| /activate (convite) | ❌ | — |
+| /forgot-password | ✅ | Implementada |
+| /reset-password | ✅ | Implementada |
+| /activate (convite) | ✅ | Implementada |
 | /app/economics (rota estruturada) | ✅ SP-FE01 | /app/dashboard implementado; renomear para /app/economics é Wave 2 (SP-FE03) |
 | /app/economics/costs | 🔶 | Era parte de /dashboard |
 | /app/economics/usage | 🔶 | Parcial via /dashboard |
-| /app/economics/skus | ❌ | — |
-| /app/economics/reports | ❌ | — |
+| /app/economics/skus | ✅ | Implementada com agregação temporária via ledger |
+| /app/economics/reports | ✅ | Implementada com export CSV no frontend |
 | /app/intel | 🔶 | Era /opportunities — renomear rota |
 | /app/lab | 🔶 | Era /experiments — renomear rota |
-| /app/notifications | ❌ | — |
-| /app/gov | ❌ | — |
-| /app/green | ❌ | — |
+| /app/notifications | ✅ | Implementada |
+| /app/gov | ✅ | Implementada |
+| /app/green | ✅ | Implementada |
 | /app/settings/team | 🔶 | Era parte de /settings |
 | /app/settings/cloud | 🔶 | Era parte de /settings |
 | /app/settings/security | 🔶 | Era parte de /settings |
-| /app/platform/workspaces | ❌ | — |
-| /app/platform/sync | ❌ | — |
+| /app/platform/workspaces | ✅ | Implementada |
+| /app/platform/sync | ✅ | Implementada |
 
 ### 4.15 PulseOps — Infraestrutura
 
@@ -1125,13 +1122,13 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 | /app/economics | PulseEconomics Dashboard | viewer | 🔶 | Mover de /dashboard |
 | /app/economics/costs | Custos detalhados | viewer | 🔶 | Expandir |
 | /app/economics/usage | Uso e eficiência | viewer | 🔶 | Expandir |
-| /app/economics/skus | Análise de SKUs | viewer | ❌ | P1 (SP-FE03) |
-| /app/economics/reports | Relatórios e exportação | analyst | ❌ | P1 (SP-FE04) |
+| /app/economics/skus | Análise de SKUs | viewer | ✅ | P1 (SP-FE03) |
+| /app/economics/reports | Relatórios e exportação | analyst | ✅ | P1 (SP-FE04) |
 | /app/intel | PulseIntel — Recomendações | viewer | 🔶 | Mover de /opportunities |
 | /app/lab | PulseLab — Experimentos | analyst | 🔶 | Mover de /experiments |
-| /app/notifications | Central de Alertas | viewer | ❌ | P1 (SP-FE05) |
-| /app/gov | PulseGov — Governança | analyst | ❌ | P2 (SP-FE06) |
-| /app/green | PulseGreen — Sustentabilidade | viewer | ❌ | P2 (SP-FE07) |
+| /app/notifications | Central de Alertas | viewer | ✅ | P1 (SP-FE05) |
+| /app/gov | PulseGov — Governança | analyst | ✅ | P2 (SP-FE06) |
+| /app/green | PulseGreen — Sustentabilidade | viewer | ✅ | P2 (SP-FE07) |
 | /app/risk-budgets | Risk Budgets | analyst | ✅ | — |
 | /app/change-events | Change Events | analyst | ✅ | — |
 | /app/executive | Executive Summary | viewer | ✅ | — |
@@ -1139,6 +1136,7 @@ A estrutura atual de rotas (`/dashboard`, `/opportunities`, etc.) deve ser migra
 | /app/settings/cloud | Credenciais cloud | workspace_admin | 🔶 | Expandir |
 | /app/settings/security | Segurança da conta | workspace_admin | 🔶 | Expandir |
 | /app/platform/workspaces | Gestão de workspaces | platform_admin | ✅ commit 8307faa + SP-FE01 | — |
+| /app/platform/sync | Monitor de sincronização | platform_admin | ✅ | — |
 
 ### 8.4 Migração de Token (SP-A02, SP-FE11)
 
