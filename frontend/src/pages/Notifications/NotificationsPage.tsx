@@ -141,15 +141,18 @@ export function NotificationsPage() {
         category: categoryFilter || undefined,
         status: statusFilter || undefined,
       }),
+    enabled: statusFilter !== 'unread',
   })
 
   const countQuery = useQuery({
-    queryKey: ['notifications-new', categoryFilter],
+    queryKey: ['notifications-new', categoryFilter, statusFilter],
     queryFn: () =>
       notificationsApi.getNew({
         category: categoryFilter || undefined,
         page: 1,
-        page_size: 50,
+        // When the list is filtered to unread, reuse this payload to render items.
+        // Otherwise fetch the minimum payload for polling counters only.
+        page_size: statusFilter === 'unread' ? 50 : 1,
       }),
     refetchInterval: 30_000,
   })
@@ -171,9 +174,18 @@ export function NotificationsPage() {
     },
   })
 
-  const alerts = listQuery.data?.items ?? []
+  const useUnreadPollingItems = statusFilter === 'unread'
+  const alerts = useUnreadPollingItems
+    ? countQuery.data?.items ?? []
+    : listQuery.data?.items ?? []
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
+  const totalVisible = useUnreadPollingItems
+    ? countQuery.data?.total
+    : listQuery.data?.total
+
+  const listIsPending = useUnreadPollingItems ? countQuery.isPending : listQuery.isPending
+  const listIsError = useUnreadPollingItems ? countQuery.isError : listQuery.isError
 
   return (
     <div className="space-y-6">
@@ -218,7 +230,7 @@ export function NotificationsPage() {
         </div>
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Visible</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{listQuery.data?.total ?? '—'}</p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">{totalVisible ?? '—'}</p>
         </div>
       </div>
 
@@ -251,13 +263,13 @@ export function NotificationsPage() {
       </div>
 
       {/* List */}
-      {listQuery.isPending ? (
+      {listIsPending ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100" />
           ))}
         </div>
-      ) : listQuery.isError ? (
+      ) : listIsError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">
           Failed to load notifications. The backend service may still be initializing.
         </div>
