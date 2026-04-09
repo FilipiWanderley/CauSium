@@ -421,7 +421,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Reset de senha por workspace_admin (para outro usuário) | ⬜ | SP-U01: admin gera token para membro específico; pendente |
 | Reset de MFA por workspace_admin | ❌ | SP-U02: dependência do MFA TOTP (SP-A06) |
 | Regra: admin não reseta outro admin | ❌ | SP-U03; implementar junto com SP-U01 |
-| Convite por email (SMTP + link ativação) | 🔶 commit ab4aab7 | invites domain com 5 endpoints; sem SMTP (SP-AP03 pendente) |
+| Convite por email (SMTP + link ativação) | ✅ | invites domain com envio via `EmailService` e SMTP por env vars |
 | Soft-delete com auditoria | ❌ | SP-U05 |
 
 ### 4.4 PulseEconomics — Dashboard e Análise Financeira
@@ -447,7 +447,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | NotificationPreference por membro | ❌ | Não existe |
 | Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
 | PATCH notificação lida/arquivada | ✅ | `PATCH /notifications/{id}` e `PATCH /notifications/mark-all-read` |
-| Envio por email (SMTP) | ❌ | Não existe |
+| Envio por email (SMTP) | ✅ | `EmailService` configurável por env vars e envio de alertas críticos |
 | Envio por Slack (webhook por workspace) | ❌ | Não existe |
 
 ### 4.6 PulseIntel — Recomendações e Otimização
@@ -540,7 +540,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 |-----------|-------------|-----|
 | Paginação em todas as listas | 🔶 | Ausente na maioria dos endpoints |
 | Idempotency keys em mutações críticas | ✅ | Implementado para `sync`, `experiments.create` e `experiments.approvals` (commit `7b7ff19`) |
-| SMTP configurável | ❌ | Não existe |
+| SMTP configurável | ✅ | SMTP por env vars para convites, reset de senha e alertas críticos |
 | StratoGraph (GraphQL Federation) | ❌ | Não existe |
 | AsyncAPI para contratos públicos | ❌ | Não existe |
 | Integração Jira/Linear | ❌ | `external_ref` existe em Initiative, sem integração real |
@@ -1330,7 +1330,7 @@ SLIs a instrumentar:
 | 14 | SP-A04 | Validação de origin/referer no login | P0 |
 | 15 | SP-EC01 | WorkspaceBudget configurável | P0 |
 | 16 | SP-SM01 | Rotação automática de segredos ≤ 30 dias | P0 |
-| 17 | SP-AP03 | SMTP configurável | P1 |
+| 17 | SP-AP03 | SMTP configurável (✅ implementado) | P1 |
 | 18 | SP-U04 | Convite de membro com email | P1 |
 | 19 | SP-WK01 | DLQ com alertas | P1 |
 | 20 | SP-WK02 | Workers resilientes por workspace | P1 |

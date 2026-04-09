@@ -142,14 +142,16 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ForgotPasswordResponse(BaseModel):
-    """Token returned directly for dev convenience (no email service configured).
-    In production, this token would be delivered via email and NOT included here.
+    """Password-reset response with safe token handling.
+
+    The token is returned only when SMTP transport is not configured, so local
+    development and integration tests can still complete the flow end-to-end.
     """
 
-    token: str
+    token: str | None = None
     message: str = (
         "If this email is registered you will receive reset instructions. "
-        "In development the token is returned in this response."
+        "In development (without SMTP) the token is returned in this response."
     )
 
 

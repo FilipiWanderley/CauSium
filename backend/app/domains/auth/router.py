@@ -351,13 +351,16 @@ async def forgot_password(
 ):
     """Initiate a password-reset flow.
 
-    Always returns 200 with a token.  In production the token would be sent
-    via email and NOT included in the response body (prevents enumeration).
-    For Wave 0 (no email service) the token is returned directly so the flow
-    can be tested end-to-end without an SMTP server.
+    Always returns 200 to prevent user enumeration.
+
+    When SMTP is configured, the token is delivered out-of-band via email and
+    omitted from the response body. When SMTP is disabled, the token is
+    returned for local development convenience.
     """
     service = AuthService(db)
     token = await service.request_password_reset(req.email)
+    if service.email.enabled:
+        return ForgotPasswordResponse(token=None)
     return ForgotPasswordResponse(token=token)
 
 
