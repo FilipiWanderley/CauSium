@@ -33,6 +33,13 @@ export interface NotificationsPage {
   page_size: number
 }
 
+export interface NotificationsNewResponse {
+  unread: number
+  critical: number
+  total: number
+  items: AlertRecord[]
+}
+
 export const notificationsApi = {
   getUnreadCount: (): Promise<UnreadCount> =>
     apiClient.get('/notifications/unread-count').then((r) => r.data),
@@ -45,6 +52,15 @@ export const notificationsApi = {
   }): Promise<NotificationsPage> =>
     apiClient
       .get('/notifications', { params: { page: 1, page_size: 50, ...params } })
+      .then((r) => r.data),
+
+  getNew: (params?: {
+    category?: AlertCategory
+    page?: number
+    page_size?: number
+  }): Promise<NotificationsNewResponse> =>
+    apiClient
+      .get('/notifications/new', { params: { page: 1, page_size: 50, ...params } })
       .then((r) => r.data),
 
   patchStatus: (id: string, status: AlertStatus): Promise<AlertRecord> =>

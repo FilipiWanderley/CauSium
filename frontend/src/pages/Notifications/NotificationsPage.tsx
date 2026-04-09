@@ -144,8 +144,13 @@ export function NotificationsPage() {
   })
 
   const countQuery = useQuery({
-    queryKey: ['notifications-count'],
-    queryFn: notificationsApi.getUnreadCount,
+    queryKey: ['notifications-new', categoryFilter],
+    queryFn: () =>
+      notificationsApi.getNew({
+        category: categoryFilter || undefined,
+        page: 1,
+        page_size: 50,
+      }),
     refetchInterval: 30_000,
   })
 
@@ -154,7 +159,7 @@ export function NotificationsPage() {
       notificationsApi.patchStatus(id, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-count'] })
+      qc.invalidateQueries({ queryKey: ['notifications-new'] })
     },
   })
 
@@ -162,7 +167,7 @@ export function NotificationsPage() {
     mutationFn: notificationsApi.markAllRead,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-count'] })
+      qc.invalidateQueries({ queryKey: ['notifications-new'] })
     },
   })
 

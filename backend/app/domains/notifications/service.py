@@ -62,7 +62,12 @@ class NotificationsService:
         )
         return list(items_result.scalars().all()), total
 
-    async def unread_count(self, org_id: UUID, user_id: Optional[UUID] = None) -> dict:
+    async def unread_count(
+        self,
+        org_id: UUID,
+        user_id: Optional[UUID] = None,
+        category: Optional[AlertCategory] = None,
+    ) -> dict:
         scope_filter = or_(
             AlertRecord.user_id.is_(None),
             AlertRecord.user_id == user_id,
@@ -73,6 +78,9 @@ class NotificationsService:
             AlertRecord.status == AlertStatus.UNREAD,
             scope_filter,
         ]
+
+        if category:
+            base.append(AlertRecord.category == category)
 
         total_r = await self.db.execute(
             select(func.count()).select_from(AlertRecord).where(and_(*base))

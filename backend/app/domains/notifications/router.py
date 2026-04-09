@@ -10,7 +10,12 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.schemas import Page, PageParams
 from app.domains.notifications.models import AlertCategory, AlertStatus
-from app.domains.notifications.schemas import AlertRecordOut, AlertStatusPatch, UnreadCountOut
+from app.domains.notifications.schemas import (
+    AlertRecordOut,
+    AlertStatusPatch,
+    NotificationsNewOut,
+    UnreadCountOut,
+)
 from app.domains.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -44,6 +49,35 @@ async def list_notifications(
         offset=page_params.offset,
     )
     return Page.of([AlertRecordOut.model_validate(a) for a in alerts], total, page_params)
+
+
+@router.get("/new", response_model=NotificationsNewOut)
+async def list_new_notifications(
+    category: Optional[AlertCategory] = Query(default=None),
+    page_params: PageParams = Depends(PageParams),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> NotificationsNewOut:
+    svc = NotificationsService(db)
+    counts = await svc.unread_count(
+        org_id=current_user.org_id,
+        user_id=current_user.id,
+        category=category,
+    )
+    alerts, total = await svc.list(
+        org_id=current_user.org_id,
+        user_id=current_user.id,
+        category=category,
+        status=AlertStatus.UNREAD,
+        limit=page_params.limit,
+        offset=page_params.offset,
+    )
+    return NotificationsNewOut(
+        unread=counts["unread"],
+        critical=counts["critical"],
+        total=total,
+        items=[AlertRecordOut.model_validate(a) for a in alerts],
+    )
 
 
 @router.patch("/mark-all-read", response_model=dict)

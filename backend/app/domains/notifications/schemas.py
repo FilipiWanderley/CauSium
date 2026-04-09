@@ -35,3 +35,10 @@ class AlertStatusPatch(BaseModel):
 class UnreadCountOut(BaseModel):
     unread: int
     critical: int
+
+
+class NotificationsNewOut(BaseModel):
+    unread: int
+    critical: int
+    total: int
+    items: list[AlertRecordOut]
