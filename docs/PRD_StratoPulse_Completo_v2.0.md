@@ -447,7 +447,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | NotificationPreference por membro | ❌ | Não existe |
 | Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
 | PATCH notificação lida/arquivada | ✅ | `PATCH /notifications/{id}` e `PATCH /notifications/mark-all-read` |
-| Envio por email (SMTP) | ✅ | `EmailService` configurável por env vars e envio de alertas críticos |
+| Envio por email (SMTP) | ✅ commit 43ac7ae | `EmailService` configurável por env vars e template de produto para alertas críticos |
 | Envio por Slack (webhook por workspace) | ❌ | Não existe |
 
 ### 4.6 PulseIntel — Recomendações e Otimização
@@ -1372,7 +1372,7 @@ SLIs a instrumentar:
 | 12 | SP-NT03 | NotificationPreference por membro | P1 |
 | 13 | SP-NT04 | GET /notifications/new (polling) | P1 |
 | 14 | SP-NT05 | PATCH notificação lida/arquivada | P1 |
-| 15 | SP-NT06 | Envio por email SMTP | P1 |
+| 15 | SP-NT06 | Envio por email SMTP (✅ commit 43ac7ae) | P1 |
 | 16 | SP-EC02 | SkuObservation e módulo de SKUs | P1 |
 | 17 | SP-EC03 | Exportação CSV/Excel | P1 |
 | 18 | SP-EC04 | Custo detalhado com filtros e paginação | P1 |
