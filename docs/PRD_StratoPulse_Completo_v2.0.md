@@ -666,7 +666,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | ID | Requisito | Prioridade | Critério de aceite | Depende de |
 |----|-----------|-----------|-------------------|-----------|
 | SP-NT01 | ActivityEvent: storage de eventos de atividade do cloud provider por workspace | P1 | Worker ingere eventos do provider; consultáveis por tipo, período e recurso | SP-CL01 |
-| SP-NT02 | AlertRecord: geração de alertas por categoria (financeiro, otimização, governança, atividade) | P1 | Cada categoria com regras configuráveis; alertas gerados em < 2h | SP-NT01 |
+| SP-NT02 | AlertRecord: geração de alertas por categoria (financeiro, otimização, governança, atividade) | P1 | Regras configuráveis por categoria (✅ activity: GET/PUT `/notifications/rules/{category}`); alertas gerados em < 2h | SP-NT01 |
 | SP-NT03 | NotificationPreference por membro (canal, categoria, frequência) | P1 | GET /notifications/preferences; PUT persiste; worker respeita ao enviar | — |
 | SP-NT04 | GET /notifications/new para polling (count e lista de não lidas) | P1 | Retorna count e lista desde última checagem; usado pelo frontend para badge | SP-NT02 |
 | SP-NT05 | PATCH /notifications/{id} para marcar lida ou arquivada | P1 | Status atualizado; operação idempotente | SP-NT02 |
@@ -1368,7 +1368,7 @@ SLIs a instrumentar:
 | 8 | SP-RI01 | ProviderRecommendation sync (Azure Advisor) | P1 |
 | 9 | SP-RI02 | Atualização de status de ProviderRecommendation | P1 |
 | 10 | SP-NT01 | ActivityEvent storage (✅ implementado) | P1 |
-| 11 | SP-NT02 | AlertRecord por categoria | P1 |
+| 11 | SP-NT02 | AlertRecord por categoria (🔶 regra configurável implementada para activity) | P1 |
 | 12 | SP-NT03 | NotificationPreference por membro (✅ implementado) | P1 |
 | 13 | SP-NT04 | GET /notifications/new (polling) | P1 |
 | 14 | SP-NT05 | PATCH notificação lida/arquivada | P1 |

@@ -179,3 +179,32 @@ class ActivityEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
+
+
+class NotificationAlertRule(Base):
+    __tablename__ = "notification_alert_rules"
+    __table_args__ = (
+        UniqueConstraint("org_id", "category", name="uq_notification_alert_rules_org_category"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category: Mapped[AlertCategory] = mapped_column(
+        Enum(AlertCategory, values_callable=_VC), nullable=False, index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    min_severity: Mapped[AlertSeverity] = mapped_column(
+        Enum(AlertSeverity, values_callable=_VC),
+        nullable=False,
+        default=AlertSeverity.CRITICAL,
+    )
+    event_type_prefix: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

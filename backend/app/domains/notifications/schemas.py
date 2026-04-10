@@ -107,3 +107,18 @@ class ActivityEventOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class NotificationAlertRuleOut(BaseModel):
+    category: AlertCategory
+    enabled: bool
+    min_severity: AlertSeverity
+    event_type_prefix: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class NotificationAlertRuleUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    min_severity: Optional[AlertSeverity] = None
+    event_type_prefix: Optional[str] = Field(default=None, max_length=120)

@@ -14,6 +14,7 @@ from app.domains.notifications.models import (
     ActivityEventSeverity,
     AlertCategory,
     AlertRecord,
+    NotificationAlertRule,
     NotificationPreference,
     NotificationFrequency,
     NotificationSlackConfig,
@@ -22,6 +23,18 @@ from app.domains.notifications.models import (
 )
 
 log = get_logger(__name__)
+
+_SEVERITY_RANK = {
+    AlertSeverity.INFO: 1,
+    AlertSeverity.WARNING: 2,
+    AlertSeverity.CRITICAL: 3,
+}
+
+_ACTIVITY_TO_ALERT_SEVERITY = {
+    ActivityEventSeverity.INFO: AlertSeverity.INFO,
+    ActivityEventSeverity.WARNING: AlertSeverity.WARNING,
+    ActivityEventSeverity.CRITICAL: AlertSeverity.CRITICAL,
+}
 
 
 class NotificationsService:
@@ -289,6 +302,70 @@ class NotificationsService:
         await self.db.refresh(cfg)
         return cfg
 
+    async def get_alert_rule(self, org_id: UUID, category: AlertCategory) -> NotificationAlertRule:
+        result = await self.db.execute(
+            select(NotificationAlertRule).where(
+                NotificationAlertRule.org_id == org_id,
+                NotificationAlertRule.category == category,
+            )
+        )
+        rule = result.scalar_one_or_none()
+        if rule is None:
+            rule = NotificationAlertRule(
+                org_id=org_id,
+                category=category,
+                enabled=True,
+                min_severity=AlertSeverity.CRITICAL,
+                event_type_prefix=None,
+            )
+            self.db.add(rule)
+            await self.db.flush()
+            await self.db.refresh(rule)
+        return rule
+
+    async def upsert_alert_rule(
+        self,
+        org_id: UUID,
+        category: AlertCategory,
+        *,
+        enabled: bool | None = None,
+        min_severity: AlertSeverity | None = None,
+        event_type_prefix: str | None = None,
+    ) -> NotificationAlertRule:
+        rule = await self.get_alert_rule(org_id, category)
+
+        if enabled is not None:
+            rule.enabled = enabled
+        if min_severity is not None:
+            rule.min_severity = min_severity
+        if event_type_prefix is not None:
+            normalized = event_type_prefix.strip()
+            rule.event_type_prefix = normalized or None
+
+        await self.db.flush()
+        await self.db.refresh(rule)
+        return rule
+
+    async def should_create_activity_alert(
+        self,
+        *,
+        org_id: UUID,
+        event_type: str,
+        event_severity: ActivityEventSeverity,
+    ) -> bool:
+        rule = await self.get_alert_rule(org_id, AlertCategory.ACTIVITY)
+        if not rule.enabled:
+            return False
+
+        mapped = _ACTIVITY_TO_ALERT_SEVERITY[event_severity]
+        if _SEVERITY_RANK[mapped] < _SEVERITY_RANK[rule.min_severity]:
+            return False
+
+        if rule.event_type_prefix and not event_type.startswith(rule.event_type_prefix):
+            return False
+
+        return True
+
     # ------------------------------------------------------------------
     # Activity events (SP-NT01)
     # ------------------------------------------------------------------
@@ -325,12 +402,16 @@ class NotificationsService:
         await self.db.flush()
         await self.db.refresh(event)
 
-        if severity == ActivityEventSeverity.CRITICAL:
+        if await self.should_create_activity_alert(
+            org_id=org_id,
+            event_type=event_type,
+            event_severity=severity,
+        ):
             await self.create(
                 org_id=org_id,
                 category=AlertCategory.ACTIVITY,
-                severity=AlertSeverity.CRITICAL,
-                title=f"Critical activity: {event_type}",
+                severity=_ACTIVITY_TO_ALERT_SEVERITY[severity],
+                title=f"Activity event: {event_type}",
                 body=title,
                 source_type="activity_event",
                 source_id=str(event.id),

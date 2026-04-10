@@ -16,6 +16,8 @@ from app.domains.notifications.schemas import (
     ActivityEventCreate,
     ActivityEventOut,
     AlertRecordOut,
+    NotificationAlertRuleOut,
+    NotificationAlertRuleUpdate,
     NotificationSlackConfigOut,
     NotificationSlackConfigUpdate,
     AlertStatusPatch,
@@ -27,6 +29,35 @@ from app.domains.notifications.schemas import (
 from app.domains.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@router.get("/rules/{category}", response_model=NotificationAlertRuleOut)
+async def get_alert_rule(
+    category: AlertCategory,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+) -> NotificationAlertRuleOut:
+    svc = NotificationsService(db)
+    rule = await svc.get_alert_rule(current_user.org_id, category)
+    return NotificationAlertRuleOut.model_validate(rule)
+
+
+@router.put("/rules/{category}", response_model=NotificationAlertRuleOut)
+async def upsert_alert_rule(
+    category: AlertCategory,
+    body: NotificationAlertRuleUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+) -> NotificationAlertRuleOut:
+    svc = NotificationsService(db)
+    rule = await svc.upsert_alert_rule(
+        org_id=current_user.org_id,
+        category=category,
+        enabled=body.enabled,
+        min_severity=body.min_severity,
+        event_type_prefix=body.event_type_prefix,
+    )
+    return NotificationAlertRuleOut.model_validate(rule)
 
 
 @router.post("/activity-events", response_model=ActivityEventOut, status_code=status.HTTP_201_CREATED)
