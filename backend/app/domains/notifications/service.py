@@ -8,11 +8,13 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.core.security import encrypt_secret
 from app.domains.notifications.models import (
     AlertCategory,
     AlertRecord,
     NotificationPreference,
     NotificationFrequency,
+    NotificationSlackConfig,
     AlertSeverity,
     AlertStatus,
 )
@@ -247,3 +249,40 @@ class NotificationsService:
         await self.db.flush()
         await self.db.refresh(pref)
         return pref
+
+    async def get_slack_config(self, org_id: UUID) -> NotificationSlackConfig:
+        result = await self.db.execute(
+            select(NotificationSlackConfig).where(NotificationSlackConfig.org_id == org_id)
+        )
+        cfg = result.scalar_one_or_none()
+        if cfg is None:
+            cfg = NotificationSlackConfig(
+                org_id=org_id,
+                enabled=False,
+                webhook_encrypted=None,
+            )
+            self.db.add(cfg)
+            await self.db.flush()
+            await self.db.refresh(cfg)
+        return cfg
+
+    async def upsert_slack_config(
+        self,
+        org_id: UUID,
+        *,
+        enabled: bool | None = None,
+        webhook_url: str | None = None,
+    ) -> NotificationSlackConfig:
+        cfg = await self.get_slack_config(org_id)
+        if enabled is not None:
+            cfg.enabled = enabled
+
+        if webhook_url is not None:
+            normalized = webhook_url.strip()
+            if normalized and not normalized.startswith("https://hooks.slack.com/"):
+                raise ValueError("Invalid Slack webhook URL")
+            cfg.webhook_encrypted = encrypt_secret(normalized) if normalized else None
+
+        await self.db.flush()
+        await self.db.refresh(cfg)
+        return cfg

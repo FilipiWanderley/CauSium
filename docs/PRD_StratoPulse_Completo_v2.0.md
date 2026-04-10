@@ -448,7 +448,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
 | PATCH notificação lida/arquivada | ✅ | `PATCH /notifications/{id}` e `PATCH /notifications/mark-all-read` |
 | Envio por email (SMTP) | ✅ commit 43ac7ae | `EmailService` configurável por env vars e template de produto para alertas críticos |
-| Envio por Slack (webhook por workspace) | ❌ | Não existe |
+| Envio por Slack (webhook por workspace) | ✅ | API `GET/PUT /notifications/slack-config` e dispatch de alertas críticos por workspace |
 
 ### 4.6 PulseIntel — Recomendações e Otimização
 
@@ -545,7 +545,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 | AsyncAPI para contratos públicos | ❌ | Não existe |
 | Integração Jira/Linear | ❌ | `external_ref` existe em Initiative, sem integração real |
 | Integração GitHub (correlação deploy/custo) | ❌ | Não existe |
-| Integração Slack/Teams | ❌ | Não existe |
+| Integração Slack/Teams | 🔶 | Integração Slack por webhook de workspace para alertas críticos; Teams pendente |
 
 ### 4.14 Frontend — Páginas e Módulos
 

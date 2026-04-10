@@ -65,3 +65,13 @@ class NotificationPreferenceUpdate(BaseModel):
     slack_enabled: Optional[bool] = None
     frequency: Optional[NotificationFrequency] = None
     categories: Optional[dict] = None
+
+
+class NotificationSlackConfigOut(BaseModel):
+    enabled: bool
+    webhook_configured: bool
+
+
+class NotificationSlackConfigUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    webhook_url: Optional[str] = None

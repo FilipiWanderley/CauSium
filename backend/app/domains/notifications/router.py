@@ -7,11 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_roles
 from app.core.schemas import Page, PageParams
+from app.domains.auth.models import UserRole
 from app.domains.notifications.models import AlertCategory, AlertStatus
 from app.domains.notifications.schemas import (
     AlertRecordOut,
+    NotificationSlackConfigOut,
+    NotificationSlackConfigUpdate,
     AlertStatusPatch,
     NotificationPreferenceOut,
     NotificationPreferenceUpdate,
@@ -133,3 +136,38 @@ async def update_preferences(
         categories=body.categories,
     )
     return NotificationPreferenceOut.model_validate(pref)
+
+
+@router.get("/slack-config", response_model=NotificationSlackConfigOut)
+async def get_slack_config(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+) -> NotificationSlackConfigOut:
+    svc = NotificationsService(db)
+    cfg = await svc.get_slack_config(current_user.org_id)
+    return NotificationSlackConfigOut(
+        enabled=cfg.enabled,
+        webhook_configured=bool(cfg.webhook_encrypted),
+    )
+
+
+@router.put("/slack-config", response_model=NotificationSlackConfigOut)
+async def update_slack_config(
+    body: NotificationSlackConfigUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+) -> NotificationSlackConfigOut:
+    svc = NotificationsService(db)
+    try:
+        cfg = await svc.upsert_slack_config(
+            org_id=current_user.org_id,
+            enabled=body.enabled,
+            webhook_url=body.webhook_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return NotificationSlackConfigOut(
+        enabled=cfg.enabled,
+        webhook_configured=bool(cfg.webhook_encrypted),
+    )

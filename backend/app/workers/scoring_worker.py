@@ -7,6 +7,7 @@ from app.core.database import async_session_factory
 from app.core.email import EmailService
 from app.core.logging import get_logger
 from app.core.redis import get_redis_pool
+from app.core.slack import SlackService
 from app.workers.job_runtime import MAX_RETRIES, parse_job, push_to_dlq, retry_key
 
 log = get_logger(__name__)
@@ -76,14 +77,18 @@ async def process_scoring(raw_payload: str) -> None:
         await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
         log.error("scoring.failed_to_dlq", account_id=account_id_str, error=str(e))
-        await EmailService().send_critical_alert(
-            subject="[StratoPulse][Critical] Scoring worker failure",
-            text_body=(
-                "A critical failure occurred in scoring worker and was moved to DLQ.\n\n"
-                f"account_id: {account_id_str}\n"
-                f"org_id: {str(job.org_id) if job.org_id else 'unknown'}\n"
-                f"error: {str(e)}\n"
-            ),
+        subject = "[StratoPulse][Critical] Scoring worker failure"
+        body = (
+            "A critical failure occurred in scoring worker and was moved to DLQ.\n\n"
+            f"account_id: {account_id_str}\n"
+            f"org_id: {str(job.org_id) if job.org_id else 'unknown'}\n"
+            f"error: {str(e)}\n"
+        )
+        await EmailService().send_critical_alert(subject=subject, text_body=body)
+        await SlackService(db).send_critical_alert(
+            org_id=job.org_id,
+            subject=subject,
+            text_body=body,
         )
 
 

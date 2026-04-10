@@ -1,4 +1,6 @@
 from __future__ import annotations
+import base64
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +13,25 @@ from app.core.config import get_settings
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _fernet_from_settings() -> Fernet:
+    """Return a Fernet instance from settings, accepting both raw and base64 keys.
+
+    If ENCRYPTION_KEY is already a valid urlsafe-base64 Fernet key (32-byte
+    payload), it is used as-is. Otherwise we derive a stable Fernet key by
+    hashing the provided value with SHA-256 and urlsafe-base64-encoding it.
+    """
+    raw = get_settings().encryption_key.encode()
+    try:
+        decoded = base64.urlsafe_b64decode(raw)
+        if len(decoded) == 32:
+            return Fernet(raw)
+    except Exception:
+        pass
+
+    derived = base64.urlsafe_b64encode(hashlib.sha256(raw).digest())
+    return Fernet(derived)
 
 
 def hash_password(password: str) -> str:
@@ -44,18 +65,10 @@ def decode_token(token: str) -> dict[str, Any]:
 
 
 def encrypt_secret(value: str) -> str:
-    settings = get_settings()
-    key = settings.encryption_key.encode()
-    if len(key) < 32:
-        key = key.ljust(44, b"=")
-    f = Fernet(key[:44])
+    f = _fernet_from_settings()
     return f.encrypt(value.encode()).decode()
 
 
 def decrypt_secret(encrypted: str) -> str:
-    settings = get_settings()
-    key = settings.encryption_key.encode()
-    if len(key) < 32:
-        key = key.ljust(44, b"=")
-    f = Fernet(key[:44])
+    f = _fernet_from_settings()
     return f.decrypt(encrypted.encode()).decode()
