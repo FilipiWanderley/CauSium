@@ -10,6 +10,8 @@ from app.domains.decision_engine.models import (
     OpportunityCategory,
     OpportunityStatus,
 )
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
     OpportunitySummary,
@@ -144,6 +146,22 @@ class DecisionEngineService:
         self.db.add(op)
         await self.db.flush()
         await self.db.refresh(op)
+
+        notif = NotificationsService(self.db)
+        await notif.create_if_rule_matches(
+            org_id=org_id,
+            category=AlertCategory.OPTIMIZATION,
+            severity=AlertSeverity.CRITICAL,
+            event_type="opportunity.created",
+            title=f"New optimization opportunity: {op.title}",
+            body=op.description,
+            source_type="optimization_opportunity",
+            source_id=str(op.id),
+            extra_metadata={
+                "estimated_monthly_savings_usd": op.estimated_monthly_savings_usd,
+                "category": op.category.value,
+            },
+        )
         return op
 
     async def list_opportunities(

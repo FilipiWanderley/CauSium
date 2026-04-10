@@ -8,6 +8,8 @@ from uuid import UUID
 from app.core.database import async_session_factory
 from app.core.email import EmailService
 from app.core.logging import get_logger
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 from app.core.redis import get_redis_pool
 from app.core.slack import SlackService
 from app.workers.job_runtime import MAX_RETRIES, parse_job, push_to_dlq, retry_key
@@ -125,6 +127,17 @@ async def process_account(raw_payload: str) -> None:
                 subject=subject,
                 text_body=body,
             )
+            if job.org_id:
+                await NotificationsService(db).create_if_rule_matches(
+                    org_id=job.org_id,
+                    category=AlertCategory.SECURITY,
+                    severity=AlertSeverity.CRITICAL,
+                    event_type="worker.ingestion.dlq_failure",
+                    title="Critical ingestion worker failure",
+                    body=body,
+                    source_type="worker_failure",
+                    source_id=f"ingestion:{account_id_str}:{attempts}",
+                )
             await SlackService(db).send_critical_alert(
                 org_id=job.org_id,
                 subject=subject,

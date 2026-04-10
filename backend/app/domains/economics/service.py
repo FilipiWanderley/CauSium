@@ -13,6 +13,8 @@ from app.core.clickhouse import execute_query
 from app.core.logging import get_logger
 from app.domains.economics.models import FinancialBudgetPeriod, WorkspaceBudget
 from app.domains.economics.schemas import WorkspaceBudgetOut, WorkspaceBudgetUpsert
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 
 log = get_logger(__name__)
 
@@ -104,6 +106,34 @@ class EconomicsService:
         out.consumed_usd = round(consumed_usd, 2)
         out.consumed_pct = round(min(consumed_pct, 100.0), 1)
         out.projected_eom_usd = round(projected_eom_usd, 2) if projected_eom_usd is not None else None
+
+        try:
+            thresholds = sorted(json.loads(budget.alert_thresholds))
+        except Exception:
+            thresholds = []
+
+        crossed = [t for t in thresholds if consumed_pct >= float(t)]
+        if crossed:
+            highest = int(max(crossed))
+            notif = NotificationsService(self.db)
+            await notif.create_if_rule_matches(
+                org_id=org_id,
+                category=AlertCategory.FINANCIAL,
+                severity=AlertSeverity.CRITICAL,
+                event_type="budget.threshold.crossed",
+                title=f"Budget threshold reached: {highest}%",
+                body=(
+                    f"Workspace consumed {round(consumed_pct, 1)}% of budget "
+                    f"for current {budget.period.value} period."
+                ),
+                source_type="workspace_budget",
+                source_id=f"{budget.id}:{period_start.isoformat()}:{highest}",
+                extra_metadata={
+                    "threshold": highest,
+                    "consumed_pct": round(consumed_pct, 1),
+                    "period": budget.period.value,
+                },
+            )
         return out
 
     # ------------------------------------------------------------------

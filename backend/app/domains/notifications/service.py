@@ -204,6 +204,24 @@ class NotificationsService:
         await self.db.refresh(alert)
         return alert
 
+    async def _get_alert_by_source(
+        self,
+        *,
+        org_id: UUID,
+        category: AlertCategory,
+        source_type: str,
+        source_id: str,
+    ) -> AlertRecord | None:
+        result = await self.db.execute(
+            select(AlertRecord).where(
+                AlertRecord.org_id == org_id,
+                AlertRecord.category == category,
+                AlertRecord.source_type == source_type,
+                AlertRecord.source_id == source_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
     # ------------------------------------------------------------------
     # Notification preferences (SP-NT03)
     # ------------------------------------------------------------------
@@ -346,25 +364,71 @@ class NotificationsService:
         await self.db.refresh(rule)
         return rule
 
-    async def should_create_activity_alert(
+    async def should_create_alert(
         self,
         *,
         org_id: UUID,
+        category: AlertCategory,
         event_type: str,
-        event_severity: ActivityEventSeverity,
+        severity: AlertSeverity,
     ) -> bool:
-        rule = await self.get_alert_rule(org_id, AlertCategory.ACTIVITY)
+        rule = await self.get_alert_rule(org_id, category)
         if not rule.enabled:
             return False
 
-        mapped = _ACTIVITY_TO_ALERT_SEVERITY[event_severity]
-        if _SEVERITY_RANK[mapped] < _SEVERITY_RANK[rule.min_severity]:
+        if _SEVERITY_RANK[severity] < _SEVERITY_RANK[rule.min_severity]:
             return False
 
         if rule.event_type_prefix and not event_type.startswith(rule.event_type_prefix):
             return False
 
         return True
+
+    async def create_if_rule_matches(
+        self,
+        *,
+        org_id: UUID,
+        category: AlertCategory,
+        severity: AlertSeverity,
+        title: str,
+        body: str | None = None,
+        action_url: str | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
+        user_id: UUID | None = None,
+        extra_metadata: dict | None = None,
+        event_type: str,
+    ) -> AlertRecord | None:
+        if not await self.should_create_alert(
+            org_id=org_id,
+            category=category,
+            event_type=event_type,
+            severity=severity,
+        ):
+            return None
+
+        if source_type and source_id:
+            existing = await self._get_alert_by_source(
+                org_id=org_id,
+                category=category,
+                source_type=source_type,
+                source_id=source_id,
+            )
+            if existing is not None:
+                return existing
+
+        return await self.create(
+            org_id=org_id,
+            category=category,
+            severity=severity,
+            title=title,
+            body=body,
+            action_url=action_url,
+            source_type=source_type,
+            source_id=source_id,
+            user_id=user_id,
+            extra_metadata=extra_metadata,
+        )
 
     # ------------------------------------------------------------------
     # Activity events (SP-NT01)
@@ -402,21 +466,18 @@ class NotificationsService:
         await self.db.flush()
         await self.db.refresh(event)
 
-        if await self.should_create_activity_alert(
+        mapped_severity = _ACTIVITY_TO_ALERT_SEVERITY[severity]
+        await self.create_if_rule_matches(
             org_id=org_id,
+            category=AlertCategory.ACTIVITY,
+            severity=mapped_severity,
             event_type=event_type,
-            event_severity=severity,
-        ):
-            await self.create(
-                org_id=org_id,
-                category=AlertCategory.ACTIVITY,
-                severity=_ACTIVITY_TO_ALERT_SEVERITY[severity],
-                title=f"Activity event: {event_type}",
-                body=title,
-                source_type="activity_event",
-                source_id=str(event.id),
-                extra_metadata={"provider": provider, "service": service, "resource_id": resource_id},
-            )
+            title=f"Activity event: {event_type}",
+            body=title,
+            source_type="activity_event",
+            source_id=str(event.id),
+            extra_metadata={"provider": provider, "service": service, "resource_id": resource_id},
+        )
 
         return event
 

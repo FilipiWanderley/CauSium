@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.domains.audit_chain.service import AuditChainService
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 from app.domains.risk_budgets.models import RiskBudget
 from app.domains.risk_budgets.schemas import RiskBudgetCreate, RiskBudgetUpdate
 
@@ -23,6 +25,24 @@ class RiskBudgetService:
         self.db.add(budget)
         await self.db.flush()
         await self.db.refresh(budget)
+
+        notif = NotificationsService(self.db)
+        await notif.create_if_rule_matches(
+            org_id=org_id,
+            category=AlertCategory.GOVERNANCE,
+            severity=AlertSeverity.CRITICAL,
+            event_type="risk_budget.created",
+            title=f"Risk budget configured: {budget.domain} / {budget.environment}",
+            body=f"Limit {budget.budget_type.value} set to {budget.limit_value}.",
+            source_type="risk_budget",
+            source_id=str(budget.id),
+            extra_metadata={
+                "domain": budget.domain,
+                "environment": budget.environment,
+                "budget_type": budget.budget_type.value,
+            },
+        )
+
         if actor_user_id:
             await self.audit_chain.append_event(
                 org_id=org_id,
