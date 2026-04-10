@@ -141,3 +141,41 @@ class NotificationSlackConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ActivityEventSeverity(str, enum.Enum):
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
+class ActivityEvent(Base):
+    __tablename__ = "activity_events"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    account_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("cloud_accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, default="unknown")
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    severity: Mapped[ActivityEventSeverity] = mapped_column(
+        Enum(ActivityEventSeverity, values_callable=_VC),
+        nullable=False,
+        default=ActivityEventSeverity.INFO,
+        index=True,
+    )
+
+    service: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    extra_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSONB, nullable=True)
+
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )

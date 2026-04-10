@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.core.security import encrypt_secret
 from app.domains.notifications.models import (
+    ActivityEvent,
+    ActivityEventSeverity,
     AlertCategory,
     AlertRecord,
     NotificationPreference,
@@ -286,3 +288,92 @@ class NotificationsService:
         await self.db.flush()
         await self.db.refresh(cfg)
         return cfg
+
+    # ------------------------------------------------------------------
+    # Activity events (SP-NT01)
+    # ------------------------------------------------------------------
+
+    async def create_activity_event(
+        self,
+        *,
+        org_id: UUID,
+        provider: str,
+        event_type: str,
+        title: str,
+        occurred_at: datetime,
+        severity: ActivityEventSeverity = ActivityEventSeverity.INFO,
+        body: str | None = None,
+        service: str | None = None,
+        resource_id: str | None = None,
+        account_id: UUID | None = None,
+        extra_metadata: dict | None = None,
+    ) -> ActivityEvent:
+        event = ActivityEvent(
+            org_id=org_id,
+            account_id=account_id,
+            provider=provider,
+            event_type=event_type,
+            severity=severity,
+            service=service,
+            resource_id=resource_id,
+            title=title,
+            body=body,
+            extra_metadata=extra_metadata,
+            occurred_at=occurred_at,
+        )
+        self.db.add(event)
+        await self.db.flush()
+        await self.db.refresh(event)
+
+        if severity == ActivityEventSeverity.CRITICAL:
+            await self.create(
+                org_id=org_id,
+                category=AlertCategory.ACTIVITY,
+                severity=AlertSeverity.CRITICAL,
+                title=f"Critical activity: {event_type}",
+                body=title,
+                source_type="activity_event",
+                source_id=str(event.id),
+                extra_metadata={"provider": provider, "service": service, "resource_id": resource_id},
+            )
+
+        return event
+
+    async def list_activity_events(
+        self,
+        *,
+        org_id: UUID,
+        event_type: str | None = None,
+        resource_id: str | None = None,
+        service: str | None = None,
+        occurred_from: datetime | None = None,
+        occurred_to: datetime | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[ActivityEvent], int]:
+        filters = [ActivityEvent.org_id == org_id]
+        if event_type:
+            filters.append(ActivityEvent.event_type == event_type)
+        if resource_id:
+            filters.append(ActivityEvent.resource_id == resource_id)
+        if service:
+            filters.append(ActivityEvent.service == service)
+        if occurred_from:
+            filters.append(ActivityEvent.occurred_at >= occurred_from)
+        if occurred_to:
+            filters.append(ActivityEvent.occurred_at <= occurred_to)
+
+        total = (
+            await self.db.execute(
+                select(func.count()).select_from(ActivityEvent).where(and_(*filters))
+            )
+        ).scalar_one()
+
+        rows = await self.db.execute(
+            select(ActivityEvent)
+            .where(and_(*filters))
+            .order_by(ActivityEvent.occurred_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(rows.scalars().all()), total

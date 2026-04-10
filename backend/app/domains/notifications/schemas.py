@@ -4,10 +4,11 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domains.notifications.models import (
     AlertCategory,
+    ActivityEventSeverity,
     AlertSeverity,
     AlertStatus,
     NotificationFrequency,
@@ -75,3 +76,34 @@ class NotificationSlackConfigOut(BaseModel):
 class NotificationSlackConfigUpdate(BaseModel):
     enabled: Optional[bool] = None
     webhook_url: Optional[str] = None
+
+
+class ActivityEventCreate(BaseModel):
+    provider: str = Field(default="unknown", min_length=2, max_length=50)
+    event_type: str = Field(..., min_length=2, max_length=120)
+    severity: ActivityEventSeverity = ActivityEventSeverity.INFO
+    title: str = Field(..., min_length=3, max_length=500)
+    body: Optional[str] = None
+    service: Optional[str] = Field(default=None, max_length=100)
+    resource_id: Optional[str] = Field(default=None, max_length=255)
+    account_id: Optional[UUID] = None
+    extra_metadata: Optional[dict] = None
+    occurred_at: datetime
+
+
+class ActivityEventOut(BaseModel):
+    id: UUID
+    org_id: UUID
+    account_id: Optional[UUID]
+    provider: str
+    event_type: str
+    severity: ActivityEventSeverity
+    service: Optional[str]
+    resource_id: Optional[str]
+    title: str
+    body: Optional[str]
+    extra_metadata: Optional[dict]
+    occurred_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

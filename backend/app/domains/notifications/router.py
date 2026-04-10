@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
 from app.domains.notifications.models import AlertCategory, AlertStatus
 from app.domains.notifications.schemas import (
+    ActivityEventCreate,
+    ActivityEventOut,
     AlertRecordOut,
     NotificationSlackConfigOut,
     NotificationSlackConfigUpdate,
@@ -24,6 +27,54 @@ from app.domains.notifications.schemas import (
 from app.domains.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@router.post("/activity-events", response_model=ActivityEventOut, status_code=status.HTTP_201_CREATED)
+async def create_activity_event(
+    req: ActivityEventCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER, UserRole.PLATFORM_ADMIN)),
+) -> ActivityEventOut:
+    svc = NotificationsService(db)
+    event = await svc.create_activity_event(
+        org_id=current_user.org_id,
+        provider=req.provider,
+        event_type=req.event_type,
+        severity=req.severity,
+        title=req.title,
+        body=req.body,
+        service=req.service,
+        resource_id=req.resource_id,
+        account_id=req.account_id,
+        extra_metadata=req.extra_metadata,
+        occurred_at=req.occurred_at,
+    )
+    return ActivityEventOut.model_validate(event)
+
+
+@router.get("/activity-events", response_model=Page[ActivityEventOut])
+async def list_activity_events(
+    event_type: Optional[str] = Query(default=None),
+    resource_id: Optional[str] = Query(default=None),
+    service: Optional[str] = Query(default=None),
+    occurred_from: Optional[datetime] = Query(default=None),
+    occurred_to: Optional[datetime] = Query(default=None),
+    page_params: PageParams = Depends(PageParams),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> Page[ActivityEventOut]:
+    svc = NotificationsService(db)
+    items, total = await svc.list_activity_events(
+        org_id=current_user.org_id,
+        event_type=event_type,
+        resource_id=resource_id,
+        service=service,
+        occurred_from=occurred_from,
+        occurred_to=occurred_to,
+        limit=page_params.limit,
+        offset=page_params.offset,
+    )
+    return Page.of([ActivityEventOut.model_validate(e) for e in items], total, page_params)
 
 
 @router.get("/unread-count", response_model=UnreadCountOut)

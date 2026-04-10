@@ -442,7 +442,7 @@ Legenda: ✅ Implementado | 🔶 Parcial | ❌ Não iniciado
 
 | Capacidade | Status Real | Gap |
 |-----------|-------------|-----|
-| ActivityEvent (log de atividade do provider) | ❌ | `change_events` é diferente — cobre mudanças operacionais, não atividade de provider |
+| ActivityEvent (log de atividade do provider) | ✅ | API `POST/GET /notifications/activity-events` com filtros por tipo/período/recurso e isolamento por workspace |
 | AlertRecord por categoria | ✅ | Modelo/migração `alert_records` + API `/notifications` |
 | NotificationPreference por membro | ✅ | API `GET/PUT /notifications/preferences` com persistência por membro/workspace |
 | Endpoint GET /notifications/new (polling) | 🔶 | Substituído por `GET /notifications/unread-count` + listagem paginada |
@@ -1367,7 +1367,7 @@ SLIs a instrumentar:
 | 7 | SP-CL01 | Conector Azure Blob Storage | P1 |
 | 8 | SP-RI01 | ProviderRecommendation sync (Azure Advisor) | P1 |
 | 9 | SP-RI02 | Atualização de status de ProviderRecommendation | P1 |
-| 10 | SP-NT01 | ActivityEvent storage | P1 |
+| 10 | SP-NT01 | ActivityEvent storage (✅ implementado) | P1 |
 | 11 | SP-NT02 | AlertRecord por categoria | P1 |
 | 12 | SP-NT03 | NotificationPreference por membro (✅ implementado) | P1 |
 | 13 | SP-NT04 | GET /notifications/new (polling) | P1 |
