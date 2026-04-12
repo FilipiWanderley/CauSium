@@ -5,9 +5,11 @@ import json
 
 from datetime import date, datetime, timezone
 
+import httpx
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domains.connectors.base import BaseConnector, CanonicalCostRecord, CanonicalEventRecord
+from app.domains.connectors.base import BaseConnector, CanonicalCarbonRecord, CanonicalCostRecord, CanonicalEventRecord
 
 log = get_logger(__name__)
 
@@ -445,6 +447,87 @@ class AzureConnectorClient(BaseConnector):
 
         log.info("azure.fetch_events.done", subscription=subscription_id, records=len(records))
         return records
+
+    async def fetch_carbon_emissions(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCarbonRecord]:
+        settings = get_settings()
+        if not settings.azure_carbon_api_url:
+            log.info("azure.fetch_carbon.skipped", reason="AZURE_CARBON_API_URL not configured")
+            return []
+
+        cred = self._get_credential()
+        token = cred.get_token("https://management.azure.com/.default")
+
+        payload = {
+            "subscriptionId": subscription_id,
+            "startDate": start.isoformat(),
+            "endDate": end.isoformat(),
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    settings.azure_carbon_api_url,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {token.token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+        except Exception as exc:
+            log.warning("azure.fetch_carbon.failed", subscription=subscription_id, reason=str(exc))
+            return []
+
+        items = data.get("value") if isinstance(data, dict) else []
+        if not isinstance(items, list):
+            return []
+
+        records: list[CanonicalCarbonRecord] = []
+        for item in items:
+            normalized = self._normalize_carbon_item(item, subscription_id)
+            if normalized:
+                records.append(normalized)
+
+        log.info("azure.fetch_carbon.done", subscription=subscription_id, records=len(records))
+        return records
+
+    @staticmethod
+    def _normalize_carbon_item(item: dict, fallback_subscription_id: str) -> CanonicalCarbonRecord | None:
+        if not isinstance(item, dict):
+            return None
+
+        year_month = (
+            item.get("yearMonth")
+            or item.get("month")
+            or item.get("billingMonth")
+            or ""
+        )
+        year_month = str(year_month)
+        if len(year_month) == 6 and year_month.isdigit():
+            year_month = f"{year_month[:4]}-{year_month[4:6]}"
+        if len(year_month) != 7:
+            return None
+
+        raw_kg = item.get("kgCO2e") or item.get("kg_co2e") or item.get("emissionsKg") or 0
+        try:
+            kg = float(raw_kg)
+        except (TypeError, ValueError):
+            return None
+
+        return CanonicalCarbonRecord(
+            year_month=year_month,
+            provider="azure",
+            subscription_id=str(item.get("subscriptionId") or fallback_subscription_id),
+            service=str(item.get("serviceName") or item.get("service") or "unknown"),
+            resource_group=str(item.get("resourceGroupName") or item.get("resourceGroup") or "unknown"),
+            kg_co2e=kg,
+        )
 
 
 # Import mock at the bottom to avoid circular import

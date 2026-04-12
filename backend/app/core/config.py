@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     azure_tenant_id: str = ""
     azure_client_id: str = ""
     azure_client_secret: str = ""
+    azure_carbon_api_url: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
     # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering

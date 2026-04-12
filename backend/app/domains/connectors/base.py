@@ -39,6 +39,16 @@ class CanonicalEventRecord:
     raw_data: str
 
 
+@dataclass
+class CanonicalCarbonRecord:
+    year_month: str  # YYYY-MM
+    provider: str
+    subscription_id: str
+    service: str
+    resource_group: str
+    kg_co2e: float
+
+
 class BaseConnector(ABC):
     @abstractmethod
     async def validate_connection(self) -> None:
@@ -55,3 +65,7 @@ class BaseConnector(ABC):
     @abstractmethod
     async def fetch_events(self, subscription_id: str, start: date, end: date) -> list[CanonicalEventRecord]:
         """Fetch activity log events."""
+
+    @abstractmethod
+    async def fetch_carbon_emissions(self, subscription_id: str, start: date, end: date) -> list[CanonicalCarbonRecord]:
+        """Fetch monthly carbon emissions for the given period."""

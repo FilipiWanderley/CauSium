@@ -63,3 +63,18 @@ CREATE TABLE IF NOT EXISTS usage_facts (
 PARTITION BY toYYYYMM(date)
 ORDER BY (org_id, account_id, provider, service, resource_id, metric_name, date)
 SETTINGS index_granularity = 8192;
+
+CREATE TABLE IF NOT EXISTS carbon_facts (
+    year_month     String,
+    org_id         UUID,
+    account_id     UUID,
+    provider       LowCardinality(String),
+    subscription_id String,
+    service        LowCardinality(String),
+    resource_group String,
+    kg_co2e        Float64,
+    ingested_at    DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(ingested_at)
+PARTITION BY year_month
+ORDER BY (org_id, account_id, provider, subscription_id, service, resource_group, year_month)
+SETTINGS index_granularity = 8192;

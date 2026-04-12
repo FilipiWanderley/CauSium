@@ -56,6 +56,7 @@ class CloudLedgerService:
                 costs = await client.fetch_costs(account.external_id, start, end)
 
             events = await client.fetch_events(account.external_id, start, end)
+            carbon = await client.fetch_carbon_emissions(account.external_id, start, end)
         except Exception as e:
             log.error("ledger.ingest.failed", account_id=str(account_id), error=str(e))
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
@@ -124,6 +125,25 @@ class CloudLedgerService:
                 insert_rows("event_facts", event_rows)
             except Exception as e:
                 log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
+
+        carbon_rows = [
+            {
+                "year_month": r.year_month,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "service": r.service,
+                "resource_group": r.resource_group,
+                "kg_co2e": r.kg_co2e,
+            }
+            for r in carbon
+        ]
+        if carbon_rows:
+            try:
+                insert_rows("carbon_facts", carbon_rows)
+            except Exception as e:
+                log.warning("ledger.clickhouse.carbon_insert_failed", error=str(e))
 
         if blob_checkpoints:
             existing_keys = await self._get_blob_checkpoint_keys(account_id)

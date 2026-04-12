@@ -1333,11 +1333,13 @@ Implementado e validado em codigo:
 - SP-MT06 fase 1: keyring por workspace com criptografia por org e compatibilidade retroativa.
 - SP-SM01 fase 1: rotacao automatica de keyring por workspace (janela configuravel, worker dedicado).
 - SP-CL01 completo: conector Azure Blob com normalizacao canonica, fallback para Cost Management API e checkpoint persistente para idempotencia cross-run.
+- SP-CL02 fase 1: conector Azure Carbon API configuravel, ingestao em carbon_facts e consumo no PulseGreen com fallback para estimativa.
 - Hardening de release: runbook, rollback, smoke, checklist go/no-go e gate automatizado.
 
 Ainda pendente de implementacao de codigo (priorizar por impacto):
 
-- SP-CL02, SP-CL05, SP-CL06: conectores reais Azure Carbon e AWS/GCP.
+- SP-CL02 (completo): retries/backoff dedicados de sync de carbono e consolidacao com endpoint de operacao.
+- SP-CL05, SP-CL06: conectores reais AWS/GCP.
 - SP-RI01 a SP-RI06: provider recommendations reais, engine causal, ARI e simulacao/canario real.
 - SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.
 - SP-WK04 e SP-WK05: schema registry e pulse stream imutavel para replay.
