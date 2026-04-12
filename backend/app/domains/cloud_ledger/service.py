@@ -56,7 +56,6 @@ class CloudLedgerService:
                 costs = await client.fetch_costs(account.external_id, start, end)
 
             events = await client.fetch_events(account.external_id, start, end)
-            carbon = await client.fetch_carbon_emissions(account.external_id, start, end)
         except Exception as e:
             log.error("ledger.ingest.failed", account_id=str(account_id), error=str(e))
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
@@ -126,25 +125,6 @@ class CloudLedgerService:
             except Exception as e:
                 log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
 
-        carbon_rows = [
-            {
-                "year_month": r.year_month,
-                "org_id": str(org_id),
-                "account_id": str(account_id),
-                "provider": r.provider,
-                "subscription_id": r.subscription_id,
-                "service": r.service,
-                "resource_group": r.resource_group,
-                "kg_co2e": r.kg_co2e,
-            }
-            for r in carbon
-        ]
-        if carbon_rows:
-            try:
-                insert_rows("carbon_facts", carbon_rows)
-            except Exception as e:
-                log.warning("ledger.clickhouse.carbon_insert_failed", error=str(e))
-
         if blob_checkpoints:
             existing_keys = await self._get_blob_checkpoint_keys(account_id)
             for item in blob_checkpoints:
@@ -175,6 +155,46 @@ class CloudLedgerService:
             event_records=len(events),
             status="ok",
         )
+
+    async def ingest_carbon_account(
+        self,
+        org_id: UUID,
+        account_id: UUID,
+        start: date,
+        end: date,
+    ) -> int:
+        from app.domains.connectors.azure.client import AzureConnectorClient
+
+        account_service = CloudAccountService(self.db)
+        account = await account_service.get_account(org_id, account_id)
+        if not account:
+            raise ValueError("Account not found")
+
+        creds = await account_service.get_azure_credentials(account)
+        client = AzureConnectorClient.from_account(account, creds)
+
+        carbon = await client.fetch_carbon_emissions(account.external_id, start, end)
+        carbon_rows = [
+            {
+                "year_month": r.year_month,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "service": r.service,
+                "resource_group": r.resource_group,
+                "kg_co2e": r.kg_co2e,
+            }
+            for r in carbon
+        ]
+
+        if carbon_rows:
+            insert_rows("carbon_facts", carbon_rows)
+
+        account.last_sync_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        log.info("ledger.carbon_ingest.done", account_id=str(account_id), carbon_records=len(carbon_rows))
+        return len(carbon_rows)
 
     async def _get_blob_checkpoint_keys(self, account_id: UUID) -> set[str]:
         from app.domains.cloud_accounts.models import BlobIngestionCheckpoint

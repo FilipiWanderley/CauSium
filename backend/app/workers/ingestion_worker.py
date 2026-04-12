@@ -81,14 +81,15 @@ async def process_account(raw_payload: str) -> None:
 
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
-            # Queue scoring after successful ingestion
-            scoring_payload = json.dumps(
+            # Queue downstream jobs after successful ingestion
+            next_payload = json.dumps(
                 {
                     "org_id": str(account.org_id),
                     "account_id": account_id_str,
                 }
             )
-            await redis.lpush("scoring:queue", scoring_payload)
+            await redis.lpush("scoring:queue", next_payload)
+            await redis.lpush("carbon:queue", next_payload)
 
     except Exception as e:
         attempts = await redis.incr(retry_key(QUEUE_KEY, raw_payload))
