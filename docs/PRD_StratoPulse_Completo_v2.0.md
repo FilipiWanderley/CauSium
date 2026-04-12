@@ -1306,6 +1306,44 @@ SLIs a instrumentar:
 - Zero vulnerabilidade P0 aberta
 - Relatório de headers/TLS/rate-limiting validado
 
+### 11.0.1 Status Verificado em Codigo (2026-04-11)
+
+Este bloco consolida o estado real do repositorio para reduzir divergencia entre o PRD historico e a implementacao atual.
+
+Implementado e validado em codigo:
+
+- SP-A01: forcar troca de senha e fluxo de change-password.
+- SP-A03: rate limiting por IP e por workspace.
+- SP-A04: validacao origin/referer para rotas sensiveis de auth.
+- SP-A05: headers de seguranca completos no middleware.
+- SP-A06: MFA TOTP setup/verify/enable/disable + reset admin.
+- SP-EC01: WorkspaceBudget GET/PUT.
+- SP-EC03: exportacao assincrona de relatorios com status e download.
+- SP-EC04: custo detalhado com filtros combinados e paginacao.
+- SP-NT02 e SP-NT03: regras e preferencias de notificacao.
+- SP-NT05: patch de notificacao (lida/arquivada).
+- SP-NT06 e SP-NT07 parcial: envio por email e Slack (Teams pendente).
+- SP-OP06 fase 1: metricas/tracing operacional basico + endpoint de metrics.
+- SP-OP07 fase 1: dashboard SLI/SLO com alertas acionaveis.
+- SP-OP08: gates de seguranca no CI + baseline de excecoes.
+- SP-U01, SP-U02, SP-U05: reset senha, reset MFA e desativacao de membro.
+- SP-WK01 e SP-WK02: DLQ e resiliencia de workers por isolamento de falha.
+- SP-WK03: remocao do endpoint legado de notificacoes.
+- SP-MT06 fase 1: keyring por workspace com criptografia por org e compatibilidade retroativa.
+- Hardening de release: runbook, rollback, smoke, checklist go/no-go e gate automatizado.
+
+Ainda pendente de implementacao de codigo (priorizar por impacto):
+
+- SP-A02/SP-FE11: concluir migracao total para cookie httpOnly (sem dependencia de localStorage para sessao).
+- SP-CL01, SP-CL02, SP-CL05, SP-CL06: conectores reais Azure Blob/Carbon e AWS/GCP.
+- SP-RI01 a SP-RI06: provider recommendations reais, engine causal, ARI e simulacao/canario real.
+- SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.
+- SP-WK04 e SP-WK05: schema registry e pulse stream imutavel para replay.
+- SP-AU02 e SP-AU03: compliance artifact assinado e retencao LGPD configuravel.
+- SP-SM01 e SP-SM02 completos: rotacao automatica e envelope encryption com KMS/HSM.
+- SP-SM03: mTLS interno entre servicos.
+- SP-OP01 a SP-OP05, SP-OP09, SP-OP11: trilha de infra enterprise (IaC, AKS, WAF, GitOps, ambientes efemeros, carga k6).
+
 ---
 
 ### Wave 1 — Plataforma de Produção (P0/P1 infraestrutura, semanas 4–10)
