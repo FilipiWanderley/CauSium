@@ -1,6 +1,6 @@
 """notifications: alert_records table
 
-Revision ID: 0008
+Revision ID: 0008a_notifications_alerts
 Revises: 0007
 Create Date: 2026-04-08 00:00:00.000000
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-revision: str = "0008"
+revision: str = "0008a_notifications_alerts"
 down_revision: Union[str, None] = "0007"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

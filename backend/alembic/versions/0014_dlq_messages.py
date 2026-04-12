@@ -1,18 +1,20 @@
-"""SP-WK01: DLQ messages table for failed worker jobs.
 
-Revision ID: 0014
+"""
+SP-WK01: DLQ messages table for failed worker jobs.
+
+Revision ID: 0014_dlq_messages
 Revises: 0013
 Create Date: 2026-04-07 00:00:00.000000
 """
-from typing import Sequence, Union
-
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
-revision: str = "0014"
-down_revision: Union[str, None] = "0013"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+# revision identifiers, used by Alembic.
+revision = '0014_dlq_messages'
+down_revision = '0013'
+branch_labels = None
+depends_on = None
 
 
 def upgrade() -> None:
