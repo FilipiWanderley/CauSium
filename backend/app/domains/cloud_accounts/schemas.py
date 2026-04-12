@@ -12,6 +12,9 @@ class AzureCredentials(BaseModel):
     client_id: str
     client_secret: str
     subscription_id: str
+    storage_account_url: str | None = None
+    cost_export_container: str | None = None
+    cost_export_prefix: str | None = None
 
 
 class CloudAccountCreate(BaseModel):

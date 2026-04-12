@@ -1332,11 +1332,13 @@ Implementado e validado em codigo:
 - SP-WK03: remocao do endpoint legado de notificacoes.
 - SP-MT06 fase 1: keyring por workspace com criptografia por org e compatibilidade retroativa.
 - SP-SM01 fase 1: rotacao automatica de keyring por workspace (janela configuravel, worker dedicado).
+- SP-CL01 fase 1: conector Azure Blob para ingestao de exports CSV de custo com normalizacao canonica e fallback para Cost Management API.
 - Hardening de release: runbook, rollback, smoke, checklist go/no-go e gate automatizado.
 
 Ainda pendente de implementacao de codigo (priorizar por impacto):
 
-- SP-CL01, SP-CL02, SP-CL05, SP-CL06: conectores reais Azure Blob/Carbon e AWS/GCP.
+- SP-CL01 (completo): idempotencia cross-run e checkpoint persistente de blobs processados.
+- SP-CL02, SP-CL05, SP-CL06: conectores reais Azure Carbon e AWS/GCP.
 - SP-RI01 a SP-RI06: provider recommendations reais, engine causal, ARI e simulacao/canario real.
 - SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.
 - SP-WK04 e SP-WK05: schema registry e pulse stream imutavel para replay.

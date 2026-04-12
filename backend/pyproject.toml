@@ -23,6 +23,7 @@ azure-mgmt-costmanagement = "^4.0.0"
 azure-mgmt-monitor = "^6.0.0"
 azure-mgmt-resource = "^23.0.0"
 azure-mgmt-subscription = "^3.1.0"
+azure-storage-blob = "^12.22.0"
 python-jose = {version = "^3.3.0", extras = ["cryptography"]}
 cryptography = "^43.0.0"
 passlib = {version = "^1.7.4", extras = ["bcrypt"]}
