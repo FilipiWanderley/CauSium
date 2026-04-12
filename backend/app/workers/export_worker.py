@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.email import EmailService
 from app.core.logging import get_logger
+from app.core.observability import observe_worker_job
 from app.core.redis import get_redis_pool
 from app.core.slack import SlackService
 from app.domains.economics.export_runtime import build_report_export_artifact, persist_report_export_file
@@ -27,13 +29,17 @@ def _parse_payload(raw_payload: str) -> tuple[UUID, UUID]:
 
 
 async def process_report_export(raw_payload: str) -> None:
+    started = time.perf_counter()
+    status = "unknown"
     org_id, job_id = _parse_payload(raw_payload)
     redis = get_redis_pool()
     lock_key = f"economics:reports:lock:{job_id}"
 
     acquired = await redis.set(lock_key, "1", ex=LOCK_TTL, nx=True)
     if not acquired:
+        status = "locked"
         log.info("economics.report_export.locked", export_job_id=str(job_id))
+        observe_worker_job("economics_export", status, (time.perf_counter() - started) * 1000)
         return
 
     try:
@@ -41,6 +47,7 @@ async def process_report_export(raw_payload: str) -> None:
             svc = EconomicsService(db)
             job = await svc.get_report_export_job(org_id, job_id)
             if job is None:
+                status = "job_not_found"
                 log.warning("economics.report_export.job_not_found", export_job_id=str(job_id), org_id=str(org_id))
                 await redis.delete(retry_key(QUEUE_KEY, raw_payload))
                 return
@@ -61,11 +68,13 @@ async def process_report_export(raw_payload: str) -> None:
             )
             await db.commit()
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
+            status = "success"
             log.info("economics.report_export.completed", export_job_id=str(job_id), org_id=str(org_id))
     except Exception as exc:
         attempts = await redis.incr(retry_key(QUEUE_KEY, raw_payload))
         if attempts < MAX_RETRIES:
             await redis.lpush(QUEUE_KEY, raw_payload)
+            status = "retry"
             log.error(
                 "economics.report_export.retry_scheduled",
                 export_job_id=str(job_id),
@@ -101,9 +110,13 @@ async def process_report_export(raw_payload: str) -> None:
             await EmailService().send_critical_alert(subject=subject, text_body=body)
             await SlackService(db).send_critical_alert(org_id=org_id, subject=subject, text_body=body)
         await redis.delete(retry_key(QUEUE_KEY, raw_payload))
+        status = "failed"
         log.error("economics.report_export.failed_to_dlq", export_job_id=str(job_id), error=str(exc))
     finally:
         await redis.delete(lock_key)
+        if status == "unknown":
+            status = "error"
+        observe_worker_job("economics_export", status, (time.perf_counter() - started) * 1000)
 
 
 async def run_export_worker() -> None:
