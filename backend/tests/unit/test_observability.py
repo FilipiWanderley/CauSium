@@ -1,4 +1,5 @@
 from app.core.observability import (
+    build_sli_slo_snapshot,
     observe_api_request,
     observe_worker_job,
     observe_worker_lifecycle,
@@ -24,3 +25,19 @@ def test_render_metrics_prometheus_includes_api_and_worker_metrics() -> None:
     assert "worker_lifecycle_total" in output
     assert 'path="/api/v1/health/:id"' in output
     assert 'worker="economics_export"' in output
+
+
+def test_build_sli_slo_snapshot_emits_actionable_alerts() -> None:
+    for _ in range(40):
+        observe_api_request("GET", "/api/v1/unstable", 500, 920.0)
+    for _ in range(15):
+        observe_worker_job("economics_export", "failed", 320.0)
+    for _ in range(5):
+        observe_worker_job("economics_export", "success", 80.0)
+
+    snapshot = build_sli_slo_snapshot(error_budget_pct=1.0, api_p95_ms_target=500.0)
+
+    assert snapshot["global_sli"]["requests_total"] >= 40
+    assert snapshot["alerts"]
+    assert any(alert["scope"] == "api" for alert in snapshot["alerts"])
+    assert any(alert["scope"] == "worker" for alert in snapshot["alerts"])

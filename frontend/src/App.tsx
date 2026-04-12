@@ -48,6 +48,9 @@ const WorkspacesPage = lazy(() =>
 const SyncStatusPage = lazy(() =>
   import('./pages/Platform/SyncStatusPage').then((m) => ({ default: m.SyncStatusPage }))
 )
+const SloPage = lazy(() =>
+  import('./pages/Platform/SloPage').then((m) => ({ default: m.SloPage }))
+)
 const EconomicsSkusPage = lazy(() =>
   import('./pages/EconomicsSkus/EconomicsSkusPage').then((m) => ({ default: m.EconomicsSkusPage }))
 )
@@ -111,6 +114,7 @@ export default function App() {
             <Route path="settings/security" element={<SettingsPage />} />
             <Route path="platform/workspaces" element={<WorkspacesPage />} />
             <Route path="platform/sync" element={<SyncStatusPage />} />
+            <Route path="platform/slo" element={<SloPage />} />
           </Route>
 
           {/* ── Fallback ─────────────────────────────────────────────── */}
