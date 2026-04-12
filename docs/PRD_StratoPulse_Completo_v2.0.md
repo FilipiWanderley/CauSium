@@ -1331,6 +1331,7 @@ Implementado e validado em codigo:
 - SP-WK01 e SP-WK02: DLQ e resiliencia de workers por isolamento de falha.
 - SP-WK03: remocao do endpoint legado de notificacoes.
 - SP-MT06 fase 1: keyring por workspace com criptografia por org e compatibilidade retroativa.
+- SP-SM01 fase 1: rotacao automatica de keyring por workspace (janela configuravel, worker dedicado).
 - Hardening de release: runbook, rollback, smoke, checklist go/no-go e gate automatizado.
 
 Ainda pendente de implementacao de codigo (priorizar por impacto):
@@ -1340,7 +1341,7 @@ Ainda pendente de implementacao de codigo (priorizar por impacto):
 - SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.
 - SP-WK04 e SP-WK05: schema registry e pulse stream imutavel para replay.
 - SP-AU02 e SP-AU03: compliance artifact assinado e retencao LGPD configuravel.
-- SP-SM01 e SP-SM02 completos: rotacao automatica e envelope encryption com KMS/HSM.
+- SP-SM01 e SP-SM02 completos: rotacao automatica enterprise em Key Vault/KMS e envelope encryption com HSM.
 - SP-SM03: mTLS interno entre servicos.
 - SP-OP01 a SP-OP05, SP-OP09, SP-OP11: trilha de infra enterprise (IaC, AKS, WAF, GitOps, ambientes efemeros, carga k6).
 

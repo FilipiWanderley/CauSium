@@ -6,6 +6,7 @@ from app.core.observability import observe_worker_lifecycle
 from app.workers.audit_checkpoint_worker import run_audit_checkpoint_worker
 from app.workers.export_worker import run_export_worker
 from app.workers.ingestion_worker import run_ingestion_worker
+from app.workers.keyring_rotation_worker import run_keyring_rotation_worker
 from app.workers.scoring_worker import run_scoring_worker
 
 log = get_logger(__name__)
@@ -32,6 +33,7 @@ async def main() -> None:
         _run_worker("scoring", run_scoring_worker),
         _run_worker("audit_checkpoint", run_audit_checkpoint_worker),
         _run_worker("economics_export", run_export_worker),
+        _run_worker("keyring_rotation", run_keyring_rotation_worker),
     )
 
 

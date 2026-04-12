@@ -172,6 +172,9 @@ class Settings(BaseSettings):
     audit_checkpoint_retention_count: int = 200
     report_exports_dir: str = ".data/report-exports"
     report_export_retention_hours: int = 24
+    workspace_key_rotation_interval_minutes: int = 60
+    workspace_key_max_age_days: int = 30
+    workspace_key_rotation_batch_size: int = 200
 
     @property
     def hsts_header_value(self) -> str:
