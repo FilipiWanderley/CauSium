@@ -34,6 +34,14 @@ Para rehearsal completo com decisao automatica GO/NO_GO:
 python backend/scripts/release_rehearsal.py --base-url https://<api-host> --token <bearer-token> --output-json backend/benchmark_artifacts/release_rehearsal.json
 ```
 
+Execucao recomendada (wrapper seguro para terminal local):
+
+```bash
+STAGING_API_URL="https://<api-host>" \
+STAGING_BEARER_TOKEN="<bearer-token>" \
+./scripts/run_release_rehearsal.sh
+```
+
 Criterio minimo:
 
 - `/health` retorna `status=ok`.
