@@ -22,13 +22,13 @@ async def test_optimization_alert_created_on_opportunity_create(client, auth_hea
     assert create.status_code == 201, create.text
 
     new_resp = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=auth_headers,
-        params={"category": "optimization"},
+        params={"category": "optimization", "status": "unread"},
     )
     assert new_resp.status_code == 200, new_resp.text
     body = new_resp.json()
-    assert body["unread"] >= 1
+    assert body["total"] >= 1
     assert any("optimization opportunity" in item["title"].lower() for item in body["items"])
 
 
@@ -49,13 +49,13 @@ async def test_governance_alert_created_on_risk_budget_create(client, auth_heade
     assert create.status_code == 201, create.text
 
     new_resp = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=auth_headers,
-        params={"category": "governance"},
+        params={"category": "governance", "status": "unread"},
     )
     assert new_resp.status_code == 200, new_resp.text
     body = new_resp.json()
-    assert body["unread"] >= 1
+    assert body["total"] >= 1
     assert any("risk budget configured" in item["title"].lower() for item in body["items"])
 
 
@@ -81,11 +81,11 @@ async def test_financial_alert_created_when_budget_threshold_crossed(client, aut
     assert get_budget.status_code == 200, get_budget.text
 
     new_resp = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=auth_headers,
-        params={"category": "financial"},
+        params={"category": "financial", "status": "unread"},
     )
     assert new_resp.status_code == 200, new_resp.text
     body = new_resp.json()
-    assert body["unread"] >= 1
+    assert body["total"] >= 1
     assert any("budget threshold reached" in item["title"].lower() for item in body["items"])

@@ -141,19 +141,11 @@ export function NotificationsPage() {
         category: categoryFilter || undefined,
         status: statusFilter || undefined,
       }),
-    enabled: statusFilter !== 'unread',
   })
 
   const countQuery = useQuery({
-    queryKey: ['notifications-new', categoryFilter, statusFilter],
-    queryFn: () =>
-      notificationsApi.getNew({
-        category: categoryFilter || undefined,
-        page: 1,
-        // When the list is filtered to unread, reuse this payload to render items.
-        // Otherwise fetch the minimum payload for polling counters only.
-        page_size: statusFilter === 'unread' ? 50 : 1,
-      }),
+    queryKey: ['notifications-unread-count', categoryFilter],
+    queryFn: () => notificationsApi.getUnreadCount({ category: categoryFilter || undefined }),
     refetchInterval: 30_000,
   })
 
@@ -162,7 +154,7 @@ export function NotificationsPage() {
       notificationsApi.patchStatus(id, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-new'] })
+      qc.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
@@ -170,22 +162,17 @@ export function NotificationsPage() {
     mutationFn: notificationsApi.markAllRead,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-new'] })
+      qc.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
-  const useUnreadPollingItems = statusFilter === 'unread'
-  const alerts = useUnreadPollingItems
-    ? countQuery.data?.items ?? []
-    : listQuery.data?.items ?? []
+  const alerts = listQuery.data?.items ?? []
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
-  const totalVisible = useUnreadPollingItems
-    ? countQuery.data?.total
-    : listQuery.data?.total
+  const totalVisible = listQuery.data?.total
 
-  const listIsPending = useUnreadPollingItems ? countQuery.isPending : listQuery.isPending
-  const listIsError = useUnreadPollingItems ? countQuery.isError : listQuery.isError
+  const listIsPending = listQuery.isPending
+  const listIsError = listQuery.isError
 
   return (
     <div className="space-y-6">

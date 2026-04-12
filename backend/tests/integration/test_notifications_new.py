@@ -62,12 +62,21 @@ async def test_notifications_new_returns_unread_count_and_items(client, db):
     )
     await db.commit()
 
-    resp = await client.get("/api/v1/notifications/new", headers=org_a["headers"])
+    counts_resp = await client.get("/api/v1/notifications/unread-count", headers=org_a["headers"])
+    assert counts_resp.status_code == 200, counts_resp.text
+
+    resp = await client.get(
+        "/api/v1/notifications",
+        headers=org_a["headers"],
+        params={"status": "unread"},
+    )
     assert resp.status_code == 200, resp.text
 
+    counts = counts_resp.json()
+    assert counts["unread"] == 2
+    assert counts["critical"] == 1
+
     body = resp.json()
-    assert body["unread"] == 2
-    assert body["critical"] == 1
     assert body["total"] == 2
     assert len(body["items"]) == 2
 
@@ -104,23 +113,20 @@ async def test_notifications_new_supports_category_and_pagination(client, db):
     )
     await db.commit()
 
-    filtered = await client.get(
-        "/api/v1/notifications/new",
+    counts_filtered = await client.get(
+        "/api/v1/notifications/unread-count",
         headers=org["headers"],
         params={"category": "financial"},
     )
-    assert filtered.status_code == 200, filtered.text
-    data = filtered.json()
-    assert data["unread"] == 2
-    assert data["critical"] == 0
-    assert data["total"] == 2
-    assert len(data["items"]) == 2
-    assert all(item["category"] == "financial" for item in data["items"])
+    assert counts_filtered.status_code == 200, counts_filtered.text
+    counts_data = counts_filtered.json()
+    assert counts_data["unread"] == 2
+    assert counts_data["critical"] == 0
 
     paged = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=org["headers"],
-        params={"category": "financial", "page": 1, "page_size": 1},
+        params={"category": "financial", "status": "unread", "page": 1, "page_size": 1},
     )
     assert paged.status_code == 200, paged.text
     page_data = paged.json()

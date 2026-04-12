@@ -23,7 +23,6 @@ from app.domains.notifications.schemas import (
     AlertStatusPatch,
     NotificationPreferenceOut,
     NotificationPreferenceUpdate,
-    NotificationsNewOut,
     UnreadCountOut,
 )
 from app.domains.notifications.service import NotificationsService
@@ -112,9 +111,14 @@ async def list_activity_events(
 async def unread_count(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    category: Optional[AlertCategory] = Query(default=None),
 ) -> UnreadCountOut:
     svc = NotificationsService(db)
-    counts = await svc.unread_count(current_user.org_id, current_user.id)
+    counts = await svc.unread_count(
+        org_id=current_user.org_id,
+        user_id=current_user.id,
+        category=category,
+    )
     return UnreadCountOut(**counts)
 
 
@@ -136,35 +140,6 @@ async def list_notifications(
         offset=page_params.offset,
     )
     return Page.of([AlertRecordOut.model_validate(a) for a in alerts], total, page_params)
-
-
-@router.get("/new", response_model=NotificationsNewOut)
-async def list_new_notifications(
-    category: Optional[AlertCategory] = Query(default=None),
-    page_params: PageParams = Depends(PageParams),
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
-    current_user=Depends(get_current_user),
-) -> NotificationsNewOut:
-    svc = NotificationsService(db)
-    counts = await svc.unread_count(
-        org_id=current_user.org_id,
-        user_id=current_user.id,
-        category=category,
-    )
-    alerts, total = await svc.list(
-        org_id=current_user.org_id,
-        user_id=current_user.id,
-        category=category,
-        status=AlertStatus.UNREAD,
-        limit=page_params.limit,
-        offset=page_params.offset,
-    )
-    return NotificationsNewOut(
-        unread=counts["unread"],
-        critical=counts["critical"],
-        total=total,
-        items=[AlertRecordOut.model_validate(a) for a in alerts],
-    )
 
 
 @router.patch("/mark-all-read", response_model=dict)

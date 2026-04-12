@@ -43,13 +43,6 @@ class UnreadCountOut(BaseModel):
     critical: int
 
 
-class NotificationsNewOut(BaseModel):
-    unread: int
-    critical: int
-    total: int
-    items: list[AlertRecordOut]
-
-
 class NotificationPreferenceOut(BaseModel):
     in_app_enabled: bool
     email_enabled: bool

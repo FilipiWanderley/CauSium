@@ -107,13 +107,13 @@ async def test_critical_activity_event_generates_notification_alert(client, auth
     assert create_resp.status_code == 201, create_resp.text
 
     new_resp = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=auth_headers,
-        params={"category": "activity"},
+        params={"category": "activity", "status": "unread"},
     )
     assert new_resp.status_code == 200, new_resp.text
     data = new_resp.json()
-    assert data["unread"] >= 1
+    assert data["total"] >= 1
     assert any(item["title"].startswith("Activity event:") for item in data["items"])
 
 
@@ -165,13 +165,13 @@ async def test_alert_rule_can_lower_threshold_and_filter_by_event_prefix(client,
     assert create_non_match.status_code == 201, create_non_match.text
 
     new_resp = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=auth_headers,
-        params={"category": "activity"},
+        params={"category": "activity", "status": "unread"},
     )
     assert new_resp.status_code == 200, new_resp.text
     data = new_resp.json()
-    assert data["unread"] == 1
+    assert data["total"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["severity"] == "warning"
     assert "keyvault.secret.expiring" in data["items"][0]["title"]
@@ -217,17 +217,17 @@ async def test_alert_rule_isolated_per_workspace(client, org_a, org_b):
     assert create_b.status_code == 201, create_b.text
 
     new_a = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=org_a["headers"],
-        params={"category": "activity"},
+        params={"category": "activity", "status": "unread"},
     )
     assert new_a.status_code == 200, new_a.text
-    assert new_a.json()["unread"] == 0
+    assert new_a.json()["total"] == 0
 
     new_b = await client.get(
-        "/api/v1/notifications/new",
+        "/api/v1/notifications",
         headers=org_b["headers"],
-        params={"category": "activity"},
+        params={"category": "activity", "status": "unread"},
     )
     assert new_b.status_code == 200, new_b.text
-    assert new_b.json()["unread"] == 1
+    assert new_b.json()["total"] == 1
