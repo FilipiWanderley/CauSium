@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.core.security import encrypt_secret
+from app.core.security import encrypt_secret_for_org
 from app.domains.notifications.models import (
     ActivityEvent,
     ActivityEventSeverity,
@@ -314,7 +314,9 @@ class NotificationsService:
             normalized = webhook_url.strip()
             if normalized and not normalized.startswith("https://hooks.slack.com/"):
                 raise ValueError("Invalid Slack webhook URL")
-            cfg.webhook_encrypted = encrypt_secret(normalized) if normalized else None
+            cfg.webhook_encrypted = (
+                await encrypt_secret_for_org(self.db, org_id, normalized) if normalized else None
+            )
 
         await self.db.flush()
         await self.db.refresh(cfg)

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.core.security import decrypt_secret, encrypt_secret
+from app.core.security import decrypt_secret_for_org, encrypt_secret_for_org
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
 from app.domains.admin.models import DlqMessage, DlqStatus
@@ -26,7 +26,11 @@ class CloudAccountService:
     async def create_account(self, org_id: UUID, req: CloudAccountCreate) -> CloudAccount:
         credentials_encrypted = None
         if req.azure_credentials:
-            credentials_encrypted = encrypt_secret(req.azure_credentials.model_dump_json())
+            credentials_encrypted = await encrypt_secret_for_org(
+                self.db,
+                org_id,
+                req.azure_credentials.model_dump_json(),
+            )
 
         # SP-CL03: validate credentials before persisting — fail fast with clear error
         if req.provider == CloudProvider.AZURE and req.azure_credentials:
@@ -220,7 +224,13 @@ class CloudAccountService:
     async def get_azure_credentials(self, account: CloudAccount) -> AzureCredentials | None:
         if account.provider != CloudProvider.AZURE or not account.credentials_encrypted:
             return None
-        raw = json.loads(decrypt_secret(account.credentials_encrypted))
+        raw = json.loads(
+            await decrypt_secret_for_org(
+                self.db,
+                account.org_id,
+                account.credentials_encrypted,
+            )
+        )
         return AzureCredentials(**raw)
 
     async def run_health_check(self, account: CloudAccount) -> ConnectorHealth:

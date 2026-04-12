@@ -26,8 +26,9 @@ from app.core.email import EmailService
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    decrypt_secret,
-    encrypt_secret,
+    decrypt_secret_for_org,
+    encrypt_secret_for_org,
+    ensure_workspace_keyring,
     hash_password,
     verify_password,
 )
@@ -52,6 +53,7 @@ class AuthService:
         org = Organization(name=req.org_name, slug=req.org_slug)
         self.db.add(org)
         await self.db.flush()
+        await ensure_workspace_keyring(self.db, org.id)
 
         user = User(
             org_id=org.id,
@@ -91,7 +93,7 @@ class AuthService:
         if user.totp_enabled:
             if not totp_code:
                 raise ValueError("MFA code required")
-            if not self._verify_totp_code_for_user(user, totp_code):
+            if not await self._verify_totp_code_for_user(user, totp_code):
                 raise ValueError("Invalid MFA code")
 
         user.last_login = datetime.now(timezone.utc)
@@ -138,15 +140,15 @@ class AuthService:
                 return True
         return False
 
-    def _verify_totp_code_for_user(self, user: User, code: str) -> bool:
+    async def _verify_totp_code_for_user(self, user: User, code: str) -> bool:
         if not user.totp_secret_encrypted:
             return False
-        secret = decrypt_secret(user.totp_secret_encrypted)
+        secret = await decrypt_secret_for_org(self.db, user.org_id, user.totp_secret_encrypted)
         return self._verify_totp_secret(secret, code)
 
     async def begin_totp_setup(self, user: User) -> tuple[str, str]:
         secret = self._generate_totp_secret()
-        user.totp_secret_encrypted = encrypt_secret(secret)
+        user.totp_secret_encrypted = await encrypt_secret_for_org(self.db, user.org_id, secret)
         user.totp_enabled = False
         user.totp_verified_at = None
 
@@ -168,12 +170,12 @@ class AuthService:
     async def verify_totp_code(self, user: User, code: str) -> bool:
         if not user.totp_secret_encrypted:
             return False
-        return self._verify_totp_code_for_user(user, code)
+        return await self._verify_totp_code_for_user(user, code)
 
     async def enable_totp(self, user: User, code: str) -> User:
         if not user.totp_secret_encrypted:
             raise ValueError("TOTP setup not initialized")
-        if not self._verify_totp_code_for_user(user, code):
+        if not await self._verify_totp_code_for_user(user, code):
             raise ValueError("Invalid MFA code")
 
         user.totp_enabled = True
@@ -193,7 +195,7 @@ class AuthService:
     async def disable_totp(self, user: User, code: str) -> User:
         if not user.totp_enabled:
             raise ValueError("TOTP is not enabled")
-        if not self._verify_totp_code_for_user(user, code):
+        if not await self._verify_totp_code_for_user(user, code):
             raise ValueError("Invalid MFA code")
 
         user.totp_enabled = False

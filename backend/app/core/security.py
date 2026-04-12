@@ -3,16 +3,21 @@ import base64
 import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import UUID
 
 from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.domains.auth.models import WorkspaceKeyring
 
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+WORKSPACE_CIPHERTEXT_PREFIX = "wk1"
 
 
 def _fernet_from_settings() -> Fernet:
@@ -72,3 +77,76 @@ def encrypt_secret(value: str) -> str:
 def decrypt_secret(encrypted: str) -> str:
     f = _fernet_from_settings()
     return f.decrypt(encrypted.encode()).decode()
+
+
+def _encrypt_workspace_key_material(raw_workspace_key: str) -> str:
+    f = _fernet_from_settings()
+    return f.encrypt(raw_workspace_key.encode()).decode()
+
+
+def _decrypt_workspace_key_material(encrypted_workspace_key: str) -> str:
+    f = _fernet_from_settings()
+    return f.decrypt(encrypted_workspace_key.encode()).decode()
+
+
+async def ensure_workspace_keyring(db: AsyncSession, org_id: UUID) -> WorkspaceKeyring:
+    result = await db.execute(
+        select(WorkspaceKeyring)
+        .where(
+            WorkspaceKeyring.org_id == org_id,
+            WorkspaceKeyring.is_active == True,  # noqa: E712
+        )
+        .order_by(WorkspaceKeyring.key_version.desc())
+        .limit(1)
+    )
+    current = result.scalar_one_or_none()
+    if current is not None:
+        return current
+
+    workspace_key = Fernet.generate_key().decode()
+    created = WorkspaceKeyring(
+        org_id=org_id,
+        key_version=1,
+        key_material_encrypted=_encrypt_workspace_key_material(workspace_key),
+        is_active=True,
+        rotated_at=datetime.now(timezone.utc),
+    )
+    db.add(created)
+    await db.flush()
+    await db.refresh(created)
+    return created
+
+
+async def encrypt_secret_for_org(db: AsyncSession, org_id: UUID, value: str) -> str:
+    keyring = await ensure_workspace_keyring(db, org_id)
+    workspace_key = _decrypt_workspace_key_material(keyring.key_material_encrypted)
+    token = Fernet(workspace_key.encode()).encrypt(value.encode()).decode()
+    return f"{WORKSPACE_CIPHERTEXT_PREFIX}:{keyring.key_version}:{token}"
+
+
+async def decrypt_secret_for_org(db: AsyncSession, org_id: UUID, encrypted: str) -> str:
+    if not encrypted.startswith(f"{WORKSPACE_CIPHERTEXT_PREFIX}:"):
+        # Backward compatibility for records encrypted with global key.
+        return decrypt_secret(encrypted)
+
+    try:
+        _, version_str, token = encrypted.split(":", 2)
+        key_version = int(version_str)
+    except ValueError as exc:
+        raise ValueError("Invalid workspace ciphertext format") from exc
+
+    result = await db.execute(
+        select(WorkspaceKeyring).where(
+            WorkspaceKeyring.org_id == org_id,
+            WorkspaceKeyring.key_version == key_version,
+        )
+    )
+    keyring = result.scalar_one_or_none()
+    if keyring is None:
+        raise ValueError(f"Workspace keyring not found for org={org_id} version={key_version}")
+
+    workspace_key = _decrypt_workspace_key_material(keyring.key_material_encrypted)
+    try:
+        return Fernet(workspace_key.encode()).decrypt(token.encode()).decode()
+    except Exception as exc:
+        raise ValueError("Failed to decrypt workspace-scoped secret") from exc

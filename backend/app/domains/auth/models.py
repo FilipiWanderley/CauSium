@@ -48,6 +48,21 @@ class Organization(Base):
     cloud_accounts: Mapped[list] = relationship("CloudAccount", back_populates="organization")
 
 
+class WorkspaceKeyring(Base):
+    __tablename__ = "workspace_keyrings"
+    __table_args__ = (
+        UniqueConstraint("org_id", "key_version", name="uq_workspace_keyrings_org_key_version"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    key_material_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    rotated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class User(Base):
     __tablename__ = "users"
 

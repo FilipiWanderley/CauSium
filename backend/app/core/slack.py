@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.core.security import decrypt_secret
+from app.core.security import decrypt_secret_for_org
 from app.domains.notifications.models import NotificationSlackConfig
 
 log = get_logger(__name__)
@@ -29,7 +29,7 @@ class SlackService:
             return False
 
         try:
-            webhook_url = decrypt_secret(cfg.webhook_encrypted)
+            webhook_url = await decrypt_secret_for_org(self.db, cfg.org_id, cfg.webhook_encrypted)
         except Exception as exc:
             log.error("slack.decrypt_failed", org_id=str(org_id), error=str(exc))
             return False
