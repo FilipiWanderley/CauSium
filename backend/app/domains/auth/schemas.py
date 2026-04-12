@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     passkey_enabled: bool
+    totp_enabled: bool
     must_change_password: bool
     created_at: datetime
     org_name: str = ""
@@ -46,6 +47,7 @@ class UserOut(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str | None = None
 
 
 class TokenResponse(BaseModel):
@@ -191,7 +193,25 @@ class AdminResetMFAResponse(BaseModel):
     """
 
     revoked_passkeys: int
+    totp_disabled: bool
     user: UserOut
+
+
+class TOTPSetupOut(BaseModel):
+    secret: str
+    otpauth_url: str
+
+
+class TOTPCodeRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=8)
+
+
+class TOTPVerifyResponse(BaseModel):
+    valid: bool
+
+
+class TOTPStatusOut(BaseModel):
+    enabled: bool
 
 
 class AdminDeactivateUserRequest(BaseModel):

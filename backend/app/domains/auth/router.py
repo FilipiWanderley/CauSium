@@ -33,6 +33,10 @@ from app.domains.auth.schemas import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    TOTPCodeRequest,
+    TOTPSetupOut,
+    TOTPStatusOut,
+    TOTPVerifyResponse,
     UserCreate,
     UserOut,
 )
@@ -108,7 +112,7 @@ async def register(req: RegisterRequest, db: Annotated[AsyncSession, Depends(get
 async def login(req: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     service = AuthService(db)
     try:
-        user, access, refresh = await service.login(req.email, req.password)
+        user, access, refresh = await service.login(req.email, req.password, req.totp_code)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
     org_name = await service.get_org_name(user.org_id)
@@ -405,6 +409,69 @@ async def change_password(
     return _user_out(user, org_name)
 
 
+@router.get("/mfa/totp/status", response_model=TOTPStatusOut)
+async def totp_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    return TOTPStatusOut(enabled=bool(user and user.totp_enabled))
+
+
+@router.post("/mfa/totp/setup", response_model=TOTPSetupOut)
+async def totp_setup(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPSetupOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    secret, otpauth_url = await service.begin_totp_setup(user)
+    return TOTPSetupOut(secret=secret, otpauth_url=otpauth_url)
+
+
+@router.post("/mfa/totp/verify", response_model=TOTPVerifyResponse)
+async def totp_verify(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPVerifyResponse:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    valid = await service.verify_totp_code(user, req.code)
+    return TOTPVerifyResponse(valid=valid)
+
+
+@router.post("/mfa/totp/enable", response_model=TOTPStatusOut)
+async def totp_enable(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    try:
+        user = await service.enable_totp(user, req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return TOTPStatusOut(enabled=user.totp_enabled)
+
+
+@router.post("/mfa/totp/disable", response_model=TOTPStatusOut)
+async def totp_disable(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    try:
+        user = await service.disable_totp(user, req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return TOTPStatusOut(enabled=user.totp_enabled)
+
+
 # ── SP-U01 + SP-U03: Admin-initiated reset of another user's password ────
 
 
@@ -472,7 +539,7 @@ async def admin_reset_mfa(
     """
     service = AuthService(db)
     try:
-        target, revoked_count = await service.admin_reset_mfa(current_user, user_id)
+        target, revoked_count, totp_disabled = await service.admin_reset_mfa(current_user, user_id)
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
@@ -480,6 +547,7 @@ async def admin_reset_mfa(
     org_name = await service.get_org_name(target.org_id)
     return AdminResetMFAResponse(
         revoked_passkeys=revoked_count,
+        totp_disabled=totp_disabled,
         user=_user_out(target, org_name),
     )
 

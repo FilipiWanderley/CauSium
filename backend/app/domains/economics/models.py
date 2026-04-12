@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
+from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -16,6 +18,22 @@ class FinancialBudgetPeriod(str, enum.Enum):
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
     ANNUAL = "annual"
+
+
+class ReportExportStatus(str, enum.Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ReportExportFormat(str, enum.Enum):
+    CSV = "csv"
+    XLSX = "xlsx"
+
+
+class EconomicsReportType(str, enum.Enum):
+    SUMMARY = "summary"
 
 
 class WorkspaceBudget(Base):
@@ -54,4 +72,51 @@ class WorkspaceBudget(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ReportExportJob(Base):
+    __tablename__ = "report_export_jobs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    requested_by_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    report_type: Mapped[EconomicsReportType] = mapped_column(
+        Enum(EconomicsReportType, values_callable=_VC, name="economicsreporttype"),
+        nullable=False,
+        default=EconomicsReportType.SUMMARY,
+    )
+    file_format: Mapped[ReportExportFormat] = mapped_column(
+        Enum(ReportExportFormat, values_callable=_VC, name="reportexportformat"),
+        nullable=False,
+        default=ReportExportFormat.CSV,
+    )
+    status: Mapped[ReportExportStatus] = mapped_column(
+        Enum(ReportExportStatus, values_callable=_VC, name="reportexportstatus"),
+        nullable=False,
+        default=ReportExportStatus.QUEUED,
+        index=True,
+    )
+    window_days: Mapped[int] = mapped_column(nullable=False, default=30)
+    filters: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    file_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    storage_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    content_type: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

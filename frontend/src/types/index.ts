@@ -235,6 +235,37 @@ export interface WorkspaceBudgetUpsert {
   alert_thresholds?: number[]
 }
 
+export type EconomicsReportType = 'summary'
+export type ReportExportFormat = 'csv' | 'xlsx'
+export type ReportExportStatus = 'queued' | 'running' | 'completed' | 'failed'
+
+export interface ReportExportCreate {
+  report_type?: EconomicsReportType
+  file_format: ReportExportFormat
+  window_days?: number
+  filters?: Record<string, unknown> | null
+}
+
+export interface ReportExportJob {
+  id: string
+  org_id: string
+  requested_by_user_id: string
+  report_type: EconomicsReportType
+  file_format: ReportExportFormat
+  status: ReportExportStatus
+  window_days: number
+  filters: Record<string, unknown> | null
+  file_name: string | null
+  content_type: string | null
+  error_message: string | null
+  started_at: string | null
+  completed_at: string | null
+  expires_at: string | null
+  download_ready: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Risk Budgets
 export type BudgetType = 'blast_radius' | 'cost_variance' | 'error_rate' | 'change_frequency'
 export type BudgetPeriod = 'daily' | 'weekly' | 'monthly'

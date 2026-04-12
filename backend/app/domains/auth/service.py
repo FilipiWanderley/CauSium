@@ -1,8 +1,11 @@
 from __future__ import annotations
 import base64
+import hashlib
+import hmac
 import json
 import re
 import secrets
+import struct
 import time as _time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -20,7 +23,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.email import EmailService
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decrypt_secret,
+    encrypt_secret,
+    hash_password,
+    verify_password,
+)
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
 from app.domains.auth.schemas import RegisterRequest, UserCreate
@@ -68,7 +78,7 @@ class AuthService:
         await self.db.refresh(user)
         return org, user
 
-    async def login(self, email: str, password: str) -> tuple[User, str, str]:
+    async def login(self, email: str, password: str, totp_code: str | None = None) -> tuple[User, str, str]:
         user = await self.get_user_by_email(email)
         if not user or not verify_password(password, user.hashed_password):
             raise ValueError("Invalid credentials")
@@ -77,6 +87,12 @@ class AuthService:
         org = await self.get_org(user.org_id)
         if org and org.passwordless_only:
             raise ValueError("Password login disabled by organization policy (passwordless-only)")
+
+        if user.totp_enabled:
+            if not totp_code:
+                raise ValueError("MFA code required")
+            if not self._verify_totp_code_for_user(user, totp_code):
+                raise ValueError("Invalid MFA code")
 
         user.last_login = datetime.now(timezone.utc)
         await self.audit_chain.append_event(
@@ -90,6 +106,110 @@ class AuthService:
         access = create_access_token(str(user.id), {"org_id": str(user.org_id), "role": user.role})
         refresh = create_refresh_token(str(user.id))
         return user, access, refresh
+
+    @staticmethod
+    def _generate_totp_secret() -> str:
+        # 20-byte secret is standard for TOTP (RFC 6238), base32 encoded.
+        return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+    @staticmethod
+    def _normalize_totp_code(code: str) -> str:
+        return re.sub(r"\s+", "", code or "")
+
+    @staticmethod
+    def _totp_at(secret_b32: str, ts: int, step_seconds: int = 30, digits: int = 6) -> str:
+        key = base64.b32decode(secret_b32 + ("=" * (-len(secret_b32) % 8)), casefold=True)
+        counter = int(ts // step_seconds)
+        msg = struct.pack(">Q", counter)
+        digest = hmac.new(key, msg, hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        dbc = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+        otp = dbc % (10 ** digits)
+        return f"{otp:0{digits}d}"
+
+    def _verify_totp_secret(self, secret_b32: str, code: str, window: int = 1) -> bool:
+        normalized = self._normalize_totp_code(code)
+        if not normalized.isdigit() or len(normalized) < 6:
+            return False
+
+        now = int(_time.time())
+        for drift in range(-window, window + 1):
+            if self._totp_at(secret_b32, now + (drift * 30)) == normalized:
+                return True
+        return False
+
+    def _verify_totp_code_for_user(self, user: User, code: str) -> bool:
+        if not user.totp_secret_encrypted:
+            return False
+        secret = decrypt_secret(user.totp_secret_encrypted)
+        return self._verify_totp_secret(secret, code)
+
+    async def begin_totp_setup(self, user: User) -> tuple[str, str]:
+        secret = self._generate_totp_secret()
+        user.totp_secret_encrypted = encrypt_secret(secret)
+        user.totp_enabled = False
+        user.totp_verified_at = None
+
+        issuer = get_settings().passkey_rp_name or "StratoPulse"
+        label = f"{issuer}:{user.email}"
+        otpauth = f"otpauth://totp/{label}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.setup_started",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        return secret, otpauth
+
+    async def verify_totp_code(self, user: User, code: str) -> bool:
+        if not user.totp_secret_encrypted:
+            return False
+        return self._verify_totp_code_for_user(user, code)
+
+    async def enable_totp(self, user: User, code: str) -> User:
+        if not user.totp_secret_encrypted:
+            raise ValueError("TOTP setup not initialized")
+        if not self._verify_totp_code_for_user(user, code):
+            raise ValueError("Invalid MFA code")
+
+        user.totp_enabled = True
+        user.totp_verified_at = datetime.now(timezone.utc)
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.enabled",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
+    async def disable_totp(self, user: User, code: str) -> User:
+        if not user.totp_enabled:
+            raise ValueError("TOTP is not enabled")
+        if not self._verify_totp_code_for_user(user, code):
+            raise ValueError("Invalid MFA code")
+
+        user.totp_enabled = False
+        user.totp_secret_encrypted = None
+        user.totp_verified_at = None
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.disabled",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
 
     async def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         from app.core.security import decode_token
@@ -295,7 +415,7 @@ class AuthService:
 
     async def admin_reset_mfa(
         self, actor: User, target_user_id: UUID
-    ) -> tuple[User, int]:
+    ) -> tuple[User, int, bool]:
         """SP-U02: Admin resets target user's MFA credentials.
 
         In the passkey-first implementation this revokes all passkeys for the
@@ -323,6 +443,10 @@ class AuthService:
             await self.db.delete(passkey)
 
         target.passkey_enabled = False
+        totp_disabled = bool(target.totp_enabled or target.totp_secret_encrypted)
+        target.totp_enabled = False
+        target.totp_secret_encrypted = None
+        target.totp_verified_at = None
 
         await self.audit_chain.append_event(
             org_id=target.org_id,
@@ -335,12 +459,13 @@ class AuthService:
                 "actor_role": actor.role.value,
                 "target_role": target.role.value,
                 "revoked_passkeys": revoked_count,
+                "totp_disabled": totp_disabled,
             },
         )
 
         await self.db.flush()
         await self.db.refresh(target)
-        return target, revoked_count
+        return target, revoked_count, totp_disabled
 
     async def admin_deactivate_user(
         self,

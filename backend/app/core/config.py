@@ -170,6 +170,8 @@ class Settings(BaseSettings):
     scoring_interval_hours: int = 1
     audit_checkpoint_interval_minutes: int = 60
     audit_checkpoint_retention_count: int = 200
+    report_exports_dir: str = ".data/report-exports"
+    report_export_retention_hours: int = 24
 
     @property
     def hsts_header_value(self) -> str:
