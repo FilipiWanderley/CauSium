@@ -156,6 +156,9 @@ jobs:
       - name: Perf Smoke (ledger detailed costs)
         run: poetry run python scripts/benchmark_ledger_costs.py --dry-run --requests 120 --warmup 15 --output-json benchmark_artifacts/ledger_costs_benchmark.json
 
+      - name: Release Smoke (hardening)
+        run: poetry run python scripts/release_smoke.py --dry-run --output-json benchmark_artifacts/release_smoke.json
+
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
