@@ -27,6 +27,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Validate security baseline
+        run: python scripts/security_baseline.py validate --file .security/security_baseline.json
+
+      - name: Resolve baseline exception IDs
+        id: baseline
+        run: |
+          echo "bandit_ids=$(python scripts/security_baseline.py bandit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+          echo "pip_audit_ids=$(python scripts/security_baseline.py pip-audit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+          echo "npm_audit_ids=$(python scripts/security_baseline.py npm-audit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+
       - uses: snok/install-poetry@v1
         with:
           version: "1.8.3"
@@ -41,13 +51,23 @@ jobs:
         working-directory: backend
         run: |
           poetry run pip install bandit
-          poetry run bandit -r app -ll -iii
+          BANDIT_FLAGS="-r app -ll -iii"
+          if [ -n "${{ steps.baseline.outputs.bandit_ids }}" ]; then
+            BANDIT_FLAGS="$BANDIT_FLAGS -s ${{ steps.baseline.outputs.bandit_ids }}"
+          fi
+          poetry run bandit $BANDIT_FLAGS
 
       - name: SCA (pip-audit)
         working-directory: backend
         run: |
           poetry run pip install pip-audit
-          poetry run pip-audit --local --strict
+          PIP_AUDIT_ARGS=(--local --strict)
+          if [ -n "${{ steps.baseline.outputs.pip_audit_ids }}" ]; then
+            for vuln in ${{ steps.baseline.outputs.pip_audit_ids }}; do
+              PIP_AUDIT_ARGS+=(--ignore-vuln "$vuln")
+            done
+          fi
+          poetry run pip-audit "${PIP_AUDIT_ARGS[@]}"
 
       - uses: actions/setup-node@v4
         with:
@@ -61,7 +81,12 @@ jobs:
 
       - name: SCA (npm audit critical)
         working-directory: frontend
-        run: npm audit --audit-level=critical
+        run: |
+          npm audit --audit-level=critical
+          if [ -n "${{ steps.baseline.outputs.npm_audit_ids }}" ]; then
+            echo "Baseline npm_audit_ids configured: ${{ steps.baseline.outputs.npm_audit_ids }}"
+            echo "npm audit exceptions are tracked but not auto-suppressed by npm audit CLI."
+          fi
 
   backend:
     name: Backend (lint + typecheck + tests)

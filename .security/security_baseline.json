@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "exceptions": {
+    "bandit": [],
+    "pip_audit": [],
+    "npm_audit": [],
+    "gitleaks": []
+  }
+}
