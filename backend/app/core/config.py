@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     aws_cur_prefix: str = ""
     gcp_service_account_json: str = ""
     gcp_project_id: str = ""
+    gcp_use_workload_identity: bool = False
     gcp_billing_export_table: str = ""
     gcp_logging_filter: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
@@ -209,7 +210,9 @@ class Settings(BaseSettings):
 
     @property
     def gcp_credentials_available(self) -> bool:
-        return bool(self.gcp_service_account_json and self.gcp_project_id)
+        if not self.gcp_project_id:
+            return False
+        return bool(self.gcp_service_account_json or self.gcp_use_workload_identity)
 
     @property
     def passkey_allowed_origins_list(self) -> List[str]:

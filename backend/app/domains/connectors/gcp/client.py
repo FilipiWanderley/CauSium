@@ -14,18 +14,20 @@ log = get_logger(__name__)
 
 
 class GcpConnectorClient(BaseConnector):
-    """GCP connector using service account credentials (phase 1)."""
+    """GCP connector using service account JSON or workload identity (ADC)."""
 
     def __init__(
         self,
-        service_account_json: str,
+        service_account_json: str | None,
         project_id: str,
         *,
+        use_workload_identity: bool = False,
         billing_export_table: str | None = None,
         logging_filter: str | None = None,
     ):
         self.service_account_json = service_account_json
         self.project_id = project_id
+        self.use_workload_identity = use_workload_identity
         self.billing_export_table = billing_export_table
         self.logging_filter = logging_filter
         self._credentials = None
@@ -37,13 +39,15 @@ class GcpConnectorClient(BaseConnector):
             return cls(
                 service_account_json=creds.service_account_json,
                 project_id=creds.project_id,
+                use_workload_identity=bool(getattr(creds, "use_workload_identity", False)),
                 billing_export_table=creds.billing_export_table,
                 logging_filter=creds.logging_filter,
             )
         if settings.gcp_credentials_available:
             return cls(
-                service_account_json=settings.gcp_service_account_json,
+                service_account_json=settings.gcp_service_account_json or None,
                 project_id=settings.gcp_project_id,
+                use_workload_identity=settings.gcp_use_workload_identity,
                 billing_export_table=settings.gcp_billing_export_table or None,
                 logging_filter=settings.gcp_logging_filter or None,
             )
@@ -51,12 +55,25 @@ class GcpConnectorClient(BaseConnector):
 
     def _get_credentials(self):
         if self._credentials is None:
-            service_account = self._import_module("google.oauth2.service_account")
-            info = json.loads(self.service_account_json)
-            self._credentials = service_account.Credentials.from_service_account_info(
-                info,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"],
-            )
+            if self.use_workload_identity:
+                google_auth = self._import_module("google.auth")
+                creds, detected_project = google_auth.default(
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                )
+                if detected_project and not self.project_id:
+                    self.project_id = detected_project
+                self._credentials = creds
+            else:
+                if not self.service_account_json:
+                    raise ValueError(
+                        "GCP service_account_json is required when use_workload_identity is false"
+                    )
+                service_account = self._import_module("google.oauth2.service_account")
+                info = json.loads(self.service_account_json)
+                self._credentials = service_account.Credentials.from_service_account_info(
+                    info,
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                )
         return self._credentials
 
     @staticmethod

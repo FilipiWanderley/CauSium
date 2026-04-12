@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.domains.cloud_accounts.models import CloudProvider, ConnectorStatus
 
@@ -27,10 +27,19 @@ class AwsCredentials(BaseModel):
 
 
 class GcpCredentials(BaseModel):
-    service_account_json: str
+    service_account_json: str | None = None
     project_id: str
+    use_workload_identity: bool = False
     billing_export_table: str | None = None
     logging_filter: str | None = None
+
+    @model_validator(mode="after")
+    def validate_auth_source(self) -> "GcpCredentials":
+        if not self.use_workload_identity and not self.service_account_json:
+            raise ValueError(
+                "Provide service_account_json or enable use_workload_identity for GCP credentials"
+            )
+        return self
 
 
 class CloudAccountCreate(BaseModel):

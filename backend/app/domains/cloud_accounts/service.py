@@ -89,6 +89,7 @@ class CloudAccountService:
             client = GcpConnectorClient(
                 service_account_json=req.gcp_credentials.service_account_json,
                 project_id=req.gcp_credentials.project_id,
+                use_workload_identity=req.gcp_credentials.use_workload_identity,
                 billing_export_table=req.gcp_credentials.billing_export_table,
                 logging_filter=req.gcp_credentials.logging_filter,
             )
