@@ -159,6 +159,9 @@ jobs:
       - name: Release Smoke (hardening)
         run: poetry run python scripts/release_smoke.py --dry-run --output-json benchmark_artifacts/release_smoke.json
 
+      - name: Go/No-Go Gate (hardening)
+        run: poetry run python scripts/go_no_go_gate.py --smoke-json benchmark_artifacts/release_smoke.json --perf-json benchmark_artifacts/ledger_costs_benchmark.json --output-json benchmark_artifacts/go_no_go.json
+
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
