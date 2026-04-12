@@ -28,6 +28,12 @@ Executar:
 python backend/scripts/release_smoke.py --base-url https://<api-host> --output-json backend/benchmark_artifacts/release_smoke.json
 ```
 
+Para rehearsal completo com decisao automatica GO/NO_GO:
+
+```bash
+python backend/scripts/release_rehearsal.py --base-url https://<api-host> --token <bearer-token> --output-json backend/benchmark_artifacts/release_rehearsal.json
+```
+
 Criterio minimo:
 
 - `/health` retorna `status=ok`.
