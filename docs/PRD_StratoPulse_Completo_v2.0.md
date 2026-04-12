@@ -1294,7 +1294,7 @@ SLIs a instrumentar:
 | 1 | SP-A05 | Headers de segurança HTTP completos | ✅ commit 27bd39c | OWASP checker 100% em staging; gate automático |
 | 2 | SP-A07 | TLS 1.3 obrigatório para datastores | ✅ commit fa6c1a4 | SSL mode obrigatório em PostgreSQL, Redis, ClickHouse |
 | 3 | SP-A03 | Rate limiting por workspace e por IP | ✅ commit c8befb6 | 429 com Retry-After após N tentativas configuráveis |
-| 4 | SP-A02 + SP-FE11 | Migração token para cookie httpOnly | ⬜ pendente | Zero token em localStorage; withCredentials: true |
+| 4 | SP-A02 + SP-FE11 | Migração token para cookie httpOnly | ✅ gate CI | `withCredentials: true` + gate `check:auth-token-storage` em source e bundle |
 | 5 | SP-CL03 | Validação de escopos antes de persistir credencial | ⬜ pendente | POST /settings/cloud/credentials valida escopos mínimos |
 | 6 | SP-AU01 | StratoAudit 100% das operações críticas | 🔶 parcial | Cobrir operações admin hoje ausentes |
 | 7 | SP-AP01 | Paginação em todas as listas da API | ✅ commit e5d0536 | Todas as GET de lista paginadas |
@@ -1313,6 +1313,7 @@ Este bloco consolida o estado real do repositorio para reduzir divergencia entre
 Implementado e validado em codigo:
 
 - SP-A01: forcar troca de senha e fluxo de change-password.
+- SP-A02/SP-FE11: migracao para cookie httpOnly com gate CI anti-persistencia de token em storage.
 - SP-A03: rate limiting por IP e por workspace.
 - SP-A04: validacao origin/referer para rotas sensiveis de auth.
 - SP-A05: headers de seguranca completos no middleware.
@@ -1334,7 +1335,6 @@ Implementado e validado em codigo:
 
 Ainda pendente de implementacao de codigo (priorizar por impacto):
 
-- SP-A02/SP-FE11: concluir migracao total para cookie httpOnly (sem dependencia de localStorage para sessao).
 - SP-CL01, SP-CL02, SP-CL05, SP-CL06: conectores reais Azure Blob/Carbon e AWS/GCP.
 - SP-RI01 a SP-RI06: provider recommendations reais, engine causal, ARI e simulacao/canario real.
 - SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.

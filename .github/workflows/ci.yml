@@ -191,3 +191,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: SP-A02 Gate (no auth token storage)
+        run: npm run check:auth-token-storage
