@@ -72,6 +72,15 @@ jobs:
           ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItY2kteA==
         run: poetry run pytest tests/ -v --tb=short
 
+      - name: Perf Smoke (ledger detailed costs)
+        run: poetry run python scripts/benchmark_ledger_costs.py --dry-run --requests 120 --warmup 15 --output-json benchmark_artifacts/ledger_costs_benchmark.json
+
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-benchmark-artifacts
+          path: backend/benchmark_artifacts/*.json
+
   frontend:
     name: Frontend (typecheck + build)
     runs-on: ubuntu-latest

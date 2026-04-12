@@ -52,6 +52,23 @@ class DashboardMetrics(BaseModel):
     active_accounts: int
 
 
+class DetailedCostRow(BaseModel):
+    date: date
+    account_id: str
+    provider: str
+    subscription_id: str | None = None
+    service: str | None = None
+    resource_id: str | None = None
+    resource_name: str | None = None
+    region: str | None = None
+    environment: str | None = None
+    owner_team: str | None = None
+    cost_usd: float
+    usage_quantity: float | None = None
+    usage_unit: str | None = None
+    currency: str | None = None
+
+
 class IngestRequest(BaseModel):
     account_id: UUID
     start_date: date

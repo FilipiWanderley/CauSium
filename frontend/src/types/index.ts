@@ -81,6 +81,31 @@ export interface DashboardMetrics {
   active_accounts: number
 }
 
+export interface DetailedCostRow {
+  date: string
+  account_id: string
+  provider: string
+  subscription_id: string | null
+  service: string | null
+  resource_id: string | null
+  resource_name: string | null
+  region: string | null
+  environment: string | null
+  owner_team: string | null
+  cost_usd: number
+  usage_quantity: number | null
+  usage_unit: string | null
+  currency: string | null
+}
+
+export interface PageResponse<T> {
+  items: T[]
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
+}
+
 // Opportunities
 export type OpportunityCategory =
   | 'rightsizing'

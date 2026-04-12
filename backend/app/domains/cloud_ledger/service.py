@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
+from time import perf_counter
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.domains.cloud_ledger.schemas import (
     CostSummary,
     CostTrend,
     DashboardMetrics,
+    DetailedCostRow,
     IngestResult,
     ServiceBreakdown,
 )
@@ -129,6 +131,122 @@ class CloudLedgerService:
         except Exception as e:
             log.warning("ledger.cost_trend.failed", error=str(e))
             return []
+
+    def get_detailed_costs(
+        self,
+        org_id: UUID,
+        *,
+        days: int = 30,
+        service: str | None = None,
+        provider: str | None = None,
+        owner_team: str | None = None,
+        environment: str | None = None,
+        region: str | None = None,
+        resource_id: str | None = None,
+        resource_name: str | None = None,
+        account_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[DetailedCostRow], int]:
+        end = date.today()
+        start = end - timedelta(days=days)
+
+        where_parts = [
+            "org_id = {org_id:String}",
+            "date >= {start:Date}",
+            "date <= {end:Date}",
+        ]
+        params: dict[str, object] = {
+            "org_id": str(org_id),
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "offset": offset,
+        }
+
+        filters = {
+            "service": service,
+            "provider": provider,
+            "owner_team": owner_team,
+            "environment": environment,
+            "region": region,
+            "resource_id": resource_id,
+            "resource_name": resource_name,
+            "account_id": account_id,
+        }
+        for field_name, field_value in filters.items():
+            if field_value:
+                where_parts.append(f"{field_name} = {{{field_name}:String}}")
+                params[field_name] = field_value
+
+        where_clause = " AND ".join(where_parts)
+
+        try:
+            count_start = perf_counter()
+            count_rows = execute_query(
+                f"""
+                SELECT count() AS total
+                FROM cost_facts
+                PREWHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                {f"WHERE {' AND '.join(where_parts[3:])}" if len(where_parts) > 3 else ""}
+                """,
+                params,
+            )
+            total = int(count_rows[0]["total"]) if count_rows else 0
+            count_ms = round((perf_counter() - count_start) * 1000, 2)
+
+            data_start = perf_counter()
+            rows = execute_query(
+                f"""
+                SELECT
+                    date,
+                    account_id,
+                    provider,
+                    subscription_id,
+                    service,
+                    resource_id,
+                    resource_name,
+                    region,
+                    environment,
+                    owner_team,
+                    cost_usd,
+                    usage_quantity,
+                    usage_unit,
+                    currency
+                FROM cost_facts
+                PREWHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                {f"WHERE {' AND '.join(where_parts[3:])}" if len(where_parts) > 3 else ""}
+                ORDER BY date DESC, cost_usd DESC, resource_id ASC
+                LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
+                """,
+                params,
+            )
+            data_ms = round((perf_counter() - data_start) * 1000, 2)
+
+            log.info(
+                "ledger.detailed_costs.query",
+                org_id=str(org_id),
+                days=days,
+                filters={k: v for k, v in filters.items() if v},
+                page_size=limit,
+                offset=offset,
+                total=total,
+                rows=len(rows),
+                count_ms=count_ms,
+                data_ms=data_ms,
+            )
+
+            return (
+                [DetailedCostRow(**row) for row in rows],
+                total,
+            )
+        except Exception as exc:
+            log.warning("ledger.detailed_costs.failed", error=str(exc))
+            return [], 0
 
     def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10) -> list[ServiceBreakdown]:
         end = date.today()
