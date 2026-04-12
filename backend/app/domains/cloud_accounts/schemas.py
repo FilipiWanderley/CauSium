@@ -24,6 +24,13 @@ class AwsCredentials(BaseModel):
     region: str | None = "us-east-1"
 
 
+class GcpCredentials(BaseModel):
+    service_account_json: str
+    project_id: str
+    billing_export_table: str | None = None
+    logging_filter: str | None = None
+
+
 class CloudAccountCreate(BaseModel):
     provider: CloudProvider
     external_id: str = Field(..., description="Subscription/Account/Project ID")
@@ -31,6 +38,7 @@ class CloudAccountCreate(BaseModel):
     tenant_id: str | None = None
     azure_credentials: AzureCredentials | None = None
     aws_credentials: AwsCredentials | None = None
+    gcp_credentials: GcpCredentials | None = None
 
 
 class CloudAccountOut(BaseModel):

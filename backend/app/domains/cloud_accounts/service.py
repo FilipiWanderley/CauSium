@@ -12,7 +12,7 @@ from app.core.security import decrypt_secret_for_org, encrypt_secret_for_org
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
 from app.domains.admin.models import DlqMessage, DlqStatus
-from app.domains.cloud_accounts.schemas import AwsCredentials, AzureCredentials, CloudAccountCreate
+from app.domains.cloud_accounts.schemas import AwsCredentials, AzureCredentials, CloudAccountCreate, GcpCredentials
 from app.domains.cloud_accounts.validators import ScopeValidationResult
 from app.domains.connectors.factory import get_connector_for_account
 
@@ -37,6 +37,12 @@ class CloudAccountService:
                 self.db,
                 org_id,
                 req.aws_credentials.model_dump_json(),
+            )
+        if req.provider == CloudProvider.GCP and req.gcp_credentials:
+            credentials_encrypted = await encrypt_secret_for_org(
+                self.db,
+                org_id,
+                req.gcp_credentials.model_dump_json(),
             )
 
         # SP-CL03: validate credentials before persisting — fail fast with clear error
@@ -74,6 +80,24 @@ class CloudAccountService:
             except Exception as exc:
                 raise ValueError(
                     f"Could not authenticate with AWS using the provided credentials: {exc}"
+                ) from exc
+        if req.provider == CloudProvider.GCP and req.gcp_credentials:
+            from app.domains.connectors.gcp.client import GcpConnectorClient
+
+            client = GcpConnectorClient(
+                service_account_json=req.gcp_credentials.service_account_json,
+                project_id=req.gcp_credentials.project_id,
+                billing_export_table=req.gcp_credentials.billing_export_table,
+                logging_filter=req.gcp_credentials.logging_filter,
+            )
+            try:
+                await client.validate_connection()
+                await client.validate_cost_management_scope(req.external_id)
+            except PermissionError as exc:
+                raise ValueError(str(exc)) from exc
+            except Exception as exc:
+                raise ValueError(
+                    f"Could not authenticate with GCP using the provided credentials: {exc}"
                 ) from exc
 
         account = CloudAccount(
@@ -270,6 +294,18 @@ class CloudAccountService:
         )
         return AwsCredentials(**raw)
 
+    async def get_gcp_credentials(self, account: CloudAccount) -> GcpCredentials | None:
+        if account.provider != CloudProvider.GCP or not account.credentials_encrypted:
+            return None
+        raw = json.loads(
+            await decrypt_secret_for_org(
+                self.db,
+                account.org_id,
+                account.credentials_encrypted,
+            )
+        )
+        return GcpCredentials(**raw)
+
     async def run_health_check(self, account: CloudAccount) -> ConnectorHealth:
         start = time.monotonic()
         status = ConnectorStatus.ERROR
@@ -279,6 +315,8 @@ class CloudAccountService:
             creds = await self.get_azure_credentials(account)
             if account.provider == CloudProvider.AWS:
                 creds = await self.get_aws_credentials(account)
+            if account.provider == CloudProvider.GCP:
+                creds = await self.get_gcp_credentials(account)
             client = get_connector_for_account(account, creds)
             await client.validate_connection()
             status = ConnectorStatus.ACTIVE

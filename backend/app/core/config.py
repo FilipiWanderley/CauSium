@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     aws_session_token: str = ""
     aws_region: str = "us-east-1"
+    gcp_service_account_json: str = ""
+    gcp_project_id: str = ""
+    gcp_billing_export_table: str = ""
+    gcp_logging_filter: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
     # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering
@@ -200,6 +204,10 @@ class Settings(BaseSettings):
     @property
     def aws_credentials_available(self) -> bool:
         return bool(self.aws_access_key_id and self.aws_secret_access_key)
+
+    @property
+    def gcp_credentials_available(self) -> bool:
+        return bool(self.gcp_service_account_json and self.gcp_project_id)
 
     @property
     def passkey_allowed_origins_list(self) -> List[str]:

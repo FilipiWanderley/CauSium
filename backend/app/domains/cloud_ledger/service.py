@@ -42,6 +42,8 @@ class CloudLedgerService:
         creds = await account_service.get_azure_credentials(account)
         if account.provider == CloudProvider.AWS:
             creds = await account_service.get_aws_credentials(account)
+        if account.provider == CloudProvider.GCP:
+            creds = await account_service.get_gcp_credentials(account)
         client = get_connector_for_account(account, creds)
 
         try:
@@ -178,6 +180,8 @@ class CloudLedgerService:
         creds = await account_service.get_azure_credentials(account)
         if account.provider == CloudProvider.AWS:
             creds = await account_service.get_aws_credentials(account)
+        if account.provider == CloudProvider.GCP:
+            creds = await account_service.get_gcp_credentials(account)
         client = get_connector_for_account(account, creds)
 
         carbon = await client.fetch_carbon_emissions(account.external_id, start, end)

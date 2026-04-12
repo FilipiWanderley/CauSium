@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.domains.cloud_accounts.models import CloudProvider
 from app.domains.connectors.aws.client import AwsConnectorClient
 from app.domains.connectors.azure.client import AzureConnectorClient
+from app.domains.connectors.gcp.client import GcpConnectorClient
 
 
 def get_connector_for_account(account, creds):
@@ -10,4 +11,6 @@ def get_connector_for_account(account, creds):
         return AzureConnectorClient.from_account(account, creds)
     if account.provider == CloudProvider.AWS:
         return AwsConnectorClient.from_account(account, creds)
+    if account.provider == CloudProvider.GCP:
+        return GcpConnectorClient.from_account(account, creds)
     raise ValueError(f"Unsupported provider '{account.provider.value}'")
