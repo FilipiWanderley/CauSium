@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     aws_session_token: str = ""
     aws_region: str = "us-east-1"
+    aws_cur_bucket: str = ""
+    aws_cur_prefix: str = ""
     gcp_service_account_json: str = ""
     gcp_project_id: str = ""
     gcp_billing_export_table: str = ""

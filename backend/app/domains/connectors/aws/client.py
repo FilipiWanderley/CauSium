@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import csv
+import gzip
+import io
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
@@ -22,11 +25,16 @@ class AwsConnectorClient(BaseConnector):
         *,
         session_token: str | None = None,
         region: str = "us-east-1",
+        cur_bucket: str | None = None,
+        cur_prefix: str | None = None,
     ):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
         self.session_token = session_token
         self.region = region
+        self.cur_bucket = cur_bucket
+        self.cur_prefix = cur_prefix or ""
+        self._last_cur_checkpoints: list[dict[str, str]] = []
 
     @classmethod
     def from_account(cls, account, creds) -> "AwsConnectorClient":
@@ -37,6 +45,8 @@ class AwsConnectorClient(BaseConnector):
                 secret_access_key=creds.secret_access_key,
                 session_token=creds.session_token,
                 region=creds.region or "us-east-1",
+                cur_bucket=creds.cur_bucket,
+                cur_prefix=creds.cur_prefix,
             )
         if settings.aws_credentials_available:
             return cls(
@@ -44,6 +54,8 @@ class AwsConnectorClient(BaseConnector):
                 secret_access_key=settings.aws_secret_access_key,
                 session_token=settings.aws_session_token or None,
                 region=settings.aws_region,
+                cur_bucket=settings.aws_cur_bucket or None,
+                cur_prefix=settings.aws_cur_prefix or None,
             )
         raise ValueError("AWS credentials are required for this account")
 
@@ -74,7 +86,24 @@ class AwsConnectorClient(BaseConnector):
         except (ClientError, BotoCoreError) as exc:
             raise PermissionError(f"Could not access AWS Cost Explorer API: {exc}") from exc
 
-    async def fetch_costs(self, subscription_id: str, start: date, end: date) -> list[CanonicalCostRecord]:
+    async def fetch_costs(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+        *,
+        checkpoint_keys: set[str] | None = None,
+    ) -> list[CanonicalCostRecord]:
+        if self.cur_bucket:
+            rows = await self._fetch_costs_from_cur(
+                subscription_id,
+                start,
+                end,
+                checkpoint_keys=checkpoint_keys,
+            )
+            if rows:
+                return rows
+
         ce = self._client("ce")
         rows: list[CanonicalCostRecord] = []
 
@@ -91,6 +120,144 @@ class AwsConnectorClient(BaseConnector):
 
         log.info("aws.fetch_costs.done", account=subscription_id, records=len(rows))
         return rows
+
+    async def _fetch_costs_from_cur(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+        *,
+        checkpoint_keys: set[str] | None,
+    ) -> list[CanonicalCostRecord]:
+        s3 = self._client("s3")
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=self.cur_bucket, Prefix=self.cur_prefix)
+
+        out: list[CanonicalCostRecord] = []
+        self._last_cur_checkpoints = []
+        known = checkpoint_keys or set()
+
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = str(obj.get("Key") or "")
+                etag = str(obj.get("ETag") or "").strip('"')
+                if not key.endswith(".csv") and not key.endswith(".csv.gz"):
+                    continue
+
+                checkpoint_key = f"{key}:{etag}"
+                if checkpoint_key in known:
+                    continue
+
+                data = s3.get_object(Bucket=self.cur_bucket, Key=key)["Body"].read()
+                rows = self._parse_cur_csv_bytes(
+                    data,
+                    account_id=subscription_id,
+                    start=start,
+                    end=end,
+                )
+                if not rows:
+                    continue
+
+                out.extend(rows)
+                self._last_cur_checkpoints.append(
+                    {
+                        "checkpoint_key": checkpoint_key,
+                        "object_key": key,
+                        "object_etag": etag,
+                    }
+                )
+
+        log.info(
+            "aws.fetch_costs.cur.done",
+            account=subscription_id,
+            records=len(out),
+            checkpoints=len(self._last_cur_checkpoints),
+        )
+        return out
+
+    @staticmethod
+    def _parse_cur_csv_bytes(
+        raw_bytes: bytes,
+        *,
+        account_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCostRecord]:
+        try:
+            decoded = gzip.decompress(raw_bytes).decode("utf-8")
+        except Exception:
+            decoded = raw_bytes.decode("utf-8")
+
+        reader = csv.DictReader(io.StringIO(decoded))
+        records: list[CanonicalCostRecord] = []
+        for row in reader:
+            rec = AwsConnectorClient._normalize_cur_row(row, account_id=account_id)
+            if rec is None:
+                continue
+            if rec.date < start or rec.date > end:
+                continue
+            records.append(rec)
+        return records
+
+    @staticmethod
+    def _normalize_cur_row(row: dict[str, str], *, account_id: str) -> CanonicalCostRecord | None:
+        lower_map = {k.lower(): (v or "") for k, v in row.items()}
+        usage_start = (
+            lower_map.get("line_item_usage_start_date")
+            or lower_map.get("identity_time_interval")
+            or ""
+        )
+        if not usage_start:
+            return None
+        usage_date_raw = usage_start.split("T", 1)[0]
+        try:
+            usage_date = datetime.strptime(usage_date_raw, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+        cost_raw = lower_map.get("line_item_unblended_cost") or lower_map.get("line_item_blended_cost") or "0"
+        try:
+            cost = float(cost_raw)
+        except ValueError:
+            return None
+
+        usage_qty_raw = lower_map.get("line_item_usage_amount") or "0"
+        try:
+            usage_qty = float(usage_qty_raw)
+        except ValueError:
+            usage_qty = 0.0
+
+        service = lower_map.get("product_product_name") or lower_map.get("line_item_product_code") or "AWS"
+        resource_id = lower_map.get("line_item_resource_id") or ""
+        region = lower_map.get("product_region") or lower_map.get("line_item_availability_zone") or "global"
+        environment = (
+            lower_map.get("resource_tags_user_environment")
+            or lower_map.get("resource_tags_user_env")
+            or "unknown"
+        )
+        owner_team = lower_map.get("resource_tags_user_ownerteam") or "untagged"
+
+        return CanonicalCostRecord(
+            date=usage_date,
+            provider="aws",
+            subscription_id=lower_map.get("line_item_usage_account_id") or account_id,
+            service=service,
+            resource_id=resource_id,
+            resource_name=resource_id,
+            region=region,
+            environment=environment,
+            owner_team=owner_team,
+            cost_usd=cost,
+            usage_quantity=usage_qty,
+            usage_unit=lower_map.get("pricing_unit") or "",
+            currency=lower_map.get("line_item_currency_code") or "USD",
+            tags={},
+        )
+
+    def consume_last_cur_checkpoints(self) -> list[dict[str, str]]:
+        out = self._last_cur_checkpoints
+        self._last_cur_checkpoints = []
+        return out
 
     @staticmethod
     def _normalize_cost_explorer_page(page: dict, account_id: str) -> list[CanonicalCostRecord]:

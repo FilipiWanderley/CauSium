@@ -30,9 +30,10 @@ class CloudLedgerService:
         self, org_id: UUID, account_id: UUID, start: date, end: date
     ) -> IngestResult:
         from app.domains.cloud_accounts.models import CloudProvider
+        from app.domains.connectors.aws.client import AwsConnectorClient
         from app.domains.connectors.azure.client import AzureConnectorClient
         from app.domains.connectors.factory import get_connector_for_account
-        from app.domains.cloud_accounts.models import BlobIngestionCheckpoint
+        from app.domains.cloud_accounts.models import AwsCurIngestionCheckpoint, BlobIngestionCheckpoint
 
         account_service = CloudAccountService(self.db)
         account = await account_service.get_account(org_id, account_id)
@@ -48,8 +49,11 @@ class CloudLedgerService:
 
         try:
             checkpoint_keys: set[str] | None = None
+            aws_checkpoint_keys: set[str] | None = None
             if isinstance(client, AzureConnectorClient):
                 checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
+            if isinstance(client, AwsConnectorClient):
+                aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
 
             if isinstance(client, AzureConnectorClient):
                 costs = await client.fetch_costs(
@@ -57,6 +61,13 @@ class CloudLedgerService:
                     start,
                     end,
                     checkpoint_keys=checkpoint_keys,
+                )
+            elif isinstance(client, AwsConnectorClient):
+                costs = await client.fetch_costs(
+                    account.external_id,
+                    start,
+                    end,
+                    checkpoint_keys=aws_checkpoint_keys,
                 )
             else:
                 costs = await client.fetch_costs(account.external_id, start, end)
@@ -67,8 +78,11 @@ class CloudLedgerService:
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
 
         blob_checkpoints: list[dict[str, str]] = []
+        aws_cur_checkpoints: list[dict[str, str]] = []
         if isinstance(client, AzureConnectorClient):
             blob_checkpoints = client.consume_last_blob_checkpoints()
+        if isinstance(client, AwsConnectorClient):
+            aws_cur_checkpoints = client.consume_last_cur_checkpoints()
 
         # Write costs to ClickHouse
         cost_rows = [
@@ -150,6 +164,25 @@ class CloudLedgerService:
                 )
                 existing_keys.add(key)
 
+        if aws_cur_checkpoints:
+            existing_keys = await self._get_aws_cur_checkpoint_keys(account_id)
+            for item in aws_cur_checkpoints:
+                key = item.get("checkpoint_key", "")
+                if not key or key in existing_keys:
+                    continue
+                self.db.add(
+                    AwsCurIngestionCheckpoint(
+                        org_id=org_id,
+                        account_id=account_id,
+                        provider=account.provider,
+                        checkpoint_key=key,
+                        object_key=item.get("object_key", ""),
+                        object_etag=item.get("object_etag") or None,
+                        records_ingested=len(cost_rows),
+                    )
+                )
+                existing_keys.add(key)
+
         # Update last sync
         account.last_sync_at = datetime.now(timezone.utc)
         await self.db.flush()
@@ -213,6 +246,16 @@ class CloudLedgerService:
         result = await self.db.execute(
             select(BlobIngestionCheckpoint.checkpoint_key).where(
                 BlobIngestionCheckpoint.account_id == account_id
+            )
+        )
+        return {row[0] for row in result.all()}
+
+    async def _get_aws_cur_checkpoint_keys(self, account_id: UUID) -> set[str]:
+        from app.domains.cloud_accounts.models import AwsCurIngestionCheckpoint
+
+        result = await self.db.execute(
+            select(AwsCurIngestionCheckpoint.checkpoint_key).where(
+                AwsCurIngestionCheckpoint.account_id == account_id
             )
         )
         return {row[0] for row in result.all()}

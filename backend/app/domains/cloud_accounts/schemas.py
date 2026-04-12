@@ -22,6 +22,8 @@ class AwsCredentials(BaseModel):
     secret_access_key: str
     session_token: str | None = None
     region: str | None = "us-east-1"
+    cur_bucket: str | None = None
+    cur_prefix: str | None = None
 
 
 class GcpCredentials(BaseModel):

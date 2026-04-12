@@ -71,6 +71,8 @@ class CloudAccountService:
                 secret_access_key=req.aws_credentials.secret_access_key,
                 session_token=req.aws_credentials.session_token,
                 region=req.aws_credentials.region or "us-east-1",
+                cur_bucket=req.aws_credentials.cur_bucket,
+                cur_prefix=req.aws_credentials.cur_prefix,
             )
             try:
                 await client.validate_connection()
