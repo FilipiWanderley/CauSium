@@ -17,12 +17,20 @@ class AzureCredentials(BaseModel):
     cost_export_prefix: str | None = None
 
 
+class AwsCredentials(BaseModel):
+    access_key_id: str
+    secret_access_key: str
+    session_token: str | None = None
+    region: str | None = "us-east-1"
+
+
 class CloudAccountCreate(BaseModel):
     provider: CloudProvider
     external_id: str = Field(..., description="Subscription/Account/Project ID")
     display_name: str = Field(..., min_length=2, max_length=255)
     tenant_id: str | None = None
     azure_credentials: AzureCredentials | None = None
+    aws_credentials: AwsCredentials | None = None
 
 
 class CloudAccountOut(BaseModel):

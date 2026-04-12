@@ -12,8 +12,9 @@ from app.core.security import decrypt_secret_for_org, encrypt_secret_for_org
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
 from app.domains.admin.models import DlqMessage, DlqStatus
-from app.domains.cloud_accounts.schemas import AzureCredentials, CloudAccountCreate
+from app.domains.cloud_accounts.schemas import AwsCredentials, AzureCredentials, CloudAccountCreate
 from app.domains.cloud_accounts.validators import ScopeValidationResult
+from app.domains.connectors.factory import get_connector_for_account
 
 log = get_logger(__name__)
 
@@ -25,11 +26,17 @@ class CloudAccountService:
 
     async def create_account(self, org_id: UUID, req: CloudAccountCreate) -> CloudAccount:
         credentials_encrypted = None
-        if req.azure_credentials:
+        if req.provider == CloudProvider.AZURE and req.azure_credentials:
             credentials_encrypted = await encrypt_secret_for_org(
                 self.db,
                 org_id,
                 req.azure_credentials.model_dump_json(),
+            )
+        if req.provider == CloudProvider.AWS and req.aws_credentials:
+            credentials_encrypted = await encrypt_secret_for_org(
+                self.db,
+                org_id,
+                req.aws_credentials.model_dump_json(),
             )
 
         # SP-CL03: validate credentials before persisting — fail fast with clear error
@@ -49,6 +56,24 @@ class CloudAccountService:
             except Exception as exc:
                 raise ValueError(
                     f"Could not authenticate with Azure using the provided credentials: {exc}"
+                ) from exc
+        if req.provider == CloudProvider.AWS and req.aws_credentials:
+            from app.domains.connectors.aws.client import AwsConnectorClient
+
+            client = AwsConnectorClient(
+                access_key_id=req.aws_credentials.access_key_id,
+                secret_access_key=req.aws_credentials.secret_access_key,
+                session_token=req.aws_credentials.session_token,
+                region=req.aws_credentials.region or "us-east-1",
+            )
+            try:
+                await client.validate_connection()
+                await client.validate_cost_management_scope(req.external_id)
+            except PermissionError as exc:
+                raise ValueError(str(exc)) from exc
+            except Exception as exc:
+                raise ValueError(
+                    f"Could not authenticate with AWS using the provided credentials: {exc}"
                 ) from exc
 
         account = CloudAccount(
@@ -233,16 +258,28 @@ class CloudAccountService:
         )
         return AzureCredentials(**raw)
 
-    async def run_health_check(self, account: CloudAccount) -> ConnectorHealth:
-        from app.domains.connectors.azure.client import AzureConnectorClient
+    async def get_aws_credentials(self, account: CloudAccount) -> AwsCredentials | None:
+        if account.provider != CloudProvider.AWS or not account.credentials_encrypted:
+            return None
+        raw = json.loads(
+            await decrypt_secret_for_org(
+                self.db,
+                account.org_id,
+                account.credentials_encrypted,
+            )
+        )
+        return AwsCredentials(**raw)
 
+    async def run_health_check(self, account: CloudAccount) -> ConnectorHealth:
         start = time.monotonic()
         status = ConnectorStatus.ERROR
         message = None
 
         try:
             creds = await self.get_azure_credentials(account)
-            client = AzureConnectorClient.from_account(account, creds)
+            if account.provider == CloudProvider.AWS:
+                creds = await self.get_aws_credentials(account)
+            client = get_connector_for_account(account, creds)
             await client.validate_connection()
             status = ConnectorStatus.ACTIVE
         except Exception as e:

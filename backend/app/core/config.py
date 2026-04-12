@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     azure_client_id: str = ""
     azure_client_secret: str = ""
     azure_carbon_api_url: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
+    aws_region: str = "us-east-1"
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
     # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering
@@ -192,6 +196,10 @@ class Settings(BaseSettings):
     @property
     def azure_credentials_available(self) -> bool:
         return bool(self.azure_tenant_id and self.azure_client_id and self.azure_client_secret)
+
+    @property
+    def aws_credentials_available(self) -> bool:
+        return bool(self.aws_access_key_id and self.aws_secret_access_key)
 
     @property
     def passkey_allowed_origins_list(self) -> List[str]:

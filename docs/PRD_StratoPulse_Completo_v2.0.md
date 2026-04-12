@@ -1334,11 +1334,13 @@ Implementado e validado em codigo:
 - SP-SM01 fase 1: rotacao automatica de keyring por workspace (janela configuravel, worker dedicado).
 - SP-CL01 completo: conector Azure Blob com normalizacao canonica, fallback para Cost Management API e checkpoint persistente para idempotencia cross-run.
 - SP-CL02 completo: conector Azure Carbon API configuravel com worker dedicado de sync, retries/backoff e sinalizacao operacional em DLQ/alertas.
+- SP-CL05 fase 1: conector AWS real para validacao, custos e eventos integrado ao pipeline de ingestao multi-provider.
 - Hardening de release: runbook, rollback, smoke, checklist go/no-go e gate automatizado.
 
 Ainda pendente de implementacao de codigo (priorizar por impacto):
 
-- SP-CL05, SP-CL06: conectores reais AWS/GCP.
+- SP-CL05 (completo): inventario/normalizacao avancada por recurso e checkpoint dedicado para CUR/S3.
+- SP-CL06: conector real GCP.
 - SP-RI01 a SP-RI06: provider recommendations reais, engine causal, ARI e simulacao/canario real.
 - SP-EC06 e SP-EC07: forecast probabilistico e savings com confianca.
 - SP-WK04 e SP-WK05: schema registry e pulse stream imutavel para replay.

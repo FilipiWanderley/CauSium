@@ -29,7 +29,9 @@ class CloudLedgerService:
     async def ingest_account(
         self, org_id: UUID, account_id: UUID, start: date, end: date
     ) -> IngestResult:
+        from app.domains.cloud_accounts.models import CloudProvider
         from app.domains.connectors.azure.client import AzureConnectorClient
+        from app.domains.connectors.factory import get_connector_for_account
         from app.domains.cloud_accounts.models import BlobIngestionCheckpoint
 
         account_service = CloudAccountService(self.db)
@@ -38,7 +40,9 @@ class CloudLedgerService:
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message="Account not found")
 
         creds = await account_service.get_azure_credentials(account)
-        client = AzureConnectorClient.from_account(account, creds)
+        if account.provider == CloudProvider.AWS:
+            creds = await account_service.get_aws_credentials(account)
+        client = get_connector_for_account(account, creds)
 
         try:
             checkpoint_keys: set[str] | None = None
@@ -163,7 +167,8 @@ class CloudLedgerService:
         start: date,
         end: date,
     ) -> int:
-        from app.domains.connectors.azure.client import AzureConnectorClient
+        from app.domains.cloud_accounts.models import CloudProvider
+        from app.domains.connectors.factory import get_connector_for_account
 
         account_service = CloudAccountService(self.db)
         account = await account_service.get_account(org_id, account_id)
@@ -171,7 +176,9 @@ class CloudLedgerService:
             raise ValueError("Account not found")
 
         creds = await account_service.get_azure_credentials(account)
-        client = AzureConnectorClient.from_account(account, creds)
+        if account.provider == CloudProvider.AWS:
+            creds = await account_service.get_aws_credentials(account)
+        client = get_connector_for_account(account, creds)
 
         carbon = await client.fetch_carbon_emissions(account.external_id, start, end)
         carbon_rows = [
