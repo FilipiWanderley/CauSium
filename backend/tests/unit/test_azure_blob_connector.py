@@ -31,6 +31,11 @@ def test_parse_blob_cost_csv_normalizes_and_filters_rows() -> None:
     assert rec.usage_quantity == 8.0
 
 
+def test_blob_checkpoint_key_is_stable() -> None:
+    key = AzureConnectorClient._build_blob_checkpoint_key("exports/cost.csv", '"etag-1"')
+    assert key == 'exports/cost.csv::"etag-1"'
+
+
 @pytest.mark.asyncio
 async def test_fetch_costs_prefers_blob_when_available(monkeypatch) -> None:
     client = AzureConnectorClient(
@@ -42,7 +47,7 @@ async def test_fetch_costs_prefers_blob_when_available(monkeypatch) -> None:
         cost_export_prefix="cost/",
     )
 
-    async def fake_blob(subscription_id: str, start: date, end: date):
+    async def fake_blob(subscription_id: str, start: date, end: date, *, checkpoint_keys=None):
         row = AzureConnectorClient._normalize_blob_cost_row(
             {
                 "Date": "2026-04-10",
@@ -57,7 +62,7 @@ async def test_fetch_costs_prefers_blob_when_available(monkeypatch) -> None:
             start=start,
             end=end,
         )
-        return [row] if row else []
+        return ([row] if row else [], [])
 
     async def fake_api(subscription_id: str, start: date, end: date):
         raise AssertionError("Cost Management API should not be called when blob data exists")
@@ -80,8 +85,8 @@ async def test_fetch_costs_falls_back_to_api_when_blob_is_empty(monkeypatch) -> 
         cost_export_container="exports",
     )
 
-    async def fake_blob(subscription_id: str, start: date, end: date):
-        return []
+    async def fake_blob(subscription_id: str, start: date, end: date, *, checkpoint_keys=None):
+        return [], []
 
     async def fake_api(subscription_id: str, start: date, end: date):
         row = AzureConnectorClient._normalize_blob_cost_row(
@@ -104,3 +109,30 @@ async def test_fetch_costs_falls_back_to_api_when_blob_is_empty(monkeypatch) -> 
     rows = await client.fetch_costs("sub-002", date(2026, 4, 1), date(2026, 4, 30))
     assert len(rows) == 1
     assert rows[0].subscription_id == "sub-002"
+
+
+@pytest.mark.asyncio
+async def test_fetch_costs_passes_checkpoint_keys_to_blob_fetch(monkeypatch) -> None:
+    client = AzureConnectorClient(
+        tenant_id="tenant",
+        client_id="client",
+        client_secret="secret",
+        storage_account_url="https://example.blob.core.windows.net",
+        cost_export_container="exports",
+    )
+
+    observed: dict[str, set[str] | None] = {"keys": None}
+
+    async def fake_blob(subscription_id: str, start: date, end: date, *, checkpoint_keys=None):
+        observed["keys"] = checkpoint_keys
+        return [], []
+
+    async def fake_api(subscription_id: str, start: date, end: date):
+        return []
+
+    monkeypatch.setattr(client, "_fetch_costs_from_blob_exports", fake_blob)
+    monkeypatch.setattr(client, "_fetch_costs_from_cost_management_api", fake_api)
+
+    keys = {"exports/cost-1.csv::etag-1"}
+    await client.fetch_costs("sub-003", date(2026, 4, 1), date(2026, 4, 30), checkpoint_keys=keys)
+    assert observed["keys"] == keys

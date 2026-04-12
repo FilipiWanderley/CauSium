@@ -57,6 +57,7 @@ class AzureConnectorClient(BaseConnector):
         self.cost_export_container = cost_export_container
         self.cost_export_prefix = cost_export_prefix or ""
         self._credential = None
+        self._last_blob_checkpoints: list[dict[str, str]] = []
 
     @classmethod
     def from_account(cls, account, creds) -> "AzureConnectorClient":
@@ -149,9 +150,21 @@ class AzureConnectorClient(BaseConnector):
             )
 
     async def fetch_costs(
-        self, subscription_id: str, start: date, end: date
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+        *,
+        checkpoint_keys: set[str] | None = None,
     ) -> list[CanonicalCostRecord]:
-        blob_records = await self._fetch_costs_from_blob_exports(subscription_id, start, end)
+        self._last_blob_checkpoints = []
+        blob_records, blob_checkpoints = await self._fetch_costs_from_blob_exports(
+            subscription_id,
+            start,
+            end,
+            checkpoint_keys=checkpoint_keys,
+        )
+        self._last_blob_checkpoints = blob_checkpoints
         if blob_records:
             log.info(
                 "azure.fetch_costs.blob.done",
@@ -162,6 +175,11 @@ class AzureConnectorClient(BaseConnector):
             return blob_records
 
         return await self._fetch_costs_from_cost_management_api(subscription_id, start, end)
+
+    def consume_last_blob_checkpoints(self) -> list[dict[str, str]]:
+        items = self._last_blob_checkpoints
+        self._last_blob_checkpoints = []
+        return items
 
     async def _fetch_costs_from_cost_management_api(
         self, subscription_id: str, start: date, end: date
@@ -231,14 +249,18 @@ class AzureConnectorClient(BaseConnector):
         subscription_id: str,
         start: date,
         end: date,
-    ) -> list[CanonicalCostRecord]:
+        *,
+        checkpoint_keys: set[str] | None = None,
+    ) -> tuple[list[CanonicalCostRecord], list[dict[str, str]]]:
         if not self.storage_account_url or not self.cost_export_container:
-            return []
+            return [], []
 
         from azure.storage.blob.aio import BlobServiceClient
 
         cred = self._get_credential()
         records: list[CanonicalCostRecord] = []
+        consumed_checkpoints: list[dict[str, str]] = []
+        seen_checkpoints: set[str] = set()
 
         try:
             blob_service = BlobServiceClient(account_url=self.storage_account_url, credential=cred)
@@ -249,10 +271,34 @@ class AzureConnectorClient(BaseConnector):
                 if not blob_name.lower().endswith(".csv"):
                     continue
 
-                downloader = await container.download_blob(blob_name)
-                payload = await downloader.readall()
-                text = payload.decode("utf-8-sig", errors="replace")
-                records.extend(self._parse_blob_cost_csv(text, subscription_id, start, end))
+                blob_etag = str(getattr(blob, "etag", "") or "")
+                checkpoint_key = self._build_blob_checkpoint_key(blob_name, blob_etag)
+                if checkpoint_keys and checkpoint_key in checkpoint_keys:
+                    continue
+                if checkpoint_key in seen_checkpoints:
+                    continue
+
+                try:
+                    downloader = await container.download_blob(blob_name)
+                    payload = await downloader.readall()
+                    text = payload.decode("utf-8-sig", errors="replace")
+                    records.extend(self._parse_blob_cost_csv(text, subscription_id, start, end))
+                    consumed_checkpoints.append(
+                        {
+                            "checkpoint_key": checkpoint_key,
+                            "blob_name": blob_name,
+                            "blob_etag": blob_etag,
+                        }
+                    )
+                    seen_checkpoints.add(checkpoint_key)
+                except Exception as exc:
+                    log.warning(
+                        "azure.fetch_costs.blob_item.failed",
+                        subscription=subscription_id,
+                        blob_name=blob_name,
+                        reason=str(exc),
+                    )
+                    continue
 
         except Exception as exc:
             log.warning(
@@ -261,9 +307,13 @@ class AzureConnectorClient(BaseConnector):
                 container=self.cost_export_container,
                 reason=str(exc),
             )
-            return []
+            return [], []
 
-        return records
+        return records, consumed_checkpoints
+
+    @staticmethod
+    def _build_blob_checkpoint_key(blob_name: str, blob_etag: str) -> str:
+        return f"{blob_name}::{blob_etag or '-'}"
 
     @staticmethod
     def _parse_blob_cost_csv(

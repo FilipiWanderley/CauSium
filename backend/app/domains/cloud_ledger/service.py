@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from time import perf_counter
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clickhouse import execute_query, insert_rows
@@ -29,6 +30,7 @@ class CloudLedgerService:
         self, org_id: UUID, account_id: UUID, start: date, end: date
     ) -> IngestResult:
         from app.domains.connectors.azure.client import AzureConnectorClient
+        from app.domains.cloud_accounts.models import BlobIngestionCheckpoint
 
         account_service = CloudAccountService(self.db)
         account = await account_service.get_account(org_id, account_id)
@@ -39,11 +41,28 @@ class CloudLedgerService:
         client = AzureConnectorClient.from_account(account, creds)
 
         try:
-            costs = await client.fetch_costs(account.external_id, start, end)
+            checkpoint_keys: set[str] | None = None
+            if isinstance(client, AzureConnectorClient):
+                checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
+
+            if isinstance(client, AzureConnectorClient):
+                costs = await client.fetch_costs(
+                    account.external_id,
+                    start,
+                    end,
+                    checkpoint_keys=checkpoint_keys,
+                )
+            else:
+                costs = await client.fetch_costs(account.external_id, start, end)
+
             events = await client.fetch_events(account.external_id, start, end)
         except Exception as e:
             log.error("ledger.ingest.failed", account_id=str(account_id), error=str(e))
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
+
+        blob_checkpoints: list[dict[str, str]] = []
+        if isinstance(client, AzureConnectorClient):
+            blob_checkpoints = client.consume_last_blob_checkpoints()
 
         # Write costs to ClickHouse
         cost_rows = [
@@ -72,6 +91,13 @@ class CloudLedgerService:
                 insert_rows("cost_facts", cost_rows)
             except Exception as e:
                 log.warning("ledger.clickhouse.cost_insert_failed", error=str(e))
+                return IngestResult(
+                    account_id=account_id,
+                    cost_records=0,
+                    event_records=0,
+                    status="error",
+                    message=f"Cost insert failed: {e}",
+                )
 
         # Write events
         event_rows = [
@@ -99,6 +125,25 @@ class CloudLedgerService:
             except Exception as e:
                 log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
 
+        if blob_checkpoints:
+            existing_keys = await self._get_blob_checkpoint_keys(account_id)
+            for item in blob_checkpoints:
+                key = item.get("checkpoint_key", "")
+                if not key or key in existing_keys:
+                    continue
+                self.db.add(
+                    BlobIngestionCheckpoint(
+                        org_id=org_id,
+                        account_id=account_id,
+                        provider=account.provider,
+                        checkpoint_key=key,
+                        blob_name=item.get("blob_name", ""),
+                        blob_etag=item.get("blob_etag") or None,
+                        records_ingested=len(cost_rows),
+                    )
+                )
+                existing_keys.add(key)
+
         # Update last sync
         account.last_sync_at = datetime.now(timezone.utc)
         await self.db.flush()
@@ -110,6 +155,16 @@ class CloudLedgerService:
             event_records=len(events),
             status="ok",
         )
+
+    async def _get_blob_checkpoint_keys(self, account_id: UUID) -> set[str]:
+        from app.domains.cloud_accounts.models import BlobIngestionCheckpoint
+
+        result = await self.db.execute(
+            select(BlobIngestionCheckpoint.checkpoint_key).where(
+                BlobIngestionCheckpoint.account_id == account_id
+            )
+        )
+        return {row[0] for row in result.all()}
 
     def get_cost_trend(self, org_id: UUID, days: int = 30) -> list[CostTrend]:
         end = date.today()
