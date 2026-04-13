@@ -345,6 +345,87 @@ class AuthService:
         result = await self.db.execute(select(User).where(User.org_id == org_id))
         return list(result.scalars().all())
 
+    async def export_user_data(self, user: User) -> dict:
+        """LGPD Art. 18 — exporta dados pessoais do titular em formato legível."""
+        from sqlalchemy import select as sa_select
+        from app.domains.auth.models import PasskeyCredential
+
+        passkeys_result = await self.db.execute(
+            sa_select(PasskeyCredential).where(PasskeyCredential.user_id == user.id)
+        )
+        passkeys = passkeys_result.scalars().all()
+
+        return {
+            "exported_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "profile": {
+                "id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+            },
+            "mfa": {
+                "totp_enabled": user.totp_enabled,
+                "totp_verified_at": user.totp_verified_at.isoformat() if user.totp_verified_at else None,
+            },
+            "passkeys": [
+                {
+                    "id": str(pk.id),
+                    "created_at": pk.created_at.isoformat() if pk.created_at else None,
+                    "last_used_at": pk.last_used_at.isoformat() if pk.last_used_at else None,
+                    "transports": pk.transports,
+                }
+                for pk in passkeys
+            ],
+        }
+
+    async def lgpd_purge_user(self, actor: User, target_user_id: UUID) -> None:
+        """LGPD Art. 18 VI — anonimiza e remove dados pessoais do titular (direito ao esquecimento).
+        Só o próprio usuário ou um admin/platform_admin pode solicitar."""
+        from sqlalchemy import delete as sa_delete
+        from app.domains.auth.models import PasskeyCredential
+        from app.domains.auth.token_blacklist import RevokedToken
+        from app.core.security import get_password_hash
+        import secrets
+
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+
+        is_self = actor.id == target.id
+        if not is_self and not self._can_manage(actor, target):
+            raise PermissionError("Insufficient permission to purge this user's data")
+
+        # Anonimizar dados pessoais
+        anon_id = str(target.id)[:8]
+        target.email = f"deleted_{anon_id}@deleted.invalid"
+        target.full_name = "[Deleted]"
+        target.hashed_password = get_password_hash(secrets.token_urlsafe(32))
+        target.totp_secret_encrypted = None
+        target.totp_enabled = False
+        target.totp_verified_at = None
+        target.passkey_enabled = False
+        target.is_active = False
+
+        # Remover credenciais relacionadas
+        await self.db.execute(sa_delete(PasskeyCredential).where(PasskeyCredential.user_id == target.id))
+        await self.db.execute(sa_delete(RevokedToken).where(RevokedToken.user_id == target.id))
+
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.user.lgpd_purge",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "actor_role": actor.role.value,
+                "self_requested": is_self,
+            },
+        )
+        await self.db.flush()
+
     async def get_org_name(self, org_id: UUID) -> str:
         org = await self.get_org(org_id)
         return org.name if org else ""

@@ -56,52 +56,6 @@ async def logout_all(
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookies(response)
     return response
-from typing import Annotated, List
-from urllib.parse import quote_plus
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.config import get_settings
-from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_roles
-from app.core.security import decode_token
-from app.domains.auth.models import UserRole
-from app.domains.auth.schemas import (
-    AdminDeactivateUserRequest,
-    UserUpdate,
-    UserDeleteAudit,
-    AdminResetMFAResponse,
-    AdminResetPasswordResponse,
-    ChangePasswordRequest,
-    ForgotPasswordRequest,
-    ForgotPasswordResponse,
-    LoginRequest,
-    PasswordlessPolicyOut,
-    PasswordlessPolicyUpdate,
-    PasskeyCredentialOut,
-    PasskeyLoginOptionsOut,
-    PasskeyLoginOptionsRequest,
-    PasskeyLoginVerifyRequest,
-    PasskeyRegistrationOptionsOut,
-    PasskeyRegistrationOptionsRequest,
-    PasskeyRegistrationVerifyRequest,
-    RefreshRequest,
-    RegisterRequest,
-    ResetPasswordRequest,
-    TokenResponse,
-    TOTPCodeRequest,
-    TOTPSetupOut,
-    TOTPStatusOut,
-    TOTPVerifyResponse,
-    UserCreate,
-    UserOut,
-)
-from app.domains.auth.service import AuthService
-
-router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 # --- PATCH membro ---
@@ -694,3 +648,58 @@ async def admin_deactivate_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from e
     org_name = await service.get_org_name(target.org_id)
     return _user_out(target, org_name)
+
+
+# --- LGPD: exportação de dados pessoais ---
+@router.get(
+    "/me/export",
+    summary="LGPD Art. 18 — Exportar dados pessoais do titular",
+)
+async def export_my_data(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    """Retorna todos os dados pessoais do usuário autenticado em formato JSON."""
+    service = AuthService(db)
+    return await service.export_user_data(current_user)
+
+
+# --- LGPD: exclusão/anonimização de dados pessoais ---
+@router.delete(
+    "/me/data",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="LGPD Art. 18 VI — Direito ao esquecimento (anonimização dos dados pessoais)",
+)
+async def delete_my_data(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+    response: Response = None,
+):
+    """Anonimiza e remove dados pessoais do usuário. Ação irreversível."""
+    service = AuthService(db)
+    await service.lgpd_purge_user(current_user, current_user.id)
+    # Limpar cookies de sessão após purge
+    r = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_auth_cookies(r)
+    return r
+
+
+@router.delete(
+    "/users/{user_id}/data",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="LGPD Art. 18 VI — Admin anonimiza dados de membro",
+)
+async def admin_delete_user_data(
+    user_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    """Admin anonimiza dados pessoais de um membro do workspace. Ação irreversível."""
+    service = AuthService(db)
+    try:
+        await service.lgpd_purge_user(current_user, user_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

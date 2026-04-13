@@ -1,5 +1,5 @@
 {
-  "name": "stratopulse-frontend",
+  "name": "causium-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,15 +12,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.56.2",
+    "axios": "^1.7.7",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.446.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "axios": "^1.7.7",
-    "recharts": "^2.12.7",
-    "@tanstack/react-query": "^5.56.2",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
-    "lucide-react": "^0.446.0"
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

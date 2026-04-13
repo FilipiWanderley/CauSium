@@ -10,6 +10,7 @@ interface AuthContextValue {
   loginWithPasskey: (email: string) => Promise<void>
   registerCurrentPasskey: () => Promise<void>
   logout: () => void
+  logoutAll: () => void
   /** Replace the in-memory user without a network round-trip. */
   refreshUser: (updated: User) => Promise<void>
 }
@@ -22,6 +23,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     authApi.logout().catch(() => undefined)
+    setUser(null)
+  }, [])
+
+  const logoutAll = useCallback(() => {
+    authApi.logoutAll().catch(() => undefined)
     setUser(null)
   }, [])
 
@@ -190,6 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithPasskey,
         registerCurrentPasskey,
         logout,
+        logoutAll,
         refreshUser,
       }}
     >
