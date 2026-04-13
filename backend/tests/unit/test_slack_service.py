@@ -45,10 +45,10 @@ async def test_send_critical_alert_posts_to_configured_webhook(monkeypatch):
     service = SlackService(_FakeDB())
     ok = await service.send_critical_alert(
         org_id=UUID("00000000-0000-0000-0000-000000000001"),
-        subject="[StratoPulse][Critical] Test",
+        subject="[CauSium][Critical] Test",
         text_body="boom",
     )
 
     assert ok is True
     assert called["url"].startswith("https://hooks.slack.com/")
-    assert "StratoPulse Critical Alert" in called["json"]["text"]
+    assert "CauSium Critical Alert" in called["json"]["text"]

@@ -14,6 +14,65 @@ from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
     AdminDeactivateUserRequest,
+    UserUpdate,
+    UserDeleteAudit,
+    AdminResetMFAResponse,
+    AdminResetPasswordResponse,
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    LoginRequest,
+    PasswordlessPolicyOut,
+    PasswordlessPolicyUpdate,
+    PasskeyCredentialOut,
+    PasskeyLoginOptionsOut,
+    PasskeyLoginOptionsRequest,
+    PasskeyLoginVerifyRequest,
+    PasskeyRegistrationOptionsOut,
+    PasskeyRegistrationOptionsRequest,
+    PasskeyRegistrationVerifyRequest,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    TOTPCodeRequest,
+    TOTPSetupOut,
+    TOTPStatusOut,
+    TOTPVerifyResponse,
+    UserCreate,
+    UserOut,
+)
+from app.domains.auth.service import AuthService
+from app.domains.auth.token_blacklist import revoke_all_tokens_for_user
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT, summary="Logout global (revoga todas as sessões)")
+async def logout_all(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    await revoke_all_tokens_for_user(db, current_user.id)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_auth_cookies(response)
+    return response
+from typing import Annotated, List
+from urllib.parse import quote_plus
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_roles
+from app.core.security import decode_token
+from app.domains.auth.models import UserRole
+from app.domains.auth.schemas import (
+    AdminDeactivateUserRequest,
+    UserUpdate,
+    UserDeleteAudit,
     AdminResetMFAResponse,
     AdminResetPasswordResponse,
     ChangePasswordRequest,
@@ -43,6 +102,34 @@ from app.domains.auth.schemas import (
 from app.domains.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# --- PATCH membro ---
+@router.patch("/users/{user_id}", response_model=UserOut, summary="Admin edita membro")
+async def admin_update_user(
+    user_id: UUID,
+    req: UserUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    service = AuthService(db)
+    user = await service.admin_update_user(current_user, user_id, req)
+    org_name = await service.get_org_name(user.org_id)
+    return _user_out(user, org_name)
+
+
+# --- DELETE membro (soft) ---
+@router.delete("/users/{user_id}", response_model=UserOut, summary="Admin remove membro (soft-delete)")
+async def admin_delete_user(
+    user_id: UUID,
+    req: UserDeleteAudit,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    service = AuthService(db)
+    user = await service.admin_delete_user(current_user, user_id, req.reason)
+    org_name = await service.get_org_name(user.org_id)
+    return _user_out(user, org_name)
 
 
 def _user_out(user, org_name: str) -> UserOut:
@@ -93,7 +180,13 @@ def _clear_auth_cookies(response: Response) -> None:
     )
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar novo usuário e workspace",
+    description="Cria um novo workspace e usuário inicial. Retorna tokens de acesso e refresh, além dos dados do usuário."
+)
 async def register(req: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     service = AuthService(db)
     try:
@@ -108,7 +201,12 @@ async def register(req: RegisterRequest, db: Annotated[AsyncSession, Depends(get
     return response
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Login do usuário",
+    description="Realiza login com email, senha e opcionalmente código TOTP. Retorna tokens de acesso e refresh, além dos dados do usuário."
+)
 async def login(req: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     service = AuthService(db)
     try:
@@ -122,7 +220,12 @@ async def login(req: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)])
     return response
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Renovar tokens de autenticação",
+    description="Gera novos tokens de acesso e refresh a partir de um refresh token válido."
+)
 async def refresh(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -147,14 +250,24 @@ async def refresh(
     return response
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout da sessão atual",
+    description="Remove os cookies de autenticação do usuário na sessão atual."
+)
 async def logout():
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookies(response)
     return response
 
 
-@router.get("/me", response_model=UserOut)
+@router.get(
+    "/me",
+    response_model=UserOut,
+    summary="Obter dados do usuário autenticado",
+    description="Retorna os dados do usuário atualmente autenticado."
+)
 async def me(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),

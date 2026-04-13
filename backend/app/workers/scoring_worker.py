@@ -77,7 +77,7 @@ async def process_scoring(raw_payload: str) -> None:
         await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
         log.error("scoring.failed_to_dlq", account_id=account_id_str, error=str(e))
-        subject = "[StratoPulse][Critical] Scoring worker failure"
+        subject = "[CauSium][Critical] Scoring worker failure"
         body = (
             "A critical failure occurred in scoring worker and was moved to DLQ.\n\n"
             f"account_id: {account_id_str}\n"

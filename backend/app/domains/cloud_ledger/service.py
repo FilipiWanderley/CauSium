@@ -397,10 +397,24 @@ class CloudLedgerService:
             log.warning("ledger.detailed_costs.failed", error=str(exc))
             return [], 0
 
-    def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10) -> list[ServiceBreakdown]:
+    def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         try:
+            # Total count
+            total_rows = execute_query(
+                """
+                SELECT count(DISTINCT service) as total
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= {start:Date}
+                  AND date <= {end:Date}
+                """,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+            total = int(total_rows[0]["total"]) if total_rows else 0
+
+            # Paged items
             rows = execute_query(
                 """
                 SELECT service, sum(cost_usd) as cost_usd
@@ -410,27 +424,42 @@ class CloudLedgerService:
                   AND date <= {end:Date}
                 GROUP BY service
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32}
+                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit},
+                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
             )
-            total = sum(r["cost_usd"] for r in rows) or 1
-            return [
+            cost_total = sum(r["cost_usd"] for r in rows) or 1
+            items = [
                 ServiceBreakdown(
                     service=r["service"],
                     cost_usd=r["cost_usd"],
-                    percentage=round(r["cost_usd"] / total * 100, 1),
+                    percentage=round(r["cost_usd"] / cost_total * 100, 1),
                 )
                 for r in rows
             ]
+            return items, total
         except Exception as e:
             log.warning("ledger.top_services.failed", error=str(e))
-            return []
+            return [], 0
 
-    def get_top_teams(self, org_id: UUID, days: int = 30, limit: int = 10) -> list[ServiceBreakdown]:
+    def get_top_teams(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         try:
+            # Total count
+            total_rows = execute_query(
+                """
+                SELECT count(DISTINCT owner_team) as total
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= {start:Date}
+                  AND date <= {end:Date}
+                """,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+            total = int(total_rows[0]["total"]) if total_rows else 0
+
+            # Paged items
             rows = execute_query(
                 """
                 SELECT owner_team as service, sum(cost_usd) as cost_usd
@@ -440,22 +469,23 @@ class CloudLedgerService:
                   AND date <= {end:Date}
                 GROUP BY owner_team
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32}
+                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit},
+                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
             )
-            total = sum(r["cost_usd"] for r in rows) or 1
-            return [
+            cost_total = sum(r["cost_usd"] for r in rows) or 1
+            items = [
                 ServiceBreakdown(
                     service=r["service"],
                     cost_usd=r["cost_usd"],
-                    percentage=round(r["cost_usd"] / total * 100, 1),
+                    percentage=round(r["cost_usd"] / cost_total * 100, 1),
                 )
                 for r in rows
             ]
+            return items, total
         except Exception as e:
             log.warning("ledger.top_teams.failed", error=str(e))
-            return []
+            return [], 0
 
     def get_month_cost(self, org_id: UUID, year: int, month: int) -> float:
         try:

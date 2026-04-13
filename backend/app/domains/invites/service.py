@@ -78,9 +78,9 @@ class InviteService:
         accept_url = f"{get_settings().frontend_url}/activate?token={invite.token}"
         await self.email.send_email(
             to_email=req.email,
-            subject="[StratoPulse] Voce foi convidado para um workspace",
+            subject="[CauSium] Voce foi convidado para um workspace",
             text_body=(
-                "Voce recebeu um convite para entrar em um workspace no StratoPulse.\n\n"
+                "Voce recebeu um convite para entrar em um workspace no CauSium.\n\n"
                 f"Funcao: {req.role.value}\n"
                 f"Aceitar convite: {accept_url}\n"
                 f"Expira em: {invite.expires_at.isoformat()}\n"

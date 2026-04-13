@@ -35,6 +35,7 @@ from app.core.security import (
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
 from app.domains.auth.schemas import RegisterRequest, UserCreate
+from app.domains.auth.schemas import UserUpdate
 
 # ---------------------------------------------------------------------------
 # Module-level JWKS cache (avoids a round-trip on every OIDC callback).
@@ -43,11 +44,78 @@ from app.domains.auth.schemas import RegisterRequest, UserCreate
 _JWKS_CACHE: dict = {"data": None, "fetched_at": 0.0}
 
 
+
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_chain = AuditChainService(db)
         self.email = EmailService()
+
+    async def admin_update_user(self, actor: User, target_user_id: UUID, req: UserUpdate) -> User:
+        """Admin edita membro: nome, email, role. Não permite auto-promoção para admin/platform_admin."""
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+        if not self._can_manage(actor, target):
+            raise PermissionError(f"Role '{actor.role.value}' cannot edit a user with role '{target.role.value}'")
+        # Não permite auto-promoção
+        if req.role in [UserRole.ADMIN, UserRole.PLATFORM_ADMIN] and actor.role != UserRole.PLATFORM_ADMIN:
+            raise PermissionError("Only platform_admin can promote to admin/platform_admin")
+        changed = False
+        payload = {}
+        if req.full_name and req.full_name != target.full_name:
+            payload["full_name"] = {"from": target.full_name, "to": req.full_name}
+            target.full_name = req.full_name
+            changed = True
+        if req.email and req.email != target.email:
+            payload["email"] = {"from": target.email, "to": req.email}
+            target.email = req.email
+            changed = True
+        if req.role and req.role != target.role:
+            payload["role"] = {"from": target.role.value, "to": req.role.value}
+            target.role = req.role
+            changed = True
+        if changed:
+            await self.audit_chain.append_event(
+                org_id=target.org_id,
+                actor_user_id=actor.id,
+                event_type="auth.user.updated",
+                entity_type="user",
+                entity_id=str(target.id),
+                payload=payload,
+            )
+            await self.db.flush()
+        return target
+
+    async def admin_delete_user(self, actor: User, target_user_id: UUID, reason: str) -> User:
+        """Admin faz soft-delete: is_active=False, audita motivo."""
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+        if not self._can_manage(actor, target):
+            raise PermissionError(f"Role '{actor.role.value}' cannot delete a user with role '{target.role.value}'")
+        if not target.is_active:
+            raise ValueError("User is already inactive")
+        target.is_active = False
+        target.passkey_enabled = False
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.user.deleted",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "target_email": target.email,
+                "actor_role": actor.role.value,
+                "reason": reason,
+            },
+        )
+        await self.db.flush()
+        return target
 
     async def register(self, req: RegisterRequest) -> tuple[Organization, User]:
         org = Organization(name=req.org_name, slug=req.org_slug)
@@ -152,7 +220,7 @@ class AuthService:
         user.totp_enabled = False
         user.totp_verified_at = None
 
-        issuer = get_settings().passkey_rp_name or "StratoPulse"
+        issuer = get_settings().passkey_rp_name or "CauSium"
         label = f"{issuer}:{user.email}"
         otpauth = f"otpauth://totp/{label}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
 
@@ -215,14 +283,21 @@ class AuthService:
 
     async def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         from app.core.security import decode_token
+        from app.domains.auth.token_blacklist import is_token_revoked
+        import datetime
 
         payload = decode_token(refresh_token)
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token")
 
-        user = await self.get_user_by_id(UUID(payload["sub"]))
+        user_id = UUID(payload["sub"])
+        user = await self.get_user_by_id(user_id)
         if not user or not user.is_active:
             raise ValueError("User not found or inactive")
+
+        issued_at = datetime.datetime.fromtimestamp(payload["iat"], tz=datetime.timezone.utc) if "iat" in payload else None
+        if issued_at and await is_token_revoked(self.db, user_id, issued_at):
+            raise ValueError("Session revoked. Please login again.")
 
         access = create_access_token(str(user.id), {"org_id": str(user.org_id), "role": user.role})
         new_refresh = create_refresh_token(str(user.id))
@@ -403,7 +478,7 @@ class AuthService:
         login_url = f"{get_settings().frontend_url}/login"
         await self.email.send_email(
             to_email=target.email,
-            subject="[StratoPulse] Sua senha foi redefinida pelo administrador",
+            subject="[CauSium] Sua senha foi redefinida pelo administrador",
             text_body=(
                 "Sua senha foi redefinida por um administrador do workspace.\n\n"
                 f"Senha temporaria: {temp_password}\n"
@@ -1211,9 +1286,9 @@ class AuthService:
         reset_url = f"{get_settings().frontend_url}/reset-password?token={token}"
         await self.email.send_email(
             to_email=user.email,
-            subject="[StratoPulse] Password reset",
+            subject="[CauSium] Password reset",
             text_body=(
-                "You requested a password reset for your StratoPulse account.\n\n"
+                "You requested a password reset for your CauSium account.\n\n"
                 f"Reset link: {reset_url}\n"
                 "This link expires in 1 hour.\n"
                 "If you did not request this, you can ignore this email.\n"

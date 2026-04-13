@@ -100,7 +100,7 @@ async def process_report_export(raw_payload: str) -> None:
             )
             await db.commit()
 
-            subject = "[StratoPulse][Critical] Economics export worker failure"
+            subject = "[CauSium][Critical] Economics export worker failure"
             body = (
                 "A critical failure occurred while generating an economics export.\n\n"
                 f"export_job_id: {job_id}\n"

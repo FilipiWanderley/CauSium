@@ -36,7 +36,7 @@ class SlackService:
 
         payload = {
             "text": (
-                ":rotating_light: *StratoPulse Critical Alert*\n"
+                ":rotating_light: *CauSium Critical Alert*\n"
                 f"*Subject:* {subject}\n\n"
                 f"{text_body.strip()}"
             )

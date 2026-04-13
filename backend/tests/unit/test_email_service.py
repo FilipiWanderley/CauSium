@@ -75,13 +75,13 @@ async def test_critical_alert_uses_product_template(monkeypatch):
     monkeypatch.setattr(service, "send_email", _fake_send_email)
 
     sent = await service.send_critical_alert(
-        subject="[StratoPulse][Critical] Worker failure",
+        subject="[CauSium][Critical] Worker failure",
         text_body="error: boom",
     )
 
     assert sent == 1
     assert sent_payload["to_email"] == "ops@example.com"
-    assert "StratoPulse - Alerta Critico" in sent_payload["text_body"]
+    assert "CauSium - Alerta Critico" in sent_payload["text_body"]
     assert "Acoes recomendadas:" in sent_payload["text_body"]
     assert sent_payload["html_body"] is not None
     assert "<ol" in sent_payload["html_body"]

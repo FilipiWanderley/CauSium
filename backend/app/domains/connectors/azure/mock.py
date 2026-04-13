@@ -77,7 +77,7 @@ class AzureMockClient(BaseConnector):
                         usage_quantity=round(rng.uniform(1, 1000), 2),
                         usage_unit="Units",
                         currency="USD",
-                        tags={"team": team, "env": env, "managed-by": "stratopulse"},
+                        tags={"team": team, "env": env, "managed-by": "causium"},
                     )
                 )
             current += timedelta(days=1)

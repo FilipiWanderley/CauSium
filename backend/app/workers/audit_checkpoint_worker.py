@@ -24,7 +24,7 @@ async def run_audit_checkpoint_worker() -> None:
         except Exception as e:
             log.error("audit_checkpoint_worker.error", error=str(e))
             await EmailService().send_critical_alert(
-                subject="[StratoPulse][Critical] Audit checkpoint worker failure",
+                subject="[CauSium][Critical] Audit checkpoint worker failure",
                 text_body=(
                     "A critical failure occurred in audit checkpoint worker.\n\n"
                     f"error: {str(e)}\n"

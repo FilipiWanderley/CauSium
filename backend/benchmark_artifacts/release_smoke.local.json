@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-04-12T01:15:53.186099+00:00",
+  "dry_run": true,
+  "base_url": "http://localhost:8000",
+  "passed": 4,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "file_exists:docs/operations/Release_Runbook.md",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "name": "file_exists:docs/operations/Rollback_Runbook.md",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "name": "file_exists:docs/operations/E2E_Critical_Flows.md",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "name": "file_exists:docs/operations/Go_No_Go_Checklist.md",
+      "ok": true,
+      "detail": "found"
+    }
+  ]
+}

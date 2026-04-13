@@ -218,3 +218,16 @@ class AdminDeactivateUserRequest(BaseModel):
     """SP-U05: Reason payload for admin-driven user deactivation."""
 
     reason: str = Field(..., min_length=3, max_length=500)
+
+
+# --- CRUD PATCH/DELETE ---
+from app.domains.auth.models import UserRole
+from pydantic import EmailStr
+
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    role: UserRole | None = None
+
+class UserDeleteAudit(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)

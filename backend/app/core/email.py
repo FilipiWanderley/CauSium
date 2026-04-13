@@ -89,7 +89,7 @@ class EmailService:
         normalized_body = text_body.strip()
 
         text_content = (
-            "StratoPulse - Alerta Critico\n"
+            "CauSium - Alerta Critico\n"
             "===========================\n"
             f"Assunto: {subject}\n"
             f"Timestamp: {ts}\n\n"
@@ -98,7 +98,7 @@ class EmailService:
             "1. Verifique a fila DLQ e os logs do worker afetado.\n"
             "2. Execute o runbook operacional correspondente.\n"
             "3. Registre o incidente no canal da plataforma.\n\n"
-            "Mensagem automatica enviada pelo StratoPulse.\n"
+            "Mensagem automatica enviada pelo CauSium.\n"
         )
 
         html_body = normalized_body.replace("\n", "<br />")
@@ -106,7 +106,7 @@ class EmailService:
             "<html><body style='font-family:Arial,sans-serif;color:#1f2937;'>"
             "<div style='max-width:700px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;'>"
             "<div style='background:#991b1b;color:#fff;padding:12px 16px;font-weight:700;'>"
-            "StratoPulse - Alerta Critico"
+            "CauSium - Alerta Critico"
             "</div>"
             "<div style='padding:16px;'>"
             f"<p style='margin:0 0 8px 0;'><strong>Assunto:</strong> {subject}</p>"
@@ -118,7 +118,7 @@ class EmailService:
             "<li>Execute o runbook operacional correspondente.</li>"
             "<li>Registre o incidente no canal da plataforma.</li>"
             "</ol>"
-            "<p style='color:#6b7280;margin:0;'>Mensagem automatica enviada pelo StratoPulse.</p>"
+            "<p style='color:#6b7280;margin:0;'>Mensagem automatica enviada pelo CauSium.</p>"
             "</div></div></body></html>"
         )
 

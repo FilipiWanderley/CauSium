@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # PostgreSQL
-    database_url: str = "postgresql+asyncpg://stratopulse:stratopulse_dev@localhost:5432/stratopulse"
+    database_url: str = "postgresql+asyncpg://causium:causium_dev@localhost:5432/causium"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     clickhouse_port: int = 8123
     clickhouse_user: str = "default"
     clickhouse_password: str = ""
-    clickhouse_db: str = "stratopulse"
+    clickhouse_db: str = "causium"
     clickhouse_secure: bool = False
     clickhouse_verify: bool = True
 
@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     auth_cookie_samesite: str = "strict"
     auth_cookie_secure: bool | None = None
     passkey_rp_id: str = "localhost"
-    passkey_rp_name: str = "StratoPulse"
+    passkey_rp_name: str = "CauSium"
     passkey_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
 
     # SMTP (SP-AP03)
@@ -93,8 +93,8 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@stratopulse.local"
-    smtp_from_name: str = "StratoPulse"
+    smtp_from_email: str = "noreply@causium.local"
+    smtp_from_name: str = "CauSium"
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
     smtp_timeout_seconds: int = 10

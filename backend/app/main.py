@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 
 app = FastAPI(
-    title="StratoPulse API",
+    title="CauSium API",
     description="FinOps + Governance + Operations platform for multi-cloud efficiency",
     version="0.1.0",
     docs_url="/docs" if not settings.is_production else None,

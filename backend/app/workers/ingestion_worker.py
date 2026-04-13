@@ -117,7 +117,7 @@ async def process_account(raw_payload: str) -> None:
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
             log.error("ingestion.failed_to_dlq", account_id=account_id_str, error=str(e))
-            subject = "[StratoPulse][Critical] Ingestion worker failure"
+            subject = "[CauSium][Critical] Ingestion worker failure"
             body = (
                 "A critical failure occurred in ingestion worker and was moved to DLQ.\n\n"
                 f"account_id: {account_id_str}\n"

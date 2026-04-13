@@ -85,7 +85,7 @@ async def process_carbon_sync(raw_payload: str) -> None:
         await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
         log.error("carbon_sync.failed_to_dlq", account_id=account_id_str, error=str(e))
-        subject = "[StratoPulse][Critical] Carbon sync worker failure"
+        subject = "[CauSium][Critical] Carbon sync worker failure"
         body = (
             "A critical failure occurred in carbon sync worker and was moved to DLQ.\n\n"
             f"account_id: {account_id_str}\n"
