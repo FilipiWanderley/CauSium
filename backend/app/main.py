@@ -25,6 +25,9 @@ async def lifespan(app: FastAPI):
         otlp_endpoint=settings.otel_exporter_otlp_endpoint,
         sample_ratio=settings.otel_sample_ratio,
     )
+    # instrument_app must run after setup_tracing so FastAPIInstrumentor
+    # receives a properly configured TracerProvider, not the no-op default.
+    instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
     yield
     from app.core.redis import close_redis
@@ -53,7 +56,6 @@ app.add_middleware(
 )
 
 install_middlewares(app)
-instrument_app(app)
 
 app.include_router(api_router)
 

@@ -31,6 +31,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 log = logging.getLogger(__name__)
 
 _provider: Optional[TracerProvider] = None
+_instrumented: bool = False
 
 
 def setup_tracing(
@@ -97,13 +98,17 @@ def setup_tracing(
 def instrument_app(app) -> None:  # type: ignore[type-arg]
     """Apply automatic OTel instrumentation.
 
-    Must be called *after* setup_tracing() and *before* the ASGI server
-    begins handling requests so that the span context is established before
-    our custom middlewares run.
+    Must be called *after* setup_tracing() inside the lifespan context so
+    that FastAPIInstrumentor receives a fully configured TracerProvider.
+    Idempotent — safe to call from tests that restart the lifespan.
 
     Excluded paths:
       /health, /metrics — high-frequency probes that add noise without value.
     """
+    global _instrumented
+    if _instrumented:
+        return
+
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
     from opentelemetry.instrumentation.redis import RedisInstrumentor
@@ -114,20 +119,23 @@ def instrument_app(app) -> None:  # type: ignore[type-arg]
         excluded_urls="health.*,metrics.*",
         tracer_provider=_provider,
     )
-    # Async SQLAlchemy engine — instruments both Core and ORM sessions.
+    # Async SQLAlchemy — instruments both Core and ORM sessions.
     SQLAlchemyInstrumentor().instrument(enable_commenter=True)
-    # Redis — instruments all commands except AUTH/SELECT to avoid credential leaks.
+    # Redis — instruments all commands.
     RedisInstrumentor().instrument()
     # httpx — instruments cloud-provider API calls (Azure, AWS, GCP connectors).
     HTTPXClientInstrumentor().instrument()
 
+    _instrumented = True
+
 
 def shutdown_tracing() -> None:
     """Flush pending spans and shut down the exporter cleanly on app shutdown."""
-    global _provider
+    global _provider, _instrumented
     if _provider is not None:
         _provider.shutdown()
         _provider = None
+    _instrumented = False
 
 
 def get_trace_context() -> dict[str, str]:

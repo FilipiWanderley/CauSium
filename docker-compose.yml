@@ -99,6 +99,9 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
       CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+      OTEL_SERVICE_NAME: causium-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SAMPLE_RATIO: "1.0"
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -108,6 +111,8 @@ services:
       redis:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     command: python -m app.workers.runner
 
