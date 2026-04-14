@@ -73,9 +73,12 @@ Decisao final de release: [ ] GO  [ ] NO-GO
   - Scripts de restore testados: `scripts/restore.sh` com RTO <= 300s, RPO <= 3600s
   - Drill automatizado: `scripts/rto_rpo_test.sh`
 
-- [ ] Alertas SLO/SLA monitorados no dashboard
-  - Observabilidade implementada (`app/core/observability.py`): metricas Prometheus, SLO breach detection
-  - Pendente: confirmar que dashboard Grafana/equivalente esta configurado em staging com alertas ativos
+- [x] Alertas SLO/SLA monitorados no dashboard
+  - `GET /metrics` — endpoint Prometheus com metricas de API e workers
+  - `GET /metrics/slo` — snapshot JSON com SLI/SLO, alerts de breach e burn rate
+  - Grafana + Prometheus provisionados em `docker-compose.yml` (porta 3001/9090)
+  - Dashboard em `monitoring/grafana/provisioning/dashboards/causium.json` (auto-provisionado)
+  - Testes: `test_observability.py` — sanitize_path, render_metrics, SLO alerts, endpoint HTTP
 
 - [x] Dependencias externas estaveis
   - PostgreSQL 16, Redis 7, ClickHouse — health checks no docker-compose.yml

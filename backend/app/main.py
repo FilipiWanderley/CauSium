@@ -9,7 +9,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import install_middlewares
-from app.core.observability import render_metrics_prometheus
+from app.core.observability import build_sli_slo_snapshot, render_metrics_prometheus
 
 configure_logging()
 log = get_logger(__name__)
@@ -95,3 +95,15 @@ async def health_detailed():
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics() -> str:
     return render_metrics_prometheus()
+
+
+@app.get("/metrics/slo")
+async def metrics_slo(
+    error_budget_pct: float = 1.0,
+    api_p95_ms: float = 500.0,
+):
+    """SLI/SLO snapshot — JSON suitable for dashboards and CI gates."""
+    return build_sli_slo_snapshot(
+        error_budget_pct=error_budget_pct,
+        api_p95_ms_target=api_p95_ms,
+    )
