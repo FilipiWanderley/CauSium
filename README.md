@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ StratoPulse
+# ⚡ CauSium
 
 ### Cloud Efficiency Intelligence Platform
 
@@ -21,7 +21,7 @@
 ## Índice
 
 - [Visão Geral](#-visão-geral)
-- [Por que StratoPulse?](#-por-que-stratopulse)
+- [Por que CauSium?](#-por-que-causium)
 - [Módulos do Produto](#-módulos-do-produto)
 - [Arquitetura do Sistema](#-arquitetura-do-sistema)
 - [Stack Tecnológica](#-stack-tecnológica)
@@ -41,7 +41,7 @@
 
 ## 🎯 Visão Geral
 
-O **StratoPulse** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
+O **CauSium** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
 
 O diferencial competitivo está em três camadas:
 
@@ -53,9 +53,9 @@ O diferencial competitivo está em três camadas:
 
 ---
 
-## 💡 Por que StratoPulse?
+## 💡 Por que CauSium?
 
-Ferramentas FinOps convencionais mostram dashboards e recomendações. O StratoPulse vai além:
+Ferramentas FinOps convencionais mostram dashboards e recomendações. O CauSium vai além:
 
 - **Prova causal** — toda recomendação inclui a engine SCA (Stratum Causal Attribution) apontando *o que causou* a variação de custo, com percentual de confiança
 - **Execução segura** — ações em produção só ocorrem após experimento canário com guardrails automáticos e rollback se SLO for violado
@@ -68,7 +68,7 @@ Ferramentas FinOps convencionais mostram dashboards e recomendações. O StratoP
 ## 📦 Módulos do Produto
 
 ```
-StratoPulse
+CauSium
 ├── PulseEconomics   → Análise financeira, dashboard, KPIs, SKUs, forecast
 ├── PulseIntel       → Recomendações inteligentes, SCA, ARI, backlog adaptativo
 ├── PulseLab         → Criação e execução de experimentos de otimização
@@ -361,7 +361,7 @@ flowchart TD
 
 ### Autenticação — Passkey-First
 
-O StratoPulse adota **WebAuthn (FIDO2) passkeys** como método padrão de autenticação. Senhas são suportadas apenas como fallback, e podem ser desabilitadas por workspace com a política `passwordless_only`.
+O CauSium adota **WebAuthn (FIDO2) passkeys** como método padrão de autenticação. Senhas são suportadas apenas como fallback, e podem ser desabilitadas por workspace com a política `passwordless_only`.
 
 ```mermaid
 sequenceDiagram
@@ -861,7 +861,7 @@ flowchart LR
 
 ```mermaid
 gantt
-  title StratoPulse — Roadmap de Implementação
+  title CauSium — Roadmap de Implementação
   dateFormat  YYYY-MM-DD
   axisFormat  %b %Y
 
@@ -943,8 +943,8 @@ gantt
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/FilipiWanderley/StratoPulse.git
-cd StratoPulse
+git clone https://github.com/FilipiWanderley/CauSium.git
+cd CauSium
 
 # 2. Configure as variáveis de ambiente
 cp .env.example .env
@@ -971,7 +971,7 @@ npm run dev
 
 ```bash
 # Banco de dados
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/stratopulse
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/causium
 
 # Cache e filas
 REDIS_URL=redis://localhost:6379
@@ -979,7 +979,7 @@ REDIS_URL=redis://localhost:6379
 # ClickHouse
 CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
-CLICKHOUSE_DB=stratopulse
+CLICKHOUSE_DB=causium
 
 # Segurança — NUNCA commitar valores reais
 SECRET_KEY=<chave-jwt-32-bytes>          # JWT signing
@@ -999,7 +999,7 @@ CORS_ORIGINS=http://localhost:5173
 ### Estrutura de Diretórios
 
 ```
-StratoPulse/
+CauSium/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                    # FastAPI app + lifespan
@@ -1021,7 +1021,7 @@ StratoPulse/
 │   │   └── hooks/                     # useAuth
 │   └── vite.config.ts
 ├── docs/
-│   ├── PRD_StratoPulse_Completo_v2.0.md
+│   ├── PRD_CauSium_Completo_v2.0.md
 │   └── roadmap/
 ├── scripts/
 │   ├── setup_dev.sh
@@ -1157,7 +1157,7 @@ pytest --cov=app --cov-report=html
 
 ## 📄 Documentação Adicional
 
-- [PRD Completo v2.0](docs/PRD_StratoPulse_Completo_v2.0.md) — Gap analysis real, backlog de 75 requisitos e roadmap por wave
+- [PRD Completo v2.0](docs/PRD_CauSium_Completo_v2.0.md) — Gap analysis real, backlog de 75 requisitos e roadmap por wave
 - [Wave 0 Checklist](docs/roadmap/Wave0_P0_Checklist.md) — Checklist de hardening imediato
 - [Rastreabilidade de Requisitos](docs/traceability/SP-Requisitos-para-Issues.md) — Matriz de requisitos para issues
 
@@ -1165,7 +1165,7 @@ pytest --cov=app --cov-report=html
 
 <div align="center">
 
-**StratoPulse** — Cloud Efficiency Intelligence Platform
+**CauSium** — Cloud Efficiency Intelligence Platform
 
 *Versão 2.0 · Abril 2026 · CONFIDENCIAL*
 

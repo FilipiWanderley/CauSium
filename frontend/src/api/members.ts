@@ -25,4 +25,10 @@ export const membersApi = {
   list: () => apiClient.get<MemberItem[]>('/auth/users'),
 
   create: (payload: MemberCreatePayload) => apiClient.post<MemberItem>('/auth/users', payload),
+  
+  update: (id: string, payload: Partial<Pick<MemberItem, 'full_name' | 'email' | 'role'>>) =>
+    apiClient.patch<MemberItem>(`/auth/users/${id}`, payload),
+
+  delete: (id: string, reason: string) =>
+    apiClient.delete<MemberItem>(`/auth/users/${id}`, { data: { reason } }),
 }

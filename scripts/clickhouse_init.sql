@@ -1,4 +1,4 @@
--- StratoPulse ClickHouse schema
+-- CauSium ClickHouse schema
 -- Analytical tables for Cloud Ledger
 
 CREATE TABLE IF NOT EXISTS cost_facts (

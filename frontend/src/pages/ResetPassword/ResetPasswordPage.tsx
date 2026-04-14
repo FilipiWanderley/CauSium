@@ -47,7 +47,7 @@ export function ResetPasswordPage() {
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 text-white">
             <Cloud className="h-8 w-8 text-brand-500" />
-            <span className="text-2xl font-bold">StratoPulse</span>
+            <span className="text-2xl font-bold">CauSium</span>
           </div>
         </div>
 

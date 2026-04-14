@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Filter } from 'lucide-react'
-import { ledgerApi } from '../../api/ledger'
+import { Download, Filter } from 'lucide-react'
+import { ledgerApi, type ExportJob } from '../../api/ledger'
+import type { PageResponse, ServiceBreakdown, DetailedCostRow } from '../../types'
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -9,24 +10,167 @@ const money = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
 
+// ─── Export panel ────────────────────────────────────────────────────────────
+
+type ExportFormat = 'csv' | 'xlsx'
+type ExportState =
+  | { phase: 'idle' }
+  | { phase: 'submitting' }
+  | { phase: 'polling'; jobId: string; job: ExportJob }
+  | { phase: 'ready'; job: ExportJob }
+  | { phase: 'error'; message: string }
+
+function ExportPanel({ days, filters }: { days: number; filters: Record<string, string | undefined> }) {
+  const [format, setFormat] = useState<ExportFormat>('csv')
+  const [state, setState] = useState<ExportState>({ phase: 'idle' })
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearPoll = () => {
+    if (pollRef.current) {
+      clearTimeout(pollRef.current)
+      pollRef.current = null
+    }
+  }
+
+  const poll = useCallback(async (jobId: string) => {
+    try {
+      const resp = await ledgerApi.getExportJob(jobId)
+      const job = resp.data
+      if (job.status === 'completed') {
+        setState({ phase: 'ready', job })
+      } else if (job.status === 'failed') {
+        setState({ phase: 'error', message: job.error_message ?? 'Export failed.' })
+      } else {
+        setState({ phase: 'polling', jobId, job })
+        pollRef.current = setTimeout(() => poll(jobId), 2500)
+      }
+    } catch {
+      setState({ phase: 'error', message: 'Could not check export status.' })
+    }
+  }, [])
+
+  useEffect(() => () => clearPoll(), [])
+
+  const handleExport = async () => {
+    clearPoll()
+    setState({ phase: 'submitting' })
+    try {
+      const activeFilters: Record<string, unknown> = {}
+      if (filters.service) activeFilters.service = filters.service
+      if (filters.provider) activeFilters.provider = filters.provider
+      if (filters.owner_team) activeFilters.owner_team = filters.owner_team
+
+      const resp = await ledgerApi.createExportJob({
+        report_type: 'summary',
+        file_format: format,
+        window_days: days,
+        filters: Object.keys(activeFilters).length ? activeFilters : undefined,
+      })
+      const job = resp.data
+      if (job.status === 'completed') {
+        setState({ phase: 'ready', job })
+      } else {
+        setState({ phase: 'polling', jobId: job.id, job })
+        pollRef.current = setTimeout(() => poll(job.id), 2500)
+      }
+    } catch {
+      setState({ phase: 'error', message: 'Could not start export.' })
+    }
+  }
+
+  const busy = state.phase === 'submitting' || state.phase === 'polling'
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Download className="h-4 w-4 text-gray-600" />
+        <h2 className="text-sm font-semibold text-gray-900">Export Report</h2>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-sm text-gray-600">
+          Format
+          <select
+            value={format}
+            onChange={(e) => setFormat(e.target.value as ExportFormat)}
+            disabled={busy}
+            className="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:opacity-50"
+          >
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+          </select>
+        </label>
+
+        <button
+          onClick={handleExport}
+          disabled={busy}
+          className="rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {state.phase === 'submitting'
+            ? 'Requesting…'
+            : state.phase === 'polling'
+              ? 'Generating…'
+              : 'Export'}
+        </button>
+
+        {state.phase === 'polling' && (
+          <span className="text-xs text-gray-500 animate-pulse">
+            Building {format.toUpperCase()} — please wait…
+          </span>
+        )}
+
+        {state.phase === 'ready' && (
+          <a
+            href={ledgerApi.downloadExportUrl(state.job.id)}
+            download={state.job.file_name ?? `report.${format}`}
+            className="inline-flex items-center gap-1.5 rounded border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download {state.job.file_name ?? `report.${format}`}
+          </a>
+        )}
+
+        {state.phase === 'error' && (
+          <span className="text-xs text-red-600">{state.message}</span>
+        )}
+      </div>
+
+      {state.phase !== 'idle' && state.phase !== 'submitting' && (
+        <button
+          onClick={() => { clearPoll(); setState({ phase: 'idle' }) }}
+          className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline"
+        >
+          Reset
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export function EconomicsCostsPage() {
   const [days, setDays] = useState(30)
   const [serviceQuery, setServiceQuery] = useState('')
   const [providerQuery, setProviderQuery] = useState('')
   const [teamQuery, setTeamQuery] = useState('')
+  const [servicePage, setServicePage] = useState(1)
+  const [teamPage, setTeamPage] = useState(1)
   const [page, setPage] = useState(1)
 
-  const servicesQuery = useQuery({
-    queryKey: ['economics-costs-services', days],
-    queryFn: () => ledgerApi.topServicesWithLimit(days, 50).then((r) => r.data),
+  const servicesQuery = useQuery<PageResponse<ServiceBreakdown>>({
+    queryKey: ['economics-costs-services', days, servicePage],
+    queryFn: () => ledgerApi.topServicesPaginated(days, servicePage, 20).then((r) => r.data),
+    placeholderData: (prev) => prev,
   })
 
-  const teamsQuery = useQuery({
-    queryKey: ['economics-costs-teams', days],
-    queryFn: () => ledgerApi.topTeamsWithLimit(days, 50).then((r) => r.data),
+  const teamsQuery = useQuery<PageResponse<ServiceBreakdown>>({
+    queryKey: ['economics-costs-teams', days, teamPage],
+    queryFn: () => ledgerApi.topTeamsPaginated(days, teamPage, 20).then((r) => r.data),
+    placeholderData: (prev) => prev,
   })
 
-  const detailedCostsQuery = useQuery({
+  const detailedCostsQuery = useQuery<PageResponse<DetailedCostRow>>({
     queryKey: ['economics-costs-detailed', days, serviceQuery, providerQuery, teamQuery, page],
     queryFn: () =>
       ledgerApi
@@ -41,12 +185,10 @@ export function EconomicsCostsPage() {
         .then((r) => r.data),
   })
 
-  const filteredServices = useMemo(() => {
-    const q = serviceQuery.trim().toLowerCase()
-    if (!q) return servicesQuery.data ?? []
-    return (servicesQuery.data ?? []).filter((item) => item.service.toLowerCase().includes(q))
-  }, [serviceQuery, servicesQuery.data])
-
+  const serviceItems = servicesQuery.data?.items ?? []
+  const filteredServices = serviceQuery
+    ? serviceItems.filter((item) => item.service.toLowerCase().includes(serviceQuery.trim().toLowerCase()))
+    : serviceItems
   const totalFilteredCost = filteredServices.reduce((sum, item) => sum + item.cost_usd, 0)
 
   return (
@@ -58,6 +200,7 @@ export function EconomicsCostsPage() {
         </p>
       </div>
 
+      {/* Filters */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="text-sm text-gray-600">
@@ -79,10 +222,7 @@ export function EconomicsCostsPage() {
             <input
               type="text"
               value={serviceQuery}
-              onChange={(e) => {
-                setServiceQuery(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => { setServiceQuery(e.target.value); setPage(1) }}
               placeholder="Filter service name"
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
@@ -93,10 +233,7 @@ export function EconomicsCostsPage() {
             <input
               type="text"
               value={providerQuery}
-              onChange={(e) => {
-                setProviderQuery(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => { setProviderQuery(e.target.value); setPage(1) }}
               placeholder="azure, aws, gcp"
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
@@ -107,10 +244,7 @@ export function EconomicsCostsPage() {
             <input
               type="text"
               value={teamQuery}
-              onChange={(e) => {
-                setTeamQuery(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => { setTeamQuery(e.target.value); setPage(1) }}
               placeholder="owner team"
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
@@ -123,6 +257,13 @@ export function EconomicsCostsPage() {
         </div>
       </div>
 
+      {/* Export panel (SP-EC03) */}
+      <ExportPanel
+        days={days}
+        filters={{ service: serviceQuery || undefined, provider: providerQuery || undefined, owner_team: teamQuery || undefined }}
+      />
+
+      {/* Detailed costs table */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div>
@@ -147,18 +288,14 @@ export function EconomicsCostsPage() {
               </span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1 || detailedCostsQuery.isFetching}
                   className="rounded border border-gray-300 px-3 py-1 disabled:opacity-50"
                 >
                   Previous
                 </button>
                 <button
-                  onClick={() => {
-                    if (detailedCostsQuery.data?.has_next) {
-                      setPage((current) => current + 1)
-                    }
-                  }}
+                  onClick={() => { if (detailedCostsQuery.data?.has_next) setPage((p) => p + 1) }}
                   disabled={!detailedCostsQuery.data?.has_next || detailedCostsQuery.isFetching}
                   className="rounded border border-gray-300 px-3 py-1 disabled:opacity-50"
                 >
@@ -170,6 +307,7 @@ export function EconomicsCostsPage() {
         )}
       </div>
 
+      {/* Service + Team breakdowns */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
@@ -181,7 +319,31 @@ export function EconomicsCostsPage() {
           ) : !filteredServices.length ? (
             <div className="py-8 text-center text-sm text-gray-500">No service data for current filter.</div>
           ) : (
-            <BreakdownTable rows={filteredServices} label="Service" />
+            <>
+              <BreakdownTable rows={filteredServices} label="Service" />
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                <span>
+                  Page {servicesQuery.data?.page ?? servicePage} of{' '}
+                  {Math.max(1, Math.ceil((servicesQuery.data?.total ?? 0) / (servicesQuery.data?.page_size ?? 20)))}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setServicePage((p) => Math.max(1, p - 1))}
+                    disabled={servicePage <= 1 || servicesQuery.isFetching}
+                    className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => { if (servicesQuery.data?.has_next) setServicePage((p) => p + 1) }}
+                    disabled={!servicesQuery.data?.has_next || servicesQuery.isFetching}
+                    className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -189,10 +351,34 @@ export function EconomicsCostsPage() {
           <h2 className="mb-3 text-sm font-semibold text-gray-900">Cost by Team</h2>
           {teamsQuery.isLoading ? (
             <div className="py-8 text-center text-sm text-gray-500">Loading teams...</div>
-          ) : !(teamsQuery.data ?? []).length ? (
+          ) : !(teamsQuery.data?.items ?? []).length ? (
             <div className="py-8 text-center text-sm text-gray-500">No team data available.</div>
           ) : (
-            <BreakdownTable rows={teamsQuery.data ?? []} label="Team" />
+            <>
+              <BreakdownTable rows={teamsQuery.data?.items ?? []} label="Team" />
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                <span>
+                  Page {teamsQuery.data?.page ?? teamPage} of{' '}
+                  {Math.max(1, Math.ceil((teamsQuery.data?.total ?? 0) / (teamsQuery.data?.page_size ?? 20)))}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTeamPage((p) => Math.max(1, p - 1))}
+                    disabled={teamPage <= 1 || teamsQuery.isFetching}
+                    className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => { if (teamsQuery.data?.has_next) setTeamPage((p) => p + 1) }}
+                    disabled={!teamsQuery.data?.has_next || teamsQuery.isFetching}
+                    className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -200,7 +386,7 @@ export function EconomicsCostsPage() {
   )
 }
 
-function BreakdownTable({ rows, label }: { rows: Array<{ service: string; cost_usd: number; percentage: number }>; label: string }) {
+function BreakdownTable({ rows, label }: { rows: ServiceBreakdown[]; label: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -225,20 +411,7 @@ function BreakdownTable({ rows, label }: { rows: Array<{ service: string; cost_u
   )
 }
 
-function DetailedCostsTable({
-  rows,
-}: {
-  rows: Array<{
-    date: string
-    provider: string
-    service: string | null
-    resource_name: string | null
-    owner_team: string | null
-    environment: string | null
-    region: string | null
-    cost_usd: number
-  }>
-}) {
+function DetailedCostsTable({ rows }: { rows: DetailedCostRow[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">

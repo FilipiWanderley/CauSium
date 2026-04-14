@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-stratopulse}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stratopulse_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-stratopulse}
+      POSTGRES_USER: ${POSTGRES_USER:-causium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-causium_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-causium}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stratopulse}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-causium}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,9 +38,9 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./scripts/clickhouse_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 15s
@@ -56,13 +56,16 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratopulse}:${POSTGRES_PASSWORD:-stratopulse_dev}@postgres:5432/${POSTGRES_DB:-stratopulse}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-causium}:${POSTGRES_PASSWORD:-causium_dev}@postgres:5432/${POSTGRES_DB:-causium}
       REDIS_URL: redis://redis:6379/0
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: "8123"
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+    volumes:
+      - ./backend:/app
+      - /app/.venv
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,13 +87,16 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratopulse}:${POSTGRES_PASSWORD:-stratopulse_dev}@postgres:5432/${POSTGRES_DB:-stratopulse}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-causium}:${POSTGRES_PASSWORD:-causium_dev}@postgres:5432/${POSTGRES_DB:-causium}
       REDIS_URL: redis://redis:6379/0
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: "8123"
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+    volumes:
+      - ./backend:/app
+      - /app/.venv
     depends_on:
       postgres:
         condition: service_healthy

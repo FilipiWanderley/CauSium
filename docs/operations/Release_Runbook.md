@@ -1,7 +1,7 @@
 # Release Runbook (GA Minimo)
 
 Data: 2026-04-11
-Escopo: deploy controlado do StratoPulse com validacao tecnica objetiva.
+Escopo: deploy controlado do CauSium com validacao tecnica objetiva.
 
 ## 1) Pre-flight obrigatorio
 

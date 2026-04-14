@@ -6,7 +6,7 @@ import type { Translations } from '../locales/en'
 export type Language = 'en' | 'pt'
 
 const LOCALES: Record<Language, Translations> = { en, pt }
-const STORAGE_KEY = 'stratopulse:lang'
+const STORAGE_KEY = 'causium:lang'
 
 interface I18nContextValue {
   lang: Language

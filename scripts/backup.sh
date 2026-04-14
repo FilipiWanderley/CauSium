@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# StratoPulse — Full backup (SP-OP10)
+# CauSium — Full backup (SP-OP10)
 #
 # Backs up all three datastores:
 #   PostgreSQL  → custom-format pg_dump (parallel-restoreable, compressed)
@@ -43,14 +43,14 @@ fi
 # ---------------------------------------------------------------------------
 # Configuration — all overrideable via environment
 # ---------------------------------------------------------------------------
-POSTGRES_USER="${POSTGRES_USER:-stratopulse}"
+POSTGRES_USER="${POSTGRES_USER:-causium}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
-POSTGRES_DB="${POSTGRES_DB:-stratopulse}"
+POSTGRES_DB="${POSTGRES_DB:-causium}"
 POSTGRES_SERVICE="${POSTGRES_SERVICE:-postgres}"
 
-CLICKHOUSE_USER="${CLICKHOUSE_USER:-stratopulse}"
+CLICKHOUSE_USER="${CLICKHOUSE_USER:-causium}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-}"
-CLICKHOUSE_DB="${CLICKHOUSE_DB:-stratopulse}"
+CLICKHOUSE_DB="${CLICKHOUSE_DB:-causium}"
 CLICKHOUSE_SERVICE="${CLICKHOUSE_SERVICE:-clickhouse}"
 
 REDIS_SERVICE="${REDIS_SERVICE:-redis}"

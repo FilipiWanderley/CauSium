@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# StratoPulse — Full restore + RTO measurement (SP-OP10)
+# CauSium — Full restore + RTO measurement (SP-OP10)
 #
 # Restores all three datastores from a backup produced by backup.sh:
 #   PostgreSQL  → pg_restore --clean (drops/recreates objects, then restores)
@@ -52,14 +52,14 @@ fi
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-POSTGRES_USER="${POSTGRES_USER:-stratopulse}"
+POSTGRES_USER="${POSTGRES_USER:-causium}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
-POSTGRES_DB="${POSTGRES_DB:-stratopulse}"
+POSTGRES_DB="${POSTGRES_DB:-causium}"
 POSTGRES_SERVICE="${POSTGRES_SERVICE:-postgres}"
 
-CLICKHOUSE_USER="${CLICKHOUSE_USER:-stratopulse}"
+CLICKHOUSE_USER="${CLICKHOUSE_USER:-causium}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-}"
-CLICKHOUSE_DB="${CLICKHOUSE_DB:-stratopulse}"
+CLICKHOUSE_DB="${CLICKHOUSE_DB:-causium}"
 CLICKHOUSE_SERVICE="${CLICKHOUSE_SERVICE:-clickhouse}"
 
 REDIS_SERVICE="${REDIS_SERVICE:-redis}"
