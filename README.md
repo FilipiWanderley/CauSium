@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ CauSium
+# ⚡ StratoPulse
 
 ### Cloud Efficiency Intelligence Platform
 
@@ -12,6 +12,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![ClickHouse](https://img.shields.io/badge/ClickHouse-OLAP-FFCC01?style=flat-square&logo=clickhouse&logoColor=black)](https://clickhouse.com)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Tracing-425CC7?style=flat-square&logo=opentelemetry&logoColor=white)](https://opentelemetry.io)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
 
 </div>
@@ -21,7 +22,7 @@
 ## Índice
 
 - [Visão Geral](#-visão-geral)
-- [Por que CauSium?](#-por-que-causium)
+- [Por que StratoPulse?](#-por-que-stratopulse)
 - [Módulos do Produto](#-módulos-do-produto)
 - [Arquitetura do Sistema](#-arquitetura-do-sistema)
 - [Stack Tecnológica](#-stack-tecnológica)
@@ -30,6 +31,7 @@
 - [APIs](#-apis)
 - [Fluxos Principais](#-fluxos-principais)
 - [Workers e Processamento](#-workers-e-processamento)
+- [Observabilidade](#-observabilidade)
 - [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
 - [Roadmap de Implementação](#-roadmap-de-implementação)
 - [Configuração e Setup](#-configuração-e-setup)
@@ -41,7 +43,7 @@
 
 ## 🎯 Visão Geral
 
-O **CauSium** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
+O **StratoPulse** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
 
 O diferencial competitivo está em três camadas:
 
@@ -53,28 +55,29 @@ O diferencial competitivo está em três camadas:
 
 ---
 
-## 💡 Por que CauSium?
+## 💡 Por que StratoPulse?
 
-Ferramentas FinOps convencionais mostram dashboards e recomendações. O CauSium vai além:
+Ferramentas FinOps convencionais mostram dashboards e recomendações. O StratoPulse vai além:
 
 - **Prova causal** — toda recomendação inclui a engine SCA (Stratum Causal Attribution) apontando *o que causou* a variação de custo, com percentual de confiança
 - **Execução segura** — ações em produção só ocorrem após experimento canário com guardrails automáticos e rollback se SLO for violado
 - **Governança por risco** — risk budgets por domínio e ambiente restringem automaticamente ações acima do limiar configurado
 - **Auditoria imutável** — toda decisão e ação gera evidência criptográfica verificável (hash SHA-256 encadeado)
-- **Autenticação sem senha** — WebAuthn passkeys como método padrão, sem dependência de senhas em fluxos principais
+- **Autenticação sem senha** — WebAuthn passkeys como método padrão, com MFA TOTP como fallback e backup codes para recuperação
+- **Observabilidade de ponta** — distributed tracing com OpenTelemetry + Jaeger, métricas Prometheus e SLO dashboard no Grafana
 
 ---
 
 ## 📦 Módulos do Produto
 
 ```
-CauSium
-├── PulseEconomics   → Análise financeira, dashboard, KPIs, SKUs, forecast
+StratoPulse
+├── PulseEconomics   → Análise financeira, dashboard, KPIs, SKUs, forecast, exportação async
 ├── PulseIntel       → Recomendações inteligentes, SCA, ARI, backlog adaptativo
 ├── PulseLab         → Criação e execução de experimentos de otimização
 ├── PulseGov         → Governança de recursos, labels, TopologyMap, blast radius
 ├── PulseGreen       → Sustentabilidade, emissões de carbono, tendências
-├── PulseLink        → Conectores multi-cloud (Azure, AWS, GCP)
+├── PulseLink        → Conectores multi-cloud (Azure, AWS CUR, GCP BigQuery)
 ├── PulseOps         → Infraestrutura, observabilidade, CI/CD, operação
 ├── StratoAudit      → Trilha de auditoria imutável com hash encadeado
 ├── PulseStream      → Event log imutável para replay e auditoria de domínio
@@ -92,8 +95,8 @@ CauSium
 flowchart TB
   subgraph Sources["☁️ Cloud & Tooling Sources"]
     AZ[Azure APIs]
-    AW[AWS APIs]
-    GC[GCP APIs]
+    AW[AWS CUR / S3]
+    GC[GCP BigQuery]
     CI[CI/CD Events]
     ITSM[ITSM / Tickets]
   end
@@ -115,7 +118,7 @@ flowchart TB
   subgraph ControlPlane["🔐 Control Plane"]
     PDP[Policy Decision Point\nPBAC + ABAC]
     WFE[PulseLab\nExperiment Engine]
-    AUTH[Identity & Session Risk\nWebAuthn + OIDC]
+    AUTH[Identity & Session Risk\nWebAuthn + OIDC + TOTP]
     AUD[StratoAudit\nChain Service]
   end
 
@@ -124,6 +127,13 @@ flowchart TB
     ARI[ARI\nAdaptive Recommendation Index]
     SIM[PulseLab Simulator\nScenario Engine]
     FORE[Forecast Engine\nP50/P90 Probabilistic]
+  end
+
+  subgraph Observability["📡 Observability Plane"]
+    OTEL[OpenTelemetry\nSDK + Collector]
+    JAEGER[Jaeger\nDistributed Tracing]
+    PROM[Prometheus\nMetrics]
+    GRAF[Grafana\nDashboards + SLO]
   end
 
   subgraph Experience["🖥️ Experience Plane"]
@@ -150,6 +160,8 @@ flowchart TB
   COL --> FORE
   WFE --> GQL
   WFE --> REST
+  REST --> OTEL --> JAEGER
+  REST --> PROM --> GRAF
   GQL --> APP
   REST --> APP
   GQL --> BOT
@@ -164,7 +176,7 @@ flowchart LR
   subgraph Identity["Identity Context"]
     A1[Auth Service]
     A2[Passkey / OIDC]
-    A3[Session Risk]
+    A3[MFA TOTP + Backup Codes]
     A4[Policy Engine]
   end
 
@@ -173,6 +185,7 @@ flowchart LR
     B2[SKU Observations]
     B3[Workspace Budget]
     B4[Forecast Engine]
+    B5[Export Worker]
   end
 
   subgraph Experimentation["Experimentation Context"]
@@ -199,6 +212,7 @@ flowchart LR
     F1[StratoAudit Chain]
     F2[Checkpoints]
     F3[Compliance Artifacts]
+    F4[LGPD Consent]
   end
 
   Identity --> Experimentation
@@ -318,16 +332,19 @@ flowchart TD
 | Python | 3.12 | Runtime principal |
 | FastAPI | 0.115+ | Framework HTTP assíncrono |
 | SQLAlchemy | 2.x (async) | ORM com suporte async |
-| Alembic | Latest | Migrações de banco |
+| Alembic | Latest | Migrações de banco (29 migrações) |
 | Pydantic | v2 | Validação e serialização |
 | Structlog | Latest | Logging estruturado em JSON |
 | clickhouse-driver | Latest | Client OLAP analytics |
-| redis-py | Latest | Cache e filas de workers |
+| redis-py | Latest | Cache, filas de workers e idempotency keys |
 | pywebauthn | Latest | WebAuthn/FIDO2 passkeys |
-| cryptography | Latest | Fernet encryption + HMAC |
+| cryptography | Latest | Fernet encryption + HMAC + workspace keyrings |
 | bcrypt | Latest | Hash de senhas |
 | python-jose | Latest | JWT tokens |
+| pyotp | Latest | MFA TOTP + backup codes |
 | httpx | Latest | HTTP client async |
+| opentelemetry-sdk | Latest | Distributed tracing instrumentado |
+| opentelemetry-exporter-otlp | Latest | Export para Jaeger via OTLP |
 
 ### Frontend
 
@@ -340,6 +357,8 @@ flowchart TD
 | Axios | Latest | HTTP client com interceptors |
 | React Router | v6 | Navegação SPA |
 | TanStack Query | v5 | Cache de estado servidor |
+| Recharts | Latest | Gráficos e visualizações |
+| lucide-react | Latest | Ícones |
 
 ### Infraestrutura
 
@@ -347,21 +366,25 @@ flowchart TD
 |-----------|-----|
 | PostgreSQL 15 | OLTP — metadados, usuários, políticas, workflows |
 | ClickHouse | OLAP — custo e uso de alta cardinalidade |
-| Redis 7 | Cache e filas de workers assíncronos |
-| Docker Compose | Desenvolvimento local |
+| Redis 7 | Cache, filas de workers, idempotency keys (SHA-256 fingerprint) |
+| Docker Compose | Desenvolvimento local e produção (docker-compose.prod.yml) |
+| nginx | Reverse proxy prod com CSP, HSTS, gzip e cache imutável |
+| OpenTelemetry Collector | Pipeline de traces e métricas |
+| Jaeger | Distributed tracing UI |
+| Prometheus | Coleta de métricas + alertas |
+| Grafana | Dashboards operacionais + SLO dashboard |
 | Kubernetes (AKS) | Produção (Wave 1) |
 | Azure Key Vault | Segredos e chaves de criptografia |
 | ArgoCD / Flux | GitOps + progressive delivery |
-| OpenTelemetry | Traces, metrics, logs distribuídos |
 | Terraform | IaC para infraestrutura Azure |
 
 ---
 
 ## 🔐 Segurança
 
-### Autenticação — Passkey-First
+### Autenticação — Passkey-First com MFA TOTP
 
-O CauSium adota **WebAuthn (FIDO2) passkeys** como método padrão de autenticação. Senhas são suportadas apenas como fallback, e podem ser desabilitadas por workspace com a política `passwordless_only`.
+O StratoPulse adota **WebAuthn (FIDO2) passkeys** como método padrão. Senhas são suportadas como fallback. MFA TOTP está disponível como segundo fator, com geração de **backup codes** para recuperação de conta.
 
 ```mermaid
 sequenceDiagram
@@ -391,14 +414,15 @@ graph TB
     WAF[WAF Azure\nOWASP Rules]
     RL[Rate Limiting\nPor IP + Por Workspace]
     CORS[CORS Restritivo\nPor ambiente]
-    HDR[Security Headers\nCSP, HSTS, X-Frame]
+    HDR[Security Headers\nCSP, HSTS, X-Frame, nosniff]
   end
 
   subgraph L2["Camada 2 — Identidade"]
     PK[Passkey WebAuthn\nFIDO2 + ECDSA]
     OIDC[Azure OIDC\nEntra ID federation]
     JWT[JWT Tokens\nAccess 60min + Refresh 7d]
-    MFA[MFA TOTP\nFallback 2FA]
+    MFA[MFA TOTP\n+ Backup Codes]
+    TOKVOKE[Token Revocation\nBlacklist no Redis]
   end
 
   subgraph L3["Camada 3 — Autorização"]
@@ -411,8 +435,9 @@ graph TB
   subgraph L4["Camada 4 — Dados"]
     ENC[Envelope Encryption\nAES-256 + KMS]
     TLS[TLS 1.3\nTodos os datastores]
-    FERNET[Fernet\nCredenciais cloud]
-    MTLS[StratoMesh\nmTLS interno]
+    FERNET[Workspace Keyrings\nFernet org-scoped + rotação]
+    IDMPT[Idempotency Keys\nRedis SHA-256 fingerprint + replay]
+    LGPD[LGPD Consent\nRegistro e controle de consentimento]
   end
 
   subgraph L5["Camada 5 — Auditoria"]
@@ -435,6 +460,26 @@ O motor de políticas avalia em runtime os seguintes atributos da sessão atual:
 | `device_trusted` | boolean | False bloqueia transições de experimento |
 | `maintenance_window` | boolean | False bloqueia ações em produção |
 | `role` | enum | VIEWER não executa nenhuma ação |
+
+### Workspace Keyrings — Criptografia Org-Scoped
+
+Cada organização possui um keyring Fernet isolado para criptografia de credenciais cloud. O `keyring_rotation_worker` rotaciona automaticamente chaves por workspace, com re-encrypt transparente de todos os segredos.
+
+```
+WorkspaceKeyring
+├── org_id           → Isolamento por tenant
+├── key_version      → Versão atual da chave
+├── encrypted_key    → Chave Fernet cifrada com master key
+└── rotated_at       → Timestamp da última rotação
+```
+
+### Idempotency Keys
+
+Mutações críticas aceitam o header `Idempotency-Key: <uuid4>`. O backend armazena no Redis um fingerprint SHA-256 do par `(key, request_hash)` com TTL de 24h — retentativas idênticas retornam o resultado original sem re-executar.
+
+### LGPD Consent
+
+Registro completo de consentimento LGPD por usuário: tipo de dado, base legal, propósito, versão da política e timestamp. Endpoints para consulta e revogação de consentimento por usuário.
 
 ### Audit Chain — Hash Encadeado
 
@@ -469,10 +514,14 @@ erDiagram
   WORKSPACE ||--o{ RISK_BUDGET : "tem vários"
   WORKSPACE ||--o{ OPTIMIZATION_EXPERIMENT : "tem"
   WORKSPACE ||--o{ ALERT_RECORD : "recebe"
+  WORKSPACE ||--o{ WORKSPACE_KEYRING : "tem"
+  WORKSPACE ||--o{ LGPD_CONSENT : "tem"
 
   WORKSPACE_MEMBER ||--o{ PASSKEY_CREDENTIAL : "tem"
   WORKSPACE_MEMBER ||--o{ NOTIFICATION_PREFERENCE : "tem"
   WORKSPACE_MEMBER ||--o{ EXPERIMENT_APPROVAL : "aprova"
+  WORKSPACE_MEMBER ||--o{ MFA_TOTP_CREDENTIAL : "tem"
+  WORKSPACE_MEMBER ||--o{ TOTP_BACKUP_CODE : "tem"
 
   OPTIMIZATION_EXPERIMENT ||--o{ EXPERIMENT_RUN : "tem"
   OPTIMIZATION_EXPERIMENT ||--o{ EXPERIMENT_APPROVAL : "requer"
@@ -487,6 +536,8 @@ erDiagram
 
   AUDIT_CHAIN_EVENT }o--|| WORKSPACE : "pertence a"
   AUDIT_CHAIN_CHECKPOINT }o--|| WORKSPACE : "pertence a"
+
+  REPORT_EXPORT_JOB }o--|| WORKSPACE : "pertence a"
 
   WORKSPACE {
     uuid id PK
@@ -523,6 +574,16 @@ erDiagram
     string method
     timestamp computed_at
   }
+
+  REPORT_EXPORT_JOB {
+    uuid id PK
+    uuid org_id FK
+    enum status
+    string format
+    json filters
+    string file_url
+    timestamp completed_at
+  }
 ```
 
 ### Storage Poliglota
@@ -534,6 +595,8 @@ graph LR
     P2[Experiments\nInitiatives\nRisk Budgets]
     P3[Audit Chain\nCheckpoints]
     P4[Credenciais\nBudgets\nNotificações]
+    P5[LGPD Consent\nWorkspace Keyrings]
+    P6[Export Jobs\nDLQ Messages]
   end
 
   subgraph CH["ClickHouse (OLAP)"]
@@ -544,21 +607,20 @@ graph LR
     C5[carbon_records\nEmissões de CO₂]
   end
 
-  subgraph GDB["Graph DB (Neo4j — Wave 3)"]
-    G1[TopologyNode\nServiços e recursos]
-    G2[TopologyEdge\nDependências]
-  end
-
-  subgraph TS["Time-Series"]
-    T1[UsageObservation\nGranularidade minuto]
+  subgraph REDIS["Redis"]
+    R1[Workers Queues\ningestion, scoring, carbon]
+    R2[Idempotency Keys\nSHA-256 + TTL 24h]
+    R3[Token Blacklist\nRevogação de JWT]
+    R4[Export Jobs\nStatus e progresso]
   end
 
   subgraph OBJ["Object Storage"]
-    O1[ComplianceArtifacts\nRelatórios assinados]
+    O1[Export Files\nCSV / Excel gerados]
+    O2[ComplianceArtifacts\nRelatórios assinados]
   end
 ```
 
-### Migrações Alembic
+### Migrações Alembic (29 migrações)
 
 | # | Arquivo | Conteúdo |
 |---|---------|---------|
@@ -569,16 +631,29 @@ graph LR
 | 0005 | `policy_bundle_and_evidence.py` | Índices e constraints de política |
 | 0006 | `passkey_first_auth.py` | auth_challenges, passkey_credentials |
 | 0007 | `audit_chain_checkpoints.py` | audit_chain_checkpoints (HMAC snapshots) |
-| 0008 | `workspace_budget_password_reset.py` | WorkspaceBudget, PasswordResetToken *(a criar)* |
-| 0009 | `mfa_totp_member_invite.py` | MfaTotpCredential, MemberInvite *(a criar)* |
-| 0010 | `workspace_lifecycle.py` | lifecycle_state, member_quota, retention_days *(a criar)* |
-| 0011 | `notifications_alerts.py` | ActivityEvent, AlertRecord, NotificationPreference *(a criar)* |
-| 0012 | `provider_recommendations_sync.py` | ProviderRecommendation, SyncRecord, DlqMessage *(a criar)* |
-| 0013 | `cost_forecast_skus.py` | CostForecastBand, (SkuObservation no CH) *(a criar)* |
-| 0014 | `causal_traces.py` | CausalTrace *(a criar)* |
-| 0015 | `resource_inventory_carbon.py` | ResourceInventory, CarbonRecord *(a criar)* |
-| 0016 | `compliance_artifacts.py` | ComplianceArtifact *(a criar)* |
-| 0017 | `topology_graph.py` | TopologyNode, TopologyEdge *(Wave 3)* |
+| 0008a | `workspace_lifecycle.py` | lifecycle_state, member_quota, retention_days |
+| 0008b | `notifications_alerts.py` | ActivityEvent, AlertRecord, NotificationPreference |
+| 0009 | `workspace_invites.py` | MemberInvite, invite tokens |
+| 0010 | `platform_admin_role.py` | platform_admin role, org scoping |
+| 0011 | `force_password_change.py` | must_change_password flag |
+| 0012 | `workspace_budget.py` | WorkspaceBudget |
+| 0013 | `cloud_account_scope_validation.py` | Scope validation em cloud credentials |
+| 0014 | `dlq_messages.py` | DlqMessage (dead letter queue) |
+| 0015 | `notification_preferences.py` | NotificationPreference refinements |
+| 0016 | `notification_slack_configs.py` | SlackNotificationConfig |
+| 0017 | `activity_events.py` | ActivityEvent indexing |
+| 0018 | `notification_alert_rules.py` | AlertRule por categoria |
+| 0019 | `auth_totp_mfa.py` | MfaTotpCredential, setup/verify/enable/disable |
+| 0020 | `report_export_jobs.py` | ReportExportJob (async export) |
+| 0021 | `workspace_keyrings.py` | WorkspaceKeyring (Fernet org-scoped) |
+| 0022 | `blob_ingestion_checkpoints.py` | BlobIngestionCheckpoint (Azure Blob) |
+| 0023 | `aws_cur_ingestion_checkpoints.py` | AwsCurIngestionCheckpoint (AWS CUR S3) |
+| 0024 | `provider_recommendation_sync.py` | ProviderRecommendation, SyncRecord |
+| 0025 | `merge_workspace_lifecycle.py` | Merge branch de lifecycle |
+| 0026 | `lgpd_consent.py` | LgpdConsent (base legal, propósito, versão) |
+| 0027 | `totp_backup_codes.py` | TotpBackupCode (10 códigos one-time por usuário) |
+| 0028 | `alert_delivery_tracking.py` | AlertDeliveryLog (rastreamento de envio) |
+| 0029 | `revoked_tokens.py` | RevokedToken (blacklist JWT no PostgreSQL) |
 
 ---
 
@@ -596,9 +671,10 @@ graph LR
 ### Domínios de API
 
 ```
-/api/v1/
-├── /auth/*              → Autenticação, passkey, OIDC, MFA, senhas
-├── /economics/*         → Dashboard, budget, custos, SKUs, forecast, exportação
+/api/v1/  (prefixo real: sem /api/v1, direto na raiz do backend)
+├── /auth/*              → Autenticação, passkey, OIDC, MFA TOTP, backup codes, LGPD
+├── /cloud-accounts/*    → Multi-cloud connectors (Azure, AWS CUR, GCP BigQuery)
+├── /economics/*         → Dashboard, budget, custos, SKUs, forecast, exportação async
 ├── /intel/*             → Recomendações, SCA, ARI, backlog adaptativo
 ├── /lab/*               → Experimentos, runs, approvals, simulador
 ├── /notifications/*     → Alertas, preferências, polling
@@ -611,26 +687,15 @@ graph LR
 ├── /audit/*             → Eventos StratoAudit, checkpoints, compliance report
 ├── /risk-budgets/*      → Risk budgets por domínio/ambiente
 ├── /change-events/*     → Eventos de mudança operacional
+├── /metrics/slo         → SLO snapshot para Prometheus/Grafana
 └── /platform/*          → Operação global (platform_admin)
 ```
 
 ### Padrão de Contrato
 
-Todos os endpoints seguem contratos padronizados:
+Todos os endpoints de lista seguem paginação padronizada:
 
 ```json
-// Erro padronizado
-{
-  "error": {
-    "code": "POLICY_DENIED",
-    "message": "Sessão com risco elevado. Ação bloqueada.",
-    "trace_id": "uuid4",
-    "policy_decision_id": "uuid4",
-    "retry_hint": null
-  }
-}
-
-// Lista paginada
 {
   "items": [...],
   "page": 1,
@@ -641,7 +706,21 @@ Todos os endpoints seguem contratos padronizados:
 }
 ```
 
-Mutações críticas aceitam header `Idempotency-Key: <uuid4>` para garantir segurança em retentativas.
+Erros seguem envelope padronizado:
+
+```json
+{
+  "error": {
+    "code": "POLICY_DENIED",
+    "message": "Sessão com risco elevado. Ação bloqueada.",
+    "trace_id": "uuid4",
+    "policy_decision_id": "uuid4",
+    "retry_hint": null
+  }
+}
+```
+
+Mutações críticas aceitam header `Idempotency-Key: <uuid4>` para garantia de segurança em retentativas com replay do resultado original.
 
 ---
 
@@ -694,45 +773,45 @@ flowchart LR
 
 ---
 
-### Fluxo 3 — Operação Diária FinOps
+### Fluxo 3 — Exportação Assíncrona de Relatórios
 
 ```mermaid
-flowchart TD
-  A[Analyst abre\nPulseEconomics] --> B[Dashboard: KPIs,\ntendências, drivers]
-  B --> C[Drill-down em\n/economics/costs\nfiltros combinados]
-  C --> D[Central de notificações\ntrata alertas prioritários]
-  D --> E[PulseIntel:\nbacklog ARI rankeado]
-  E --> F[Cria experimento\nno PulseLab]
-  F --> G[Acompanha resultado\ncom evidência SCA]
-  G --> H[Exporta relatório\nCSV/Excel ou PDF auditado]
+sequenceDiagram
+  participant USR as Usuário
+  participant API as FastAPI
+  participant REDIS as Redis
+  participant WRK as export_worker
+  participant BLOB as Object Storage
+
+  USR->>API: POST /economics/export {format, filters}
+  API->>REDIS: Enqueue export job
+  API->>USR: 202 Accepted {job_id}
+  USR->>API: GET /economics/export/{job_id}
+  API->>USR: {status: "pending"}
+  REDIS->>WRK: Dequeue job
+  WRK->>WRK: Gera CSV/Excel com filtros
+  WRK->>BLOB: Upload arquivo gerado
+  WRK->>API: Update job status + file_url
+  USR->>API: GET /economics/export/{job_id}
+  API->>USR: {status: "done", file_url: "..."}
 ```
 
 ---
 
 ## ⚙️ Workers e Processamento
 
-### Workers Existentes
+### Workers Implementados
 
 | Worker | Fila (Redis) | Responsabilidade |
 |--------|-------------|-----------------|
-| `ingestion_worker` | `ingestion:queue` | Fetch de custo + eventos do Azure; INSERT no ClickHouse; lock por account |
+| `ingestion_worker` | `ingestion:queue` | Fetch de custo + eventos (Azure Blob, AWS CUR S3, GCP BigQuery); INSERT no ClickHouse; lock por account |
 | `scoring_worker` | `scoring:queue` | Gera `OptimizationOpportunity` a partir dos dados do ClickHouse |
 | `audit_checkpoint_worker` | Timer (60min) | Cria checkpoints HMAC da StratoAudit para todos os workspaces |
-
-### Workers a Criar (Roadmap)
-
-| Worker | Prioridade | Responsabilidade |
-|--------|-----------|-----------------|
-| `recommendation_sync_worker` | P1 | Importa `ProviderRecommendation` do Azure Advisor a cada 4h |
-| `alert_worker` | P1 | Avalia regras de `AlertRecord` por categoria |
-| `notification_dispatcher` | P1 | Envia alertas por email (SMTP) e Slack (webhook) |
-| `activity_sync_worker` | P1 | Ingere `ActivityEvent` do Azure Activity Log |
-| `inventory_sync_worker` | P2 | Sincroniza `ResourceInventory` do Azure Resource Graph |
-| `carbon_sync_worker` | P2 | Ingere `CarbonRecord` da Azure Carbon API |
-| `dlq_monitor_worker` | P1 | Monitora DLQ; alerta operações após 3 falhas |
-| `forecast_worker` | P2 | Gera `CostForecastBand` P50/P90 |
-| `causal_attribution_worker` | P2 | Calcula `CausalTrace` entre `ChangeEvent` e variações de custo |
-| `lgpd_purge_worker` | P2 | Executa purge de dados por `retention_days` por workspace |
+| `notification_worker` | `notification:queue` | Avalia regras de alerta; envia por email (SMTP) e Slack (webhook) |
+| `carbon_sync_worker` | `carbon:queue` | Ingere `CarbonRecord` da Azure Carbon API e similares |
+| `export_worker` | `export:queue` | Processa jobs de exportação async (CSV/Excel); upload para object storage |
+| `keyring_rotation_worker` | Timer (periódico) | Rotaciona chaves Fernet por workspace; re-cifra credenciais transparentemente |
+| `maintenance_worker` | Timer (diário) | Limpeza de registros expirados, tokens revogados, dados de retenção LGPD |
 
 ### Diagrama de Fluxo dos Workers
 
@@ -741,36 +820,111 @@ graph LR
   subgraph Queues["Redis Queues"]
     Q1[ingestion:queue]
     Q2[scoring:queue]
-    Q3[dlq:queue]
+    Q3[notification:queue]
+    Q4[carbon:queue]
+    Q5[export:queue]
+    Q6[dlq:queue]
   end
 
   subgraph Workers["Workers Assíncronos"]
     W1[ingestion_worker]
     W2[scoring_worker]
     W3[audit_checkpoint]
-    W4[alert_worker]
-    W5[notification_dispatcher]
+    W4[notification_worker]
+    W5[carbon_sync_worker]
+    W6[export_worker]
+    W7[keyring_rotation_worker]
+    W8[maintenance_worker]
   end
 
   subgraph Storage["Storage"]
     CH[(ClickHouse)]
     PG[(PostgreSQL)]
     REDIS[(Redis)]
+    BLOB[(Object Storage)]
   end
 
   Q1 --> W1
   W1 -->|cost_facts, event_facts| CH
   W1 -->|enqueue| Q2
-  W1 -->|3x failure| Q3
+  W1 -->|3x failure| Q6
   Q2 --> W2
   W2 -->|Opportunities| PG
   PG --> W3
   W3 -->|Checkpoints HMAC| PG
-  PG --> W4
-  W4 -->|AlertRecord| PG
-  W4 --> W5
-  W5 -->|SMTP + Slack| External[Email / Slack]
+  Q3 --> W4
+  W4 -->|SMTP + Slack| External[Email / Slack]
+  Q4 --> W5
+  W5 -->|CarbonRecord| PG
+  Q5 --> W6
+  W6 -->|CSV/Excel| BLOB
+  W7 -->|Re-encrypt keyrings| PG
+  W8 -->|Purge expirados| PG
+  W8 -->|Purge tokens| REDIS
 ```
+
+### DLQ — Dead Letter Queue
+
+Mensagens que falharam 3 vezes são movidas para `dlq:queue` e registradas em `DlqMessage` no PostgreSQL. A API expõe endpoints para inspeção e reprocessamento manual:
+
+```
+GET  /dlq/messages          → Lista mensagens com falha
+POST /dlq/messages/{id}/retry → Reprocessa mensagem específica
+DELETE /dlq/messages/{id}  → Descarta mensagem sem reprocessar
+```
+
+---
+
+## 📡 Observabilidade
+
+### OpenTelemetry — Distributed Tracing
+
+O StratoPulse instrumenta automaticamente todas as requisições HTTP, chamadas ao banco de dados (SQLAlchemy), chamadas ao Redis e chamadas ao ClickHouse via OpenTelemetry SDK.
+
+```mermaid
+flowchart LR
+  APP[FastAPI\nApp] -->|OTLP gRPC| COLL[OTel Collector]
+  COLL -->|traces| JAEGER[Jaeger UI\n:16686]
+  COLL -->|metrics| PROM[Prometheus\n:9090]
+  PROM -->|datasource| GRAF[Grafana\n:3001]
+```
+
+**Spans instrumentados:**
+- Todas as rotas HTTP (método, path, status, latência)
+- Queries SQLAlchemy (statement, parâmetros sanitizados)
+- Operações Redis (comando, chave)
+- Chamadas externas aos cloud providers
+
+**Configuração via `.env`:**
+```bash
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=stratopulse-api
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_SAMPLING_RATE=1.0   # 1.0 = 100% em dev; reduzir em prod
+```
+
+### SLO Dashboard — `/metrics/slo`
+
+O endpoint `/metrics/slo` expõe um snapshot de SLO em formato compatível com Prometheus e Grafana:
+
+```json
+{
+  "api_availability_7d": 99.97,
+  "p95_latency_ms": 342,
+  "error_rate_1h": 0.003,
+  "ingestion_success_rate_24h": 99.8
+}
+```
+
+O Grafana consome este endpoint via datasource JSON + painéis pré-configurados com alertas de violação de SLO.
+
+### Acessos Locais
+
+| Serviço | URL | Credenciais padrão |
+|---------|-----|--------------------|
+| Jaeger UI | http://localhost:16686 | — |
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3001 | admin / admin |
 
 ---
 
@@ -779,6 +933,7 @@ graph LR
 ### Ambiente Local (Docker Compose)
 
 ```bash
+# Sobe todos os serviços (backend com auto-migração, frontend dev, datastores, observabilidade)
 docker compose up -d
 ```
 
@@ -786,11 +941,59 @@ Serviços iniciados:
 
 | Serviço | Porta | Descrição |
 |---------|-------|-----------|
-| `backend` | 8000 | FastAPI API + Workers |
+| `backend` | 8000 | FastAPI + entrypoint.sh (auto-migration + uvicorn) |
 | `frontend` | 5173 | Vite dev server |
 | `postgres` | 5432 | PostgreSQL 15 |
 | `redis` | 6379 | Redis 7 |
 | `clickhouse` | 8123 | ClickHouse OLAP |
+| `jaeger` | 16686 | Distributed Tracing UI |
+| `otel-collector` | 4317 | OpenTelemetry Collector (gRPC) |
+| `prometheus` | 9090 | Métricas |
+| `grafana` | 3001 | Dashboards + SLO |
+
+### Deploy em Produção (Docker Compose Prod)
+
+O arquivo `docker-compose.prod.yml` é otimizado para ambientes de produção:
+
+- `restart: always` em todos os serviços
+- Backend com **4 uvicorn workers** (sem `--reload`)
+- Frontend servido pelo **nginx** (porta 80) com build de produção
+- Sem bind-mounts de código (apenas volumes de dados)
+- Jaeger e ferramentas de observabilidade em `profiles: [dev]` (não sobem por padrão em prod)
+
+```bash
+# Deploy em produção
+docker compose -f docker-compose.prod.yml up -d
+
+# Com observabilidade ativa em staging
+docker compose -f docker-compose.prod.yml --profile dev up -d
+```
+
+### Auto-migração na Inicialização — entrypoint.sh
+
+O backend executa migrações Alembic automaticamente antes de iniciar:
+
+```sh
+#!/bin/sh
+set -e
+echo "[entrypoint] running alembic upgrade head..."
+alembic upgrade head
+echo "[entrypoint] migrations applied."
+exec "$@"
+```
+
+Isso garante que qualquer scaling horizontal ou rollout de nova versão aplica as migrações antes de aceitar tráfego. Alembic é idempotente — safe para múltiplas instâncias simultâneas.
+
+### nginx Produção — nginx.prod.conf
+
+O frontend em produção é servido pelo nginx com:
+
+| Feature | Detalhe |
+|---------|---------|
+| Security headers | CSP, HSTS (`max-age=31536000`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` |
+| Gzip | `js`, `css`, `json`, `svg`, `html` |
+| Cache strategy | `Cache-Control: no-store` para `index.html`; `immutable` para assets com hash |
+| API proxy | `/api/` e `/health` proxied para `http://backend:8000` |
 
 ### Target: Azure Enterprise (Wave 1+)
 
@@ -861,36 +1064,46 @@ flowchart LR
 
 ```mermaid
 gantt
-  title CauSium — Roadmap de Implementação
+  title StratoPulse — Roadmap de Implementação
   dateFormat  YYYY-MM-DD
   axisFormat  %b %Y
 
-  section Wave 0 — Hardening
-  Security Headers & CORS        :w0a, 2026-04-07, 1w
-  TLS 1.3 nos Datastores         :w0b, 2026-04-07, 1w
-  Rate Limiting por Workspace    :w0c, 2026-04-07, 1w
-  Token httpOnly Cookie          :w0d, 2026-04-14, 1w
-  Scope Validation CloudCredential :w0e, 2026-04-14, 1w
-  Paginação em todas as listas   :w0f, 2026-04-14, 1w
+  section Wave 0 — Hardening (CONCLUÍDO)
+  Security Headers & CORS        :done, w0a, 2026-04-07, 1w
+  TLS 1.3 nos Datastores         :done, w0b, 2026-04-07, 1w
+  Rate Limiting por Workspace    :done, w0c, 2026-04-07, 1w
+  Token httpOnly Cookie          :done, w0d, 2026-04-14, 1w
+  Scope Validation CloudCredential :done, w0e, 2026-04-14, 1w
+  Paginação em todas as listas   :done, w0f, 2026-04-14, 1w
+  MFA TOTP + Backup Codes        :done, w0g, 2026-04-14, 1w
+  Workspace Keyrings + Rotação   :done, w0h, 2026-04-14, 1w
+  Idempotency Keys Redis         :done, w0i, 2026-04-14, 1w
+  LGPD Consent                   :done, w0j, 2026-04-14, 1w
+  Token Revocation Blacklist     :done, w0k, 2026-04-14, 1w
+  OpenTelemetry + Jaeger         :done, w0l, 2026-04-14, 1w
+  Prometheus + Grafana + SLO     :done, w0m, 2026-04-14, 1w
+  Export Async Worker            :done, w0n, 2026-04-14, 1w
+  Carbon Sync Worker             :done, w0o, 2026-04-14, 1w
+  DLQ + Reprocessamento          :done, w0p, 2026-04-14, 1w
+  Notification Worker (SMTP)     :done, w0q, 2026-04-14, 1w
+  Docker Compose Prod + nginx    :done, w0r, 2026-04-14, 1w
+  AWS CUR Connector              :done, w0s, 2026-04-14, 1w
+  GCP BigQuery Connector         :done, w0t, 2026-04-14, 1w
 
   section Wave 1 — Produção Azure
   IaC Terraform Azure (VNet/AKS) :w1a, 2026-04-28, 3w
   Private Endpoints + DNS        :w1b, 2026-05-05, 2w
   GitOps ArgoCD + Canário        :w1c, 2026-05-12, 2w
   Workspace Lifecycle Completo   :w1d, 2026-04-28, 2w
-  Gestão de Membros + Email      :w1e, 2026-05-05, 2w
-  WorkspaceBudget + SMTP         :w1f, 2026-05-12, 2w
-  DLQ + Workers Resilientes      :w1g, 2026-05-19, 1w
+  WorkspaceBudget + SMTP Full    :w1e, 2026-05-12, 2w
+  CI SAST/SCA/Secret Scan        :w1f, 2026-05-19, 1w
 
   section Wave 2 — Paridade Enterprise
-  OpenTelemetry End-to-End       :w2a, 2026-07-07, 2w
-  SLI/SLO Dashboards             :w2b, 2026-07-14, 2w
-  CI SAST/SCA/Secret Scan        :w2c, 2026-07-07, 1w
-  WAF + Rate Limiting            :w2d, 2026-07-14, 2w
-  Sistema de Notificações        :w2e, 2026-07-21, 3w
-  PulseIntel (Azure Advisor)     :w2f, 2026-07-28, 2w
-  PulseEconomics SKUs + Exportação :w2g, 2026-08-04, 3w
-  MFA TOTP Completo              :w2h, 2026-08-11, 2w
+  WAF + DDoS Protection          :w2a, 2026-07-07, 2w
+  SLI/SLO Avançado               :w2b, 2026-07-14, 2w
+  PulseIntel (Azure Advisor Full) :w2c, 2026-07-28, 2w
+  PulseEconomics SKUs + Forecast :w2d, 2026-08-04, 3w
+  Sistema de Notificações Slack  :w2e, 2026-08-11, 2w
 
   section Wave 3 — Diferenciais
   SCA (Stratum Causal Attribution) :w3a, 2026-10-06, 4w
@@ -904,30 +1117,31 @@ gantt
 
   section Wave 4 — Escala Global
   Multi-região Ativo-Passivo     :w4a, 2027-01-06, 4w
-  Conector GCP Real              :w4b, 2027-01-13, 3w
-  TopologyMap + Blast Radius     :w4c, 2027-01-20, 4w
-  Chaos Drills + Pentest         :w4d, 2027-02-03, 2w
+  TopologyMap + Blast Radius     :w4b, 2027-01-20, 4w
+  Chaos Drills + Pentest         :w4c, 2027-02-03, 2w
 ```
 
 ### Status Atual por Módulo
 
-| Módulo | ✅ Impl. | 🔶 Parcial | ❌ Não iniciado | Prioridade |
-|--------|---------|-----------|----------------|-----------|
-| Autenticação e sessão | 5 | 5 | 3 | **P0** |
-| Multi-tenant / workspaces | 0 | 3 | 5 | **P0** |
-| Perfis e membros | 0 | 1 | 5 | **P0** |
-| PulseEconomics | 1 | 5 | 4 | P1 |
-| Alertas e notificações | 0 | 0 | 7 | P1 |
-| PulseIntel | 0 | 3 | 3 | P1 |
-| PulseGov | 0 | 0 | 6 | P2 |
-| PulseGreen | 0 | 0 | 4 | P2 |
-| PulseLink (conectores) | 1 | 5 | 4 | P1 |
-| Sync / Workers | 0 | 3 | 4 | P1 |
-| StratoAudit / Compliance | 1 | 2 | 3 | P1 |
-| Credenciais / StratoMesh | 0 | 3 | 2 | **P0** |
-| StratoGraph / Integrações | 0 | 1 | 7 | P2 |
-| Frontend — páginas | 0 | 8 | 11 | P1 |
-| PulseOps (infra) | 2 | 4 | 9 | **P0** |
+| Módulo | Status | Detalhes |
+|--------|--------|---------|
+| Autenticação e sessão | ✅ Completo | Passkey WebAuthn, OIDC Azure, MFA TOTP, backup codes, refresh tokens, token revocation |
+| Multi-tenant / workspaces | ✅ Completo | Lifecycle (ACTIVE→PURGED), member quota, retention, workspace keyrings |
+| Perfis e membros | ✅ Completo | CRUD, invite flow, force password change, LGPD consent |
+| Segurança | ✅ Completo | PBAC/ABAC, idempotency keys, TLS 1.3 todos os datastores, security headers |
+| PulseEconomics | 🔶 Parcial | Dashboard, costs, SKUs, export async — forecast P90 no roadmap |
+| Alertas e notificações | ✅ Completo | AlertRecord, AlertRule, NotificationPreference, SMTP + Slack, DLQ |
+| PulseIntel | 🔶 Parcial | ProviderRecommendation sync — SCA/ARI Wave 3 |
+| PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
+| PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
+| PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR (S3), GCP (BigQuery + Workload Identity) |
+| Sync / Workers | ✅ Completo | 8 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance |
+| StratoAudit / Compliance | ✅ Completo | Hash chain SHA-256, HMAC checkpoints, DLQ, audit log UI |
+| Observabilidade | ✅ Completo | OTel tracing, Jaeger, Prometheus, Grafana, SLO endpoint |
+| Infraestrutura prod | ✅ Completo | docker-compose.prod.yml, entrypoint.sh, nginx.prod.conf |
+| Frontend — páginas | ✅ Completo | 27 páginas implementadas |
+| StratoGraph / Integrações | ❌ Roadmap | Wave 3 |
+| StratoMesh (mTLS) | ❌ Roadmap | Wave 3 |
 
 ---
 
@@ -935,55 +1149,66 @@ gantt
 
 ### Pré-requisitos
 
-- Docker e Docker Compose
-- Python 3.12+
-- Node.js 20+
+- Docker e Docker Compose v2+
+- Python 3.12+ (para desenvolvimento local sem Docker)
+- Node.js 20+ (para desenvolvimento local sem Docker)
 
 ### Setup Local
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/FilipiWanderley/CauSium.git
-cd CauSium
+git clone https://github.com/FilipiWanderley/StratoPulse.git
+cd StratoPulse
 
 # 2. Configure as variáveis de ambiente
 cp .env.example .env
 # Edite o .env com suas credenciais
 
-# 3. Suba os serviços de infraestrutura
-docker compose up -d postgres redis clickhouse
+# 3. Suba todos os serviços (migrações rodam automaticamente via entrypoint.sh)
+docker compose up -d
 
-# 4. Execute as migrações do banco
+# 4. (Opcional) Backend em modo dev sem Docker
 cd backend
-pip install -r requirements.txt  # ou uv sync
+pip install poetry && poetry install
 alembic upgrade head
-
-# 5. Inicie o backend
 uvicorn app.main:app --reload --port 8000
 
-# 6. Inicie o frontend (em outro terminal)
+# 5. (Opcional) Frontend em modo dev sem Docker
 cd frontend
 npm install
 npm run dev
 ```
 
+> As migrações são aplicadas automaticamente pelo `entrypoint.sh` ao subir o container do backend. Não é necessário rodar `alembic upgrade head` manualmente no fluxo Docker.
+
 ### Variáveis de Ambiente Principais
 
 ```bash
 # Banco de dados
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/causium
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/stratopulse
+DATABASE_SSL=false   # true em produção com certificado
 
 # Cache e filas
 REDIS_URL=redis://localhost:6379
+# Em produção: rediss://user:pass@host:6380 (TLS)
 
 # ClickHouse
 CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
-CLICKHOUSE_DB=causium
+CLICKHOUSE_DB=stratopulse
+# CLICKHOUSE_CA_CERT=/path/to/ca.crt  (TLS em produção)
 
 # Segurança — NUNCA commitar valores reais
-SECRET_KEY=<chave-jwt-32-bytes>          # JWT signing
-ENCRYPTION_KEY=<fernet-key-base64>       # Fernet encryption
+SECRET_KEY=<chave-jwt-32-bytes-hex>
+ENCRYPTION_KEY=<fernet-key-base64>
+
+# MFA
+MFA_ISSUER=StratoPulse
+
+# Passkeys / WebAuthn
+WEBAUTHN_RP_ID=localhost
+WEBAUTHN_RP_NAME=StratoPulse
+WEBAUTHN_ORIGIN=http://localhost:5173
 
 # Azure OIDC (opcional para dev)
 AZURE_TENANT_ID=<tenant-id>
@@ -992,6 +1217,26 @@ AZURE_CLIENT_SECRET=<client-secret>
 
 # Frontend
 CORS_ORIGINS=http://localhost:5173
+
+# SMTP (notificações)
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASSWORD=<api-key>
+SMTP_FROM=noreply@stratopulse.io
+
+# OpenTelemetry
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=stratopulse-api
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_SAMPLING_RATE=1.0
+
+# Workers
+WORKER_CONCURRENCY=4
+EXPORT_STORAGE_BACKEND=local   # ou "azure_blob" / "s3"
+
+# Grafana
+GRAFANA_ADMIN_PASSWORD=admin
 ```
 
 > ⚠️ **Nunca commite o arquivo `.env`** — ele está no `.gitignore`. Use apenas `.env.example` com valores de exemplo.
@@ -999,34 +1244,55 @@ CORS_ORIGINS=http://localhost:5173
 ### Estrutura de Diretórios
 
 ```
-CauSium/
+StratoPulse/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                    # FastAPI app + lifespan
-│   │   ├── api/v1/                    # Routers por domínio
-│   │   ├── core/                      # Config, segurança, middleware, política
-│   │   ├── domains/                   # 11 domínios de negócio
-│   │   └── workers/                   # Workers assíncronos
-│   ├── alembic/versions/              # 7 migrações (→ 17 ao final)
+│   │   ├── main.py                    # FastAPI app + lifespan + OTel setup
+│   │   ├── core/                      # Config, segurança, middleware, política, schemas
+│   │   └── domains/                   # 12 domínios de negócio
+│   │       ├── auth/                  # Passkey, OIDC, MFA, TOTP, backup codes, LGPD
+│   │       ├── cloud_accounts/        # Azure, AWS CUR, GCP BigQuery connectors
+│   │       ├── economics/             # Custos, SKUs, forecast, export async
+│   │       ├── experiments/           # PulseLab, runs, approvals
+│   │       ├── initiatives/           # Kanban de iniciativas
+│   │       ├── notifications/         # Alertas, regras, preferências, Slack
+│   │       ├── opportunities/         # Scoring, recomendações
+│   │       ├── audit_chain/           # StratoAudit hash chain
+│   │       ├── risk_budgets/          # Risk budgets por domínio
+│   │       ├── change_events/         # ChangeEvent tracking
+│   │       ├── workspaces/            # Workspace lifecycle
+│   │       └── platform/             # Operação global
+│   ├── app/workers/                   # 8 workers assíncronos
+│   │   ├── ingestion_worker.py
+│   │   ├── scoring_worker.py
+│   │   ├── audit_checkpoint_worker.py
+│   │   ├── notification_worker.py
+│   │   ├── carbon_sync_worker.py
+│   │   ├── export_worker.py
+│   │   ├── keyring_rotation_worker.py
+│   │   └── maintenance_worker.py
+│   ├── alembic/versions/              # 29 migrações (0001 → 0029)
+│   ├── entrypoint.sh                  # Auto-migration on container start
 │   ├── tests/
-│   │   ├── unit/                      # test_auth_service, test_scorer
-│   │   └── integration/               # 8 suítes de integração
+│   │   ├── unit/
+│   │   └── integration/               # 10+ suítes de integração
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/                     # 8 páginas (→ 20 ao final)
-│   │   ├── api/                       # 10 módulos de API client
+│   │   ├── pages/                     # 27 páginas implementadas
+│   │   ├── api/                       # 10+ módulos de API client
 │   │   ├── components/                # UI reutilizável
 │   │   ├── contexts/                  # AuthContext, I18nContext
 │   │   └── hooks/                     # useAuth
+│   ├── nginx.conf                     # nginx dev
+│   ├── nginx.prod.conf                # nginx produção (CSP, HSTS, gzip, cache imutável)
 │   └── vite.config.ts
-├── docs/
-│   ├── PRD_CauSium_Completo_v2.0.md
-│   └── roadmap/
-├── scripts/
-│   ├── setup_dev.sh
-│   └── clickhouse_init.sql
-└── docker-compose.yml
+├── docker-compose.yml                 # Desenvolvimento local + observabilidade
+├── docker-compose.prod.yml            # Produção (4 workers, nginx, sem bind-mounts)
+├── .env.example                       # Template de variáveis de ambiente
+└── scripts/
+    ├── setup_dev.sh
+    └── clickhouse_init.sql
 ```
 
 ---
@@ -1048,6 +1314,10 @@ pytest tests/integration/
 
 # Com cobertura
 pytest --cov=app --cov-report=html
+
+# Frontend — testes de componente
+cd frontend
+npm test
 ```
 
 ### Suítes Existentes
@@ -1064,6 +1334,12 @@ pytest --cov=app --cov-report=html
 | `test_workflow.py` | Integration | Kanban board, transitions |
 | `test_cloud_accounts.py` | Integration | Health checks, ingestion queue |
 | `test_audit_chain.py` | Integration | Hash chain verification, checkpoints |
+| `test_idempotency_keys.py` | Integration | Idempotency key replay e fingerprint SHA-256 |
+| `LoginPage.test.tsx` | Component | Login form, passkey button, error states |
+| `MembersPage.test.tsx` | Component | Members list, add/edit/delete |
+| `SettingsPage.test.tsx` | Component | MFA TOTP setup, passkey management |
+| `MfaTotpSettings.test.tsx` | Component | TOTP QR code, verify, disable |
+| `ActivateInvitePage.test.tsx` | Component | Invite activation flow |
 
 ### Cobertura Target
 
@@ -1074,7 +1350,8 @@ pytest --cov=app --cov-report=html
 | policy | > 75% | > 90% |
 | economics | > 40% | > 80% |
 | audit_chain | > 80% | > 90% |
-| **Global** | > 50% | **> 80%** |
+| workers | > 50% | > 75% |
+| **Global** | > 55% | **> 80%** |
 
 ---
 
@@ -1123,12 +1400,13 @@ pytest --cov=app --cov-report=html
 
 | Termo | Significado |
 |-------|------------|
-| **workspace** | Conta isolada de um cliente no sistema |
+| **workspace** | Conta isolada de um cliente no sistema (equiv. org/tenant) |
 | **platform_admin** | Administrador global sem workspace (operação interna) |
 | **workspace_admin** | Administrador do workspace do cliente |
 | **analyst** | Usuário operacional com permissões de escrita analítica |
 | **viewer** | Usuário de leitura |
-| **CloudCredential** | Credencial multi-cloud multi-registro por workspace |
+| **CloudCredential** | Credencial multi-cloud multi-registro por workspace (cifrada com WorkspaceKeyring) |
+| **WorkspaceKeyring** | Chave Fernet org-scoped para criptografia de credenciais, com rotação automática |
 | **WorkspaceBudget** | Orçamento financeiro configurável por workspace |
 | **ActivityEvent** | Evento de log de atividade do cloud provider |
 | **AlertRecord** | Alerta gerado por categoria no sistema |
@@ -1137,36 +1415,13 @@ pytest --cov=app --cov-report=html
 | **SkuObservation** | Observação de SKU por workspace e período |
 | **ResourceInventory** | Inventário de recursos para governança |
 | **CarbonRecord** | Emissão de carbono por conta e período |
-| **CausalTrace** | Trilha de explicação causal por recomendação (SCA) |
-| **OptimizationExperiment** | Experimento criado no PulseLab |
-| **ExperimentRun** | Execução de experimento com telemetria coletada |
-| **TopologyNode** | Nó no grafo TopologyMap (serviço ou recurso) |
-| **ComplianceArtifact** | Relatório de auditoria exportável e assinado |
-| **StratoAudit** | Sistema de trilha de auditoria imutável com hash encadeado |
-| **PulseStream** | Event log imutável para replay e auditoria de domínio |
-| **StratoGraph** | Gateway GraphQL Federation com subgraphs por domínio |
-| **StratoMesh** | Camada de mTLS interno entre serviços (SPIFFE-based) |
-| **SCA** | Stratum Causal Attribution — engine de atribuição causal |
-| **ARI** | Adaptive Recommendation Index — ranking adaptativo com feedback |
-| **DlqMessage** | Mensagem na dead letter queue após falhas repetidas |
-| **PBAC** | Policy-Based Access Control — autorização por bundle de políticas |
-| **ABAC** | Attribute-Based Access Control — autorização por atributos de contexto |
-| **JIT** | Just-In-Time elevation — elevação temporária de acesso com aprovação |
-
----
-
-## 📄 Documentação Adicional
-
-- [PRD Completo v2.0](docs/PRD_CauSium_Completo_v2.0.md) — Gap analysis real, backlog de 75 requisitos e roadmap por wave
-- [Wave 0 Checklist](docs/roadmap/Wave0_P0_Checklist.md) — Checklist de hardening imediato
-- [Rastreabilidade de Requisitos](docs/traceability/SP-Requisitos-para-Issues.md) — Matriz de requisitos para issues
-
----
-
-<div align="center">
-
-**CauSium** — Cloud Efficiency Intelligence Platform
-
-*Versão 2.0 · Abril 2026 · CONFIDENCIAL*
-
-</div>
+| **DlqMessage** | Mensagem na dead letter queue após 3 falhas de processamento |
+| **ReportExportJob** | Job assíncrono de exportação CSV/Excel com status e file_url |
+| **LgpdConsent** | Registro de consentimento LGPD: base legal, propósito, versão, timestamp |
+| **TotpBackupCode** | Código one-time de recuperação de conta (10 por usuário, invalidados após uso) |
+| **RevokedToken** | JWT revogado explicitamente (blacklist Redis + PostgreSQL) |
+| **IdempotencyKey** | Chave Redis SHA-256 para replay seguro de mutações críticas (TTL 24h) |
+| **SCA** | Stratum Causal Attribution — engine de atribuição causal de variações de custo |
+| **ARI** | Adaptive Recommendation Index — ranking adaptativo de oportunidades |
+| **PulseLab** | Módulo de criação e execução de experimentos de otimização com canário |
+| **StratoAudit** | Trilha de auditoria imutável com hash SHA-256 encadeado |
