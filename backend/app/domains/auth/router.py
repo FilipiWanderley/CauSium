@@ -43,6 +43,7 @@ from app.domains.auth.schemas import (
     UserCreate,
     UserOut,
 )
+from app.core.schemas import Page, PageParams
 from app.domains.auth.service import AuthService
 from app.domains.auth.token_blacklist import revoke_all_tokens_for_user
 
@@ -244,15 +245,18 @@ async def create_user(
     return _user_out(user, org_name)
 
 
-@router.get("/users", response_model=List[UserOut])
+@router.get("/users", response_model=Page[UserOut])
 async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(require_roles(UserRole.ADMIN)),
+    page_params: PageParams = Depends(PageParams),
 ):
     service = AuthService(db)
-    users = await service.list_org_users(current_user.org_id)
+    users, total = await service.list_org_users(
+        current_user.org_id, limit=page_params.limit, offset=page_params.offset
+    )
     org_name = await service.get_org_name(current_user.org_id)
-    return [_user_out(u, org_name) for u in users]
+    return Page.of([_user_out(u, org_name) for u in users], total, page_params)
 
 
 @router.patch("/passwordless-policy", response_model=PasswordlessPolicyOut)

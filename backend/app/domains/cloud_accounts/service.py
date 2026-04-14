@@ -186,14 +186,24 @@ class CloudAccountService:
             },
         )
 
-    async def list_accounts(self, org_id: UUID) -> list[CloudAccount]:
-        result = await self.db.execute(
-            select(CloudAccount).where(CloudAccount.org_id == org_id).order_by(CloudAccount.created_at)
+    async def list_accounts(
+        self, org_id: UUID, limit: int = 100, offset: int = 0
+    ) -> tuple[list[CloudAccount], int]:
+        total_result = await self.db.execute(
+            select(func.count()).select_from(CloudAccount).where(CloudAccount.org_id == org_id)
         )
-        return list(result.scalars().all())
+        total = total_result.scalar_one()
+        result = await self.db.execute(
+            select(CloudAccount)
+            .where(CloudAccount.org_id == org_id)
+            .order_by(CloudAccount.created_at)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), total
 
     async def list_sync_status(self, org_id: UUID) -> list[dict]:
-        accounts = await self.list_accounts(org_id)
+        accounts, _ = await self.list_accounts(org_id)
         if not accounts:
             return []
 

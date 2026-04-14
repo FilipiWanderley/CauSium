@@ -408,9 +408,17 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
-    async def list_org_users(self, org_id: UUID) -> list[User]:
-        result = await self.db.execute(select(User).where(User.org_id == org_id))
-        return list(result.scalars().all())
+    async def list_org_users(
+        self, org_id: UUID, limit: int = 50, offset: int = 0
+    ) -> tuple[list[User], int]:
+        total_result = await self.db.execute(
+            select(func.count()).select_from(User).where(User.org_id == org_id)
+        )
+        total = total_result.scalar_one()
+        result = await self.db.execute(
+            select(User).where(User.org_id == org_id).order_by(User.created_at).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
 
     async def export_user_data(self, user: User) -> dict:
         """LGPD Art. 18 — exporta dados pessoais do titular em formato legível."""

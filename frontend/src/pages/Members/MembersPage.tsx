@@ -65,9 +65,9 @@ export function MembersPage() {
   const showSuccess = (message: string) => setFeedback({ tone: 'success', message })
   const showError = (message: string) => setFeedback({ tone: 'error', message })
 
-  const membersQuery = useQuery({
+  const membersQuery = useQuery<MemberItem[]>({
     queryKey: ['members-list'],
-    queryFn: () => membersApi.list().then((r) => r.data),
+    queryFn: () => membersApi.list().then((r) => r.data.items),
   })
 
   const invitesQuery = useQuery({

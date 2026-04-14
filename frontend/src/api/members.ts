@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { UserRole } from '../types'
+import type { PageResponse, UserRole } from '../types'
 
 export interface MemberItem {
   id: string
@@ -22,7 +22,8 @@ export interface MemberCreatePayload {
 }
 
 export const membersApi = {
-  list: () => apiClient.get<MemberItem[]>('/auth/users'),
+  list: (page = 1, page_size = 50) =>
+    apiClient.get<PageResponse<MemberItem>>('/auth/users', { params: { page, page_size } }),
 
   create: (payload: MemberCreatePayload) => apiClient.post<MemberItem>('/auth/users', payload),
   

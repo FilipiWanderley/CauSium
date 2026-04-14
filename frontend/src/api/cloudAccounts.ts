@@ -1,8 +1,9 @@
 import { apiClient } from './client'
-import type { CloudAccount, ConnectorHealth, ConnectorSyncStatus } from '../types'
+import type { CloudAccount, ConnectorHealth, ConnectorSyncStatus, PageResponse } from '../types'
 
 export const cloudAccountsApi = {
-  list: () => apiClient.get<CloudAccount[]>('/cloud-accounts'),
+  list: (page = 1, page_size = 100) =>
+    apiClient.get<PageResponse<CloudAccount>>('/cloud-accounts', { params: { page, page_size } }),
 
   get: (id: string) => apiClient.get<CloudAccount>(`/cloud-accounts/${id}`),
 

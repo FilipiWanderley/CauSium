@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.core.idempotency import build_fingerprint, build_scope_key, prepare_request, store_response
 from app.core.redis import get_redis_pool
+from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
 from app.domains.cloud_accounts.schemas import (
     CloudAccountCreate,
@@ -40,14 +41,17 @@ async def create_account(
     return CloudAccountOut.model_validate(account)
 
 
-@router.get("", response_model=List[CloudAccountOut])
+@router.get("", response_model=Page[CloudAccountOut])
 async def list_accounts(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    page_params: PageParams = Depends(PageParams),
 ):
     service = CloudAccountService(db)
-    accounts = await service.list_accounts(current_user.org_id)
-    return [CloudAccountOut.model_validate(a) for a in accounts]
+    accounts, total = await service.list_accounts(
+        current_user.org_id, limit=page_params.limit, offset=page_params.offset
+    )
+    return Page.of([CloudAccountOut.model_validate(a) for a in accounts], total, page_params)
 
 
 @router.get("/sync-status", response_model=List[ConnectorSyncStatusOut])
