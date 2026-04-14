@@ -237,6 +237,10 @@ class Settings(BaseSettings):
         if len(self.secret_key) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters in production")
 
+        _default_enc_key = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
+        if self.encryption_key == _default_enc_key:
+            raise ValueError("ENCRYPTION_KEY must be changed from the default value in production")
+
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
 

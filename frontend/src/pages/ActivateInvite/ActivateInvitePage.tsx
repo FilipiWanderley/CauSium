@@ -20,6 +20,7 @@ export function ActivateInvitePage() {
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -59,12 +60,17 @@ export function ActivateInvitePage() {
       setError('Este convite nao pode mais ser aceito.')
       return
     }
+    if (!termsAccepted) {
+      setError('Você precisa aceitar os Termos de Uso para continuar.')
+      return
+    }
 
     setSubmitting(true)
     try {
       await invitesApi.accept(resolvedToken, {
         full_name: fullName.trim(),
         password,
+        terms_accepted: true,
       })
       navigate('/login?activated=success', { replace: true })
     } catch (err: unknown) {
@@ -83,7 +89,7 @@ export function ActivateInvitePage() {
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 text-white">
             <Cloud className="h-8 w-8 text-brand-500" />
-            <span className="text-2xl font-bold">StratoPulse</span>
+            <span className="text-2xl font-bold">CauSium</span>
           </div>
           <p className="mt-2 text-sm text-gray-400">Ative seu acesso ao workspace</p>
         </div>
@@ -175,9 +181,25 @@ export function ActivateInvitePage() {
               />
             </div>
 
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-xs text-gray-600">
+                Li e aceito os{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">
+                  Termos de Uso e Política de Privacidade
+                </a>{' '}
+                (obrigatório — LGPD)
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={submitting || !resolvedToken || !canAccept}
+              disabled={submitting || !resolvedToken || !canAccept || !termsAccepted}
               className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
               {submitting ? 'Ativando...' : 'Ativar acesso'}

@@ -7,7 +7,6 @@ export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [resetToken, setResetToken] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,8 +14,7 @@ export function ForgotPasswordPage() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await authApi.forgotPassword(email)
-      setResetToken(data.token)
+      await authApi.forgotPassword(email)
       setSubmitted(true)
     } catch {
       setError('Something went wrong. Please try again.')
@@ -31,7 +29,7 @@ export function ForgotPasswordPage() {
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 text-white">
             <Cloud className="h-8 w-8 text-brand-500" />
-            <span className="text-2xl font-bold">StratoPulse</span>
+            <span className="text-2xl font-bold">CauSium</span>
           </div>
         </div>
 
@@ -48,23 +46,6 @@ export function ForgotPasswordPage() {
                 If <span className="font-medium text-gray-700">{email}</span> is registered, you
                 will receive password reset instructions.
               </p>
-
-              {resetToken && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
-                  <p className="text-xs font-semibold text-blue-700 mb-1">
-                    Dev mode — reset link:
-                  </p>
-                  <Link
-                    to={`/reset-password?token=${resetToken}`}
-                    className="text-xs text-blue-600 underline break-all"
-                  >
-                    /reset-password?token={resetToken}
-                  </Link>
-                  <p className="mt-2 text-xs text-blue-500">
-                    In production, this token would be emailed instead of shown here.
-                  </p>
-                </div>
-              )}
 
               <Link
                 to="/login"

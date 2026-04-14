@@ -240,7 +240,73 @@ class AuthService:
             return False
         return await self._verify_totp_code_for_user(user, code)
 
-    async def enable_totp(self, user: User, code: str) -> User:
+    # ------------------------------------------------------------------
+    # TOTP backup codes
+    # ------------------------------------------------------------------
+
+    _BACKUP_CODE_COUNT = 8
+    _BACKUP_CODE_BYTES = 5  # 10 hex chars per code
+
+    def _hash_backup_code(self, code: str) -> str:
+        import hashlib
+        return hashlib.sha256(code.encode()).hexdigest()
+
+    async def _clear_backup_codes(self, user_id: UUID) -> None:
+        from sqlalchemy import delete as sa_delete
+        from app.domains.auth.models import TotpBackupCode
+        await self.db.execute(sa_delete(TotpBackupCode).where(TotpBackupCode.user_id == user_id))
+
+    async def generate_backup_codes(self, user: User) -> list[str]:
+        """Generate new backup codes, invalidating any existing ones. Returns plaintext codes."""
+        import secrets
+        from app.domains.auth.models import TotpBackupCode
+
+        await self._clear_backup_codes(user.id)
+        plaintext_codes = []
+        for _ in range(self._BACKUP_CODE_COUNT):
+            raw = secrets.token_hex(self._BACKUP_CODE_BYTES)  # 10-char hex
+            formatted = f"{raw[:5]}-{raw[5:]}"  # e.g. "a3f2c-9b1e0"
+            plaintext_codes.append(formatted)
+            self.db.add(TotpBackupCode(
+                user_id=user.id,
+                org_id=user.org_id,
+                code_hash=self._hash_backup_code(raw),  # store without dash
+            ))
+        await self.db.flush()
+        return plaintext_codes
+
+    async def backup_codes_remaining(self, user: User) -> int:
+        from sqlalchemy import func as sa_func
+        from app.domains.auth.models import TotpBackupCode
+        result = await self.db.execute(
+            select(sa_func.count()).select_from(TotpBackupCode).where(
+                TotpBackupCode.user_id == user.id,
+                TotpBackupCode.used_at.is_(None),
+            )
+        )
+        return result.scalar_one()
+
+    async def use_backup_code(self, user: User, code: str) -> bool:
+        """Consume a backup code. Returns True if valid and unused, False otherwise."""
+        from app.domains.auth.models import TotpBackupCode
+        normalized = code.replace("-", "").strip().lower()
+        code_hash = self._hash_backup_code(normalized)
+        result = await self.db.execute(
+            select(TotpBackupCode).where(
+                TotpBackupCode.user_id == user.id,
+                TotpBackupCode.code_hash == code_hash,
+                TotpBackupCode.used_at.is_(None),
+            )
+        )
+        backup = result.scalar_one_or_none()
+        if backup is None:
+            return False
+        backup.used_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        return True
+
+    async def enable_totp(self, user: User, code: str) -> tuple[User, list[str]]:
+        """Enable TOTP and generate backup codes. Returns (user, plaintext_backup_codes)."""
         if not user.totp_secret_encrypted:
             raise ValueError("TOTP setup not initialized")
         if not await self._verify_totp_code_for_user(user, code):
@@ -248,6 +314,7 @@ class AuthService:
 
         user.totp_enabled = True
         user.totp_verified_at = datetime.now(timezone.utc)
+        backup_codes = await self.generate_backup_codes(user)
         await self.audit_chain.append_event(
             org_id=user.org_id,
             actor_user_id=user.id,
@@ -258,7 +325,7 @@ class AuthService:
         )
         await self.db.flush()
         await self.db.refresh(user)
-        return user
+        return user, backup_codes
 
     async def disable_totp(self, user: User, code: str) -> User:
         if not user.totp_enabled:

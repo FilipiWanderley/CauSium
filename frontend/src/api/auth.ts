@@ -97,8 +97,14 @@ export const authApi = {
     apiClient.post<{ valid: boolean }>('/auth/mfa/totp/verify', payload),
 
   enableTotp: (payload: { code: string }) =>
-    apiClient.post<{ enabled: boolean }>('/auth/mfa/totp/enable', payload),
+    apiClient.post<{ enabled: boolean; backup_codes: string[] }>('/auth/mfa/totp/enable', payload),
 
   disableTotp: (payload: { code: string }) =>
     apiClient.post<{ enabled: boolean }>('/auth/mfa/totp/disable', payload),
+
+  getBackupCodesCount: () =>
+    apiClient.get<{ enabled: boolean; backup_codes_remaining: number }>('/auth/mfa/totp/backup-codes/count'),
+
+  regenerateBackupCodes: (payload: { code: string }) =>
+    apiClient.post<{ enabled: boolean; backup_codes: string[] }>('/auth/mfa/totp/backup-codes/regenerate', payload),
 }

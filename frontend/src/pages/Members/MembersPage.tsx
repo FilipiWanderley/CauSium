@@ -471,6 +471,8 @@ export function MembersPage() {
                 value={inviteForm.email}
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
                 placeholder="member@company.com"
+                pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
+                required
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <select
@@ -496,7 +498,7 @@ export function MembersPage() {
               </select>
               <button
                 onClick={() => createInviteMutation.mutate()}
-                disabled={!inviteForm.email.trim() || hasInviteMutationInFlight}
+                disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim()) || hasInviteMutationInFlight}
                 className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}

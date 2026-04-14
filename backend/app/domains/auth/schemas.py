@@ -212,6 +212,12 @@ class TOTPVerifyResponse(BaseModel):
 
 class TOTPStatusOut(BaseModel):
     enabled: bool
+    backup_codes_remaining: int = 0
+
+
+class TOTPEnableResponse(BaseModel):
+    enabled: bool
+    backup_codes: list[str]  # plaintext — shown once, never stored
 
 
 class AdminDeactivateUserRequest(BaseModel):

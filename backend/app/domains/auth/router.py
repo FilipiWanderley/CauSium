@@ -36,6 +36,7 @@ from app.domains.auth.schemas import (
     ResetPasswordRequest,
     TokenResponse,
     TOTPCodeRequest,
+    TOTPEnableResponse,
     TOTPSetupOut,
     TOTPStatusOut,
     TOTPVerifyResponse,
@@ -509,19 +510,47 @@ async def totp_verify(
     return TOTPVerifyResponse(valid=valid)
 
 
-@router.post("/mfa/totp/enable", response_model=TOTPStatusOut)
+@router.post("/mfa/totp/enable", response_model=TOTPEnableResponse)
 async def totp_enable(
     req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPEnableResponse:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    try:
+        user, backup_codes = await service.enable_totp(user, req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return TOTPEnableResponse(enabled=user.totp_enabled, backup_codes=backup_codes)
+
+
+@router.get("/mfa/totp/backup-codes/count", response_model=TOTPStatusOut)
+async def totp_backup_codes_count(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
 ) -> TOTPStatusOut:
     service = AuthService(db)
     user = await service.get_user_by_id(current_user.id)
-    try:
-        user = await service.enable_totp(user, req.code)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    return TOTPStatusOut(enabled=user.totp_enabled)
+    remaining = await service.backup_codes_remaining(user)
+    return TOTPStatusOut(enabled=bool(user and user.totp_enabled), backup_codes_remaining=remaining)
+
+
+@router.post("/mfa/totp/backup-codes/regenerate", response_model=TOTPEnableResponse)
+async def totp_backup_codes_regenerate(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPEnableResponse:
+    """Regenera backup codes (requer código TOTP válido). Invalida todos os anteriores."""
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    if not user or not user.totp_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="TOTP not enabled")
+    if not await service._verify_totp_code_for_user(user, req.code):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid MFA code")
+    backup_codes = await service.generate_backup_codes(user)
+    return TOTPEnableResponse(enabled=True, backup_codes=backup_codes)
 
 
 @router.post("/mfa/totp/disable", response_model=TOTPStatusOut)

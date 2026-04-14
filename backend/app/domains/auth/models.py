@@ -80,6 +80,9 @@ class User(Base):
     # SP-A01: Force password change on next login (first login, admin reset, expiry).
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     password_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # LGPD Art. 7 / Art. 8 — registro de consentimento e versão dos termos aceitos
+    terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    terms_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -96,6 +99,18 @@ class AuthChallenge(Base):
     purpose: Mapped[str] = mapped_column(String(40), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TotpBackupCode(Base):
+    """One-time-use recovery codes for TOTP MFA (stored as SHA-256 hashes)."""
+    __tablename__ = "totp_backup_codes"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # SHA-256 hex
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
