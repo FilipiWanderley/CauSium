@@ -14,6 +14,8 @@ from app.core.security import decode_token
 from app.domains.auth.models import UserRole
 from app.domains.auth.schemas import (
     AdminDeactivateUserRequest,
+    UserUpdate,
+    UserDeleteAudit,
     AdminResetMFAResponse,
     AdminResetPasswordResponse,
     ChangePasswordRequest,
@@ -33,12 +35,57 @@ from app.domains.auth.schemas import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    TOTPCodeRequest,
+    TOTPEnableResponse,
+    TOTPSetupOut,
+    TOTPStatusOut,
+    TOTPVerifyResponse,
     UserCreate,
     UserOut,
 )
+from app.core.schemas import Page, PageParams
 from app.domains.auth.service import AuthService
+from app.domains.auth.token_blacklist import revoke_all_tokens_for_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT, summary="Logout global (revoga todas as sessões)")
+async def logout_all(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    await revoke_all_tokens_for_user(db, current_user.id)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_auth_cookies(response)
+    return response
+
+
+# --- PATCH membro ---
+@router.patch("/users/{user_id}", response_model=UserOut, summary="Admin edita membro")
+async def admin_update_user(
+    user_id: UUID,
+    req: UserUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    service = AuthService(db)
+    user = await service.admin_update_user(current_user, user_id, req)
+    org_name = await service.get_org_name(user.org_id)
+    return _user_out(user, org_name)
+
+
+# --- DELETE membro (soft) ---
+@router.delete("/users/{user_id}", response_model=UserOut, summary="Admin remove membro (soft-delete)")
+async def admin_delete_user(
+    user_id: UUID,
+    req: UserDeleteAudit,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    service = AuthService(db)
+    user = await service.admin_delete_user(current_user, user_id, req.reason)
+    org_name = await service.get_org_name(user.org_id)
+    return _user_out(user, org_name)
 
 
 def _user_out(user, org_name: str) -> UserOut:
@@ -89,7 +136,13 @@ def _clear_auth_cookies(response: Response) -> None:
     )
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar novo usuário e workspace",
+    description="Cria um novo workspace e usuário inicial. Retorna tokens de acesso e refresh, além dos dados do usuário."
+)
 async def register(req: RegisterRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     service = AuthService(db)
     try:
@@ -104,11 +157,16 @@ async def register(req: RegisterRequest, db: Annotated[AsyncSession, Depends(get
     return response
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Login do usuário",
+    description="Realiza login com email, senha e opcionalmente código TOTP. Retorna tokens de acesso e refresh, além dos dados do usuário."
+)
 async def login(req: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     service = AuthService(db)
     try:
-        user, access, refresh = await service.login(req.email, req.password)
+        user, access, refresh = await service.login(req.email, req.password, req.totp_code)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e)) from e
     org_name = await service.get_org_name(user.org_id)
@@ -118,7 +176,12 @@ async def login(req: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)])
     return response
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Renovar tokens de autenticação",
+    description="Gera novos tokens de acesso e refresh a partir de um refresh token válido."
+)
 async def refresh(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -143,14 +206,24 @@ async def refresh(
     return response
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout da sessão atual",
+    description="Remove os cookies de autenticação do usuário na sessão atual."
+)
 async def logout():
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookies(response)
     return response
 
 
-@router.get("/me", response_model=UserOut)
+@router.get(
+    "/me",
+    response_model=UserOut,
+    summary="Obter dados do usuário autenticado",
+    description="Retorna os dados do usuário atualmente autenticado."
+)
 async def me(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
@@ -172,15 +245,18 @@ async def create_user(
     return _user_out(user, org_name)
 
 
-@router.get("/users", response_model=List[UserOut])
+@router.get("/users", response_model=Page[UserOut])
 async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(require_roles(UserRole.ADMIN)),
+    page_params: PageParams = Depends(PageParams),
 ):
     service = AuthService(db)
-    users = await service.list_org_users(current_user.org_id)
+    users, total = await service.list_org_users(
+        current_user.org_id, limit=page_params.limit, offset=page_params.offset
+    )
     org_name = await service.get_org_name(current_user.org_id)
-    return [_user_out(u, org_name) for u in users]
+    return Page.of([_user_out(u, org_name) for u in users], total, page_params)
 
 
 @router.patch("/passwordless-policy", response_model=PasswordlessPolicyOut)
@@ -351,13 +427,16 @@ async def forgot_password(
 ):
     """Initiate a password-reset flow.
 
-    Always returns 200 with a token.  In production the token would be sent
-    via email and NOT included in the response body (prevents enumeration).
-    For Wave 0 (no email service) the token is returned directly so the flow
-    can be tested end-to-end without an SMTP server.
+    Always returns 200 to prevent user enumeration.
+
+    When SMTP is configured, the token is delivered out-of-band via email and
+    omitted from the response body. When SMTP is disabled, the token is
+    returned for local development convenience.
     """
     service = AuthService(db)
     token = await service.request_password_reset(req.email)
+    if service.email.enabled:
+        return ForgotPasswordResponse(token=None)
     return ForgotPasswordResponse(token=token)
 
 
@@ -400,6 +479,97 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     org_name = await service.get_org_name(user.org_id)
     return _user_out(user, org_name)
+
+
+@router.get("/mfa/totp/status", response_model=TOTPStatusOut)
+async def totp_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    return TOTPStatusOut(enabled=bool(user and user.totp_enabled))
+
+
+@router.post("/mfa/totp/setup", response_model=TOTPSetupOut)
+async def totp_setup(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPSetupOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    secret, otpauth_url = await service.begin_totp_setup(user)
+    return TOTPSetupOut(secret=secret, otpauth_url=otpauth_url)
+
+
+@router.post("/mfa/totp/verify", response_model=TOTPVerifyResponse)
+async def totp_verify(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPVerifyResponse:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    valid = await service.verify_totp_code(user, req.code)
+    return TOTPVerifyResponse(valid=valid)
+
+
+@router.post("/mfa/totp/enable", response_model=TOTPEnableResponse)
+async def totp_enable(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPEnableResponse:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    try:
+        user, backup_codes = await service.enable_totp(user, req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return TOTPEnableResponse(enabled=user.totp_enabled, backup_codes=backup_codes)
+
+
+@router.get("/mfa/totp/backup-codes/count", response_model=TOTPStatusOut)
+async def totp_backup_codes_count(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    remaining = await service.backup_codes_remaining(user)
+    return TOTPStatusOut(enabled=bool(user and user.totp_enabled), backup_codes_remaining=remaining)
+
+
+@router.post("/mfa/totp/backup-codes/regenerate", response_model=TOTPEnableResponse)
+async def totp_backup_codes_regenerate(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPEnableResponse:
+    """Regenera backup codes (requer código TOTP válido). Invalida todos os anteriores."""
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    if not user or not user.totp_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="TOTP not enabled")
+    if not await service._verify_totp_code_for_user(user, req.code):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid MFA code")
+    backup_codes = await service.generate_backup_codes(user)
+    return TOTPEnableResponse(enabled=True, backup_codes=backup_codes)
+
+
+@router.post("/mfa/totp/disable", response_model=TOTPStatusOut)
+async def totp_disable(
+    req: TOTPCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> TOTPStatusOut:
+    service = AuthService(db)
+    user = await service.get_user_by_id(current_user.id)
+    try:
+        user = await service.disable_totp(user, req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return TOTPStatusOut(enabled=user.totp_enabled)
 
 
 # ── SP-U01 + SP-U03: Admin-initiated reset of another user's password ────
@@ -469,7 +639,7 @@ async def admin_reset_mfa(
     """
     service = AuthService(db)
     try:
-        target, revoked_count = await service.admin_reset_mfa(current_user, user_id)
+        target, revoked_count, totp_disabled = await service.admin_reset_mfa(current_user, user_id)
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except ValueError as e:
@@ -477,6 +647,7 @@ async def admin_reset_mfa(
     org_name = await service.get_org_name(target.org_id)
     return AdminResetMFAResponse(
         revoked_passkeys=revoked_count,
+        totp_disabled=totp_disabled,
         user=_user_out(target, org_name),
     )
 
@@ -510,3 +681,58 @@ async def admin_deactivate_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from e
     org_name = await service.get_org_name(target.org_id)
     return _user_out(target, org_name)
+
+
+# --- LGPD: exportação de dados pessoais ---
+@router.get(
+    "/me/export",
+    summary="LGPD Art. 18 — Exportar dados pessoais do titular",
+)
+async def export_my_data(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    """Retorna todos os dados pessoais do usuário autenticado em formato JSON."""
+    service = AuthService(db)
+    return await service.export_user_data(current_user)
+
+
+# --- LGPD: exclusão/anonimização de dados pessoais ---
+@router.delete(
+    "/me/data",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="LGPD Art. 18 VI — Direito ao esquecimento (anonimização dos dados pessoais)",
+)
+async def delete_my_data(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+    response: Response = None,
+):
+    """Anonimiza e remove dados pessoais do usuário. Ação irreversível."""
+    service = AuthService(db)
+    await service.lgpd_purge_user(current_user, current_user.id)
+    # Limpar cookies de sessão após purge
+    r = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_auth_cookies(r)
+    return r
+
+
+@router.delete(
+    "/users/{user_id}/data",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="LGPD Art. 18 VI — Admin anonimiza dados de membro",
+)
+async def admin_delete_user_data(
+    user_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.PLATFORM_ADMIN)),
+):
+    """Admin anonimiza dados pessoais de um membro do workspace. Ação irreversível."""
+    service = AuthService(db)
+    try:
+        await service.lgpd_purge_user(current_user, user_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

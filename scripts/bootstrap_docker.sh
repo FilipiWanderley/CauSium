@@ -1,5 +1,5 @@
 #!/bin/bash
-# StratoPulse - bootstrap completo para ambiente Docker local
+# CauSium - bootstrap completo para ambiente Docker local
 # Faz: build/up -> reset schema -> alembic upgrade head -> smoke auth/economics
 
 set -euo pipefail
@@ -11,7 +11,7 @@ echo "==> Subindo servicos Docker (backend, worker, frontend)"
 docker compose up -d --build backend worker frontend
 
 echo "==> Resetando schema do Postgres (ambiente local)"
-docker compose exec -T postgres psql -U stratopulse -d stratopulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker compose exec -T postgres psql -U causium -d causium -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
 echo "==> Aplicando migrations Alembic"
 docker compose exec -T backend alembic upgrade head

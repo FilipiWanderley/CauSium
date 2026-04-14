@@ -99,7 +99,7 @@ export function DashboardPage() {
 
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
-    queryFn: () => cloudAccountsApi.list().then((r) => r.data),
+    queryFn: () => cloudAccountsApi.list().then((r) => r.data.items),
   })
 
   const { data: summary } = useQuery({

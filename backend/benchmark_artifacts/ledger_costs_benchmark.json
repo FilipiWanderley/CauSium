@@ -1,0 +1,15 @@
+{
+  "base_url": "http://localhost:8000",
+  "requests": 20,
+  "warmup": 5,
+  "dry_run": true,
+  "status_counts": {
+    "200": 20
+  },
+  "mean_ms": 71.07,
+  "p50_ms": 72.66,
+  "p90_ms": 97.83,
+  "p95_ms": 102.64,
+  "p99_ms": 112.83,
+  "success_p95_ms": 102.64
+}

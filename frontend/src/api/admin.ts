@@ -72,6 +72,62 @@ export interface Page<T> {
   page_size: number
 }
 
+export interface SloTargets {
+  api_error_budget_pct: number
+  api_p95_latency_ms: number
+}
+
+export interface SloGlobal {
+  requests_total: number
+  errors_5xx_total: number
+  api_error_rate_pct: number
+  api_success_rate_pct: number
+  error_budget_burn_rate: number
+}
+
+export interface SloApiPath {
+  path: string
+  requests: number
+  errors_5xx: number
+  error_rate_pct: number
+  avg_latency_ms: number
+  p95_latency_ms: number
+  max_latency_ms: number
+}
+
+export interface SloWorker {
+  worker: string
+  success: number
+  retry: number
+  failed: number
+  locked: number
+  total: number
+  error_rate_pct: number
+}
+
+export interface SloWorkerLifecycle {
+  worker: string
+  event: string
+  count: number
+}
+
+export interface SloAlert {
+  scope: string
+  severity: string
+  title: string
+  detail: string
+  recommended_action: string
+}
+
+export interface SloOverview {
+  targets: SloTargets
+  global_sli: SloGlobal
+  api_paths: SloApiPath[]
+  workers: SloWorker[]
+  worker_lifecycle: SloWorkerLifecycle[]
+  alerts: SloAlert[]
+}
+
 export const adminApi = {
   listOrgs: (
     page = 1,
@@ -96,6 +152,8 @@ export const adminApi = {
     apiClient.get<Page<AdminUserItem>>(`/admin/orgs/${orgId}/users`, {
       params: { page, page_size: pageSize },
     }),
+
+  getSloOverview: () => apiClient.get<SloOverview>('/admin/observability/slo'),
 
   suspendOrg: (orgId: string, reason: string) =>
     apiClient.post<AdminOrgDetail>(`/admin/orgs/${orgId}/suspend`, { reason }),

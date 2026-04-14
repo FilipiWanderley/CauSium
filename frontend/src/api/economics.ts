@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { WorkspaceBudget, WorkspaceBudgetUpsert } from '../types'
+import type { ReportExportCreate, ReportExportJob, WorkspaceBudget, WorkspaceBudgetUpsert } from '../types'
 
 export const economicsApi = {
   /**
@@ -16,5 +16,19 @@ export const economicsApi = {
    */
   upsertBudget(payload: WorkspaceBudgetUpsert) {
     return apiClient.put<WorkspaceBudget>('/economics/budget', payload)
+  },
+
+  createReportExport(payload: ReportExportCreate) {
+    return apiClient.post<ReportExportJob>('/economics/reports/export', payload)
+  },
+
+  getReportExport(jobId: string) {
+    return apiClient.get<ReportExportJob>(`/economics/reports/export/${jobId}`)
+  },
+
+  downloadReportExport(jobId: string) {
+    return apiClient.get<Blob>(`/economics/reports/export/${jobId}/download`, {
+      responseType: 'blob',
+    })
   },
 }

@@ -36,6 +36,7 @@ class UserOut(BaseModel):
     role: UserRole
     is_active: bool
     passkey_enabled: bool
+    totp_enabled: bool
     must_change_password: bool
     created_at: datetime
     org_name: str = ""
@@ -46,6 +47,7 @@ class UserOut(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str | None = None
 
 
 class TokenResponse(BaseModel):
@@ -142,14 +144,16 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ForgotPasswordResponse(BaseModel):
-    """Token returned directly for dev convenience (no email service configured).
-    In production, this token would be delivered via email and NOT included here.
+    """Password-reset response with safe token handling.
+
+    The token is returned only when SMTP transport is not configured, so local
+    development and integration tests can still complete the flow end-to-end.
     """
 
-    token: str
+    token: str | None = None
     message: str = (
         "If this email is registered you will receive reset instructions. "
-        "In development the token is returned in this response."
+        "In development (without SMTP) the token is returned in this response."
     )
 
 
@@ -189,10 +193,47 @@ class AdminResetMFAResponse(BaseModel):
     """
 
     revoked_passkeys: int
+    totp_disabled: bool
     user: UserOut
+
+
+class TOTPSetupOut(BaseModel):
+    secret: str
+    otpauth_url: str
+
+
+class TOTPCodeRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=8)
+
+
+class TOTPVerifyResponse(BaseModel):
+    valid: bool
+
+
+class TOTPStatusOut(BaseModel):
+    enabled: bool
+    backup_codes_remaining: int = 0
+
+
+class TOTPEnableResponse(BaseModel):
+    enabled: bool
+    backup_codes: list[str]  # plaintext — shown once, never stored
 
 
 class AdminDeactivateUserRequest(BaseModel):
     """SP-U05: Reason payload for admin-driven user deactivation."""
 
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+# --- CRUD PATCH/DELETE ---
+from app.domains.auth.models import UserRole
+from pydantic import EmailStr
+
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    role: UserRole | None = None
+
+class UserDeleteAudit(BaseModel):
     reason: str = Field(..., min_length=3, max_length=500)

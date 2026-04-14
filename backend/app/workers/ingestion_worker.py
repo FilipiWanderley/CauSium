@@ -8,7 +8,10 @@ from uuid import UUID
 from app.core.database import async_session_factory
 from app.core.email import EmailService
 from app.core.logging import get_logger
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 from app.core.redis import get_redis_pool
+from app.core.slack import SlackService
 from app.workers.job_runtime import MAX_RETRIES, parse_job, push_to_dlq, retry_key
 
 log = get_logger(__name__)
@@ -78,14 +81,15 @@ async def process_account(raw_payload: str) -> None:
 
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
-            # Queue scoring after successful ingestion
-            scoring_payload = json.dumps(
+            # Queue downstream jobs after successful ingestion
+            next_payload = json.dumps(
                 {
                     "org_id": str(account.org_id),
                     "account_id": account_id_str,
                 }
             )
-            await redis.lpush("scoring:queue", scoring_payload)
+            await redis.lpush("scoring:queue", next_payload)
+            await redis.lpush("carbon:queue", next_payload)
 
     except Exception as e:
         attempts = await redis.incr(retry_key(QUEUE_KEY, raw_payload))
@@ -113,14 +117,32 @@ async def process_account(raw_payload: str) -> None:
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
             log.error("ingestion.failed_to_dlq", account_id=account_id_str, error=str(e))
+            subject = "[CauSium][Critical] Ingestion worker failure"
+            body = (
+                "A critical failure occurred in ingestion worker and was moved to DLQ.\n\n"
+                f"account_id: {account_id_str}\n"
+                f"org_id: {str(job.org_id) if job.org_id else 'unknown'}\n"
+                f"error: {str(e)}\n"
+            )
             await EmailService().send_critical_alert(
-                subject="[StratoPulse][Critical] Ingestion worker failure",
-                text_body=(
-                    "A critical failure occurred in ingestion worker and was moved to DLQ.\n\n"
-                    f"account_id: {account_id_str}\n"
-                    f"org_id: {str(job.org_id) if job.org_id else 'unknown'}\n"
-                    f"error: {str(e)}\n"
-                ),
+                subject=subject,
+                text_body=body,
+            )
+            if job.org_id:
+                await NotificationsService(db).create_if_rule_matches(
+                    org_id=job.org_id,
+                    category=AlertCategory.SECURITY,
+                    severity=AlertSeverity.CRITICAL,
+                    event_type="worker.ingestion.dlq_failure",
+                    title="Critical ingestion worker failure",
+                    body=body,
+                    source_type="worker_failure",
+                    source_id=f"ingestion:{account_id_str}:{attempts}",
+                )
+            await SlackService(db).send_critical_alert(
+                org_id=job.org_id,
+                subject=subject,
+                text_body=body,
             )
     finally:
         await redis.delete(lock_key)

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Boxes } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
+import type { ServiceBreakdown } from '../../types'
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -13,9 +14,9 @@ export function EconomicsSkusPage() {
   const [days, setDays] = useState(30)
   const [limit, setLimit] = useState(20)
 
-  const { data: skus = [], isLoading } = useQuery({
+  const { data: skus = [] as ServiceBreakdown[], isLoading } = useQuery({
     queryKey: ['economics-skus', days, limit],
-    queryFn: () => ledgerApi.topSkus(days, limit).then((r) => r.data),
+    queryFn: () => ledgerApi.topServicesPaginated(days, 1, limit).then((r) => r.data.items),
   })
 
   const summary = useMemo(() => {

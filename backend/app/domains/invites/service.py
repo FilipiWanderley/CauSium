@@ -78,9 +78,9 @@ class InviteService:
         accept_url = f"{get_settings().frontend_url}/activate?token={invite.token}"
         await self.email.send_email(
             to_email=req.email,
-            subject="[StratoPulse] Voce foi convidado para um workspace",
+            subject="[CauSium] Voce foi convidado para um workspace",
             text_body=(
-                "Voce recebeu um convite para entrar em um workspace no StratoPulse.\n\n"
+                "Voce recebeu um convite para entrar em um workspace no CauSium.\n\n"
                 f"Funcao: {req.role.value}\n"
                 f"Aceitar convite: {accept_url}\n"
                 f"Expira em: {invite.expires_at.isoformat()}\n"
@@ -132,17 +132,29 @@ class InviteService:
                 "An account with this email already exists.",
             )
 
+        from fastapi import status as http_status
+        from app.domains.invites.schemas import CURRENT_TERMS_VERSION
+
+        if not req.terms_accepted:
+            raise HTTPException(
+                http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Você precisa aceitar os Termos de Uso para ativar o acesso (LGPD Art. 7).",
+            )
+
+        now = datetime.now(timezone.utc)
         user = User(
             org_id=invite.org_id,
             email=invite.invited_email,
             full_name=req.full_name,
             hashed_password=hash_password(req.password),
             role=invite.role,
+            terms_accepted_at=now,
+            terms_version=CURRENT_TERMS_VERSION,
         )
         self.db.add(user)
 
         invite.status = InviteStatus.ACCEPTED
-        invite.accepted_at = datetime.now(timezone.utc)
+        invite.accepted_at = now
         await self.db.flush()
 
         await self.audit_chain.append_event(
@@ -151,7 +163,12 @@ class InviteService:
             event_type="invite.accepted",
             entity_type="workspace_invite",
             entity_id=str(invite.id),
-            payload={"invited_email": invite.invited_email, "role": invite.role.value},
+            payload={
+                "invited_email": invite.invited_email,
+                "role": invite.role.value,
+                "terms_version": CURRENT_TERMS_VERSION,
+                "terms_accepted_at": now.isoformat(),
+            },
         )
         await self.db.refresh(user)
         return user

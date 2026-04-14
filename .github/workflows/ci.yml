@@ -7,6 +7,87 @@ on:
     branches: [main]
 
 jobs:
+  security:
+    name: Security Gates (SAST + SCA + Secrets)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate security baseline
+        run: python scripts/security_baseline.py validate --file .security/security_baseline.json
+
+      - name: Resolve baseline exception IDs
+        id: baseline
+        run: |
+          echo "bandit_ids=$(python scripts/security_baseline.py bandit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+          echo "pip_audit_ids=$(python scripts/security_baseline.py pip-audit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+          echo "npm_audit_ids=$(python scripts/security_baseline.py npm-audit-ids --file .security/security_baseline.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: snok/install-poetry@v1
+        with:
+          version: "1.8.3"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: poetry install
+
+      - name: SAST (Bandit)
+        working-directory: backend
+        run: |
+          poetry run pip install bandit
+          BANDIT_FLAGS="-r app -ll -iii"
+          if [ -n "${{ steps.baseline.outputs.bandit_ids }}" ]; then
+            BANDIT_FLAGS="$BANDIT_FLAGS -s ${{ steps.baseline.outputs.bandit_ids }}"
+          fi
+          poetry run bandit $BANDIT_FLAGS
+
+      - name: SCA (pip-audit)
+        working-directory: backend
+        run: |
+          poetry run pip install pip-audit
+          PIP_AUDIT_ARGS=(--local --strict)
+          if [ -n "${{ steps.baseline.outputs.pip_audit_ids }}" ]; then
+            for vuln in ${{ steps.baseline.outputs.pip_audit_ids }}; do
+              PIP_AUDIT_ARGS+=(--ignore-vuln "$vuln")
+            done
+          fi
+          poetry run pip-audit "${PIP_AUDIT_ARGS[@]}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: SCA (npm audit critical)
+        working-directory: frontend
+        run: |
+          npm audit --audit-level=critical
+          if [ -n "${{ steps.baseline.outputs.npm_audit_ids }}" ]; then
+            echo "Baseline npm_audit_ids configured: ${{ steps.baseline.outputs.npm_audit_ids }}"
+            echo "npm audit exceptions are tracked but not auto-suppressed by npm audit CLI."
+          fi
+
   backend:
     name: Backend (lint + typecheck + tests)
     runs-on: ubuntu-latest
@@ -72,6 +153,21 @@ jobs:
           ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItY2kteA==
         run: poetry run pytest tests/ -v --tb=short
 
+      - name: Perf Smoke (ledger detailed costs)
+        run: poetry run python scripts/benchmark_ledger_costs.py --dry-run --requests 120 --warmup 15 --output-json benchmark_artifacts/ledger_costs_benchmark.json
+
+      - name: Release Smoke (hardening)
+        run: poetry run python scripts/release_smoke.py --dry-run --output-json benchmark_artifacts/release_smoke.json
+
+      - name: Go/No-Go Gate (hardening)
+        run: poetry run python scripts/go_no_go_gate.py --smoke-json benchmark_artifacts/release_smoke.json --perf-json benchmark_artifacts/ledger_costs_benchmark.json --output-json benchmark_artifacts/go_no_go.json
+
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-benchmark-artifacts
+          path: backend/benchmark_artifacts/*.json
+
   frontend:
     name: Frontend (typecheck + build)
     runs-on: ubuntu-latest
@@ -93,5 +189,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Tests
+        run: npm test
+
       - name: Build
         run: npm run build
+
+      - name: SP-A02 Gate (no auth token storage)
+        run: npm run check:auth-token-storage

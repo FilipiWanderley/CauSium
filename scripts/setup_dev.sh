@@ -1,5 +1,5 @@
 #!/bin/bash
-# StratoPulse — local dev setup script
+# CauSium — local dev setup script
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,7 +11,7 @@ echo "==> Starting infra (postgres, redis, clickhouse)"
 docker compose up -d postgres redis clickhouse
 
 echo "==> Waiting for postgres..."
-until docker compose exec postgres pg_isready -U stratopulse 2>/dev/null; do sleep 1; done
+until docker compose exec postgres pg_isready -U causium 2>/dev/null; do sleep 1; done
 
 echo "==> Installing backend dependencies"
 cd "$ROOT/backend"

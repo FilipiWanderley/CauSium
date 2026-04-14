@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -60,3 +60,41 @@ class ConnectorHealth(Base):
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     account: Mapped[CloudAccount] = relationship("CloudAccount", back_populates="health_checks")
+
+
+class BlobIngestionCheckpoint(Base):
+    __tablename__ = "blob_ingestion_checkpoints"
+    __table_args__ = (
+        UniqueConstraint("account_id", "checkpoint_key", name="uq_blob_ingestion_account_checkpoint"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[UUID] = mapped_column(ForeignKey("cloud_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[CloudProvider] = mapped_column(
+        Enum(CloudProvider, values_callable=lambda x: [e.value for e in x]), nullable=False
+    )
+    checkpoint_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    blob_name: Mapped[str] = mapped_column(String(1024), nullable=False)
+    blob_etag: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    records_ingested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AwsCurIngestionCheckpoint(Base):
+    __tablename__ = "aws_cur_ingestion_checkpoints"
+    __table_args__ = (
+        UniqueConstraint("account_id", "checkpoint_key", name="uq_aws_cur_ingestion_account_checkpoint"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[UUID] = mapped_column(ForeignKey("cloud_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[CloudProvider] = mapped_column(
+        Enum(CloudProvider, values_callable=lambda x: [e.value for e in x]), nullable=False
+    )
+    checkpoint_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    object_etag: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    records_ingested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

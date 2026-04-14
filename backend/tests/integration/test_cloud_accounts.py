@@ -1,5 +1,6 @@
 import pytest
 from uuid import UUID
+from unittest.mock import AsyncMock, patch
 
 from app.domains.admin.models import DlqMessage, DlqStatus
 
@@ -133,3 +134,84 @@ async def test_sync_status_respects_workspace_isolation(client, org_a, org_b):
     resp_a = await client.get("/api/v1/cloud-accounts/sync-status", headers=org_a["headers"])
     assert resp_a.status_code == 200
     assert all(item["account_id"] != account_id for item in resp_a.json())
+
+
+@pytest.mark.asyncio
+async def test_create_aws_account_with_credentials(client, auth_headers):
+    with (
+        patch("app.domains.connectors.aws.client.AwsConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.aws.client.AwsConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+    ):
+        resp = await client.post(
+            "/api/v1/cloud-accounts",
+            json={
+                "provider": "aws",
+                "external_id": "123456789012",
+                "display_name": "AWS Payer",
+                "aws_credentials": {
+                    "access_key_id": "AKIA_TEST",
+                    "secret_access_key": "test-secret",
+                    "region": "us-east-1",
+                },
+            },
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 201, resp.text
+    payload = resp.json()
+    assert payload["provider"] == "aws"
+    assert payload["external_id"] == "123456789012"
+
+
+@pytest.mark.asyncio
+async def test_create_gcp_account_with_credentials(client, auth_headers):
+    with (
+        patch("app.domains.connectors.gcp.client.GcpConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.gcp.client.GcpConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+    ):
+        resp = await client.post(
+            "/api/v1/cloud-accounts",
+            json={
+                "provider": "gcp",
+                "external_id": "my-gcp-project",
+                "display_name": "GCP Billing Project",
+                "gcp_credentials": {
+                    "service_account_json": "{}",
+                    "project_id": "my-gcp-project",
+                    "billing_export_table": "billing.gcp_export",
+                },
+            },
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 201, resp.text
+    payload = resp.json()
+    assert payload["provider"] == "gcp"
+    assert payload["external_id"] == "my-gcp-project"
+
+
+@pytest.mark.asyncio
+async def test_create_gcp_account_with_workload_identity(client, auth_headers):
+    with (
+        patch("app.domains.connectors.gcp.client.GcpConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.gcp.client.GcpConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+    ):
+        resp = await client.post(
+            "/api/v1/cloud-accounts",
+            json={
+                "provider": "gcp",
+                "external_id": "my-gcp-project-wi",
+                "display_name": "GCP Workload Identity Project",
+                "gcp_credentials": {
+                    "project_id": "my-gcp-project-wi",
+                    "use_workload_identity": True,
+                    "billing_export_table": "billing.gcp_export",
+                },
+            },
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 201, resp.text
+    payload = resp.json()
+    assert payload["provider"] == "gcp"
+    assert payload["external_id"] == "my-gcp-project-wi"

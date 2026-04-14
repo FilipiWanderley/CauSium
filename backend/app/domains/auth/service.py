@@ -1,8 +1,11 @@
 from __future__ import annotations
 import base64
+import hashlib
+import hmac
 import json
 import re
 import secrets
+import struct
 import time as _time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -20,10 +23,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.email import EmailService
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decrypt_secret_for_org,
+    encrypt_secret_for_org,
+    ensure_workspace_keyring,
+    hash_password,
+    verify_password,
+)
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
 from app.domains.auth.schemas import RegisterRequest, UserCreate
+from app.domains.auth.schemas import UserUpdate
 
 # ---------------------------------------------------------------------------
 # Module-level JWKS cache (avoids a round-trip on every OIDC callback).
@@ -32,16 +44,84 @@ from app.domains.auth.schemas import RegisterRequest, UserCreate
 _JWKS_CACHE: dict = {"data": None, "fetched_at": 0.0}
 
 
+
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.audit_chain = AuditChainService(db)
         self.email = EmailService()
 
+    async def admin_update_user(self, actor: User, target_user_id: UUID, req: UserUpdate) -> User:
+        """Admin edita membro: nome, email, role. Não permite auto-promoção para admin/platform_admin."""
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+        if not self._can_manage(actor, target):
+            raise PermissionError(f"Role '{actor.role.value}' cannot edit a user with role '{target.role.value}'")
+        # Não permite auto-promoção
+        if req.role in [UserRole.ADMIN, UserRole.PLATFORM_ADMIN] and actor.role != UserRole.PLATFORM_ADMIN:
+            raise PermissionError("Only platform_admin can promote to admin/platform_admin")
+        changed = False
+        payload = {}
+        if req.full_name and req.full_name != target.full_name:
+            payload["full_name"] = {"from": target.full_name, "to": req.full_name}
+            target.full_name = req.full_name
+            changed = True
+        if req.email and req.email != target.email:
+            payload["email"] = {"from": target.email, "to": req.email}
+            target.email = req.email
+            changed = True
+        if req.role and req.role != target.role:
+            payload["role"] = {"from": target.role.value, "to": req.role.value}
+            target.role = req.role
+            changed = True
+        if changed:
+            await self.audit_chain.append_event(
+                org_id=target.org_id,
+                actor_user_id=actor.id,
+                event_type="auth.user.updated",
+                entity_type="user",
+                entity_id=str(target.id),
+                payload=payload,
+            )
+            await self.db.flush()
+        return target
+
+    async def admin_delete_user(self, actor: User, target_user_id: UUID, reason: str) -> User:
+        """Admin faz soft-delete: is_active=False, audita motivo."""
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+        if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
+            raise ValueError("User not found")
+        if not self._can_manage(actor, target):
+            raise PermissionError(f"Role '{actor.role.value}' cannot delete a user with role '{target.role.value}'")
+        if not target.is_active:
+            raise ValueError("User is already inactive")
+        target.is_active = False
+        target.passkey_enabled = False
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.user.deleted",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "target_email": target.email,
+                "actor_role": actor.role.value,
+                "reason": reason,
+            },
+        )
+        await self.db.flush()
+        return target
+
     async def register(self, req: RegisterRequest) -> tuple[Organization, User]:
         org = Organization(name=req.org_name, slug=req.org_slug)
         self.db.add(org)
         await self.db.flush()
+        await ensure_workspace_keyring(self.db, org.id)
 
         user = User(
             org_id=org.id,
@@ -68,7 +148,7 @@ class AuthService:
         await self.db.refresh(user)
         return org, user
 
-    async def login(self, email: str, password: str) -> tuple[User, str, str]:
+    async def login(self, email: str, password: str, totp_code: str | None = None) -> tuple[User, str, str]:
         user = await self.get_user_by_email(email)
         if not user or not verify_password(password, user.hashed_password):
             raise ValueError("Invalid credentials")
@@ -77,6 +157,12 @@ class AuthService:
         org = await self.get_org(user.org_id)
         if org and org.passwordless_only:
             raise ValueError("Password login disabled by organization policy (passwordless-only)")
+
+        if user.totp_enabled:
+            if not totp_code:
+                raise ValueError("MFA code required")
+            if not await self._verify_totp_code_for_user(user, totp_code):
+                raise ValueError("Invalid MFA code")
 
         user.last_login = datetime.now(timezone.utc)
         await self.audit_chain.append_event(
@@ -91,16 +177,194 @@ class AuthService:
         refresh = create_refresh_token(str(user.id))
         return user, access, refresh
 
+    @staticmethod
+    def _generate_totp_secret() -> str:
+        # 20-byte secret is standard for TOTP (RFC 6238), base32 encoded.
+        return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+    @staticmethod
+    def _normalize_totp_code(code: str) -> str:
+        return re.sub(r"\s+", "", code or "")
+
+    @staticmethod
+    def _totp_at(secret_b32: str, ts: int, step_seconds: int = 30, digits: int = 6) -> str:
+        key = base64.b32decode(secret_b32 + ("=" * (-len(secret_b32) % 8)), casefold=True)
+        counter = int(ts // step_seconds)
+        msg = struct.pack(">Q", counter)
+        digest = hmac.new(key, msg, hashlib.sha1).digest()
+        offset = digest[-1] & 0x0F
+        dbc = struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF
+        otp = dbc % (10 ** digits)
+        return f"{otp:0{digits}d}"
+
+    def _verify_totp_secret(self, secret_b32: str, code: str, window: int = 1) -> bool:
+        normalized = self._normalize_totp_code(code)
+        if not normalized.isdigit() or len(normalized) < 6:
+            return False
+
+        now = int(_time.time())
+        for drift in range(-window, window + 1):
+            if self._totp_at(secret_b32, now + (drift * 30)) == normalized:
+                return True
+        return False
+
+    async def _verify_totp_code_for_user(self, user: User, code: str) -> bool:
+        if not user.totp_secret_encrypted:
+            return False
+        secret = await decrypt_secret_for_org(self.db, user.org_id, user.totp_secret_encrypted)
+        return self._verify_totp_secret(secret, code)
+
+    async def begin_totp_setup(self, user: User) -> tuple[str, str]:
+        secret = self._generate_totp_secret()
+        user.totp_secret_encrypted = await encrypt_secret_for_org(self.db, user.org_id, secret)
+        user.totp_enabled = False
+        user.totp_verified_at = None
+
+        issuer = get_settings().passkey_rp_name or "CauSium"
+        label = f"{issuer}:{user.email}"
+        otpauth = f"otpauth://totp/{label}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits=6&period=30"
+
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.setup_started",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        return secret, otpauth
+
+    async def verify_totp_code(self, user: User, code: str) -> bool:
+        if not user.totp_secret_encrypted:
+            return False
+        return await self._verify_totp_code_for_user(user, code)
+
+    # ------------------------------------------------------------------
+    # TOTP backup codes
+    # ------------------------------------------------------------------
+
+    _BACKUP_CODE_COUNT = 8
+    _BACKUP_CODE_BYTES = 5  # 10 hex chars per code
+
+    def _hash_backup_code(self, code: str) -> str:
+        import hashlib
+        return hashlib.sha256(code.encode()).hexdigest()
+
+    async def _clear_backup_codes(self, user_id: UUID) -> None:
+        from sqlalchemy import delete as sa_delete
+        from app.domains.auth.models import TotpBackupCode
+        await self.db.execute(sa_delete(TotpBackupCode).where(TotpBackupCode.user_id == user_id))
+
+    async def generate_backup_codes(self, user: User) -> list[str]:
+        """Generate new backup codes, invalidating any existing ones. Returns plaintext codes."""
+        import secrets
+        from app.domains.auth.models import TotpBackupCode
+
+        await self._clear_backup_codes(user.id)
+        plaintext_codes = []
+        for _ in range(self._BACKUP_CODE_COUNT):
+            raw = secrets.token_hex(self._BACKUP_CODE_BYTES)  # 10-char hex
+            formatted = f"{raw[:5]}-{raw[5:]}"  # e.g. "a3f2c-9b1e0"
+            plaintext_codes.append(formatted)
+            self.db.add(TotpBackupCode(
+                user_id=user.id,
+                org_id=user.org_id,
+                code_hash=self._hash_backup_code(raw),  # store without dash
+            ))
+        await self.db.flush()
+        return plaintext_codes
+
+    async def backup_codes_remaining(self, user: User) -> int:
+        from sqlalchemy import func as sa_func
+        from app.domains.auth.models import TotpBackupCode
+        result = await self.db.execute(
+            select(sa_func.count()).select_from(TotpBackupCode).where(
+                TotpBackupCode.user_id == user.id,
+                TotpBackupCode.used_at.is_(None),
+            )
+        )
+        return result.scalar_one()
+
+    async def use_backup_code(self, user: User, code: str) -> bool:
+        """Consume a backup code. Returns True if valid and unused, False otherwise."""
+        from app.domains.auth.models import TotpBackupCode
+        normalized = code.replace("-", "").strip().lower()
+        code_hash = self._hash_backup_code(normalized)
+        result = await self.db.execute(
+            select(TotpBackupCode).where(
+                TotpBackupCode.user_id == user.id,
+                TotpBackupCode.code_hash == code_hash,
+                TotpBackupCode.used_at.is_(None),
+            )
+        )
+        backup = result.scalar_one_or_none()
+        if backup is None:
+            return False
+        backup.used_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        return True
+
+    async def enable_totp(self, user: User, code: str) -> tuple[User, list[str]]:
+        """Enable TOTP and generate backup codes. Returns (user, plaintext_backup_codes)."""
+        if not user.totp_secret_encrypted:
+            raise ValueError("TOTP setup not initialized")
+        if not await self._verify_totp_code_for_user(user, code):
+            raise ValueError("Invalid MFA code")
+
+        user.totp_enabled = True
+        user.totp_verified_at = datetime.now(timezone.utc)
+        backup_codes = await self.generate_backup_codes(user)
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.enabled",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user, backup_codes
+
+    async def disable_totp(self, user: User, code: str) -> User:
+        if not user.totp_enabled:
+            raise ValueError("TOTP is not enabled")
+        if not await self._verify_totp_code_for_user(user, code):
+            raise ValueError("Invalid MFA code")
+
+        user.totp_enabled = False
+        user.totp_secret_encrypted = None
+        user.totp_verified_at = None
+        await self.audit_chain.append_event(
+            org_id=user.org_id,
+            actor_user_id=user.id,
+            event_type="auth.mfa.totp.disabled",
+            entity_type="user",
+            entity_id=str(user.id),
+            payload={"email": user.email},
+        )
+        await self.db.flush()
+        await self.db.refresh(user)
+        return user
+
     async def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         from app.core.security import decode_token
+        from app.domains.auth.token_blacklist import is_token_revoked
+        import datetime
 
         payload = decode_token(refresh_token)
         if payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token")
 
-        user = await self.get_user_by_id(UUID(payload["sub"]))
+        user_id = UUID(payload["sub"])
+        user = await self.get_user_by_id(user_id)
         if not user or not user.is_active:
             raise ValueError("User not found or inactive")
+
+        issued_at = datetime.datetime.fromtimestamp(payload["iat"], tz=datetime.timezone.utc) if "iat" in payload else None
+        if issued_at and await is_token_revoked(self.db, user_id, issued_at):
+            raise ValueError("Session revoked. Please login again.")
 
         access = create_access_token(str(user.id), {"org_id": str(user.org_id), "role": user.role})
         new_refresh = create_refresh_token(str(user.id))
@@ -144,9 +408,98 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
-    async def list_org_users(self, org_id: UUID) -> list[User]:
-        result = await self.db.execute(select(User).where(User.org_id == org_id))
-        return list(result.scalars().all())
+    async def list_org_users(
+        self, org_id: UUID, limit: int = 50, offset: int = 0
+    ) -> tuple[list[User], int]:
+        total_result = await self.db.execute(
+            select(func.count()).select_from(User).where(User.org_id == org_id)
+        )
+        total = total_result.scalar_one()
+        result = await self.db.execute(
+            select(User).where(User.org_id == org_id).order_by(User.created_at).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
+
+    async def export_user_data(self, user: User) -> dict:
+        """LGPD Art. 18 — exporta dados pessoais do titular em formato legível."""
+        from sqlalchemy import select as sa_select
+        from app.domains.auth.models import PasskeyCredential
+
+        passkeys_result = await self.db.execute(
+            sa_select(PasskeyCredential).where(PasskeyCredential.user_id == user.id)
+        )
+        passkeys = passkeys_result.scalars().all()
+
+        return {
+            "exported_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "profile": {
+                "id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+            },
+            "mfa": {
+                "totp_enabled": user.totp_enabled,
+                "totp_verified_at": user.totp_verified_at.isoformat() if user.totp_verified_at else None,
+            },
+            "passkeys": [
+                {
+                    "id": str(pk.id),
+                    "created_at": pk.created_at.isoformat() if pk.created_at else None,
+                    "last_used_at": pk.last_used_at.isoformat() if pk.last_used_at else None,
+                    "transports": pk.transports,
+                }
+                for pk in passkeys
+            ],
+        }
+
+    async def lgpd_purge_user(self, actor: User, target_user_id: UUID) -> None:
+        """LGPD Art. 18 VI — anonimiza e remove dados pessoais do titular (direito ao esquecimento).
+        Só o próprio usuário ou um admin/platform_admin pode solicitar."""
+        from sqlalchemy import delete as sa_delete
+        from app.domains.auth.models import PasskeyCredential
+        from app.domains.auth.token_blacklist import RevokedToken
+        from app.core.security import get_password_hash
+        import secrets
+
+        target = await self.get_user_by_id(target_user_id)
+        if target is None:
+            raise ValueError("User not found")
+
+        is_self = actor.id == target.id
+        if not is_self and not self._can_manage(actor, target):
+            raise PermissionError("Insufficient permission to purge this user's data")
+
+        # Anonimizar dados pessoais
+        anon_id = str(target.id)[:8]
+        target.email = f"deleted_{anon_id}@deleted.invalid"
+        target.full_name = "[Deleted]"
+        target.hashed_password = get_password_hash(secrets.token_urlsafe(32))
+        target.totp_secret_encrypted = None
+        target.totp_enabled = False
+        target.totp_verified_at = None
+        target.passkey_enabled = False
+        target.is_active = False
+
+        # Remover credenciais relacionadas
+        await self.db.execute(sa_delete(PasskeyCredential).where(PasskeyCredential.user_id == target.id))
+        await self.db.execute(sa_delete(RevokedToken).where(RevokedToken.user_id == target.id))
+
+        await self.audit_chain.append_event(
+            org_id=target.org_id,
+            actor_user_id=actor.id,
+            event_type="auth.user.lgpd_purge",
+            entity_type="user",
+            entity_id=str(target.id),
+            payload={
+                "actor_role": actor.role.value,
+                "self_requested": is_self,
+            },
+        )
+        await self.db.flush()
 
     async def get_org_name(self, org_id: UUID) -> str:
         org = await self.get_org(org_id)
@@ -281,7 +634,7 @@ class AuthService:
         login_url = f"{get_settings().frontend_url}/login"
         await self.email.send_email(
             to_email=target.email,
-            subject="[StratoPulse] Sua senha foi redefinida pelo administrador",
+            subject="[CauSium] Sua senha foi redefinida pelo administrador",
             text_body=(
                 "Sua senha foi redefinida por um administrador do workspace.\n\n"
                 f"Senha temporaria: {temp_password}\n"
@@ -295,7 +648,7 @@ class AuthService:
 
     async def admin_reset_mfa(
         self, actor: User, target_user_id: UUID
-    ) -> tuple[User, int]:
+    ) -> tuple[User, int, bool]:
         """SP-U02: Admin resets target user's MFA credentials.
 
         In the passkey-first implementation this revokes all passkeys for the
@@ -323,6 +676,10 @@ class AuthService:
             await self.db.delete(passkey)
 
         target.passkey_enabled = False
+        totp_disabled = bool(target.totp_enabled or target.totp_secret_encrypted)
+        target.totp_enabled = False
+        target.totp_secret_encrypted = None
+        target.totp_verified_at = None
 
         await self.audit_chain.append_event(
             org_id=target.org_id,
@@ -335,12 +692,13 @@ class AuthService:
                 "actor_role": actor.role.value,
                 "target_role": target.role.value,
                 "revoked_passkeys": revoked_count,
+                "totp_disabled": totp_disabled,
             },
         )
 
         await self.db.flush()
         await self.db.refresh(target)
-        return target, revoked_count
+        return target, revoked_count, totp_disabled
 
     async def admin_deactivate_user(
         self,
@@ -1084,9 +1442,9 @@ class AuthService:
         reset_url = f"{get_settings().frontend_url}/reset-password?token={token}"
         await self.email.send_email(
             to_email=user.email,
-            subject="[StratoPulse] Password reset",
+            subject="[CauSium] Password reset",
             text_body=(
-                "You requested a password reset for your StratoPulse account.\n\n"
+                "You requested a password reset for your CauSium account.\n\n"
                 f"Reset link: {reset_url}\n"
                 "This link expires in 1 hour.\n"
                 "If you did not request this, you can ignore this email.\n"

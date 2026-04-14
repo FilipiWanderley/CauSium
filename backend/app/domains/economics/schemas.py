@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 import json
 from datetime import datetime
 from typing import Optional
@@ -7,7 +8,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.domains.economics.models import FinancialBudgetPeriod
+from app.domains.economics.models import (
+    EconomicsReportType,
+    FinancialBudgetPeriod,
+    ReportExportFormat,
+    ReportExportStatus,
+)
 
 
 class WorkspaceBudgetUpsert(BaseModel):
@@ -82,3 +88,42 @@ class WorkspaceBudgetOut(BaseModel):
         elif isinstance(data, dict) and isinstance(data.get("alert_thresholds"), str):
             data = {**data, "alert_thresholds": json.loads(data["alert_thresholds"])}
         return data
+
+
+class ReportExportCreate(BaseModel):
+    """Payload for POST /economics/reports/export."""
+
+    report_type: EconomicsReportType = EconomicsReportType.SUMMARY
+    file_format: ReportExportFormat = ReportExportFormat.CSV
+    window_days: int = Field(
+        default=30,
+        ge=1,
+        le=366,
+        description="Rolling report window in days.",
+    )
+    filters: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Optional filter bag to be applied when the async export is generated.",
+    )
+
+
+class ReportExportJobOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: UUID
+    org_id: UUID
+    requested_by_user_id: UUID
+    report_type: EconomicsReportType
+    file_format: ReportExportFormat
+    status: ReportExportStatus
+    window_days: int
+    filters: Optional[dict[str, Any]]
+    file_name: Optional[str]
+    content_type: Optional[str]
+    error_message: Optional[str]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    download_ready: bool = False
+    created_at: datetime
+    updated_at: datetime

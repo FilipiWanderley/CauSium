@@ -15,6 +15,7 @@ import {
   Bell,
   Leaf,
   Landmark,
+  Siren,
   Receipt,
   Boxes,
   FileSpreadsheet,
@@ -58,7 +59,7 @@ export function Sidebar() {
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
         <Cloud className="h-6 w-6 text-brand-500" />
-        <span className="font-bold text-lg tracking-tight">StratoPulse</span>
+        <span className="font-bold text-lg tracking-tight">CauSium</span>
       </div>
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {CORE_NAV.map(({ to, icon: Icon, label, soon }) => (
@@ -191,6 +192,20 @@ export function Sidebar() {
             >
               <RefreshCw className="h-4 w-4" />
               Platform Sync
+            </NavLink>
+            <NavLink
+              to="/app/platform/slo"
+              className={({ isActive }) =>
+                clsx(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )
+              }
+            >
+              <Siren className="h-4 w-4" />
+              Platform SLO
             </NavLink>
           </>
         )}

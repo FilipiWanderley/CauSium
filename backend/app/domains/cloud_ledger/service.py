@@ -1,7 +1,9 @@
 from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
+from time import perf_counter
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clickhouse import execute_query, insert_rows
@@ -12,6 +14,7 @@ from app.domains.cloud_ledger.schemas import (
     CostSummary,
     CostTrend,
     DashboardMetrics,
+    DetailedCostRow,
     IngestResult,
     ServiceBreakdown,
 )
@@ -26,7 +29,11 @@ class CloudLedgerService:
     async def ingest_account(
         self, org_id: UUID, account_id: UUID, start: date, end: date
     ) -> IngestResult:
+        from app.domains.cloud_accounts.models import CloudProvider
+        from app.domains.connectors.aws.client import AwsConnectorClient
         from app.domains.connectors.azure.client import AzureConnectorClient
+        from app.domains.connectors.factory import get_connector_for_account
+        from app.domains.cloud_accounts.models import AwsCurIngestionCheckpoint, BlobIngestionCheckpoint
 
         account_service = CloudAccountService(self.db)
         account = await account_service.get_account(org_id, account_id)
@@ -34,14 +41,48 @@ class CloudLedgerService:
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message="Account not found")
 
         creds = await account_service.get_azure_credentials(account)
-        client = AzureConnectorClient.from_account(account, creds)
+        if account.provider == CloudProvider.AWS:
+            creds = await account_service.get_aws_credentials(account)
+        if account.provider == CloudProvider.GCP:
+            creds = await account_service.get_gcp_credentials(account)
+        client = get_connector_for_account(account, creds)
 
         try:
-            costs = await client.fetch_costs(account.external_id, start, end)
+            checkpoint_keys: set[str] | None = None
+            aws_checkpoint_keys: set[str] | None = None
+            if isinstance(client, AzureConnectorClient):
+                checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
+            if isinstance(client, AwsConnectorClient):
+                aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
+
+            if isinstance(client, AzureConnectorClient):
+                costs = await client.fetch_costs(
+                    account.external_id,
+                    start,
+                    end,
+                    checkpoint_keys=checkpoint_keys,
+                )
+            elif isinstance(client, AwsConnectorClient):
+                costs = await client.fetch_costs(
+                    account.external_id,
+                    start,
+                    end,
+                    checkpoint_keys=aws_checkpoint_keys,
+                )
+            else:
+                costs = await client.fetch_costs(account.external_id, start, end)
+
             events = await client.fetch_events(account.external_id, start, end)
         except Exception as e:
             log.error("ledger.ingest.failed", account_id=str(account_id), error=str(e))
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
+
+        blob_checkpoints: list[dict[str, str]] = []
+        aws_cur_checkpoints: list[dict[str, str]] = []
+        if isinstance(client, AzureConnectorClient):
+            blob_checkpoints = client.consume_last_blob_checkpoints()
+        if isinstance(client, AwsConnectorClient):
+            aws_cur_checkpoints = client.consume_last_cur_checkpoints()
 
         # Write costs to ClickHouse
         cost_rows = [
@@ -70,6 +111,13 @@ class CloudLedgerService:
                 insert_rows("cost_facts", cost_rows)
             except Exception as e:
                 log.warning("ledger.clickhouse.cost_insert_failed", error=str(e))
+                return IngestResult(
+                    account_id=account_id,
+                    cost_records=0,
+                    event_records=0,
+                    status="error",
+                    message=f"Cost insert failed: {e}",
+                )
 
         # Write events
         event_rows = [
@@ -97,6 +145,44 @@ class CloudLedgerService:
             except Exception as e:
                 log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
 
+        if blob_checkpoints:
+            existing_keys = await self._get_blob_checkpoint_keys(account_id)
+            for item in blob_checkpoints:
+                key = item.get("checkpoint_key", "")
+                if not key or key in existing_keys:
+                    continue
+                self.db.add(
+                    BlobIngestionCheckpoint(
+                        org_id=org_id,
+                        account_id=account_id,
+                        provider=account.provider,
+                        checkpoint_key=key,
+                        blob_name=item.get("blob_name", ""),
+                        blob_etag=item.get("blob_etag") or None,
+                        records_ingested=len(cost_rows),
+                    )
+                )
+                existing_keys.add(key)
+
+        if aws_cur_checkpoints:
+            existing_keys = await self._get_aws_cur_checkpoint_keys(account_id)
+            for item in aws_cur_checkpoints:
+                key = item.get("checkpoint_key", "")
+                if not key or key in existing_keys:
+                    continue
+                self.db.add(
+                    AwsCurIngestionCheckpoint(
+                        org_id=org_id,
+                        account_id=account_id,
+                        provider=account.provider,
+                        checkpoint_key=key,
+                        object_key=item.get("object_key", ""),
+                        object_etag=item.get("object_etag") or None,
+                        records_ingested=len(cost_rows),
+                    )
+                )
+                existing_keys.add(key)
+
         # Update last sync
         account.last_sync_at = datetime.now(timezone.utc)
         await self.db.flush()
@@ -108,6 +194,71 @@ class CloudLedgerService:
             event_records=len(events),
             status="ok",
         )
+
+    async def ingest_carbon_account(
+        self,
+        org_id: UUID,
+        account_id: UUID,
+        start: date,
+        end: date,
+    ) -> int:
+        from app.domains.cloud_accounts.models import CloudProvider
+        from app.domains.connectors.factory import get_connector_for_account
+
+        account_service = CloudAccountService(self.db)
+        account = await account_service.get_account(org_id, account_id)
+        if not account:
+            raise ValueError("Account not found")
+
+        creds = await account_service.get_azure_credentials(account)
+        if account.provider == CloudProvider.AWS:
+            creds = await account_service.get_aws_credentials(account)
+        if account.provider == CloudProvider.GCP:
+            creds = await account_service.get_gcp_credentials(account)
+        client = get_connector_for_account(account, creds)
+
+        carbon = await client.fetch_carbon_emissions(account.external_id, start, end)
+        carbon_rows = [
+            {
+                "year_month": r.year_month,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "service": r.service,
+                "resource_group": r.resource_group,
+                "kg_co2e": r.kg_co2e,
+            }
+            for r in carbon
+        ]
+
+        if carbon_rows:
+            insert_rows("carbon_facts", carbon_rows)
+
+        account.last_sync_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        log.info("ledger.carbon_ingest.done", account_id=str(account_id), carbon_records=len(carbon_rows))
+        return len(carbon_rows)
+
+    async def _get_blob_checkpoint_keys(self, account_id: UUID) -> set[str]:
+        from app.domains.cloud_accounts.models import BlobIngestionCheckpoint
+
+        result = await self.db.execute(
+            select(BlobIngestionCheckpoint.checkpoint_key).where(
+                BlobIngestionCheckpoint.account_id == account_id
+            )
+        )
+        return {row[0] for row in result.all()}
+
+    async def _get_aws_cur_checkpoint_keys(self, account_id: UUID) -> set[str]:
+        from app.domains.cloud_accounts.models import AwsCurIngestionCheckpoint
+
+        result = await self.db.execute(
+            select(AwsCurIngestionCheckpoint.checkpoint_key).where(
+                AwsCurIngestionCheckpoint.account_id == account_id
+            )
+        )
+        return {row[0] for row in result.all()}
 
     def get_cost_trend(self, org_id: UUID, days: int = 30) -> list[CostTrend]:
         end = date.today()
@@ -130,10 +281,140 @@ class CloudLedgerService:
             log.warning("ledger.cost_trend.failed", error=str(e))
             return []
 
-    def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10) -> list[ServiceBreakdown]:
+    def get_detailed_costs(
+        self,
+        org_id: UUID,
+        *,
+        days: int = 30,
+        service: str | None = None,
+        provider: str | None = None,
+        owner_team: str | None = None,
+        environment: str | None = None,
+        region: str | None = None,
+        resource_id: str | None = None,
+        resource_name: str | None = None,
+        account_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[DetailedCostRow], int]:
+        end = date.today()
+        start = end - timedelta(days=days)
+
+        where_parts = [
+            "org_id = {org_id:String}",
+            "date >= {start:Date}",
+            "date <= {end:Date}",
+        ]
+        params: dict[str, object] = {
+            "org_id": str(org_id),
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "offset": offset,
+        }
+
+        filters = {
+            "service": service,
+            "provider": provider,
+            "owner_team": owner_team,
+            "environment": environment,
+            "region": region,
+            "resource_id": resource_id,
+            "resource_name": resource_name,
+            "account_id": account_id,
+        }
+        for field_name, field_value in filters.items():
+            if field_value:
+                where_parts.append(f"{field_name} = {{{field_name}:String}}")
+                params[field_name] = field_value
+
+        where_clause = " AND ".join(where_parts)
+
+        try:
+            count_start = perf_counter()
+            count_rows = execute_query(
+                f"""
+                SELECT count() AS total
+                FROM cost_facts
+                PREWHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                {f"WHERE {' AND '.join(where_parts[3:])}" if len(where_parts) > 3 else ""}
+                """,
+                params,
+            )
+            total = int(count_rows[0]["total"]) if count_rows else 0
+            count_ms = round((perf_counter() - count_start) * 1000, 2)
+
+            data_start = perf_counter()
+            rows = execute_query(
+                f"""
+                SELECT
+                    date,
+                    account_id,
+                    provider,
+                    subscription_id,
+                    service,
+                    resource_id,
+                    resource_name,
+                    region,
+                    environment,
+                    owner_team,
+                    cost_usd,
+                    usage_quantity,
+                    usage_unit,
+                    currency
+                FROM cost_facts
+                PREWHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                {f"WHERE {' AND '.join(where_parts[3:])}" if len(where_parts) > 3 else ""}
+                ORDER BY date DESC, cost_usd DESC, resource_id ASC
+                LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
+                """,
+                params,
+            )
+            data_ms = round((perf_counter() - data_start) * 1000, 2)
+
+            log.info(
+                "ledger.detailed_costs.query",
+                org_id=str(org_id),
+                days=days,
+                filters={k: v for k, v in filters.items() if v},
+                page_size=limit,
+                offset=offset,
+                total=total,
+                rows=len(rows),
+                count_ms=count_ms,
+                data_ms=data_ms,
+            )
+
+            return (
+                [DetailedCostRow(**row) for row in rows],
+                total,
+            )
+        except Exception as exc:
+            log.warning("ledger.detailed_costs.failed", error=str(exc))
+            return [], 0
+
+    def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         try:
+            # Total count
+            total_rows = execute_query(
+                """
+                SELECT count(DISTINCT service) as total
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= {start:Date}
+                  AND date <= {end:Date}
+                """,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+            total = int(total_rows[0]["total"]) if total_rows else 0
+
+            # Paged items
             rows = execute_query(
                 """
                 SELECT service, sum(cost_usd) as cost_usd
@@ -143,27 +424,42 @@ class CloudLedgerService:
                   AND date <= {end:Date}
                 GROUP BY service
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32}
+                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit},
+                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
             )
-            total = sum(r["cost_usd"] for r in rows) or 1
-            return [
+            cost_total = sum(r["cost_usd"] for r in rows) or 1
+            items = [
                 ServiceBreakdown(
                     service=r["service"],
                     cost_usd=r["cost_usd"],
-                    percentage=round(r["cost_usd"] / total * 100, 1),
+                    percentage=round(r["cost_usd"] / cost_total * 100, 1),
                 )
                 for r in rows
             ]
+            return items, total
         except Exception as e:
             log.warning("ledger.top_services.failed", error=str(e))
-            return []
+            return [], 0
 
-    def get_top_teams(self, org_id: UUID, days: int = 30, limit: int = 10) -> list[ServiceBreakdown]:
+    def get_top_teams(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         try:
+            # Total count
+            total_rows = execute_query(
+                """
+                SELECT count(DISTINCT owner_team) as total
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= {start:Date}
+                  AND date <= {end:Date}
+                """,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+            total = int(total_rows[0]["total"]) if total_rows else 0
+
+            # Paged items
             rows = execute_query(
                 """
                 SELECT owner_team as service, sum(cost_usd) as cost_usd
@@ -173,22 +469,23 @@ class CloudLedgerService:
                   AND date <= {end:Date}
                 GROUP BY owner_team
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32}
+                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit},
+                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
             )
-            total = sum(r["cost_usd"] for r in rows) or 1
-            return [
+            cost_total = sum(r["cost_usd"] for r in rows) or 1
+            items = [
                 ServiceBreakdown(
                     service=r["service"],
                     cost_usd=r["cost_usd"],
-                    percentage=round(r["cost_usd"] / total * 100, 1),
+                    percentage=round(r["cost_usd"] / cost_total * 100, 1),
                 )
                 for r in rows
             ]
+            return items, total
         except Exception as e:
             log.warning("ledger.top_teams.failed", error=str(e))
-            return []
+            return [], 0
 
     def get_month_cost(self, org_id: UUID, year: int, month: int) -> float:
         try:

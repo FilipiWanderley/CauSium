@@ -2,12 +2,15 @@ from __future__ import annotations
 from typing import Annotated, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.policy import authorize_experiment_action
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, get_session_context
+from app.core.idempotency import build_fingerprint, build_scope_key, prepare_request, store_response
+from app.core.redis import get_redis_pool
 from app.core.schemas import Page, PageParams
 from app.domains.experiments.models import ExperimentStatus
 from app.domains.experiments.schemas import (
@@ -69,12 +72,50 @@ async def _evaluate_and_record_policy(
 @router.post("", response_model=ExperimentOut, status_code=status.HTTP_201_CREATED)
 async def create_experiment(
     req: ExperimentCreate,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(get_current_user),
 ):
+    redis = get_redis_pool()
+    scope_key = None
+    if idempotency_key:
+        scope_key = build_scope_key(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            operation="experiments.create",
+            resource_id=None,
+            idempotency_key=idempotency_key,
+        )
+        state, cached = await prepare_request(
+            redis,
+            scope_key=scope_key,
+            fingerprint=build_fingerprint(request.method, request.url.path, await request.body()),
+        )
+        if state == "replay" and cached is not None:
+            return JSONResponse(status_code=cached["status_code"], content=cached["payload"])
+        if state == "conflict":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency-Key already used with a different request payload",
+            )
+        if state == "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Request with this Idempotency-Key is still being processed",
+            )
+
     svc = ExperimentService(db)
     exp = await svc.create(current_user.org_id, current_user.id, req)
-    return ExperimentOut.model_validate(exp)
+    out = ExperimentOut.model_validate(exp)
+    if scope_key:
+        await store_response(
+            redis,
+            scope_key=scope_key,
+            status_code=status.HTTP_201_CREATED,
+            payload=out.model_dump(mode="json"),
+        )
+    return out
 
 
 @router.get("/summary", response_model=ExperimentSummary)
@@ -250,11 +291,41 @@ async def update_run(
 async def approve_experiment(
     experiment_id: UUID,
     req: ExperimentApprovalCreate,
+    request: Request,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(get_current_user),
     session=Depends(get_session_context),
 ):
+    redis = get_redis_pool()
+    scope_key = None
+    if idempotency_key:
+        scope_key = build_scope_key(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            operation="experiments.approve",
+            resource_id=experiment_id,
+            idempotency_key=idempotency_key,
+        )
+        state, cached = await prepare_request(
+            redis,
+            scope_key=scope_key,
+            fingerprint=build_fingerprint(request.method, request.url.path, await request.body()),
+        )
+        if state == "replay" and cached is not None:
+            return JSONResponse(status_code=cached["status_code"], content=cached["payload"])
+        if state == "conflict":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency-Key already used with a different request payload",
+            )
+        if state == "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Request with this Idempotency-Key is still being processed",
+            )
+
     svc = ExperimentService(db)
     exp = await svc.get(current_user.org_id, experiment_id)
     if not exp:
@@ -273,7 +344,15 @@ async def approve_experiment(
         approval = await svc.create_approval(current_user.org_id, experiment_id, current_user.id, req)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    return ExperimentApprovalOut.model_validate(approval)
+    out = ExperimentApprovalOut.model_validate(approval)
+    if scope_key:
+        await store_response(
+            redis,
+            scope_key=scope_key,
+            status_code=status.HTTP_201_CREATED,
+            payload=out.model_dump(mode="json"),
+        )
+    return out
 
 
 @router.get("/{experiment_id}/approvals", response_model=List[ExperimentApprovalOut])

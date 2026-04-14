@@ -1,6 +1,6 @@
 # Wave 0 - P0 Checklist (Semanas 1-3)
 
-Objetivo: fechar lacunas críticas de segurança, isolamento e operação para habilitar trilho de produção do StratoPulse.
+Objetivo: fechar lacunas críticas de segurança, isolamento e operação para habilitar trilho de produção do CauSium.
 
 ## Segurança e sessão
 

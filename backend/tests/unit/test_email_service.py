@@ -56,3 +56,32 @@ async def test_critical_alert_without_recipients(monkeypatch):
     )
 
     assert sent == 0
+
+
+@pytest.mark.asyncio
+async def test_critical_alert_uses_product_template(monkeypatch):
+    service = EmailService()
+    monkeypatch.setattr(service.settings, "smtp_alert_to", "ops@example.com")
+
+    sent_payload = {}
+
+    async def _fake_send_email(*, to_email: str, subject: str, text_body: str, html_body: str | None = None):
+        sent_payload["to_email"] = to_email
+        sent_payload["subject"] = subject
+        sent_payload["text_body"] = text_body
+        sent_payload["html_body"] = html_body
+        return True
+
+    monkeypatch.setattr(service, "send_email", _fake_send_email)
+
+    sent = await service.send_critical_alert(
+        subject="[CauSium][Critical] Worker failure",
+        text_body="error: boom",
+    )
+
+    assert sent == 1
+    assert sent_payload["to_email"] == "ops@example.com"
+    assert "CauSium - Alerta Critico" in sent_payload["text_body"]
+    assert "Acoes recomendadas:" in sent_payload["text_body"]
+    assert sent_payload["html_body"] is not None
+    assert "<ol" in sent_payload["html_body"]

@@ -57,3 +57,59 @@ class DlqRequeueResponse(BaseModel):
     dlq_id: UUID
     queue_name: str
     requeued: bool
+
+
+class SloTargetsOut(BaseModel):
+    api_error_budget_pct: float
+    api_p95_latency_ms: float
+
+
+class SloGlobalOut(BaseModel):
+    requests_total: int
+    errors_5xx_total: int
+    api_error_rate_pct: float
+    api_success_rate_pct: float
+    error_budget_burn_rate: float
+
+
+class SloApiPathOut(BaseModel):
+    path: str
+    requests: int
+    errors_5xx: int
+    error_rate_pct: float
+    avg_latency_ms: float
+    p95_latency_ms: float
+    max_latency_ms: float
+
+
+class SloWorkerOut(BaseModel):
+    worker: str
+    success: int
+    retry: int
+    failed: int
+    locked: int
+    total: int
+    error_rate_pct: float
+
+
+class SloWorkerLifecycleOut(BaseModel):
+    worker: str
+    event: str
+    count: int
+
+
+class SloAlertOut(BaseModel):
+    scope: str
+    severity: str
+    title: str
+    detail: str
+    recommended_action: str
+
+
+class SloOverviewOut(BaseModel):
+    targets: SloTargetsOut
+    global_sli: SloGlobalOut
+    api_paths: list[SloApiPathOut]
+    workers: list[SloWorkerOut]
+    worker_lifecycle: list[SloWorkerLifecycleOut]
+    alerts: list[SloAlertOut]

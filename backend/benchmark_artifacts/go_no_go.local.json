@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-04-12T01:15:53.343103+00:00",
+  "decision": "GO",
+  "dry_run": true,
+  "checks": [
+    {
+      "name": "release_smoke_failed_zero",
+      "ok": true,
+      "detail": "failed=0"
+    },
+    {
+      "name": "perf_p95_within_target",
+      "ok": true,
+      "detail": "p95_ms=109.64 target=500.0"
+    },
+    {
+      "name": "perf_all_requests_success",
+      "ok": true,
+      "detail": "total=30 success=30 non_success=0"
+    }
+  ],
+  "inputs": {
+    "max_p95_ms": 500.0,
+    "required_success_status": 200
+  }
+}

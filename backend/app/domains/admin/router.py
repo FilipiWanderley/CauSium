@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_platform_admin
+from app.core.observability import build_sli_slo_snapshot
 from app.core.schemas import Page, PageParams
 from app.domains.admin.schemas import (
     AdminForceLifecycle,
@@ -15,6 +16,7 @@ from app.domains.admin.schemas import (
     AdminUserItem,
     DlqMessageOut,
     DlqRequeueResponse,
+    SloOverviewOut,
 )
 from app.domains.auth.models import WorkspaceLifecycleState
 from app.domains.admin.service import PlatformAdminService
@@ -127,3 +129,12 @@ async def requeue_dlq_message(
     msg = await service.requeue_dlq(dlq_id)
     await db.commit()
     return DlqRequeueResponse(dlq_id=msg.id, queue_name=msg.queue_name, requeued=True)
+
+
+@router.get("/observability/slo", response_model=SloOverviewOut)
+async def get_slo_overview(
+    current_user=Depends(require_platform_admin),
+) -> SloOverviewOut:
+    _ = current_user
+    snapshot = build_sli_slo_snapshot(error_budget_pct=1.0, api_p95_ms_target=500.0)
+    return SloOverviewOut(**snapshot)

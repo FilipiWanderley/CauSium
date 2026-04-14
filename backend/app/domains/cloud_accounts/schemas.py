@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.domains.cloud_accounts.models import CloudProvider, ConnectorStatus
 
@@ -12,6 +12,34 @@ class AzureCredentials(BaseModel):
     client_id: str
     client_secret: str
     subscription_id: str
+    storage_account_url: str | None = None
+    cost_export_container: str | None = None
+    cost_export_prefix: str | None = None
+
+
+class AwsCredentials(BaseModel):
+    access_key_id: str
+    secret_access_key: str
+    session_token: str | None = None
+    region: str | None = "us-east-1"
+    cur_bucket: str | None = None
+    cur_prefix: str | None = None
+
+
+class GcpCredentials(BaseModel):
+    service_account_json: str | None = None
+    project_id: str
+    use_workload_identity: bool = False
+    billing_export_table: str | None = None
+    logging_filter: str | None = None
+
+    @model_validator(mode="after")
+    def validate_auth_source(self) -> "GcpCredentials":
+        if not self.use_workload_identity and not self.service_account_json:
+            raise ValueError(
+                "Provide service_account_json or enable use_workload_identity for GCP credentials"
+            )
+        return self
 
 
 class CloudAccountCreate(BaseModel):
@@ -20,6 +48,8 @@ class CloudAccountCreate(BaseModel):
     display_name: str = Field(..., min_length=2, max_length=255)
     tenant_id: str | None = None
     azure_credentials: AzureCredentials | None = None
+    aws_credentials: AwsCredentials | None = None
+    gcp_credentials: GcpCredentials | None = None
 
 
 class CloudAccountOut(BaseModel):

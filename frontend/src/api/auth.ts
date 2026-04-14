@@ -44,6 +44,7 @@ export const authApi = {
   refresh: () => apiClient.post<TokenResponse>('/auth/refresh', {}),
 
   logout: () => apiClient.post<void>('/auth/logout', {}),
+  logoutAll: () => apiClient.post<void>('/auth/logout-all', {}),
 
   passkeyRegisterOptions: (display_name?: string) =>
     apiClient.post<PasskeyRegistrationOptions>('/auth/passkey/register/options', { display_name }),
@@ -85,4 +86,25 @@ export const authApi = {
 
   changePassword: (current_password: string, new_password: string) =>
     apiClient.post<User>('/auth/change-password', { current_password, new_password }),
+
+  getTotpStatus: () =>
+    apiClient.get<{ enabled: boolean }>('/auth/mfa/totp/status'),
+
+  setupTotp: () =>
+    apiClient.post<{ secret: string; otpauth_url: string }>('/auth/mfa/totp/setup', {}),
+
+  verifyTotp: (payload: { code: string }) =>
+    apiClient.post<{ valid: boolean }>('/auth/mfa/totp/verify', payload),
+
+  enableTotp: (payload: { code: string }) =>
+    apiClient.post<{ enabled: boolean; backup_codes: string[] }>('/auth/mfa/totp/enable', payload),
+
+  disableTotp: (payload: { code: string }) =>
+    apiClient.post<{ enabled: boolean }>('/auth/mfa/totp/disable', payload),
+
+  getBackupCodesCount: () =>
+    apiClient.get<{ enabled: boolean; backup_codes_remaining: number }>('/auth/mfa/totp/backup-codes/count'),
+
+  regenerateBackupCodes: (payload: { code: string }) =>
+    apiClient.post<{ enabled: boolean; backup_codes: string[] }>('/auth/mfa/totp/backup-codes/regenerate', payload),
 }

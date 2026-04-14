@@ -1,0 +1,135 @@
+{
+  "timestamp": "2026-04-12T01:17:55.429582+00:00",
+  "dry_run": true,
+  "base_url": "http://localhost:8000",
+  "steps": [
+    {
+      "name": "benchmark",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "/Users/curtoeventos/Desktop/CauSium/backend/scripts/benchmark_ledger_costs.py",
+        "--base-url",
+        "http://localhost:8000",
+        "--requests",
+        "20",
+        "--warmup",
+        "5",
+        "--output-json",
+        "benchmark_artifacts/ledger_costs_benchmark.rehearsal.json",
+        "--dry-run"
+      ],
+      "exit_code": 0,
+      "stdout": "=== Ledger Detailed Costs Benchmark ===\nbase_url: http://localhost:8000\nrequests: 20\ndry_run: True\nstatus_counts: {200: 20}\nmean_ms: 71.16\np50_ms: 67.68\np90_ms: 99.53\np95_ms: 104.80\np99_ms: 113.22\nsuccess_p95_ms: 104.80\njson_artifact: benchmark_artifacts/ledger_costs_benchmark.rehearsal.json\n",
+      "stderr": ""
+    },
+    {
+      "name": "release_smoke",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "/Users/curtoeventos/Desktop/CauSium/backend/scripts/release_smoke.py",
+        "--base-url",
+        "http://localhost:8000",
+        "--output-json",
+        "benchmark_artifacts/release_smoke.rehearsal.json",
+        "--dry-run"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"timestamp\": \"2026-04-12T01:17:55.330293+00:00\",\n  \"dry_run\": true,\n  \"base_url\": \"http://localhost:8000\",\n  \"passed\": 4,\n  \"failed\": 0,\n  \"checks\": [\n    {\n      \"name\": \"file_exists:docs/operations/Release_Runbook.md\",\n      \"ok\": true,\n      \"detail\": \"found\"\n    },\n    {\n      \"name\": \"file_exists:docs/operations/Rollback_Runbook.md\",\n      \"ok\": true,\n      \"detail\": \"found\"\n    },\n    {\n      \"name\": \"file_exists:docs/operations/E2E_Critical_Flows.md\",\n      \"ok\": true,\n      \"detail\": \"found\"\n    },\n    {\n      \"name\": \"file_exists:docs/operations/Go_No_Go_Checklist.md\",\n      \"ok\": true,\n      \"detail\": \"found\"\n    }\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "name": "go_no_go",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "/Users/curtoeventos/Desktop/CauSium/backend/scripts/go_no_go_gate.py",
+        "--smoke-json",
+        "benchmark_artifacts/release_smoke.rehearsal.json",
+        "--perf-json",
+        "benchmark_artifacts/ledger_costs_benchmark.rehearsal.json",
+        "--max-p95-ms",
+        "500.0",
+        "--output-json",
+        "benchmark_artifacts/go_no_go.rehearsal.json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"timestamp\": \"2026-04-12T01:17:55.423375+00:00\",\n  \"decision\": \"GO\",\n  \"dry_run\": true,\n  \"checks\": [\n    {\n      \"name\": \"release_smoke_failed_zero\",\n      \"ok\": true,\n      \"detail\": \"failed=0\"\n    },\n    {\n      \"name\": \"perf_p95_within_target\",\n      \"ok\": true,\n      \"detail\": \"p95_ms=104.8 target=500.0\"\n    },\n    {\n      \"name\": \"perf_all_requests_success\",\n      \"ok\": true,\n      \"detail\": \"total=20 success=20 non_success=0\"\n    }\n  ],\n  \"inputs\": {\n    \"max_p95_ms\": 500.0,\n    \"required_success_status\": 200\n  }\n}\n",
+      "stderr": ""
+    }
+  ],
+  "artifacts": {
+    "benchmark": "benchmark_artifacts/ledger_costs_benchmark.rehearsal.json",
+    "release_smoke": "benchmark_artifacts/release_smoke.rehearsal.json",
+    "go_no_go": "benchmark_artifacts/go_no_go.rehearsal.json"
+  },
+  "benchmark": {
+    "base_url": "http://localhost:8000",
+    "requests": 20,
+    "warmup": 5,
+    "dry_run": true,
+    "status_counts": {
+      "200": 20
+    },
+    "mean_ms": 71.16,
+    "p50_ms": 67.68,
+    "p90_ms": 99.53,
+    "p95_ms": 104.8,
+    "p99_ms": 113.22,
+    "success_p95_ms": 104.8
+  },
+  "release_smoke": {
+    "timestamp": "2026-04-12T01:17:55.330293+00:00",
+    "dry_run": true,
+    "base_url": "http://localhost:8000",
+    "passed": 4,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "file_exists:docs/operations/Release_Runbook.md",
+        "ok": true,
+        "detail": "found"
+      },
+      {
+        "name": "file_exists:docs/operations/Rollback_Runbook.md",
+        "ok": true,
+        "detail": "found"
+      },
+      {
+        "name": "file_exists:docs/operations/E2E_Critical_Flows.md",
+        "ok": true,
+        "detail": "found"
+      },
+      {
+        "name": "file_exists:docs/operations/Go_No_Go_Checklist.md",
+        "ok": true,
+        "detail": "found"
+      }
+    ]
+  },
+  "go_no_go": {
+    "timestamp": "2026-04-12T01:17:55.423375+00:00",
+    "decision": "GO",
+    "dry_run": true,
+    "checks": [
+      {
+        "name": "release_smoke_failed_zero",
+        "ok": true,
+        "detail": "failed=0"
+      },
+      {
+        "name": "perf_p95_within_target",
+        "ok": true,
+        "detail": "p95_ms=104.8 target=500.0"
+      },
+      {
+        "name": "perf_all_requests_success",
+        "ok": true,
+        "detail": "total=20 success=20 non_success=0"
+      }
+    ],
+    "inputs": {
+      "max_p95_ms": 500.0,
+      "required_success_status": 200
+    }
+  },
+  "decision": "GO"
+}

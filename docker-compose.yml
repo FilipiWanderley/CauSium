@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-stratopulse}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stratopulse_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-stratopulse}
+      POSTGRES_USER: ${POSTGRES_USER:-causium}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-causium_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-causium}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stratopulse}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-causium}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,9 +38,9 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./scripts/clickhouse_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 15s
@@ -56,19 +56,27 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratopulse}:${POSTGRES_PASSWORD:-stratopulse_dev}@postgres:5432/${POSTGRES_DB:-stratopulse}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-causium}:${POSTGRES_PASSWORD:-causium_dev}@postgres:5432/${POSTGRES_DB:-causium}
       REDIS_URL: redis://redis:6379/0
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: "8123"
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+      OTEL_SERVICE_NAME: causium-backend
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SAMPLE_RATIO: "1.0"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
@@ -84,19 +92,27 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratopulse}:${POSTGRES_PASSWORD:-stratopulse_dev}@postgres:5432/${POSTGRES_DB:-stratopulse}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-causium}:${POSTGRES_PASSWORD:-causium_dev}@postgres:5432/${POSTGRES_DB:-causium}
       REDIS_URL: redis://redis:6379/0
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: "8123"
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-stratopulse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-stratopulse_dev}
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-stratopulse}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+      OTEL_SERVICE_NAME: causium-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SAMPLE_RATIO: "1.0"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     command: python -m app.workers.runner
 
@@ -114,7 +130,52 @@ services:
     depends_on:
       - backend
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP/gRPC receiver
+      - "4318:4318"     # OTLP/HTTP receiver
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:16686/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-causium_dev}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/causium.json
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   redis_data:
   clickhouse_data:
+  prometheus_data:
+  grafana_data:

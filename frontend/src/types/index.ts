@@ -81,6 +81,31 @@ export interface DashboardMetrics {
   active_accounts: number
 }
 
+export interface DetailedCostRow {
+  date: string
+  account_id: string
+  provider: string
+  subscription_id: string | null
+  service: string | null
+  resource_id: string | null
+  resource_name: string | null
+  region: string | null
+  environment: string | null
+  owner_team: string | null
+  cost_usd: number
+  usage_quantity: number | null
+  usage_unit: string | null
+  currency: string | null
+}
+
+export interface PageResponse<T> {
+  items: T[]
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
+}
+
 // Opportunities
 export type OpportunityCategory =
   | 'rightsizing'
@@ -233,6 +258,37 @@ export interface WorkspaceBudgetUpsert {
   period: FinancialBudgetPeriod
   currency?: string
   alert_thresholds?: number[]
+}
+
+export type EconomicsReportType = 'summary'
+export type ReportExportFormat = 'csv' | 'xlsx'
+export type ReportExportStatus = 'queued' | 'running' | 'completed' | 'failed'
+
+export interface ReportExportCreate {
+  report_type?: EconomicsReportType
+  file_format: ReportExportFormat
+  window_days?: number
+  filters?: Record<string, unknown> | null
+}
+
+export interface ReportExportJob {
+  id: string
+  org_id: string
+  requested_by_user_id: string
+  report_type: EconomicsReportType
+  file_format: ReportExportFormat
+  status: ReportExportStatus
+  window_days: number
+  filters: Record<string, unknown> | null
+  file_name: string | null
+  content_type: string | null
+  error_message: string | null
+  started_at: string | null
+  completed_at: string | null
+  expires_at: string | null
+  download_ready: boolean
+  created_at: string
+  updated_at: string
 }
 
 // Risk Budgets

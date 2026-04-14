@@ -144,8 +144,8 @@ export function NotificationsPage() {
   })
 
   const countQuery = useQuery({
-    queryKey: ['notifications-count'],
-    queryFn: notificationsApi.getUnreadCount,
+    queryKey: ['notifications-unread-count', categoryFilter],
+    queryFn: () => notificationsApi.getUnreadCount({ category: categoryFilter || undefined }),
     refetchInterval: 30_000,
   })
 
@@ -154,7 +154,7 @@ export function NotificationsPage() {
       notificationsApi.patchStatus(id, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-count'] })
+      qc.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
@@ -162,13 +162,17 @@ export function NotificationsPage() {
     mutationFn: notificationsApi.markAllRead,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      qc.invalidateQueries({ queryKey: ['notifications-count'] })
+      qc.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
   const alerts = listQuery.data?.items ?? []
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
+  const totalVisible = listQuery.data?.total
+
+  const listIsPending = listQuery.isPending
+  const listIsError = listQuery.isError
 
   return (
     <div className="space-y-6">
@@ -213,7 +217,7 @@ export function NotificationsPage() {
         </div>
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Visible</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{listQuery.data?.total ?? '—'}</p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">{totalVisible ?? '—'}</p>
         </div>
       </div>
 
@@ -246,13 +250,13 @@ export function NotificationsPage() {
       </div>
 
       {/* List */}
-      {listQuery.isPending ? (
+      {listIsPending ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100" />
           ))}
         </div>
-      ) : listQuery.isError ? (
+      ) : listIsError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">
           Failed to load notifications. The backend service may still be initializing.
         </div>

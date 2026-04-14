@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -13,10 +14,11 @@ from app.core.security import decode_token
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user_id(
+async def _get_token_payload(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-) -> UUID:
+) -> dict:
+    """Decode and validate the access token, returning the full JWT payload."""
     try:
         token: str | None = None
         if credentials and credentials.credentials:
@@ -33,7 +35,7 @@ async def get_current_user_id(
         payload = decode_token(token)
         if payload.get("type") != "access":
             raise ValueError("Not an access token")
-        return UUID(payload["sub"])
+        return payload
     except (ValueError, KeyError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,12 +44,25 @@ async def get_current_user_id(
         ) from e
 
 
+async def get_current_user_id(
+    payload: Annotated[dict, Depends(_get_token_payload)],
+) -> UUID:
+    return UUID(payload["sub"])
+
+
 async def get_current_user(
-    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    payload: Annotated[dict, Depends(_get_token_payload)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     from app.domains.auth.models import UserRole, WorkspaceLifecycleState
     from app.domains.auth.service import AuthService
+    from app.domains.auth.token_blacklist import is_token_revoked
+
+    user_id = UUID(payload["sub"])
+    issued_at = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+
+    if await is_token_revoked(db, user_id, issued_at):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
 
     service = AuthService(db)
     user = await service.get_user_by_id(user_id)

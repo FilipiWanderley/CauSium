@@ -34,8 +34,8 @@ export interface NotificationsPage {
 }
 
 export const notificationsApi = {
-  getUnreadCount: (): Promise<UnreadCount> =>
-    apiClient.get('/notifications/unread-count').then((r) => r.data),
+  getUnreadCount: (params?: { category?: AlertCategory }): Promise<UnreadCount> =>
+    apiClient.get('/notifications/unread-count', { params }).then((r) => r.data),
 
   list: (params?: {
     category?: AlertCategory

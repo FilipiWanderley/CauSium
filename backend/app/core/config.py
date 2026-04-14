@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # PostgreSQL
-    database_url: str = "postgresql+asyncpg://stratopulse:stratopulse_dev@localhost:5432/stratopulse"
+    database_url: str = "postgresql+asyncpg://causium:causium_dev@localhost:5432/causium"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     clickhouse_port: int = 8123
     clickhouse_user: str = "default"
     clickhouse_password: str = ""
-    clickhouse_db: str = "stratopulse"
+    clickhouse_db: str = "causium"
     clickhouse_secure: bool = False
     clickhouse_verify: bool = True
 
@@ -57,6 +57,18 @@ class Settings(BaseSettings):
     azure_tenant_id: str = ""
     azure_client_id: str = ""
     azure_client_secret: str = ""
+    azure_carbon_api_url: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
+    aws_region: str = "us-east-1"
+    aws_cur_bucket: str = ""
+    aws_cur_prefix: str = ""
+    gcp_service_account_json: str = ""
+    gcp_project_id: str = ""
+    gcp_use_workload_identity: bool = False
+    gcp_billing_export_table: str = ""
+    gcp_logging_filter: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
     # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering
@@ -72,7 +84,7 @@ class Settings(BaseSettings):
     auth_cookie_samesite: str = "strict"
     auth_cookie_secure: bool | None = None
     passkey_rp_id: str = "localhost"
-    passkey_rp_name: str = "StratoPulse"
+    passkey_rp_name: str = "CauSium"
     passkey_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
 
     # SMTP (SP-AP03)
@@ -81,8 +93,8 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@stratopulse.local"
-    smtp_from_name: str = "StratoPulse"
+    smtp_from_email: str = "noreply@causium.local"
+    smtp_from_name: str = "CauSium"
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
     smtp_timeout_seconds: int = 10
@@ -165,11 +177,25 @@ class Settings(BaseSettings):
     # Startup enforcement
     force_secure_datastores_in_production: bool = True
 
+    # OpenTelemetry (SP-OP06)
+    # Set OTEL_EXPORTER_OTLP_ENDPOINT to enable distributed tracing export.
+    # When empty the SDK runs in no-op mode (zero overhead).
+    otel_service_name: str = "causium-backend"
+    otel_exporter_otlp_endpoint: str = ""
+    # Sampling ratio: 1.0 = 100%, 0.1 = 10%.  Use parentbased_always_on in
+    # dev and a lower ratio (e.g. 0.1) in high-traffic production.
+    otel_sample_ratio: float = 1.0
+
     # Workers
     ingestion_interval_hours: int = 6
     scoring_interval_hours: int = 1
     audit_checkpoint_interval_minutes: int = 60
     audit_checkpoint_retention_count: int = 200
+    report_exports_dir: str = ".data/report-exports"
+    report_export_retention_hours: int = 24
+    workspace_key_rotation_interval_minutes: int = 60
+    workspace_key_max_age_days: int = 30
+    workspace_key_rotation_batch_size: int = 200
 
     @property
     def hsts_header_value(self) -> str:
@@ -186,6 +212,16 @@ class Settings(BaseSettings):
     @property
     def azure_credentials_available(self) -> bool:
         return bool(self.azure_tenant_id and self.azure_client_id and self.azure_client_secret)
+
+    @property
+    def aws_credentials_available(self) -> bool:
+        return bool(self.aws_access_key_id and self.aws_secret_access_key)
+
+    @property
+    def gcp_credentials_available(self) -> bool:
+        if not self.gcp_project_id:
+            return False
+        return bool(self.gcp_service_account_json or self.gcp_use_workload_identity)
 
     @property
     def passkey_allowed_origins_list(self) -> List[str]:
@@ -209,6 +245,10 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be changed from the default value in production")
         if len(self.secret_key) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters in production")
+
+        _default_enc_key = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
+        if self.encryption_key == _default_enc_key:
+            raise ValueError("ENCRYPTION_KEY must be changed from the default value in production")
 
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")

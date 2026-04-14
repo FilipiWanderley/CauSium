@@ -22,6 +22,7 @@ export interface InvitePreview {
 export interface InviteAcceptPayload {
   full_name: string
   password: string
+  terms_accepted: boolean
 }
 
 export interface InviteCreatePayload {

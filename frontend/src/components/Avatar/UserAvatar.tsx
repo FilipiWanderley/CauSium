@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
 
-const STORAGE_KEY = 'stratopulse:avatar'
+const STORAGE_KEY = 'causium:avatar'
 
 interface Props {
   name: string

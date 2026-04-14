@@ -90,6 +90,7 @@ async def test_admin_resets_mfa_and_revokes_passkeys(client, db):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["revoked_passkeys"] == 2
+    assert body["totp_disabled"] is False
     assert body["user"]["id"] == member["user_id"]
     assert body["user"]["passkey_enabled"] is False
 

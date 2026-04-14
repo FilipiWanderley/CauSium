@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# StratoPulse — Automated RTO/RPO drill (SP-OP10)
+# CauSium — Automated RTO/RPO drill (SP-OP10)
 #
 # Orchestrates a full backup → restore cycle in a controlled environment and
 # emits a consolidated JSON report with RPO and RTO measurements.  Run this
@@ -143,7 +143,7 @@ EOF
 
 echo ""
 echo "============================================================"
-echo "  StratoPulse RTO/RPO Drill Report"
+echo "  CauSium RTO/RPO Drill Report"
 echo "============================================================"
 printf "  RTO achieved : %4ds  (target ≤ %ds)  %s\n" \
   "$RTO_S" "$RTO_TARGET_S" "$( [[ "$RTO_MET" == "true" ]] && echo "PASS ✓" || echo "FAIL ✗")"

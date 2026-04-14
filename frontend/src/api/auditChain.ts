@@ -22,13 +22,19 @@ export interface Page<T> {
 }
 
 export const auditChainApi = {
-  listAuthEvents: (orgId: string, pageSize = 100, createdAfter?: string) =>
+  listAuthEvents: (
+    orgId: string,
+    page = 1,
+    pageSize = 25,
+    filters?: { eventType?: string; createdAfter?: string }
+  ) =>
     apiClient.get<Page<AuditEventItem>>('/audit-chain/events/auth', {
       params: {
         org_id: orgId,
-        page: 1,
+        page,
         page_size: pageSize,
-        created_after: createdAfter,
+        event_type: filters?.eventType || undefined,
+        created_after: filters?.createdAfter || undefined,
       },
     }),
 }

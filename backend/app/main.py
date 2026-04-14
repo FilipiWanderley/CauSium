@@ -3,11 +3,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import install_middlewares
+from app.core.observability import build_sli_slo_snapshot, render_metrics_prometheus
+from app.core.tracing import instrument_app, setup_tracing, shutdown_tracing
 
 configure_logging()
 log = get_logger(__name__)
@@ -17,17 +20,26 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     settings.validate_production_security()
+    setup_tracing(
+        service_name=settings.otel_service_name,
+        otlp_endpoint=settings.otel_exporter_otlp_endpoint,
+        sample_ratio=settings.otel_sample_ratio,
+    )
+    # instrument_app must run after setup_tracing so FastAPIInstrumentor
+    # receives a properly configured TracerProvider, not the no-op default.
+    instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
     yield
     from app.core.redis import close_redis
     await close_redis()
+    shutdown_tracing()
     log.info("app.shutdown")
 
 
 settings = get_settings()
 
 app = FastAPI(
-    title="StratoPulse API",
+    title="CauSium API",
     description="FinOps + Governance + Operations platform for multi-cloud efficiency",
     version="0.1.0",
     docs_url="/docs" if not settings.is_production else None,
@@ -88,3 +100,20 @@ async def health_detailed():
 
     status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
     return {"status": status, "checks": checks}
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics() -> str:
+    return render_metrics_prometheus()
+
+
+@app.get("/metrics/slo")
+async def metrics_slo(
+    error_budget_pct: float = 1.0,
+    api_p95_ms: float = 500.0,
+):
+    """SLI/SLO snapshot — JSON suitable for dashboards and CI gates."""
+    return build_sli_slo_snapshot(
+        error_budget_pct=error_budget_pct,
+        api_p95_ms_target=api_p95_ms,
+    )

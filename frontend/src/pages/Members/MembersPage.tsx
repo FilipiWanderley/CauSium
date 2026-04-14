@@ -22,6 +22,11 @@ const INVITE_STATUS_OPTIONS: Array<'all' | InviteStatus> = [
 ]
 
 const INVITES_PAGE_SIZE = 10
+const MEMBERS_PAGE_SIZE = 10
+
+type DeactivateModalState = { member: MemberItem; reason: string }
+type EditModalState = { member: MemberItem; full_name: string; role: UserRole }
+type DeleteModalState = { member: MemberItem; reason: string }
 
 export function MembersPage() {
   const { user } = useAuth()
@@ -31,6 +36,7 @@ export function MembersPage() {
   const [feedback, setFeedback] = useState<{ tone: FeedbackTone; message: string } | null>(null)
   const [memberActionId, setMemberActionId] = useState<string | null>(null)
   const [inviteActionId, setInviteActionId] = useState<string | null>(null)
+  const [membersPage, setMembersPage] = useState(1)
 
   const [memberForm, setMemberForm] = useState<MemberCreatePayload>({
     email: '',
@@ -40,6 +46,9 @@ export function MembersPage() {
   })
 
   const [tempPasswordModal, setTempPasswordModal] = useState<{ email: string; password: string } | null>(null)
+  const [deactivateModal, setDeactivateModal] = useState<DeactivateModalState | null>(null)
+  const [editModal, setEditModal] = useState<EditModalState | null>(null)
+  const [deleteModal, setDeleteModal] = useState<DeleteModalState | null>(null)
 
   const [inviteForm, setInviteForm] = useState({
     email: '',
@@ -56,9 +65,9 @@ export function MembersPage() {
   const showSuccess = (message: string) => setFeedback({ tone: 'success', message })
   const showError = (message: string) => setFeedback({ tone: 'error', message })
 
-  const membersQuery = useQuery({
+  const membersQuery = useQuery<MemberItem[]>({
     queryKey: ['members-list'],
-    queryFn: () => membersApi.list().then((r) => r.data),
+    queryFn: () => membersApi.list().then((r) => r.data.items),
   })
 
   const invitesQuery = useQuery({
@@ -150,6 +159,46 @@ export function MembersPage() {
     },
   })
 
+    // --- PATCH membro ---
+    const editMemberMutation = useMutation({
+      mutationFn: ({ member, updates }: { member: MemberItem; updates: Partial<Pick<MemberItem, 'full_name' | 'email' | 'role'>> }) =>
+        membersApi.update(member.id, updates).then((r) => ({ member, payload: r.data })),
+      onMutate: ({ member }) => {
+        setMemberActionId(member.id)
+        setFeedback(null)
+      },
+      onSuccess: async ({ member }) => {
+        await queryClient.invalidateQueries({ queryKey: ['members-list'] })
+        showSuccess(`User ${member.email} updated.`)
+      },
+      onError: (error) => {
+        showError((error as Error)?.message ?? 'Could not update user.')
+      },
+      onSettled: () => {
+        setMemberActionId(null)
+      },
+    })
+
+    // --- DELETE membro (soft) ---
+    const deleteMemberMutation = useMutation({
+      mutationFn: ({ member, reason }: { member: MemberItem; reason: string }) =>
+        membersApi.delete(member.id, reason).then((r) => ({ member, payload: r.data })),
+      onMutate: ({ member }) => {
+        setMemberActionId(member.id)
+        setFeedback(null)
+      },
+      onSuccess: async ({ member }) => {
+        await queryClient.invalidateQueries({ queryKey: ['members-list'] })
+        showSuccess(`User ${member.email} was removed.`)
+      },
+      onError: (error) => {
+        showError((error as Error)?.message ?? 'Could not remove user.')
+      },
+      onSettled: () => {
+        setMemberActionId(null)
+      },
+    })
+
   const createInviteMutation = useMutation({
     mutationFn: () =>
       invitesApi.create({
@@ -189,7 +238,9 @@ export function MembersPage() {
     },
   })
 
-  const members = membersQuery.data ?? []
+  const allMembers = membersQuery.data ?? []
+  const totalMemberPages = Math.max(1, Math.ceil(allMembers.length / MEMBERS_PAGE_SIZE))
+  const members = allMembers.slice((membersPage - 1) * MEMBERS_PAGE_SIZE, membersPage * MEMBERS_PAGE_SIZE)
   const invites = invitesQuery.data?.items ?? []
   const totalInvitePages = invitesQuery.data
     ? Math.max(1, Math.ceil(invitesQuery.data.total / invitesQuery.data.page_size))
@@ -211,11 +262,15 @@ export function MembersPage() {
 
   const handleDeactivate = (member: MemberItem) => {
     if (!member.is_active) return
-    const confirmed = window.confirm(`Deactivate ${member.email}? This blocks login immediately.`)
-    if (!confirmed) return
-    const reason = window.prompt('Reason for deactivation (required):', 'Member offboarding')
-    if (!reason || reason.trim().length < 3) return
-    deactivateMutation.mutate({ member, reason: reason.trim() })
+    setDeactivateModal({ member, reason: 'Member offboarding' })
+  }
+
+  const handleEdit = (member: MemberItem) => {
+    setEditModal({ member, full_name: member.full_name, role: member.role })
+  }
+
+  const handleDelete = (member: MemberItem) => {
+    setDeleteModal({ member, reason: 'Member offboarding' })
   }
 
   const copyInviteLink = async (invite: InviteOut) => {
@@ -325,10 +380,31 @@ export function MembersPage() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Workspace Members ({members.length})</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">Workspace Members ({allMembers.length})</h2>
+              {totalMemberPages > 1 && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <button
+                    onClick={() => setMembersPage((p) => Math.max(1, p - 1))}
+                    disabled={membersPage <= 1 || hasMemberMutationInFlight}
+                    className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span>Page {membersPage} / {totalMemberPages}</span>
+                  <button
+                    onClick={() => setMembersPage((p) => Math.min(totalMemberPages, p + 1))}
+                    disabled={membersPage >= totalMemberPages || hasMemberMutationInFlight}
+                    className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
             {membersQuery.isLoading ? (
               <div className="text-sm text-gray-500">Loading members...</div>
-            ) : !members.length ? (
+            ) : !allMembers.length ? (
               <div className="text-sm text-gray-500">No members found.</div>
             ) : (
               <div className="space-y-2">
@@ -362,6 +438,20 @@ export function MembersPage() {
                       >
                         {deactivateMutation.isPending && memberActionId === member.id ? 'Deactivating...' : 'Deactivate'}
                       </button>
+                        <button
+                          onClick={() => handleEdit(member)}
+                          disabled={!member.is_active || hasMemberMutationInFlight}
+                          className="rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                        >
+                          {editMemberMutation.isPending && memberActionId === member.id ? 'Saving...' : 'Edit'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(member)}
+                          disabled={hasMemberMutationInFlight}
+                          className="rounded border border-red-400 px-2 py-1 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-60"
+                        >
+                          {deleteMemberMutation.isPending && memberActionId === member.id ? 'Removing...' : 'Remove'}
+                        </button>
                     </div>
                   </div>
                 ))}
@@ -381,6 +471,8 @@ export function MembersPage() {
                 value={inviteForm.email}
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
                 placeholder="member@company.com"
+                pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
+                required
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <select
@@ -406,7 +498,7 @@ export function MembersPage() {
               </select>
               <button
                 onClick={() => createInviteMutation.mutate()}
-                disabled={!inviteForm.email.trim() || hasInviteMutationInFlight}
+                disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim()) || hasInviteMutationInFlight}
                 className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}
@@ -512,8 +604,14 @@ export function MembersPage() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
               Share this password securely. It is shown only once and the user must change password on next login.
             </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-800 break-all">
-              {tempPasswordModal.password}
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <span className="font-mono text-sm text-gray-800 break-all flex-1">{tempPasswordModal.password}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(tempPasswordModal.password)}
+                className="text-xs text-brand-600 hover:underline shrink-0"
+              >
+                Copy
+              </button>
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button
@@ -521,6 +619,127 @@ export function MembersPage() {
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deactivateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Deactivate Member</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Deactivating <span className="font-medium text-gray-800">{deactivateModal.member.email}</span> blocks
+              login immediately. This action is audited.
+            </p>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Reason (required)</label>
+            <input
+              type="text"
+              value={deactivateModal.reason}
+              onChange={(e) => setDeactivateModal((m) => m && { ...m, reason: e.target.value })}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeactivateModal(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deactivateModal.reason.trim().length < 3 || hasMemberMutationInFlight}
+                onClick={() => {
+                  deactivateMutation.mutate(
+                    { member: deactivateModal.member, reason: deactivateModal.reason.trim() },
+                    { onSettled: () => setDeactivateModal(null) }
+                  )
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deactivateMutation.isPending ? 'Deactivating...' : 'Confirm Deactivate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Edit Member</h3>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Full name</label>
+            <input
+              type="text"
+              value={editModal.full_name}
+              onChange={(e) => setEditModal((m) => m && { ...m, full_name: e.target.value })}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-3"
+            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <select
+              value={editModal.role}
+              onChange={(e) => setEditModal((m) => m && { ...m, role: e.target.value as UserRole })}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
+            >
+              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEditModal(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={editModal.full_name.trim().length < 2 || hasMemberMutationInFlight}
+                onClick={() => {
+                  editMemberMutation.mutate(
+                    { member: editModal.member, updates: { full_name: editModal.full_name.trim(), role: editModal.role } },
+                    { onSettled: () => setEditModal(null) }
+                  )
+                }}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                {editMemberMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Remove Member</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Removing <span className="font-medium text-gray-800">{deleteModal.member.email}</span> is audited and
+              blocks login immediately.
+            </p>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Reason (required)</label>
+            <input
+              type="text"
+              value={deleteModal.reason}
+              onChange={(e) => setDeleteModal((m) => m && { ...m, reason: e.target.value })}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteModal.reason.trim().length < 3 || hasMemberMutationInFlight}
+                onClick={() => {
+                  deleteMemberMutation.mutate(
+                    { member: deleteModal.member, reason: deleteModal.reason.trim() },
+                    { onSettled: () => setDeleteModal(null) }
+                  )
+                }}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+              >
+                {deleteMemberMutation.isPending ? 'Removing...' : 'Confirm Remove'}
               </button>
             </div>
           </div>

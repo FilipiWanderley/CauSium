@@ -197,3 +197,162 @@ async def test_budget_is_scoped_to_workspace(client):
     r4 = await client.get("/api/v1/economics/budget", headers=h1)
     assert r4.status_code == 200
     assert r4.json()["amount_usd"] == 5_000.0
+
+
+@pytest.mark.asyncio
+async def test_create_report_export_job_returns_queued_job(client):
+    headers = await _register_and_get_headers(client, "export-create")
+
+    resp = await client.post(
+        "/api/v1/economics/reports/export",
+        json={
+            "report_type": "summary",
+            "file_format": "csv",
+            "window_days": 60,
+            "filters": {"service": "Compute", "team": "platform"},
+        },
+        headers=headers,
+    )
+
+    assert resp.status_code == 202, resp.text
+    data = resp.json()
+    assert data["status"] == "queued"
+    assert data["report_type"] == "summary"
+    assert data["file_format"] == "csv"
+    assert data["window_days"] == 60
+    assert data["filters"] == {"service": "Compute", "team": "platform"}
+    assert data["file_name"] is None
+    assert data["content_type"] is None
+    assert data["error_message"] is None
+    assert data["download_ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_report_export_job_is_workspace_scoped(client):
+    headers_a = await _register_and_get_headers(client, "export-scope-a")
+    headers_b = await _register_and_get_headers(client, "export-scope-b")
+
+    created = await client.post(
+        "/api/v1/economics/reports/export",
+        json={"report_type": "summary", "file_format": "xlsx", "window_days": 30},
+        headers=headers_a,
+    )
+    assert created.status_code == 202, created.text
+    job_id = created.json()["id"]
+
+    own = await client.get(f"/api/v1/economics/reports/export/{job_id}", headers=headers_a)
+    assert own.status_code == 200, own.text
+    assert own.json()["id"] == job_id
+    assert own.json()["file_format"] == "xlsx"
+
+    other = await client.get(f"/api/v1/economics/reports/export/{job_id}", headers=headers_b)
+    assert other.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_report_export_job_validates_window_days(client):
+    headers = await _register_and_get_headers(client, "export-validation")
+
+    resp = await client.post(
+        "/api/v1/economics/reports/export",
+        json={"report_type": "summary", "file_format": "csv", "window_days": 0},
+        headers=headers,
+    )
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_detailed_costs_returns_paginated_rows_with_filters(client, monkeypatch):
+    headers = await _register_and_get_headers(client, "detailed-costs")
+
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        assert parameters is not None
+        assert parameters["service"] == "Compute"
+        assert parameters["provider"] == "azure"
+        assert parameters["owner_team"] == "platform"
+        if "count() AS total" in query:
+            return [{"total": 2}]
+        return [
+            {
+                "date": "2026-04-10",
+                "account_id": "acc-1",
+                "provider": "azure",
+                "subscription_id": "sub-1",
+                "service": "Compute",
+                "resource_id": "vm-1",
+                "resource_name": "vm-prod-1",
+                "region": "eastus",
+                "environment": "prod",
+                "owner_team": "platform",
+                "cost_usd": 41.25,
+                "usage_quantity": 12.0,
+                "usage_unit": "hours",
+                "currency": "USD",
+            },
+            {
+                "date": "2026-04-09",
+                "account_id": "acc-1",
+                "provider": "azure",
+                "subscription_id": "sub-1",
+                "service": "Compute",
+                "resource_id": "vm-2",
+                "resource_name": "vm-prod-2",
+                "region": "eastus",
+                "environment": "prod",
+                "owner_team": "platform",
+                "cost_usd": 39.10,
+                "usage_quantity": 11.0,
+                "usage_unit": "hours",
+                "currency": "USD",
+            },
+        ]
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.execute_query", fake_execute_query)
+
+    resp = await client.get(
+        "/api/v1/ledger/costs",
+        headers=headers,
+        params={
+            "days": 30,
+            "service": "Compute",
+            "provider": "azure",
+            "owner_team": "platform",
+            "page": 1,
+            "page_size": 2,
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["page"] == 1
+    assert body["page_size"] == 2
+    assert body["total"] == 2
+    assert body["has_next"] is False
+    assert len(body["items"]) == 2
+    assert body["items"][0]["service"] == "Compute"
+    assert body["items"][0]["provider"] == "azure"
+    assert body["items"][0]["owner_team"] == "platform"
+    assert body["items"][0]["resource_id"] == "vm-1"
+
+
+@pytest.mark.asyncio
+async def test_detailed_costs_is_workspace_scoped_when_query_fails_open(client, monkeypatch):
+    headers = await _register_and_get_headers(client, "detailed-empty")
+
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        return []
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.execute_query", fake_execute_query)
+
+    resp = await client.get(
+        "/api/v1/ledger/costs",
+        headers=headers,
+        params={"days": 30, "page": 1, "page_size": 20},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+    assert body["has_next"] is False

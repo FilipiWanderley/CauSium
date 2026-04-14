@@ -1,5 +1,19 @@
 import { apiClient } from './client'
-import type { DashboardMetrics, CostTrend, ServiceBreakdown } from '../types'
+import type { DashboardMetrics, CostTrend, DetailedCostRow, PageResponse, ServiceBreakdown } from '../types'
+
+export interface ExportJob {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  file_format: 'csv' | 'xlsx'
+  report_type: string
+  window_days: number
+  file_name: string | null
+  error_message: string | null
+  download_ready: boolean
+  created_at: string
+  completed_at: string | null
+  expires_at: string | null
+}
 
 export const ledgerApi = {
   dashboard: () => apiClient.get<DashboardMetrics>('/ledger/dashboard'),
@@ -7,22 +21,41 @@ export const ledgerApi = {
   costTrend: (days = 30) =>
     apiClient.get<CostTrend[]>(`/ledger/costs/trend?days=${days}`),
 
-  topServices: (days = 30) =>
-    apiClient.get<ServiceBreakdown[]>(`/ledger/costs/services?days=${days}`),
+  topServicesPaginated: (days = 30, page = 1, page_size = 50) =>
+    apiClient.get<PageResponse<ServiceBreakdown>>(`/ledger/costs/services`, { params: { days, page, page_size } }),
 
-  topServicesWithLimit: (days = 30, limit = 10) =>
-    apiClient.get<ServiceBreakdown[]>(`/ledger/costs/services?days=${days}&limit=${limit}`),
+  topTeamsPaginated: (days = 30, page = 1, page_size = 50) =>
+    apiClient.get<PageResponse<ServiceBreakdown>>(`/ledger/costs/teams`, { params: { days, page, page_size } }),
 
-  // Temporary SKU view based on service-level aggregation until provider SKU ingestion is available.
-  topSkus: (days = 30, limit = 20) =>
-    apiClient.get<ServiceBreakdown[]>(`/ledger/costs/services?days=${days}&limit=${limit}`),
-
-  topTeams: (days = 30) =>
-    apiClient.get<ServiceBreakdown[]>(`/ledger/costs/teams?days=${days}`),
-
-  topTeamsWithLimit: (days = 30, limit = 10) =>
-    apiClient.get<ServiceBreakdown[]>(`/ledger/costs/teams?days=${days}&limit=${limit}`),
+  detailedCosts: (params: {
+    days?: number
+    service?: string
+    provider?: string
+    owner_team?: string
+    environment?: string
+    region?: string
+    resource_id?: string
+    resource_name?: string
+    account_id?: string
+    page?: number
+    page_size?: number
+  }) =>
+    apiClient.get<PageResponse<DetailedCostRow>>('/ledger/costs', { params }),
 
   ingest: (account_id: string, start_date: string, end_date: string) =>
     apiClient.post('/ledger/ingest', { account_id, start_date, end_date }),
+
+  // SP-EC03: async export
+  createExportJob: (params: {
+    report_type?: 'summary'
+    file_format?: 'csv' | 'xlsx'
+    window_days?: number
+    filters?: Record<string, unknown>
+  }) => apiClient.post<ExportJob>('/economics/reports/export', params),
+
+  getExportJob: (jobId: string) =>
+    apiClient.get<ExportJob>(`/economics/reports/export/${jobId}`),
+
+  downloadExportUrl: (jobId: string) =>
+    `/api/v1/economics/reports/export/${jobId}/download`,
 }

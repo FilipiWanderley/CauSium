@@ -5,7 +5,7 @@ import random
 from datetime import date, datetime, timedelta, timezone
 
 from app.core.logging import get_logger
-from app.domains.connectors.base import BaseConnector, CanonicalCostRecord, CanonicalEventRecord
+from app.domains.connectors.base import BaseConnector, CanonicalCarbonRecord, CanonicalCostRecord, CanonicalEventRecord
 
 log = get_logger(__name__)
 
@@ -77,7 +77,7 @@ class AzureMockClient(BaseConnector):
                         usage_quantity=round(rng.uniform(1, 1000), 2),
                         usage_unit="Units",
                         currency="USD",
-                        tags={"team": team, "env": env, "managed-by": "stratopulse"},
+                        tags={"team": team, "env": env, "managed-by": "causium"},
                     )
                 )
             current += timedelta(days=1)
@@ -120,4 +120,37 @@ class AzureMockClient(BaseConnector):
             current += timedelta(days=1)
 
         log.info("azure.mock.fetch_events.done", subscription=subscription_id, records=len(records))
+        return records
+
+    async def fetch_carbon_emissions(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCarbonRecord]:
+        rng = random.Random(subscription_id + "carbon" + str(start))
+        records: list[CanonicalCarbonRecord] = []
+
+        month = date(start.year, start.month, 1)
+        last_month = date(end.year, end.month, 1)
+
+        while month <= last_month:
+            for service in SERVICES[:5]:
+                records.append(
+                    CanonicalCarbonRecord(
+                        year_month=f"{month.year:04d}-{month.month:02d}",
+                        provider="azure",
+                        subscription_id=subscription_id,
+                        service=service,
+                        resource_group=f"rg-{rng.choice(TEAMS)}",
+                        kg_co2e=round(rng.uniform(10, 250), 3),
+                    )
+                )
+
+            if month.month == 12:
+                month = date(month.year + 1, 1, 1)
+            else:
+                month = date(month.year, month.month + 1, 1)
+
+        log.info("azure.mock.fetch_carbon.done", subscription=subscription_id, records=len(records))
         return records

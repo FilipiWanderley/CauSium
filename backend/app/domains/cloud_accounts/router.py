@@ -3,11 +3,15 @@ import json
 from typing import Annotated, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
+from app.core.idempotency import build_fingerprint, build_scope_key, prepare_request, store_response
+from app.core.redis import get_redis_pool
+from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
 from app.domains.cloud_accounts.schemas import (
     CloudAccountCreate,
@@ -37,14 +41,17 @@ async def create_account(
     return CloudAccountOut.model_validate(account)
 
 
-@router.get("", response_model=List[CloudAccountOut])
+@router.get("", response_model=Page[CloudAccountOut])
 async def list_accounts(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    page_params: PageParams = Depends(PageParams),
 ):
     service = CloudAccountService(db)
-    accounts = await service.list_accounts(current_user.org_id)
-    return [CloudAccountOut.model_validate(a) for a in accounts]
+    accounts, total = await service.list_accounts(
+        current_user.org_id, limit=page_params.limit, offset=page_params.offset
+    )
+    return Page.of([CloudAccountOut.model_validate(a) for a in accounts], total, page_params)
 
 
 @router.get("/sync-status", response_model=List[ConnectorSyncStatusOut])
@@ -109,7 +116,9 @@ async def get_health_history(
 @router.post("/{account_id}/sync", response_model=SyncStatusOut)
 async def trigger_sync(
     account_id: UUID,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
 ):
     service = CloudAccountService(db)
@@ -117,9 +126,35 @@ async def trigger_sync(
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
 
-    from app.core.redis import get_redis_pool
-
     redis = get_redis_pool()
+
+    scope_key = None
+    if idempotency_key:
+        scope_key = build_scope_key(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            operation="cloud_accounts.sync",
+            resource_id=account_id,
+            idempotency_key=idempotency_key,
+        )
+        state, cached = await prepare_request(
+            redis,
+            scope_key=scope_key,
+            fingerprint=build_fingerprint(request.method, request.url.path, await request.body()),
+        )
+        if state == "replay" and cached is not None:
+            return JSONResponse(status_code=cached["status_code"], content=cached["payload"])
+        if state == "conflict":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency-Key already used with a different request payload",
+            )
+        if state == "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Request with this Idempotency-Key is still being processed",
+            )
+
     payload = json.dumps(
         {
             "org_id": str(current_user.org_id),
@@ -127,7 +162,15 @@ async def trigger_sync(
         }
     )
     await redis.lpush("ingestion:queue", payload)
-    return SyncStatusOut(account_id=account_id, triggered=True, message="Sync job queued")
+    out = SyncStatusOut(account_id=account_id, triggered=True, message="Sync job queued")
+    if scope_key:
+        await store_response(
+            redis,
+            scope_key=scope_key,
+            status_code=status.HTTP_200_OK,
+            payload=out.model_dump(mode="json"),
+        )
+    return out
 
 
 @router.post("/{account_id}/validate", response_model=ScopeValidationOut)

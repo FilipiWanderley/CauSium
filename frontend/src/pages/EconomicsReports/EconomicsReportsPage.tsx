@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
+import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 
 const money = new Intl.NumberFormat('en-US', {
@@ -9,17 +10,10 @@ const money = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
 
-function escapeCsv(value: string | number) {
-  const normalized = String(value ?? '')
-  if (normalized.includes(',') || normalized.includes('"') || normalized.includes('\n')) {
-    return `"${normalized.split('"').join('""')}"`
-  }
-  return normalized
-}
-
 export function EconomicsReportsPage() {
   const [days, setDays] = useState(30)
-  const [isExporting, setIsExporting] = useState(false)
+  const [exportJobId, setExportJobId] = useState<string | null>(null)
+  const [downloadedJobId, setDownloadedJobId] = useState<string | null>(null)
 
   const dashboardQuery = useQuery({
     queryKey: ['economics-reports-dashboard'],
@@ -28,59 +22,101 @@ export function EconomicsReportsPage() {
 
   const servicesQuery = useQuery({
     queryKey: ['economics-reports-services', days],
-    queryFn: () => ledgerApi.topServicesWithLimit(days, 15).then((r) => r.data),
+    queryFn: () => ledgerApi.topServicesPaginated(days, 1, 15).then((r) => r.data.items),
   })
 
   const teamsQuery = useQuery({
     queryKey: ['economics-reports-teams', days],
-    queryFn: () => ledgerApi.topTeamsWithLimit(days, 15).then((r) => r.data),
+    queryFn: () => ledgerApi.topTeamsPaginated(days, 1, 15).then((r) => r.data.items),
   })
 
-  const csvContent = useMemo(() => {
-    if (!dashboardQuery.data) return ''
+  const exportJobQuery = useQuery({
+    queryKey: ['economics-report-export', exportJobId],
+    queryFn: () => economicsApi.getReportExport(exportJobId as string).then((r) => r.data),
+    enabled: !!exportJobId,
+    refetchInterval: (query) => {
+      const exportStatus = query.state.data?.status
+      return exportStatus === 'queued' || exportStatus === 'running' ? 2000 : false
+    },
+  })
 
-    const lines: string[] = []
-    lines.push('section,key,value')
-    lines.push(`summary,current_month_cost,${escapeCsv(dashboardQuery.data.current_month_cost)}`)
-    lines.push(`summary,previous_month_cost,${escapeCsv(dashboardQuery.data.previous_month_cost)}`)
-    lines.push(`summary,mom_change_pct,${escapeCsv(dashboardQuery.data.mom_change_pct)}`)
-    lines.push(`summary,event_count_7d,${escapeCsv(dashboardQuery.data.event_count_7d)}`)
-    lines.push(`summary,active_accounts,${escapeCsv(dashboardQuery.data.active_accounts)}`)
+  const createExportMutation = useMutation({
+    mutationFn: (fileFormat: 'csv' | 'xlsx') =>
+      economicsApi
+        .createReportExport({
+          report_type: 'summary',
+          file_format: fileFormat,
+          window_days: days,
+        })
+        .then((r) => r.data),
+    onSuccess: (job) => {
+      setExportJobId(job.id)
+      setDownloadedJobId(null)
+    },
+  })
 
-    servicesQuery.data?.forEach((item, index) => {
-      lines.push(`top_services_${index + 1},service,${escapeCsv(item.service)}`)
-      lines.push(`top_services_${index + 1},cost_usd,${escapeCsv(item.cost_usd)}`)
-      lines.push(`top_services_${index + 1},percentage,${escapeCsv(item.percentage)}`)
-    })
+  useEffect(() => {
+    const job = exportJobQuery.data
+    if (!exportJobId || !job || job.status !== 'completed' || downloadedJobId === exportJobId) {
+      return
+    }
+    const currentJobId: string = exportJobId
+    const completedJob = job
 
-    teamsQuery.data?.forEach((item, index) => {
-      lines.push(`top_teams_${index + 1},team,${escapeCsv(item.service)}`)
-      lines.push(`top_teams_${index + 1},cost_usd,${escapeCsv(item.cost_usd)}`)
-      lines.push(`top_teams_${index + 1},percentage,${escapeCsv(item.percentage)}`)
-    })
+    let cancelled = false
 
-    return lines.join('\n')
-  }, [dashboardQuery.data, servicesQuery.data, teamsQuery.data])
-
-  const handleExport = async () => {
-    if (!csvContent) return
-    setIsExporting(true)
-    try {
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    async function downloadExport() {
+      const response = await economicsApi.downloadReportExport(currentJobId)
+      if (cancelled) return
+      const blob = response.data
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `economics-report-${new Date().toISOString().slice(0, 10)}.csv`
+      link.download =
+        completedJob.file_name ||
+        `economics-report-${new Date().toISOString().slice(0, 10)}.${completedJob.file_format}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-    } finally {
-      setIsExporting(false)
+      setDownloadedJobId(currentJobId)
     }
-  }
+
+    void downloadExport()
+
+    return () => {
+      cancelled = true
+    }
+  }, [downloadedJobId, exportJobId, exportJobQuery.data])
 
   const isLoading = dashboardQuery.isLoading || servicesQuery.isLoading || teamsQuery.isLoading
+  const exportStatus = exportJobQuery.data?.status
+  const isExporting = createExportMutation.isPending || exportStatus === 'queued' || exportStatus === 'running'
+
+  function handleExport(fileFormat: 'csv' | 'xlsx') {
+    createExportMutation.mutate(fileFormat)
+  }
+
+  function renderExportStatus() {
+    if (createExportMutation.isError) {
+      return 'Failed to enqueue the export job.'
+    }
+    if (!exportJobQuery.data) {
+      return 'Exports are generated asynchronously on the backend and downloaded when ready.'
+    }
+    if (exportJobQuery.data.status === 'queued') {
+      return 'Export queued. Waiting for worker pickup.'
+    }
+    if (exportJobQuery.data.status === 'running') {
+      return 'Export running. The download will start automatically.'
+    }
+    if (exportJobQuery.data.status === 'completed') {
+      return downloadedJobId === exportJobId
+        ? 'Export completed and downloaded.'
+        : 'Export completed. Starting download.'
+    }
+    return exportJobQuery.data.error_message || 'Export failed.'
+  }
 
   return (
     <div className="space-y-6">
@@ -106,14 +142,27 @@ export function EconomicsReportsPage() {
             </select>
           </label>
 
-          <button
-            onClick={handleExport}
-            disabled={!csvContent || isLoading || isExporting}
-            className="inline-flex items-center gap-2 rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-          >
-            <Download className="h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
-          </button>
+          <div className="flex flex-col gap-2 md:items-end">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleExport('csv')}
+                disabled={isLoading || isExporting}
+                className="inline-flex items-center gap-2 rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {isExporting ? 'Processing...' : 'Export CSV'}
+              </button>
+              <button
+                onClick={() => handleExport('xlsx')}
+                disabled={isLoading || isExporting}
+                className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400 disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {isExporting ? 'Processing...' : 'Export Excel'}
+              </button>
+            </div>
+            <div className="text-right text-xs text-gray-500">{renderExportStatus()}</div>
+          </div>
         </div>
       </div>
 

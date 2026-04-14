@@ -1,0 +1,77 @@
+# docker-compose.prod.yml — Production overrides
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file:
+#   - Removes development bind-mounts (no live code reloading)
+#   - Sets restart: always on every service
+#   - Switches frontend to the production nginx target (port 80)
+#   - Enables uvicorn with 4 workers (tune to 2× vCPU count)
+#   - Removes the Jaeger all-in-one (use a managed OTLP endpoint in prod)
+#   - Disables Swagger/ReDoc docs endpoint (handled by APP_ENV=production in config)
+
+version: "3.9"
+
+services:
+  postgres:
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No bind-mounts; data persisted in named volume only
+
+  redis:
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  clickhouse:
+    restart: always
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      # The init SQL is only needed on first boot; keep it read-only
+      - ./scripts/clickhouse_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  backend:
+    restart: always
+    volumes: []
+    # entrypoint.sh runs `alembic upgrade head` before starting uvicorn
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      APP_ENV: production
+
+  worker:
+    restart: always
+    volumes: []
+    # entrypoint.sh runs migrations on every worker restart too (idempotent)
+    command: python -m app.workers.runner
+    environment:
+      APP_ENV: production
+
+  frontend:
+    restart: always
+    build:
+      context: ./frontend
+      target: runtime
+    ports:
+      - "80:80"
+    volumes: []
+
+  prometheus:
+    restart: always
+
+  grafana:
+    restart: always
+
+  # Jaeger all-in-one is not suitable for production.
+  # Point OTEL_EXPORTER_OTLP_ENDPOINT at your managed collector instead.
+  jaeger:
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:
