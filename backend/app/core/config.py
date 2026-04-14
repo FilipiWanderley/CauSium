@@ -177,6 +177,15 @@ class Settings(BaseSettings):
     # Startup enforcement
     force_secure_datastores_in_production: bool = True
 
+    # OpenTelemetry (SP-OP06)
+    # Set OTEL_EXPORTER_OTLP_ENDPOINT to enable distributed tracing export.
+    # When empty the SDK runs in no-op mode (zero overhead).
+    otel_service_name: str = "causium-backend"
+    otel_exporter_otlp_endpoint: str = ""
+    # Sampling ratio: 1.0 = 100%, 0.1 = 10%.  Use parentbased_always_on in
+    # dev and a lower ratio (e.g. 0.1) in high-traffic production.
+    otel_sample_ratio: float = 1.0
+
     # Workers
     ingestion_interval_hours: int = 6
     scoring_interval_hours: int = 1

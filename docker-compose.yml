@@ -63,6 +63,9 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-causium}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-causium_dev}
       CLICKHOUSE_DB: ${CLICKHOUSE_DB:-causium}
+      OTEL_SERVICE_NAME: causium-backend
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SAMPLE_RATIO: "1.0"
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -72,6 +75,8 @@ services:
       redis:
         condition: service_healthy
       clickhouse:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
@@ -119,6 +124,20 @@ services:
       VITE_API_URL: http://localhost:8000
     depends_on:
       - backend
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP/gRPC receiver
+      - "4318:4318"     # OTLP/HTTP receiver
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:16686/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:v2.51.2

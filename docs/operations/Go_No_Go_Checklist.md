@@ -80,8 +80,17 @@ Decisao final de release: [ ] GO  [ ] NO-GO
   - Dashboard em `monitoring/grafana/provisioning/dashboards/causium.json` (auto-provisionado)
   - Testes: `test_observability.py` — sanitize_path, render_metrics, SLO alerts, endpoint HTTP
 
+- [x] Tracing distribuido (SP-OP06)
+  - `app/core/tracing.py`: setup OTel SDK, no-op mode quando OTLP endpoint nao configurado
+  - Auto-instrumentacao: FastAPI, SQLAlchemy (async), Redis, httpx
+  - Propagacao W3C TraceContext + B3 legacy
+  - Correlacao com logs structlog: otel_trace_id + otel_span_id injetados via contextvars
+  - Jaeger all-in-one em docker-compose (UI: 3001 -> 16686, OTLP gRPC: 4317, OTLP HTTP: 4318)
+  - Testes: `test_tracing.py` — no-op, idempotencia, trace context, header propagation
+
 - [x] Dependencias externas estaveis
   - PostgreSQL 16, Redis 7, ClickHouse — health checks no docker-compose.yml
+  - Jaeger all-in-one — OTLP receiver, zero config em dev
   - SMTP: fallback no-op quando nao configurado
   - Slack: fallback no-op quando webhook nao configurado
 

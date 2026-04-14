@@ -9,11 +9,14 @@ from typing import Callable
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
+import structlog
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.observability import now_ms, observe_api_request, resolve_trace_id
 from app.core.redis import get_redis_pool
 from app.core.security import decode_token
+from app.core.tracing import get_trace_context
 
 log = get_logger(__name__)
 
@@ -416,20 +419,29 @@ def install_middlewares(app: FastAPI) -> None:
 
         request.state.trace_id = trace_id
 
+        # Bind request-scoped fields into structlog contextvars so every log
+        # line emitted during this request carries them automatically.
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            trace_id=trace_id,
+            method=method,
+            path=path,
+        )
+
         try:
             response = await call_next(request)
             status_code = response.status_code
         except Exception:
             duration_ms = now_ms() - started_ms
             observe_api_request(method, path, 500, duration_ms)
-            log.exception(
-                "api.request.failed",
-                trace_id=trace_id,
-                method=method,
-                path=path,
-                duration_ms=round(duration_ms, 2),
-            )
+            log.exception("api.request.failed", duration_ms=round(duration_ms, 2))
             raise
+        finally:
+            # After call_next the OTel FastAPI span is active; capture its IDs
+            # for correlation between logs and traces.
+            otel_ctx = get_trace_context()
+            if otel_ctx:
+                structlog.contextvars.bind_contextvars(**otel_ctx)
 
         duration_ms = now_ms() - started_ms
         observe_api_request(method, path, status_code, duration_ms)
@@ -440,9 +452,6 @@ def install_middlewares(app: FastAPI) -> None:
 
         log.info(
             "api.request",
-            trace_id=trace_id,
-            method=method,
-            path=path,
             status_code=status_code,
             duration_ms=round(duration_ms, 2),
         )

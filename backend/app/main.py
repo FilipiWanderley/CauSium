@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import install_middlewares
 from app.core.observability import build_sli_slo_snapshot, render_metrics_prometheus
+from app.core.tracing import instrument_app, setup_tracing, shutdown_tracing
 
 configure_logging()
 log = get_logger(__name__)
@@ -19,10 +20,16 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     settings.validate_production_security()
+    setup_tracing(
+        service_name=settings.otel_service_name,
+        otlp_endpoint=settings.otel_exporter_otlp_endpoint,
+        sample_ratio=settings.otel_sample_ratio,
+    )
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
     yield
     from app.core.redis import close_redis
     await close_redis()
+    shutdown_tracing()
     log.info("app.shutdown")
 
 
@@ -46,6 +53,7 @@ app.add_middleware(
 )
 
 install_middlewares(app)
+instrument_app(app)
 
 app.include_router(api_router)
 
