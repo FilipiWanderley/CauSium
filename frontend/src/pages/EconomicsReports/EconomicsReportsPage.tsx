@@ -22,12 +22,12 @@ export function EconomicsReportsPage() {
 
   const servicesQuery = useQuery({
     queryKey: ['economics-reports-services', days],
-    queryFn: () => ledgerApi.topServicesWithLimit(days, 15).then((r) => r.data),
+    queryFn: () => ledgerApi.topServicesPaginated(days, 1, 15).then((r) => r.data.items),
   })
 
   const teamsQuery = useQuery({
     queryKey: ['economics-reports-teams', days],
-    queryFn: () => ledgerApi.topTeamsWithLimit(days, 15).then((r) => r.data),
+    queryFn: () => ledgerApi.topTeamsPaginated(days, 1, 15).then((r) => r.data.items),
   })
 
   const exportJobQuery = useQuery({

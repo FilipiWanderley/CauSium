@@ -151,7 +151,7 @@ export function WorkspacesPage() {
     queryKey: ['audit-auth-events-org', expandedOrgId, auditWindow],
     queryFn: () =>
       auditChainApi
-        .listAuthEvents(expandedOrgId!, 200, createdAfterByWindow(auditWindow))
+        .listAuthEvents(expandedOrgId!, 1, 200, { createdAfter: createdAfterByWindow(auditWindow) })
         .then((r) => r.data),
     enabled: !!expandedOrgId,
   })

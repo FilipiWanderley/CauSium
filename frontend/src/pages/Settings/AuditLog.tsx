@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import type { AxiosResponse } from 'axios'
 import { auditChainApi } from '../../api/auditChain'
+import type { AuditEventItem, Page } from '../../api/auditChain'
 import { useAuth } from '../../hooks/useAuth'
 
 const PAGE_SIZE = 25
@@ -30,15 +32,13 @@ export function AuditLog() {
   const [eventTypeFilter, setEventTypeFilter] = useState('')
   const [createdAfter, setCreatedAfter] = useState('')
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<AxiosResponse<Page<AuditEventItem>>>({
     queryKey: ['audit-events', orgId, page, eventTypeFilter, createdAfter],
     queryFn: () =>
-      orgId
-        ? auditChainApi.listAuthEvents(orgId, page, PAGE_SIZE, {
-            eventType: eventTypeFilter || undefined,
-            createdAfter: createdAfter || undefined,
-          })
-        : Promise.resolve({ data: { items: [], total: 0, page: 1, page_size: PAGE_SIZE, has_next: false } }),
+      auditChainApi.listAuthEvents(orgId!, page, PAGE_SIZE, {
+        eventType: eventTypeFilter || undefined,
+        createdAfter: createdAfter || undefined,
+      }),
     enabled: !!orgId,
   })
 
