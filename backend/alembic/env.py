@@ -48,7 +48,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    import sqlalchemy as sa
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_num_col_type=sa.String(128),
+    )
     with context.begin_transaction():
         context.run_migrations()
 
