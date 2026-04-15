@@ -120,13 +120,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev-runtime
     ports:
       - "3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      VITE_API_URL: http://localhost:8000
     depends_on:
       - backend
 
