@@ -26,3 +26,45 @@ class LabelComplianceRowOut(BaseModel):
     total_cost_usd: float
     untagged_cost_usd: float
     compliance_pct: float
+
+
+# ── Recommendations ────────────────────────────────────────────────────────────
+
+class RecommendationRowOut(BaseModel):
+    recommendation_id: str
+    category: str
+    impact: str
+    resource_id: str
+    resource_name: str
+    resource_group: str
+    service: str
+    short_description: str
+    estimated_savings_usd: float | None
+
+
+class RecommendationsSummaryOut(BaseModel):
+    total: int
+    high_impact: int
+    total_estimated_savings_usd: float
+    by_category: dict[str, int]
+
+
+# ── Inventory ──────────────────────────────────────────────────────────────────
+
+class ResourceRowOut(BaseModel):
+    resource_id: str
+    name: str
+    resource_type: str
+    resource_group: str
+    location: str
+    environment: str
+    owner_team: str
+    sku_name: str
+    provisioning_state: str
+
+
+class InventorySummaryOut(BaseModel):
+    total_resources: int
+    resource_types: int
+    resource_groups: int
+    unowned_resources: int

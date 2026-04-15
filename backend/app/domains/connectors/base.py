@@ -49,6 +49,55 @@ class CanonicalCarbonRecord:
     kg_co2e: float
 
 
+@dataclass
+class CanonicalRecommendationRecord:
+    recommendation_id: str
+    provider: str
+    subscription_id: str
+    category: str           # Cost | Security | Performance | HighAvailability | OperationalExcellence
+    impact: str             # High | Medium | Low
+    resource_id: str
+    resource_name: str
+    resource_group: str
+    service: str
+    short_description: str
+    recommendation_type_id: str
+    estimated_savings_usd: float | None
+    fetched_at: Any         # datetime
+
+
+@dataclass
+class CanonicalResourceRecord:
+    resource_id: str
+    provider: str
+    subscription_id: str
+    name: str
+    resource_type: str
+    resource_group: str
+    location: str
+    environment: str
+    owner_team: str
+    sku_name: str
+    sku_tier: str
+    provisioning_state: str
+    tags: dict[str, str]
+    fetched_at: Any         # datetime
+
+
+@dataclass
+class CanonicalUsageRecord:
+    date: date
+    provider: str
+    subscription_id: str
+    service: str
+    resource_id: str
+    metric_name: str
+    metric_value: float
+    metric_unit: str
+    region: str
+    environment: str
+
+
 class BaseConnector(ABC):
     @abstractmethod
     async def validate_connection(self) -> None:

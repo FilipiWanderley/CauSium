@@ -183,17 +183,170 @@ class CloudLedgerService:
                 )
                 existing_keys.add(key)
 
+        # Azure-specific: recommendations, inventory, usage metrics
+        recommendation_count = 0
+        inventory_count = 0
+        usage_count = 0
+
+        if isinstance(client, AzureConnectorClient):
+            recommendation_count = await self._ingest_azure_recommendations(
+                client, org_id, account_id, account.external_id
+            )
+            inventory_count = await self._ingest_azure_inventory(
+                client, org_id, account_id, account.external_id
+            )
+            usage_count = await self._ingest_azure_usage_metrics(
+                client, org_id, account_id, account.external_id, start, end
+            )
+
         # Update last sync
         account.last_sync_at = datetime.now(timezone.utc)
         await self.db.flush()
 
-        log.info("ledger.ingest.done", account_id=str(account_id), costs=len(costs), events=len(events))
+        log.info(
+            "ledger.ingest.done",
+            account_id=str(account_id),
+            costs=len(costs),
+            events=len(events),
+            recommendations=recommendation_count,
+            inventory=inventory_count,
+            usage=usage_count,
+        )
         return IngestResult(
             account_id=account_id,
             cost_records=len(costs),
             event_records=len(events),
+            recommendation_records=recommendation_count,
+            inventory_records=inventory_count,
+            usage_records=usage_count,
             status="ok",
         )
+
+    async def _ingest_azure_recommendations(
+        self,
+        client,
+        org_id,
+        account_id,
+        subscription_id: str,
+    ) -> int:
+        try:
+            recs = await client.fetch_recommendations(subscription_id)
+        except Exception as exc:
+            log.warning("ledger.azure_recommendations.fetch_failed", error=str(exc))
+            return 0
+
+        rows = [
+            {
+                "fetched_at": r.fetched_at,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "recommendation_id": r.recommendation_id,
+                "category": r.category,
+                "impact": r.impact,
+                "resource_id": r.resource_id,
+                "resource_name": r.resource_name,
+                "resource_group": r.resource_group,
+                "service": r.service,
+                "short_description": r.short_description,
+                "recommendation_type_id": r.recommendation_type_id,
+                "estimated_savings_usd": r.estimated_savings_usd,
+            }
+            for r in recs
+        ]
+        if rows:
+            try:
+                insert_rows("recommendation_facts", rows)
+            except Exception as exc:
+                log.warning("ledger.clickhouse.recommendation_insert_failed", error=str(exc))
+                return 0
+
+        return len(rows)
+
+    async def _ingest_azure_inventory(
+        self,
+        client,
+        org_id,
+        account_id,
+        subscription_id: str,
+    ) -> int:
+        try:
+            resources = await client.fetch_inventory(subscription_id)
+        except Exception as exc:
+            log.warning("ledger.azure_inventory.fetch_failed", error=str(exc))
+            return 0
+
+        rows = [
+            {
+                "fetched_at": r.fetched_at,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "resource_id": r.resource_id,
+                "name": r.name,
+                "resource_type": r.resource_type,
+                "resource_group": r.resource_group,
+                "location": r.location,
+                "environment": r.environment,
+                "owner_team": r.owner_team,
+                "sku_name": r.sku_name,
+                "sku_tier": r.sku_tier,
+                "provisioning_state": r.provisioning_state,
+                "tags": r.tags,
+            }
+            for r in resources
+        ]
+        if rows:
+            try:
+                insert_rows("resource_inventory", rows)
+            except Exception as exc:
+                log.warning("ledger.clickhouse.inventory_insert_failed", error=str(exc))
+                return 0
+
+        return len(rows)
+
+    async def _ingest_azure_usage_metrics(
+        self,
+        client,
+        org_id,
+        account_id,
+        subscription_id: str,
+        start,
+        end,
+    ) -> int:
+        try:
+            usage = await client.fetch_usage_metrics(subscription_id, start, end)
+        except Exception as exc:
+            log.warning("ledger.azure_usage.fetch_failed", error=str(exc))
+            return 0
+
+        rows = [
+            {
+                "date": r.date,
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "provider": r.provider,
+                "subscription_id": r.subscription_id,
+                "service": r.service,
+                "resource_id": r.resource_id,
+                "metric_name": r.metric_name,
+                "metric_value": r.metric_value,
+                "metric_unit": r.metric_unit,
+                "region": r.region,
+                "environment": r.environment,
+            }
+            for r in usage
+        ]
+        if rows:
+            try:
+                insert_rows("usage_facts", rows)
+            except Exception as exc:
+                log.warning("ledger.clickhouse.usage_insert_failed", error=str(exc))
+                return 0
+
+        return len(rows)
 
     async def ingest_carbon_account(
         self,

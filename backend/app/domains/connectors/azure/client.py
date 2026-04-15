@@ -9,7 +9,15 @@ import httpx
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domains.connectors.base import BaseConnector, CanonicalCarbonRecord, CanonicalCostRecord, CanonicalEventRecord
+from app.domains.connectors.base import (
+    BaseConnector,
+    CanonicalCarbonRecord,
+    CanonicalCostRecord,
+    CanonicalEventRecord,
+    CanonicalRecommendationRecord,
+    CanonicalResourceRecord,
+    CanonicalUsageRecord,
+)
 
 log = get_logger(__name__)
 
@@ -495,6 +503,262 @@ class AzureConnectorClient(BaseConnector):
                 records.append(normalized)
 
         log.info("azure.fetch_carbon.done", subscription=subscription_id, records=len(records))
+        return records
+
+    async def fetch_recommendations(
+        self, subscription_id: str
+    ) -> list[CanonicalRecommendationRecord]:
+        """Fetch Azure Advisor recommendations for the subscription."""
+        from azure.mgmt.advisor import AdvisorManagementClient
+
+        cred = self._get_credential()
+        client = AdvisorManagementClient(cred, subscription_id)
+        now = datetime.now(timezone.utc)
+        records: list[CanonicalRecommendationRecord] = []
+
+        try:
+            for rec in client.recommendations.list():
+                rec_id = str(rec.id or "")
+
+                # The Advisor resource ID is structured as:
+                # /subscriptions/{sub}/resourceGroups/{rg}/providers/{type}/{name}
+                # /providers/Microsoft.Advisor/recommendations/{rec_uuid}
+                # Split on the Advisor segment to extract the impacted resource path.
+                advisor_marker = "/providers/Microsoft.Advisor/recommendations/"
+                if advisor_marker in rec_id:
+                    resource_id = rec_id.split(advisor_marker)[0]
+                else:
+                    resource_id = ""
+
+                # Fall back to resource_metadata if available
+                if not resource_id:
+                    meta = getattr(rec, "resource_metadata", None)
+                    resource_id = str(getattr(meta, "resource_id", "") or "")
+
+                resource_group = ""
+                if "/resourceGroups/" in resource_id:
+                    resource_group = resource_id.split("/resourceGroups/")[1].split("/")[0]
+
+                resource_name = (
+                    resource_id.split("/")[-1]
+                    if resource_id
+                    else str(getattr(rec, "impacted_value", "") or "")
+                )
+
+                # Extract human-readable description
+                short_desc_obj = getattr(rec, "short_description", None)
+                short_description = ""
+                if short_desc_obj:
+                    short_description = str(
+                        getattr(short_desc_obj, "problem", "")
+                        or getattr(short_desc_obj, "solution", "")
+                        or ""
+                    )
+
+                # Estimated savings live in extended_properties under various keys
+                extended = getattr(rec, "extended_properties", None) or {}
+                savings: float | None = None
+                for key in ("savingsAmount", "annualSavingsAmount", "estimatedAnnualSavings"):
+                    raw = extended.get(key)
+                    if raw is not None:
+                        try:
+                            savings = float(raw)
+                            break
+                        except (TypeError, ValueError):
+                            continue
+
+                records.append(
+                    CanonicalRecommendationRecord(
+                        recommendation_id=str(rec.name or rec_id.split("/")[-1] or ""),
+                        provider="azure",
+                        subscription_id=subscription_id,
+                        category=str(getattr(rec, "category", "") or ""),
+                        impact=str(getattr(rec, "impact", "") or ""),
+                        resource_id=resource_id,
+                        resource_name=resource_name,
+                        resource_group=resource_group,
+                        service=str(getattr(rec, "impacted_field", "") or ""),
+                        short_description=short_description,
+                        recommendation_type_id=str(getattr(rec, "recommendation_type_id", "") or ""),
+                        estimated_savings_usd=savings,
+                        fetched_at=now,
+                    )
+                )
+        except Exception as exc:
+            log.warning(
+                "azure.fetch_recommendations.failed",
+                subscription=subscription_id,
+                reason=str(exc),
+            )
+            return []
+
+        log.info(
+            "azure.fetch_recommendations.done",
+            subscription=subscription_id,
+            records=len(records),
+        )
+        return records
+
+    async def fetch_inventory(
+        self, subscription_id: str
+    ) -> list[CanonicalResourceRecord]:
+        """Fetch all deployed resources via Azure Resource Graph."""
+        from azure.mgmt.resourcegraph import ResourceGraphClient
+        from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
+
+        cred = self._get_credential()
+        client = ResourceGraphClient(cred)
+        now = datetime.now(timezone.utc)
+
+        KQL = """
+        Resources
+        | project id, name, type, resourceGroup, location, tags, sku, properties
+        | order by type asc
+        """
+
+        records: list[CanonicalResourceRecord] = []
+        skip_token: str | None = None
+
+        try:
+            while True:
+                options = QueryRequestOptions(top=1000, skip_token=skip_token)
+                request = QueryRequest(
+                    subscriptions=[subscription_id],
+                    query=KQL,
+                    options=options,
+                )
+                result = client.resources(request)
+
+                for row in result.data or []:
+                    if not isinstance(row, dict):
+                        continue
+                    tags = _parse_tags(row.get("tags") or {})
+                    sku = row.get("sku") or {}
+                    props = row.get("properties") or {}
+
+                    records.append(
+                        CanonicalResourceRecord(
+                            resource_id=str(row.get("id") or ""),
+                            provider="azure",
+                            subscription_id=subscription_id,
+                            name=str(row.get("name") or ""),
+                            resource_type=str(row.get("type") or ""),
+                            resource_group=str(row.get("resourceGroup") or ""),
+                            location=str(row.get("location") or "unknown"),
+                            environment=_infer_environment(tags),
+                            owner_team=_infer_owner_team(tags),
+                            sku_name=str(sku.get("name") or "") if isinstance(sku, dict) else "",
+                            sku_tier=str(sku.get("tier") or "") if isinstance(sku, dict) else "",
+                            provisioning_state=str(props.get("provisioningState") or "") if isinstance(props, dict) else "",
+                            tags=tags,
+                            fetched_at=now,
+                        )
+                    )
+
+                skip_token = getattr(result, "skip_token", None)
+                if not skip_token or len(result.data or []) < 1000:
+                    break
+
+        except Exception as exc:
+            log.warning(
+                "azure.fetch_inventory.failed",
+                subscription=subscription_id,
+                reason=str(exc),
+            )
+            return []
+
+        log.info(
+            "azure.fetch_inventory.done",
+            subscription=subscription_id,
+            records=len(records),
+        )
+        return records
+
+    async def fetch_usage_metrics(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalUsageRecord]:
+        """Fetch daily CPU/network metrics for VMs via Azure Monitor."""
+        from azure.mgmt.monitor import MonitorManagementClient
+        from azure.mgmt.resource import ResourceManagementClient
+
+        cred = self._get_credential()
+        resource_client = ResourceManagementClient(cred, subscription_id)
+        monitor_client = MonitorManagementClient(cred, subscription_id)
+
+        timespan = f"{start.isoformat()}T00:00:00Z/{end.isoformat()}T23:59:59Z"
+        METRICS = "Percentage CPU,Network In Total,Network Out Total,Disk Read Bytes,Disk Write Bytes"
+
+        records: list[CanonicalUsageRecord] = []
+
+        try:
+            vms = list(
+                resource_client.resources.list(
+                    filter="resourceType eq 'Microsoft.Compute/virtualMachines'",
+                    top=100,
+                )
+            )
+        except Exception as exc:
+            log.warning(
+                "azure.fetch_usage.list_vms_failed",
+                subscription=subscription_id,
+                reason=str(exc),
+            )
+            return []
+
+        for vm in vms:
+            try:
+                metrics_result = monitor_client.metrics.list(
+                    resource_uri=vm.id,
+                    timespan=timespan,
+                    interval="P1D",
+                    metricnames=METRICS,
+                    aggregation="Average",
+                )
+                tags = _parse_tags(vm.tags)
+                environment = _infer_environment(tags)
+
+                for metric in metrics_result.value:
+                    metric_name = (
+                        metric.name.localized_value
+                        or metric.name.value
+                        or ""
+                    )
+                    metric_unit = metric.unit.value if metric.unit else ""
+
+                    for ts in metric.timeseries:
+                        for point in ts.data:
+                            if point.average is None:
+                                continue
+                            records.append(
+                                CanonicalUsageRecord(
+                                    date=point.time_stamp.date(),
+                                    provider="azure",
+                                    subscription_id=subscription_id,
+                                    service="Virtual Machines",
+                                    resource_id=str(vm.id or ""),
+                                    metric_name=metric_name,
+                                    metric_value=round(point.average, 6),
+                                    metric_unit=metric_unit,
+                                    region=str(vm.location or "unknown"),
+                                    environment=environment,
+                                )
+                            )
+            except Exception as exc:
+                log.warning(
+                    "azure.fetch_usage.vm_metrics_failed",
+                    vm_id=str(vm.id),
+                    reason=str(exc),
+                )
+                continue
+
+        log.info(
+            "azure.fetch_usage.done",
+            subscription=subscription_id,
+            records=len(records),
+        )
         return records
 
     @staticmethod

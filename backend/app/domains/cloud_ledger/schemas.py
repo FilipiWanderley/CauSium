@@ -79,5 +79,8 @@ class IngestResult(BaseModel):
     account_id: UUID
     cost_records: int
     event_records: int
+    recommendation_records: int = 0
+    inventory_records: int = 0
+    usage_records: int = 0
     status: str
     message: str | None = None

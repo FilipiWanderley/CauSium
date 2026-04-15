@@ -1,5 +1,7 @@
 import { apiClient } from './client'
 
+// ── Existing types ─────────────────────────────────────────────────────────────
+
 export interface GovSummary {
   total_resources: number
   unowned_resources: number
@@ -25,6 +27,50 @@ export interface LabelComplianceRow {
   compliance_pct: number
 }
 
+// ── Recommendations ────────────────────────────────────────────────────────────
+
+export interface RecommendationRow {
+  recommendation_id: string
+  category: string
+  impact: string
+  resource_id: string
+  resource_name: string
+  resource_group: string
+  service: string
+  short_description: string
+  estimated_savings_usd: number | null
+}
+
+export interface RecommendationsSummary {
+  total: number
+  high_impact: number
+  total_estimated_savings_usd: number
+  by_category: Record<string, number>
+}
+
+// ── Inventory ──────────────────────────────────────────────────────────────────
+
+export interface ResourceRow {
+  resource_id: string
+  name: string
+  resource_type: string
+  resource_group: string
+  location: string
+  environment: string
+  owner_team: string
+  sku_name: string
+  provisioning_state: string
+}
+
+export interface InventorySummary {
+  total_resources: number
+  resource_types: number
+  resource_groups: number
+  unowned_resources: number
+}
+
+// ── API client ─────────────────────────────────────────────────────────────────
+
 export const govApi = {
   getSummary: (days = 30): Promise<GovSummary> =>
     apiClient.get('/gov/summary', { params: { days } }).then((r) => r.data),
@@ -34,4 +80,26 @@ export const govApi = {
 
   getLabelCompliance: (days = 30): Promise<LabelComplianceRow[]> =>
     apiClient.get('/gov/label-compliance', { params: { days } }).then((r) => r.data),
+
+  getRecommendationsSummary: (): Promise<RecommendationsSummary> =>
+    apiClient.get('/gov/recommendations/summary').then((r) => r.data),
+
+  getRecommendations: (params?: {
+    category?: string
+    impact?: string
+    limit?: number
+  }): Promise<RecommendationRow[]> =>
+    apiClient.get('/gov/recommendations', { params }).then((r) => r.data),
+
+  getInventorySummary: (): Promise<InventorySummary> =>
+    apiClient.get('/gov/inventory/summary').then((r) => r.data),
+
+  getInventory: (params?: {
+    resource_type?: string
+    owner_team?: string
+    environment?: string
+    limit?: number
+    offset?: number
+  }): Promise<ResourceRow[]> =>
+    apiClient.get('/gov/inventory', { params }).then((r) => r.data),
 }
