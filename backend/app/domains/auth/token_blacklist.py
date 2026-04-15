@@ -26,11 +26,13 @@ async def revoke_all_tokens_for_user(db: AsyncSession, user_id: UUID):
     await db.flush()
 
 async def is_token_revoked(db: AsyncSession, user_id: UUID, issued_at: datetime) -> bool:
-    # Verifica se existe um registro de revogação posterior ao issued_at
+    # Verifica se existe um registro de revogação posterior ao issued_at.
+    # Strip timezone so the comparison works with TIMESTAMP WITHOUT TIME ZONE columns.
+    issued_at_naive = issued_at.replace(tzinfo=None) if issued_at.tzinfo else issued_at
     result = await db.execute(
         select(RevokedToken).where(
             RevokedToken.user_id == user_id,
-            RevokedToken.revoked_at > issued_at,
+            RevokedToken.revoked_at > issued_at_naive,
         )
     )
     return result.scalar_one_or_none() is not None

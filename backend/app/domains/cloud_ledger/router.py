@@ -37,7 +37,7 @@ async def get_dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
 ):
-    accounts = await CloudAccountService(db).list_accounts(current_user.org_id)
+    accounts, _ = await CloudAccountService(db).list_accounts(current_user.org_id)
     active = sum(1 for a in accounts if a.status.value == "active")
     service = CloudLedgerService(db)
     return await service.get_dashboard_metrics(current_user.org_id, active)

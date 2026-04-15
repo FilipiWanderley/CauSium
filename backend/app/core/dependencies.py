@@ -59,7 +59,8 @@ async def get_current_user(
     from app.domains.auth.token_blacklist import is_token_revoked
 
     user_id = UUID(payload["sub"])
-    issued_at = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+    # "iat" may be absent in tokens issued before this field was added — fall back to epoch 0
+    issued_at = datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.utc)
 
     if await is_token_revoked(db, user_id, issued_at):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")

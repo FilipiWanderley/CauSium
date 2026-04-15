@@ -682,13 +682,15 @@ class CloudLedgerService:
             (current_month - previous_month) / previous_month * 100 if previous_month else 0
         )
 
+        top_services, _ = self.get_top_services(org_id)
+        top_teams, _ = self.get_top_teams(org_id)
         return DashboardMetrics(
             current_month_cost=current_month,
             previous_month_cost=previous_month,
             mom_change_pct=round(mom_change, 1),
             daily_trend=self.get_cost_trend(org_id, days=30),
-            top_services=self.get_top_services(org_id),
-            top_teams=self.get_top_teams(org_id),
+            top_services=top_services,
+            top_teams=top_teams,
             event_count_7d=self.get_event_count(org_id, days=7),
             active_accounts=active_accounts,
         )
