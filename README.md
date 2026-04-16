@@ -898,7 +898,7 @@ flowchart LR
 **Configuração via `.env`:**
 ```bash
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=stratopulse-api
+OTEL_SERVICE_NAME=causium-backend
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 OTEL_SAMPLING_RATE=1.0   # 1.0 = 100% em dev; reduzir em prod
 ```
@@ -1132,8 +1132,8 @@ gantt
 | PulseEconomics | 🔶 Parcial | Dashboard, costs, SKUs, export async — forecast P90 no roadmap |
 | Alertas e notificações | ✅ Completo | AlertRecord, AlertRule, NotificationPreference, SMTP + Slack, DLQ |
 | PulseIntel | 🔶 Parcial | ProviderRecommendation sync — SCA/ARI Wave 3 |
-| PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
-| PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
+| PulseGov | 🔶 Parcial | UI implementada — SCA/ARI engine e blast radius Wave 3 |
+| PulseGreen | 🔶 Parcial | UI implementada + carbon sync worker — forecast e tendências avançadas Wave 3 |
 | PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR (S3), GCP (BigQuery + Workload Identity) |
 | Sync / Workers | ✅ Completo | 8 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance |
 | StratoAudit / Compliance | ✅ Completo | Hash chain SHA-256, HMAC checkpoints, DLQ, audit log UI |
@@ -1157,8 +1157,8 @@ gantt
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/FilipiWanderley/CauSium.git
-cd CauSium
+git clone https://github.com/FilipiWanderley/StratoPulse.git
+cd StratoPulse
 
 # 2. Configure as variáveis de ambiente
 cp .env.example .env
@@ -1185,7 +1185,7 @@ npm run dev
 
 ```bash
 # Banco de dados
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/stratopulse
+DATABASE_URL=postgresql+asyncpg://causium:causium_dev@localhost:5432/causium
 DATABASE_SSL=false   # true em produção com certificado
 
 # Cache e filas
@@ -1195,7 +1195,7 @@ REDIS_URL=redis://localhost:6379
 # ClickHouse
 CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
-CLICKHOUSE_DB=stratopulse
+CLICKHOUSE_DB=causium
 # CLICKHOUSE_CA_CERT=/path/to/ca.crt  (TLS em produção)
 
 # Segurança — NUNCA commitar valores reais
@@ -1223,11 +1223,11 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey
 SMTP_PASSWORD=<api-key>
-SMTP_FROM=noreply@stratopulse.io
+SMTP_FROM=noreply@causium.local
 
 # OpenTelemetry
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=stratopulse-api
+OTEL_SERVICE_NAME=causium-backend
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 OTEL_SAMPLING_RATE=1.0
 
@@ -1254,7 +1254,7 @@ CauSium/
 │   │       ├── cloud_accounts/        # Azure, AWS CUR, GCP BigQuery connectors
 │   │       ├── economics/             # Custos, SKUs, forecast, export async
 │   │       ├── experiments/           # PulseLab, runs, approvals
-│   │       ├── initiatives/           # Kanban de iniciativas
+│   │       ├── workflow/              # Kanban de iniciativas
 │   │       ├── notifications/         # Alertas, regras, preferências, Slack
 │   │       ├── opportunities/         # Scoring, recomendações
 │   │       ├── audit_chain/           # StratoAudit hash chain
