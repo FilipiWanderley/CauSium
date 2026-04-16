@@ -22,7 +22,7 @@
 ## Índice
 
 - [Visão Geral](#-visão-geral)
-- [Por que StratoPulse?](#-por-que-stratopulse)
+- [Por que CauSium?](#-por-que-causium)
 - [Módulos do Produto](#-módulos-do-produto)
 - [Arquitetura do Sistema](#-arquitetura-do-sistema)
 - [Stack Tecnológica](#-stack-tecnológica)
@@ -43,7 +43,7 @@
 
 ## 🎯 Visão Geral
 
-O **StratoPulse** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
+O **CauSium** é uma plataforma de inteligência econômica de cloud que combina visibilidade FinOps operacional com decisões verificáveis baseadas em **causalidade**, governança por **risk budgets** e execução via **experimentos controlados**.
 
 O diferencial competitivo está em três camadas:
 
@@ -55,9 +55,9 @@ O diferencial competitivo está em três camadas:
 
 ---
 
-## 💡 Por que StratoPulse?
+## 💡 Por que CauSium?
 
-Ferramentas FinOps convencionais mostram dashboards e recomendações. O StratoPulse vai além:
+Ferramentas FinOps convencionais mostram dashboards e recomendações. O CauSium vai além:
 
 - **Prova causal** — toda recomendação inclui a engine SCA (Stratum Causal Attribution) apontando *o que causou* a variação de custo, com percentual de confiança
 - **Execução segura** — ações em produção só ocorrem após experimento canário com guardrails automáticos e rollback se SLO for violado
@@ -71,7 +71,7 @@ Ferramentas FinOps convencionais mostram dashboards e recomendações. O StratoP
 ## 📦 Módulos do Produto
 
 ```
-StratoPulse
+CauSium
 ├── PulseEconomics   → Análise financeira, dashboard, KPIs, SKUs, forecast, exportação async
 ├── PulseIntel       → Recomendações inteligentes, SCA, ARI, backlog adaptativo
 ├── PulseLab         → Criação e execução de experimentos de otimização
@@ -384,7 +384,7 @@ flowchart TD
 
 ### Autenticação — Passkey-First com MFA TOTP
 
-O StratoPulse adota **WebAuthn (FIDO2) passkeys** como método padrão. Senhas são suportadas como fallback. MFA TOTP está disponível como segundo fator, com geração de **backup codes** para recuperação de conta.
+O CauSium adota **WebAuthn (FIDO2) passkeys** como método padrão. Senhas são suportadas como fallback. MFA TOTP está disponível como segundo fator, com geração de **backup codes** para recuperação de conta.
 
 ```mermaid
 sequenceDiagram
@@ -879,7 +879,7 @@ DELETE /dlq/messages/{id}  → Descarta mensagem sem reprocessar
 
 ### OpenTelemetry — Distributed Tracing
 
-O StratoPulse instrumenta automaticamente todas as requisições HTTP, chamadas ao banco de dados (SQLAlchemy), chamadas ao Redis e chamadas ao ClickHouse via OpenTelemetry SDK.
+O CauSium instrumenta automaticamente todas as requisições HTTP, chamadas ao banco de dados (SQLAlchemy), chamadas ao Redis e chamadas ao ClickHouse via OpenTelemetry SDK.
 
 ```mermaid
 flowchart LR
@@ -1064,7 +1064,7 @@ flowchart LR
 
 ```mermaid
 gantt
-  title StratoPulse — Roadmap de Implementação
+  title CauSium — Roadmap de Implementação
   dateFormat  YYYY-MM-DD
   axisFormat  %b %Y
 
@@ -1157,8 +1157,8 @@ gantt
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/FilipiWanderley/StratoPulse.git
-cd StratoPulse
+git clone https://github.com/FilipiWanderley/CauSium.git
+cd CauSium
 
 # 2. Configure as variáveis de ambiente
 cp .env.example .env
@@ -1203,11 +1203,11 @@ SECRET_KEY=<chave-jwt-32-bytes-hex>
 ENCRYPTION_KEY=<fernet-key-base64>
 
 # MFA
-MFA_ISSUER=StratoPulse
+MFA_ISSUER=CauSium
 
 # Passkeys / WebAuthn
 WEBAUTHN_RP_ID=localhost
-WEBAUTHN_RP_NAME=StratoPulse
+WEBAUTHN_RP_NAME=CauSium
 WEBAUTHN_ORIGIN=http://localhost:5173
 
 # Azure OIDC (opcional para dev)
@@ -1244,7 +1244,7 @@ GRAFANA_ADMIN_PASSWORD=admin
 ### Estrutura de Diretórios
 
 ```
-StratoPulse/
+CauSium/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                    # FastAPI app + lifespan + OTel setup
