@@ -6,6 +6,7 @@ import { membersApi, type MemberCreatePayload, type MemberItem } from '../../api
 import { invitesApi, type InviteOut, type InviteRole, type InviteStatus } from '../../api/invites'
 import { adminApi } from '../../api/admin'
 import { useAuth } from '../../hooks/useAuth'
+import { useI18n } from '../../contexts/I18nContext'
 import type { UserRole } from '../../types'
 
 type MembersTab = 'members' | 'invites'
@@ -30,6 +31,8 @@ type DeleteModalState = { member: MemberItem; reason: string }
 
 export function MembersPage() {
   const { user } = useAuth()
+  const { t } = useI18n()
+  const m = t.members
   const queryClient = useQueryClient()
 
   const [tab, setTab] = useState<MembersTab>('members')
@@ -95,10 +98,10 @@ export function MembersPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['members-list'] })
       setMemberForm({ email: '', full_name: '', password: '', role: 'viewer' })
-      showSuccess('Member created successfully.')
+      showSuccess(m.toastCreated)
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not create member.')
+      showError((error as Error)?.message ?? m.toastCreateError)
     },
   })
 
@@ -113,10 +116,10 @@ export function MembersPage() {
         email: member.email,
         password: payload.temporary_password,
       })
-      showSuccess(`Password reset completed for ${member.email}.`)
+      showSuccess(m.toastPasswordReset.replace('{{email}}', member.email))
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not reset password.')
+      showError((error as Error)?.message ?? m.toastPasswordError)
     },
     onSettled: () => {
       setMemberActionId(null)
@@ -130,10 +133,14 @@ export function MembersPage() {
       setFeedback(null)
     },
     onSuccess: ({ member, payload }) => {
-      showSuccess(`MFA reset completed for ${member.email}. Revoked passkeys: ${payload.revoked_passkeys}.`)
+      showSuccess(
+        m.toastMfaReset
+          .replace('{{email}}', member.email)
+          .replace('{{count}}', String(payload.revoked_passkeys))
+      )
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not reset MFA.')
+      showError((error as Error)?.message ?? m.toastMfaError)
     },
     onSettled: () => {
       setMemberActionId(null)
@@ -149,55 +156,55 @@ export function MembersPage() {
     },
     onSuccess: async ({ member }) => {
       await queryClient.invalidateQueries({ queryKey: ['members-list'] })
-      showSuccess(`User ${member.email} was deactivated.`)
+      showSuccess(m.toastDeactivated.replace('{{email}}', member.email))
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not deactivate user.')
+      showError((error as Error)?.message ?? m.toastDeactivateError)
     },
     onSettled: () => {
       setMemberActionId(null)
     },
   })
 
-    // --- PATCH membro ---
-    const editMemberMutation = useMutation({
-      mutationFn: ({ member, updates }: { member: MemberItem; updates: Partial<Pick<MemberItem, 'full_name' | 'email' | 'role'>> }) =>
-        membersApi.update(member.id, updates).then((r) => ({ member, payload: r.data })),
-      onMutate: ({ member }) => {
-        setMemberActionId(member.id)
-        setFeedback(null)
-      },
-      onSuccess: async ({ member }) => {
-        await queryClient.invalidateQueries({ queryKey: ['members-list'] })
-        showSuccess(`User ${member.email} updated.`)
-      },
-      onError: (error) => {
-        showError((error as Error)?.message ?? 'Could not update user.')
-      },
-      onSettled: () => {
-        setMemberActionId(null)
-      },
-    })
+  // --- PATCH membro ---
+  const editMemberMutation = useMutation({
+    mutationFn: ({ member, updates }: { member: MemberItem; updates: Partial<Pick<MemberItem, 'full_name' | 'email' | 'role'>> }) =>
+      membersApi.update(member.id, updates).then((r) => ({ member, payload: r.data })),
+    onMutate: ({ member }) => {
+      setMemberActionId(member.id)
+      setFeedback(null)
+    },
+    onSuccess: async ({ member }) => {
+      await queryClient.invalidateQueries({ queryKey: ['members-list'] })
+      showSuccess(m.toastUpdated.replace('{{email}}', member.email))
+    },
+    onError: (error) => {
+      showError((error as Error)?.message ?? m.toastUpdateError)
+    },
+    onSettled: () => {
+      setMemberActionId(null)
+    },
+  })
 
-    // --- DELETE membro (soft) ---
-    const deleteMemberMutation = useMutation({
-      mutationFn: ({ member, reason }: { member: MemberItem; reason: string }) =>
-        membersApi.delete(member.id, reason).then((r) => ({ member, payload: r.data })),
-      onMutate: ({ member }) => {
-        setMemberActionId(member.id)
-        setFeedback(null)
-      },
-      onSuccess: async ({ member }) => {
-        await queryClient.invalidateQueries({ queryKey: ['members-list'] })
-        showSuccess(`User ${member.email} was removed.`)
-      },
-      onError: (error) => {
-        showError((error as Error)?.message ?? 'Could not remove user.')
-      },
-      onSettled: () => {
-        setMemberActionId(null)
-      },
-    })
+  // --- DELETE membro (soft) ---
+  const deleteMemberMutation = useMutation({
+    mutationFn: ({ member, reason }: { member: MemberItem; reason: string }) =>
+      membersApi.delete(member.id, reason).then((r) => ({ member, payload: r.data })),
+    onMutate: ({ member }) => {
+      setMemberActionId(member.id)
+      setFeedback(null)
+    },
+    onSuccess: async ({ member }) => {
+      await queryClient.invalidateQueries({ queryKey: ['members-list'] })
+      showSuccess(m.toastRemoved.replace('{{email}}', member.email))
+    },
+    onError: (error) => {
+      showError((error as Error)?.message ?? m.toastRemoveError)
+    },
+    onSettled: () => {
+      setMemberActionId(null)
+    },
+  })
 
   const createInviteMutation = useMutation({
     mutationFn: () =>
@@ -213,10 +220,14 @@ export function MembersPage() {
       await queryClient.invalidateQueries({ queryKey: ['members-invites'] })
       setInviteForm({ email: '', role: 'viewer', expiresInDays: 7 })
       const link = `${window.location.origin}/activate?token=${data.token}`
-      showSuccess(`Invite created for ${data.invited_email}. Link: ${link}`)
+      showSuccess(
+        m.toastInviteCreated
+          .replace('{{email}}', data.invited_email)
+          .replace('{{link}}', link)
+      )
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not create invite.')
+      showError((error as Error)?.message ?? m.toastInviteError)
     },
   })
 
@@ -228,10 +239,10 @@ export function MembersPage() {
     },
     onSuccess: async (invite) => {
       await queryClient.invalidateQueries({ queryKey: ['members-invites'] })
-      showSuccess(`Invite revoked for ${invite.invited_email}.`)
+      showSuccess(m.toastInviteRevoked.replace('{{email}}', invite.invited_email))
     },
     onError: (error) => {
-      showError((error as Error)?.message ?? 'Could not revoke invite.')
+      showError((error as Error)?.message ?? m.toastInviteRevokeError)
     },
     onSettled: () => {
       setInviteActionId(null)
@@ -277,19 +288,26 @@ export function MembersPage() {
     const link = `${window.location.origin}/activate?token=${invite.token}`
     try {
       await navigator.clipboard.writeText(link)
-      showSuccess(`Activation link copied for ${invite.invited_email}.`)
+      showSuccess(m.toastInviteCreated.replace('{{email}}', invite.invited_email).replace('{{link}}', link))
     } catch {
       showError(`Copy failed. Link: ${link}`)
     }
   }
 
+  // Helper: render invite status label from translation keys
+  const inviteStatusLabel = (status: 'all' | InviteStatus): string => {
+    if (status === 'all') return 'all'
+    if (status === 'pending') return m.statusPending
+    if (status === 'accepted') return m.statusAccepted
+    if (status === 'expired') return m.statusExpired
+    return m.statusRevoked
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Members</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage workspace members and invite lifecycle from a single operational panel.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{m.title}</h1>
+        <p className="text-sm text-gray-500 mt-1">{m.subtitle}</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
@@ -302,7 +320,7 @@ export function MembersPage() {
               tab === 'members' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             )}
           >
-            Members
+            {m.tabMembers}
           </button>
           <button
             onClick={() => setTab('invites')}
@@ -312,7 +330,7 @@ export function MembersPage() {
               tab === 'invites' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
             )}
           >
-            Invites
+            {m.tabInvites}
           </button>
         </div>
       </div>
@@ -333,27 +351,27 @@ export function MembersPage() {
       {tab === 'members' && (
         <div className="space-y-4">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Create Member</h2>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">{m.createMember}</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <input
                 type="email"
                 value={memberForm.email}
                 onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="member@company.com"
+                placeholder={m.emailPlaceholder}
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <input
                 type="text"
                 value={memberForm.full_name}
                 onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                placeholder="Full name"
+                placeholder={m.fullNamePlaceholder}
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <input
                 type="password"
                 value={memberForm.password}
                 onChange={(e) => setMemberForm((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder="Temporary password"
+                placeholder={m.tempPasswordPlaceholder}
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <select
@@ -374,14 +392,16 @@ export function MembersPage() {
                 disabled={!canCreateMember || hasMemberMutationInFlight}
                 className="rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
-                {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
+                {createMemberMutation.isPending ? m.creating : m.createMember}
               </button>
             </div>
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-900">Workspace Members ({allMembers.length})</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                {m.workspaceMembers.replace('{{count}}', String(allMembers.length))}
+              </h2>
               {totalMemberPages > 1 && (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <button
@@ -389,23 +409,27 @@ export function MembersPage() {
                     disabled={membersPage <= 1 || hasMemberMutationInFlight}
                     className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    Prev
+                    {m.prev}
                   </button>
-                  <span>Page {membersPage} / {totalMemberPages}</span>
+                  <span>
+                    {m.pageOf
+                      .replace('{{page}}', String(membersPage))
+                      .replace('{{total}}', String(totalMemberPages))}
+                  </span>
                   <button
                     onClick={() => setMembersPage((p) => Math.min(totalMemberPages, p + 1))}
                     disabled={membersPage >= totalMemberPages || hasMemberMutationInFlight}
                     className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    Next
+                    {m.next}
                   </button>
                 </div>
               )}
             </div>
             {membersQuery.isLoading ? (
-              <div className="text-sm text-gray-500">Loading members...</div>
+              <div className="text-sm text-gray-500">{m.loadingMembers}</div>
             ) : !allMembers.length ? (
-              <div className="text-sm text-gray-500">No members found.</div>
+              <div className="text-sm text-gray-500">{m.noMembers}</div>
             ) : (
               <div className="space-y-2">
                 {members.map((member) => (
@@ -422,36 +446,36 @@ export function MembersPage() {
                         disabled={hasMemberMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        {resetMfaMutation.isPending && memberActionId === member.id ? 'Resetting MFA...' : 'Reset MFA'}
+                        {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
                       </button>
                       <button
                         onClick={() => resetPasswordMutation.mutate(member)}
                         disabled={hasMemberMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        {resetPasswordMutation.isPending && memberActionId === member.id ? 'Resetting...' : 'Reset Password'}
+                        {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
                       </button>
                       <button
                         onClick={() => handleDeactivate(member)}
                         disabled={!member.is_active || hasMemberMutationInFlight}
                         className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                       >
-                        {deactivateMutation.isPending && memberActionId === member.id ? 'Deactivating...' : 'Deactivate'}
+                        {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
                       </button>
-                        <button
-                          onClick={() => handleEdit(member)}
-                          disabled={!member.is_active || hasMemberMutationInFlight}
-                          className="rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60"
-                        >
-                          {editMemberMutation.isPending && memberActionId === member.id ? 'Saving...' : 'Edit'}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member)}
-                          disabled={hasMemberMutationInFlight}
-                          className="rounded border border-red-400 px-2 py-1 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-60"
-                        >
-                          {deleteMemberMutation.isPending && memberActionId === member.id ? 'Removing...' : 'Remove'}
-                        </button>
+                      <button
+                        onClick={() => handleEdit(member)}
+                        disabled={!member.is_active || hasMemberMutationInFlight}
+                        className="rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                      >
+                        {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(member)}
+                        disabled={hasMemberMutationInFlight}
+                        className="rounded border border-red-400 px-2 py-1 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-60"
+                      >
+                        {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -464,13 +488,13 @@ export function MembersPage() {
       {tab === 'invites' && (
         <div className="space-y-4">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Create Invite</h2>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">{m.createInvite}</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <input
                 type="email"
                 value={inviteForm.email}
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="member@company.com"
+                placeholder={m.emailPlaceholder}
                 pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
                 required
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
@@ -491,17 +515,17 @@ export function MembersPage() {
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, expiresInDays: Number(e.target.value) }))}
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               >
-                <option value={3}>3 days</option>
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
+                <option value={3}>{m.days3}</option>
+                <option value={7}>{m.days7}</option>
+                <option value={14}>{m.days14}</option>
+                <option value={30}>{m.days30}</option>
               </select>
               <button
                 onClick={() => createInviteMutation.mutate()}
                 disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim()) || hasInviteMutationInFlight}
                 className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
-                {createInviteMutation.isPending ? 'Creating...' : 'Create Invite'}
+                {createInviteMutation.isPending ? m.creating : m.createInvite}
               </button>
             </div>
           </div>
@@ -516,7 +540,7 @@ export function MembersPage() {
                   setInviteQuery(e.target.value)
                   setInvitePage(1)
                 }}
-                placeholder="Search by invited email"
+                placeholder={m.searchInvite}
                 className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               />
               <select
@@ -530,7 +554,7 @@ export function MembersPage() {
               >
                 {INVITE_STATUS_OPTIONS.map((status) => (
                   <option key={status} value={status}>
-                    {status}
+                    {inviteStatusLabel(status)}
                   </option>
                 ))}
               </select>
@@ -540,23 +564,25 @@ export function MembersPage() {
                   disabled={invitePage <= 1 || hasInviteMutationInFlight}
                   className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Prev
+                  {m.prev}
                 </button>
                 <span>
-                  Page {invitePage} / {totalInvitePages}
+                  {m.pageOf
+                    .replace('{{page}}', String(invitePage))
+                    .replace('{{total}}', String(totalInvitePages))}
                 </span>
                 <button
                   onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
                   disabled={invitePage >= totalInvitePages || hasInviteMutationInFlight}
                   className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Next
+                  {m.next}
                 </button>
               </div>
             </div>
 
             {!invites.length ? (
-              <div className="text-sm text-gray-500">No invites found.</div>
+              <div className="text-sm text-gray-500">{m.noInvites}</div>
             ) : (
               <div className="space-y-2">
                 {invites.map((invite) => (
@@ -573,14 +599,14 @@ export function MembersPage() {
                         disabled={hasInviteMutationInFlight}
                         className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        Copy Link
+                        {m.copyLink}
                       </button>
                       <button
                         onClick={() => revokeInviteMutation.mutate(invite)}
                         disabled={invite.status !== 'pending' || hasInviteMutationInFlight}
                         className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                       >
-                        {revokeInviteMutation.isPending && inviteActionId === invite.id ? 'Revoking...' : 'Revoke'}
+                        {revokeInviteMutation.isPending && inviteActionId === invite.id ? m.revoking : m.revoke}
                       </button>
                     </div>
                   </div>
@@ -597,12 +623,12 @@ export function MembersPage() {
           onClick={(e) => e.target === e.currentTarget && setTempPasswordModal(null)}
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Temporary Password Generated</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">{m.tempPasswordTitle}</h3>
             <p className="text-sm text-gray-500 mb-3">
-              User: <span className="font-medium text-gray-800">{tempPasswordModal.email}</span>
+              {m.tempPasswordUser.replace('{{email}}', tempPasswordModal.email)}
             </p>
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
-              Share this password securely. It is shown only once and the user must change password on next login.
+              {m.tempPasswordNote}
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
               <span className="font-mono text-sm text-gray-800 break-all flex-1">{tempPasswordModal.password}</span>
@@ -610,7 +636,7 @@ export function MembersPage() {
                 onClick={() => navigator.clipboard.writeText(tempPasswordModal.password)}
                 className="text-xs text-brand-600 hover:underline shrink-0"
               >
-                Copy
+                {m.copy}
               </button>
             </div>
             <div className="flex justify-end gap-2 mt-4">
@@ -618,7 +644,7 @@ export function MembersPage() {
                 onClick={() => setTempPasswordModal(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Close
+                {m.close}
               </button>
             </div>
           </div>
@@ -628,16 +654,15 @@ export function MembersPage() {
       {deactivateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">Deactivate Member</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">{m.deactivateTitle}</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Deactivating <span className="font-medium text-gray-800">{deactivateModal.member.email}</span> blocks
-              login immediately. This action is audited.
+              {m.deactivateDesc.replace('{{email}}', deactivateModal.member.email)}
             </p>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Reason (required)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{m.reason}</label>
             <input
               type="text"
               value={deactivateModal.reason}
-              onChange={(e) => setDeactivateModal((m) => m && { ...m, reason: e.target.value })}
+              onChange={(e) => setDeactivateModal((s) => s && { ...s, reason: e.target.value })}
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
             />
             <div className="flex justify-end gap-2">
@@ -645,7 +670,7 @@ export function MembersPage() {
                 onClick={() => setDeactivateModal(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {m.cancel}
               </button>
               <button
                 disabled={deactivateModal.reason.trim().length < 3 || hasMemberMutationInFlight}
@@ -657,7 +682,7 @@ export function MembersPage() {
                 }}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
               >
-                {deactivateMutation.isPending ? 'Deactivating...' : 'Confirm Deactivate'}
+                {deactivateMutation.isPending ? m.deactivating : m.confirmDeactivate}
               </button>
             </div>
           </div>
@@ -667,18 +692,18 @@ export function MembersPage() {
       {editModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-gray-900 mb-4">Edit Member</h3>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Full name</label>
+            <h3 className="text-base font-semibold text-gray-900 mb-4">{m.editMember}</h3>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{m.fullName}</label>
             <input
               type="text"
               value={editModal.full_name}
-              onChange={(e) => setEditModal((m) => m && { ...m, full_name: e.target.value })}
+              onChange={(e) => setEditModal((s) => s && { ...s, full_name: e.target.value })}
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-3"
             />
-            <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{m.role}</label>
             <select
               value={editModal.role}
-              onChange={(e) => setEditModal((m) => m && { ...m, role: e.target.value as UserRole })}
+              onChange={(e) => setEditModal((s) => s && { ...s, role: e.target.value as UserRole })}
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
             >
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -688,7 +713,7 @@ export function MembersPage() {
                 onClick={() => setEditModal(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {m.cancel}
               </button>
               <button
                 disabled={editModal.full_name.trim().length < 2 || hasMemberMutationInFlight}
@@ -700,7 +725,7 @@ export function MembersPage() {
                 }}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
-                {editMemberMutation.isPending ? 'Saving...' : 'Save'}
+                {editMemberMutation.isPending ? m.saving : m.save}
               </button>
             </div>
           </div>
@@ -710,16 +735,15 @@ export function MembersPage() {
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">Remove Member</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">{m.removeTitle}</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Removing <span className="font-medium text-gray-800">{deleteModal.member.email}</span> is audited and
-              blocks login immediately.
+              {m.removeDesc.replace('{{email}}', deleteModal.member.email)}
             </p>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Reason (required)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{m.reason}</label>
             <input
               type="text"
               value={deleteModal.reason}
-              onChange={(e) => setDeleteModal((m) => m && { ...m, reason: e.target.value })}
+              onChange={(e) => setDeleteModal((s) => s && { ...s, reason: e.target.value })}
               className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none mb-4"
             />
             <div className="flex justify-end gap-2">
@@ -727,7 +751,7 @@ export function MembersPage() {
                 onClick={() => setDeleteModal(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {m.cancel}
               </button>
               <button
                 disabled={deleteModal.reason.trim().length < 3 || hasMemberMutationInFlight}
@@ -739,7 +763,7 @@ export function MembersPage() {
                 }}
                 className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
               >
-                {deleteMemberMutation.isPending ? 'Removing...' : 'Confirm Remove'}
+                {deleteMemberMutation.isPending ? m.removing : m.confirmRemove}
               </button>
             </div>
           </div>

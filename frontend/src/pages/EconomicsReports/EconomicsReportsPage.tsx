@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
+import { useI18n } from '../../contexts/I18nContext'
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -11,6 +12,9 @@ const money = new Intl.NumberFormat('en-US', {
 })
 
 export function EconomicsReportsPage() {
+  const { t } = useI18n()
+  const er = t.economicsReports
+
   const [days, setDays] = useState(30)
   const [exportJobId, setExportJobId] = useState<string | null>(null)
   const [downloadedJobId, setDownloadedJobId] = useState<string | null>(null)
@@ -99,21 +103,19 @@ export function EconomicsReportsPage() {
 
   function renderExportStatus() {
     if (createExportMutation.isError) {
-      return 'Failed to enqueue the export job.'
+      return er.errorEnqueue
     }
     if (!exportJobQuery.data) {
-      return 'Exports are generated asynchronously on the backend and downloaded when ready.'
+      return er.asyncNote
     }
     if (exportJobQuery.data.status === 'queued') {
-      return 'Export queued. Waiting for worker pickup.'
+      return er.queued
     }
     if (exportJobQuery.data.status === 'running') {
-      return 'Export running. The download will start automatically.'
+      return er.running
     }
     if (exportJobQuery.data.status === 'completed') {
-      return downloadedJobId === exportJobId
-        ? 'Export completed and downloaded.'
-        : 'Export completed. Starting download.'
+      return downloadedJobId === exportJobId ? er.completedDownload : er.completed
     }
     return exportJobQuery.data.error_message || 'Export failed.'
   }
@@ -121,24 +123,22 @@ export function EconomicsReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Economics Reports</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Generate operational snapshots from key financial indicators and export them as CSV.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{er.title}</h1>
+        <p className="mt-1 text-sm text-gray-500">{er.subtitle}</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <label className="text-sm text-gray-600">
-            Report window
+            {er.reportWindow}
             <select
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
-              <option value={30}>Last 30 days</option>
-              <option value={60}>Last 60 days</option>
-              <option value={90}>Last 90 days</option>
+              <option value={30}>{er.last30}</option>
+              <option value={60}>{er.last60}</option>
+              <option value={90}>{er.last90}</option>
             </select>
           </label>
 
@@ -150,7 +150,7 @@ export function EconomicsReportsPage() {
                 className="inline-flex items-center gap-2 rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
                 <Download className="h-4 w-4" />
-                {isExporting ? 'Processing...' : 'Export CSV'}
+                {isExporting ? er.processing : er.exportCsv}
               </button>
               <button
                 onClick={() => handleExport('xlsx')}
@@ -158,7 +158,7 @@ export function EconomicsReportsPage() {
                 className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400 disabled:opacity-60"
               >
                 <Download className="h-4 w-4" />
-                {isExporting ? 'Processing...' : 'Export Excel'}
+                {isExporting ? er.processing : er.exportExcel}
               </button>
             </div>
             <div className="text-right text-xs text-gray-500">{renderExportStatus()}</div>
@@ -167,14 +167,14 @@ export function EconomicsReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard title="Current Month" value={money.format(dashboardQuery.data?.current_month_cost ?? 0)} />
-        <MetricCard title="Previous Month" value={money.format(dashboardQuery.data?.previous_month_cost ?? 0)} />
-        <MetricCard title="MoM Change" value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`} />
+        <MetricCard title={er.currentMonth} value={money.format(dashboardQuery.data?.current_month_cost ?? 0)} />
+        <MetricCard title={er.previousMonth} value={money.format(dashboardQuery.data?.previous_month_cost ?? 0)} />
+        <MetricCard title={er.momChange} value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BreakdownCard title="Top Services" rows={servicesQuery.data ?? []} loading={servicesQuery.isLoading} />
-        <BreakdownCard title="Top Teams" rows={teamsQuery.data ?? []} loading={teamsQuery.isLoading} />
+        <BreakdownCard title={er.topServices} rows={servicesQuery.data ?? []} loading={servicesQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} />
+        <BreakdownCard title={er.topTeams} rows={teamsQuery.data ?? []} loading={teamsQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} />
       </div>
     </div>
   )
@@ -193,18 +193,22 @@ function BreakdownCard({
   title,
   rows,
   loading,
+  loadingLabel,
+  noDataLabel,
 }: {
   title: string
   rows: Array<{ service: string; cost_usd: number; percentage: number }>
   loading: boolean
+  loadingLabel: string
+  noDataLabel: string
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-sm font-semibold text-gray-900">{title}</h2>
       {loading ? (
-        <div className="py-8 text-center text-sm text-gray-500">Loading...</div>
+        <div className="py-8 text-center text-sm text-gray-500">{loadingLabel}</div>
       ) : !rows.length ? (
-        <div className="py-8 text-center text-sm text-gray-500">No data available.</div>
+        <div className="py-8 text-center text-sm text-gray-500">{noDataLabel}</div>
       ) : (
         <div className="space-y-2">
           {rows.map((row) => (

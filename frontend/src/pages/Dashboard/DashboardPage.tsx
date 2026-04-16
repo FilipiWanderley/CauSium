@@ -33,16 +33,7 @@ const EVENT_COLOR: Record<ChangeEventType, string> = {
   policy_change: 'text-gray-500 bg-gray-100',
 }
 
-const EVENT_LABEL: Record<ChangeEventType, string> = {
-  incident: 'Incident',
-  cost_anomaly: 'Cost Anomaly',
-  deploy: 'Deploy',
-  config_change: 'Config Change',
-  scaling: 'Scaling',
-  policy_change: 'Policy Change',
-}
-
-function EventFeedRow({ ev }: { ev: ChangeEvent }) {
+function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
   const Icon = EVENT_ICON[ev.event_type]
   const color = EVENT_COLOR[ev.event_type]
 
@@ -67,7 +58,7 @@ function EventFeedRow({ ev }: { ev: ChangeEvent }) {
           )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-gray-400">{EVENT_LABEL[ev.event_type]}</span>
+          <span className="text-xs text-gray-400">{eventLabels[ev.event_type]}</span>
           {ev.service && <span className="text-xs text-gray-400">· {ev.service}</span>}
           <span className="text-xs text-gray-300">·</span>
           <span className="text-xs text-gray-400">
@@ -91,6 +82,16 @@ export function DashboardPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const d = t.dashboard
+  const ce = t.changeEvents
+
+  const eventLabels: Record<ChangeEventType, string> = {
+    incident: ce.incident,
+    cost_anomaly: ce.costAnomaly,
+    deploy: ce.deploy,
+    config_change: ce.configChange,
+    scaling: ce.scaling,
+    policy_change: ce.policyChange,
+  }
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -176,7 +177,9 @@ export function DashboardPage() {
             <h2 className="text-sm font-semibold text-gray-900">{d.costTrend}</h2>
             {recentEvents.length > 0 && (
               <span className="text-xs text-gray-400">
-                {recentEvents.length} change event{recentEvents.length !== 1 ? 's' : ''} overlaid
+                {d.changeEventsOverlaid
+                  .replace('{{count}}', String(recentEvents.length))
+                  .replace('{{s}}', recentEvents.length !== 1 ? 's' : '')}
               </span>
             )}
           </div>
@@ -224,24 +227,24 @@ export function DashboardPage() {
         {/* Recent change events feed */}
         <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">Recent Changes</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{d.recentChanges}</h2>
             <button
               type="button"
               className="text-xs text-brand-600 hover:underline"
               onClick={() => navigate('/app/change-events')}
             >
-              View all →
+              {d.viewAll}
             </button>
           </div>
           {feedEvents.length > 0 ? (
             <div>
               {feedEvents.map((ev) => (
-                <EventFeedRow key={ev.id} ev={ev} />
+                <EventFeedRow key={ev.id} ev={ev} eventLabels={eventLabels} />
               ))}
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-              No change events logged yet.
+              {d.noChangeEvents}
             </div>
           )}
         </div>
@@ -288,7 +291,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-              No accounts connected yet.
+              {d.noAccounts}
             </div>
           )}
         </div>

@@ -4,18 +4,7 @@ import { useState } from 'react'
 import { changeEventsApi } from '../../api/changeEvents'
 import type { ChangeEvent, ChangeEventType } from '../../types'
 import clsx from 'clsx'
-
-const EVENT_TYPE_META: Record<
-  ChangeEventType,
-  { label: string; color: string; Icon: React.ElementType }
-> = {
-  deploy: { label: 'Deploy', color: 'bg-blue-100 text-blue-700', Icon: RefreshCw },
-  config_change: { label: 'Config Change', color: 'bg-purple-100 text-purple-700', Icon: Settings },
-  scaling: { label: 'Scaling', color: 'bg-indigo-100 text-indigo-700', Icon: TrendingUp },
-  incident: { label: 'Incident', color: 'bg-red-100 text-red-700', Icon: AlertTriangle },
-  cost_anomaly: { label: 'Cost Anomaly', color: 'bg-orange-100 text-orange-700', Icon: DollarSign },
-  policy_change: { label: 'Policy Change', color: 'bg-gray-100 text-gray-700', Icon: Zap },
-}
+import { useI18n } from '../../contexts/I18nContext'
 
 const ALL_TYPES: ChangeEventType[] = [
   'deploy',
@@ -35,15 +24,16 @@ function formatDate(iso: string) {
   })
 }
 
-function EventRow({ ev }: { ev: ChangeEvent }) {
-  const meta = EVENT_TYPE_META[ev.event_type]
-
+function EventRow({ ev, typeMeta }: {
+  ev: ChangeEvent
+  typeMeta: { label: string; color: string; Icon: React.ElementType }
+}) {
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-4 py-3 whitespace-nowrap">
-        <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', meta.color)}>
-          <meta.Icon className="h-3 w-3" />
-          {meta.label}
+        <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', typeMeta.color)}>
+          <typeMeta.Icon className="h-3 w-3" />
+          {typeMeta.label}
         </span>
       </td>
       <td className="px-4 py-3">
@@ -86,6 +76,19 @@ function EventRow({ ev }: { ev: ChangeEvent }) {
 }
 
 export function ChangeEventsPage() {
+  const { t } = useI18n()
+  const ce = t.changeEvents
+  const common = t.common
+
+  const EVENT_TYPE_META: Record<ChangeEventType, { label: string; color: string; Icon: React.ElementType }> = {
+    deploy: { label: ce.deploy, color: 'bg-blue-100 text-blue-700', Icon: RefreshCw },
+    config_change: { label: ce.configChange, color: 'bg-purple-100 text-purple-700', Icon: Settings },
+    scaling: { label: ce.scaling, color: 'bg-indigo-100 text-indigo-700', Icon: TrendingUp },
+    incident: { label: ce.incident, color: 'bg-red-100 text-red-700', Icon: AlertTriangle },
+    cost_anomaly: { label: ce.costAnomaly, color: 'bg-orange-100 text-orange-700', Icon: DollarSign },
+    policy_change: { label: ce.policyChange, color: 'bg-gray-100 text-gray-700', Icon: Zap },
+  }
+
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [filterType, setFilterType] = useState<ChangeEventType | ''>('')
@@ -134,9 +137,9 @@ export function ChangeEventsPage() {
         <div className="flex items-center gap-3">
           <Activity className="h-6 w-6 text-brand-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Change Events</h1>
+            <h1 className="text-xl font-bold text-gray-900">{ce.title}</h1>
             <p className="text-sm text-gray-500">
-              {events.length} events — deploy, config, incidents, cost anomalies
+              {events.length} {ce.subtitle}
             </p>
           </div>
         </div>
@@ -145,31 +148,31 @@ export function ChangeEventsPage() {
           className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Log Event
+          {ce.logEvent}
         </button>
       </div>
 
       {/* Create form */}
       {creating && (
         <div className="shrink-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
-          <p className="text-sm font-semibold text-gray-700">Log Change Event</p>
+          <p className="text-sm font-semibold text-gray-700">{ce.logEventTitle}</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Type *</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.type} *</label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.event_type}
                 onChange={(e) => setForm({ ...form, event_type: e.target.value as ChangeEventType })}
               >
-                {ALL_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {EVENT_TYPE_META[t].label}
+                {ALL_TYPES.map((tp) => (
+                  <option key={tp} value={tp}>
+                    {EVENT_TYPE_META[tp].label}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Environment</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.environment}</label>
               <input
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.environment}
@@ -177,36 +180,36 @@ export function ChangeEventsPage() {
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Title *</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.titleLabel} *</label>
               <input
                 autoFocus
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="Describe what changed"
+                placeholder={ce.titleDesc}
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Service</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.service}</label>
               <input
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="e.g. api-gateway"
+                placeholder={ce.servicePlaceholder}
                 value={form.service}
                 onChange={(e) => setForm({ ...form, service: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Cost Impact (USD)</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.costImpact}</label>
               <input
                 type="number"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="e.g. 1500 or -500"
+                placeholder={ce.costImpactPlaceholder}
                 value={form.cost_impact_usd}
                 onChange={(e) => setForm({ ...form, cost_impact_usd: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Occurred At *</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.occurredAt} *</label>
               <input
                 type="datetime-local"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -215,10 +218,10 @@ export function ChangeEventsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Description</label>
+              <label className="block text-xs text-gray-500 mb-1">{ce.description}</label>
               <input
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="Optional notes"
+                placeholder={ce.descriptionPlaceholder}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
@@ -230,13 +233,13 @@ export function ChangeEventsPage() {
               onClick={() => createMutation.mutate()}
               className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
             >
-              {createMutation.isPending ? 'Saving…' : 'Save Event'}
+              {createMutation.isPending ? `${ce.saveEvent}…` : ce.saveEvent}
             </button>
             <button
               onClick={() => setCreating(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              {common.cancel}
             </button>
           </div>
         </div>
@@ -253,49 +256,49 @@ export function ChangeEventsPage() {
               : 'border-gray-300 text-gray-600 hover:bg-gray-50'
           )}
         >
-          All
+          {ce.all}
         </button>
-        {ALL_TYPES.map((t) => (
+        {ALL_TYPES.map((tp) => (
           <button
-            key={t}
-            onClick={() => setFilterType(filterType === t ? '' : t)}
+            key={tp}
+            onClick={() => setFilterType(filterType === tp ? '' : tp)}
             className={clsx(
               'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
-              filterType === t
+              filterType === tp
                 ? 'bg-brand-600 text-white border-brand-600'
                 : 'border-gray-300 text-gray-600 hover:bg-gray-50'
             )}
           >
-            {EVENT_TYPE_META[t].label}
+            {EVENT_TYPE_META[tp].label}
           </button>
         ))}
       </div>
 
       {/* Table */}
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center text-gray-400">Loading…</div>
+        <div className="flex flex-1 items-center justify-center text-gray-400">{common.loading}…</div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-gray-400">
           <Activity className="h-10 w-10 opacity-30" />
-          <p className="text-sm">No change events yet. Log the first one.</p>
+          <p className="text-sm">{ce.noEvents}</p>
         </div>
       ) : (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           <table className="w-full text-left">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Title</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Service</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Env</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Cost Impact</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Causal Conf.</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Occurred</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colType}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colTitle}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colService}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colEnv}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colCostImpact}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colCausalConf}</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{ce.colOccurred}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((ev) => (
-                <EventRow key={ev.id} ev={ev} />
+                <EventRow key={ev.id} ev={ev} typeMeta={EVENT_TYPE_META[ev.event_type]} />
               ))}
             </tbody>
           </table>

@@ -4,37 +4,9 @@ import { useState } from 'react'
 import { riskBudgetsApi } from '../../api/riskBudgets'
 import type { RiskBudget, BudgetType, BudgetPeriod } from '../../types'
 import clsx from 'clsx'
+import { useI18n } from '../../contexts/I18nContext'
 
 // ── Meta ──────────────────────────────────────────────────────────────────────
-
-const BUDGET_TYPE_META: Record<BudgetType, { label: string; unit: string; description: string }> = {
-  blast_radius: {
-    label: 'Blast Radius',
-    unit: '%',
-    description: '% max of services affected by a change',
-  },
-  cost_variance: {
-    label: 'Cost Variance',
-    unit: '%',
-    description: 'Max allowed cost increase per period',
-  },
-  error_rate: {
-    label: 'Error Rate',
-    unit: '%',
-    description: 'Max allowed error rate after a deploy',
-  },
-  change_frequency: {
-    label: 'Change Frequency',
-    unit: 'deploys',
-    description: 'Max number of changes per period',
-  },
-}
-
-const PERIOD_LABEL: Record<BudgetPeriod, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-}
 
 const BUDGET_TYPES: BudgetType[] = ['blast_radius', 'cost_variance', 'error_rate', 'change_frequency']
 const PERIODS: BudgetPeriod[] = ['daily', 'weekly', 'monthly']
@@ -42,9 +14,14 @@ const ENVS = ['production', 'staging', 'development', 'unknown']
 
 // ── Gauge ────────────────────────────────────────────────────────────────────
 
-function UsageGauge({ current, limit }: { current: number | null; limit: number }) {
+function UsageGauge({ current, limit, noDataLabel, exceededLabel }: {
+  current: number | null
+  limit: number
+  noDataLabel: string
+  exceededLabel: string
+}) {
   if (current == null) {
-    return <span className="text-xs text-gray-400">No data yet</span>
+    return <span className="text-xs text-gray-400">{noDataLabel}</span>
   }
   const pct = Math.min((current / limit) * 100, 100)
   const color =
@@ -67,7 +44,7 @@ function UsageGauge({ current, limit }: { current: number | null; limit: number 
       {pct >= 90 && (
         <div className="flex items-center gap-1 text-xs text-red-600">
           <AlertTriangle className="h-3 w-3" />
-          Budget exceeded
+          {exceededLabel}
         </div>
       )}
     </div>
@@ -80,13 +57,27 @@ function BudgetCard({
   budget,
   onToggle,
   onDelete,
+  meta,
+  periodLabel,
+  deactivateLabel,
+  activateLabel,
+  deleteLabel,
+  limitLabel,
+  noDataLabel,
+  exceededLabel,
 }: {
   budget: RiskBudget
   onToggle: (id: string, active: boolean) => void
   onDelete: (id: string) => void
+  meta: { label: string; unit: string; description: string }
+  periodLabel: string
+  deactivateLabel: string
+  activateLabel: string
+  deleteLabel: string
+  limitLabel: string
+  noDataLabel: string
+  exceededLabel: string
 }) {
-  const meta = BUDGET_TYPE_META[budget.budget_type]
-
   return (
     <div
       className={clsx(
@@ -102,7 +93,7 @@ function BudgetCard({
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
-            title={budget.is_active ? 'Deactivate' : 'Activate'}
+            title={budget.is_active ? deactivateLabel : activateLabel}
             onClick={() => onToggle(budget.id, !budget.is_active)}
             className="rounded p-1 hover:bg-gray-100 transition-colors text-gray-400"
           >
@@ -113,7 +104,7 @@ function BudgetCard({
             )}
           </button>
           <button
-            title="Delete"
+            title={deleteLabel}
             onClick={() => onDelete(budget.id)}
             className="rounded p-1 hover:bg-red-50 hover:text-red-500 transition-colors text-gray-400"
           >
@@ -134,20 +125,25 @@ function BudgetCard({
           {budget.environment}
         </span>
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-          {PERIOD_LABEL[budget.period]}
+          {periodLabel}
         </span>
       </div>
 
       {/* Limit */}
       <div className="text-xs text-gray-500">
-        Limit:{' '}
+        {limitLabel}:{' '}
         <span className="font-semibold text-gray-800">
           {budget.limit_value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {meta.unit}
         </span>
       </div>
 
       {/* Gauge */}
-      <UsageGauge current={budget.current_value} limit={budget.limit_value} />
+      <UsageGauge
+        current={budget.current_value}
+        limit={budget.limit_value}
+        noDataLabel={noDataLabel}
+        exceededLabel={exceededLabel}
+      />
     </div>
   )
 }
@@ -164,10 +160,27 @@ const EMPTY_FORM = {
 }
 
 export function RiskBudgetsPage() {
+  const { t } = useI18n()
+  const rb = t.riskBudgets
+  const common = t.common
+
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [activeOnly, setActiveOnly] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+
+  const BUDGET_TYPE_META: Record<BudgetType, { label: string; unit: string; description: string }> = {
+    blast_radius: { label: rb.blastRadius, unit: '%', description: rb.blastRadiusDesc },
+    cost_variance: { label: rb.costVariance, unit: '%', description: rb.costVarianceDesc },
+    error_rate: { label: rb.errorRate, unit: '%', description: rb.errorRateDesc },
+    change_frequency: { label: rb.changeFrequency, unit: 'deploys', description: rb.changeFrequencyDesc },
+  }
+
+  const PERIOD_LABEL: Record<BudgetPeriod, string> = {
+    daily: common.daily,
+    weekly: common.weekly,
+    monthly: common.monthly,
+  }
 
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ['risk-budgets', activeOnly],
@@ -222,9 +235,9 @@ export function RiskBudgetsPage() {
         <div className="flex items-center gap-3">
           <ShieldAlert className="h-6 w-6 text-brand-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Risk Budgets</h1>
+            <h1 className="text-xl font-bold text-gray-900">{rb.title}</h1>
             <p className="text-sm text-gray-500">
-              {active} active · {exceeded > 0 ? `${exceeded} exceeded` : 'all within limits'}
+              {active} active · {exceeded > 0 ? `${exceeded} ${rb.exceeded}` : rb.noBudgets}
             </p>
           </div>
         </div>
@@ -233,38 +246,38 @@ export function RiskBudgetsPage() {
           className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          New Budget
+          {rb.newBudget}
         </button>
       </div>
 
       {/* Create form */}
       {creating && (
         <div className="shrink-0 rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <p className="text-sm font-semibold text-gray-700">New Risk Budget</p>
+          <p className="text-sm font-semibold text-gray-700">{rb.newBudgetTitle}</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Name *</label>
+              <label className="block text-xs text-gray-500 mb-1">{rb.nameLabel} *</label>
               <input
                 autoFocus
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="e.g. Payments squad cost variance"
+                placeholder={rb.namePlaceholder}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Domain / Team *</label>
+              <label className="block text-xs text-gray-500 mb-1">{rb.domainLabel} *</label>
               <input
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="e.g. payments, api-gateway"
+                placeholder={rb.domainPlaceholder}
                 value={form.domain}
                 onChange={(e) => setForm({ ...form, domain: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Environment</label>
+              <label className="block text-xs text-gray-500 mb-1">{common.environment}</label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.environment}
@@ -279,15 +292,15 @@ export function RiskBudgetsPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Budget Type</label>
+              <label className="block text-xs text-gray-500 mb-1">{rb.budgetType}</label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.budget_type}
                 onChange={(e) => setForm({ ...form, budget_type: e.target.value as BudgetType })}
               >
-                {BUDGET_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {BUDGET_TYPE_META[t].label}
+                {BUDGET_TYPES.map((bt) => (
+                  <option key={bt} value={bt}>
+                    {BUDGET_TYPE_META[bt].label}
                   </option>
                 ))}
               </select>
@@ -295,7 +308,7 @@ export function RiskBudgetsPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Period</label>
+              <label className="block text-xs text-gray-500 mb-1">{rb.period}</label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.period}
@@ -311,14 +324,14 @@ export function RiskBudgetsPage() {
 
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Limit ({meta.unit}) *
+                {rb.limitUnit.replace('{{unit}}', meta.unit)} *
               </label>
               <input
                 type="number"
                 min={0.1}
                 step={0.1}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder={form.budget_type === 'change_frequency' ? 'e.g. 10' : 'e.g. 20'}
+                placeholder={form.budget_type === 'change_frequency' ? rb.limitPlaceholderNum : rb.limitPlaceholderPct}
                 value={form.limit_value}
                 onChange={(e) => setForm({ ...form, limit_value: e.target.value })}
               />
@@ -331,7 +344,7 @@ export function RiskBudgetsPage() {
               onClick={() => createMutation.mutate()}
               className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
             >
-              {createMutation.isPending ? 'Creating…' : 'Create Budget'}
+              {createMutation.isPending ? `${rb.createBudget}…` : rb.createBudget}
             </button>
             <button
               onClick={() => {
@@ -340,7 +353,7 @@ export function RiskBudgetsPage() {
               }}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              {common.cancel}
             </button>
           </div>
         </div>
@@ -355,33 +368,32 @@ export function RiskBudgetsPage() {
             checked={activeOnly}
             onChange={(e) => setActiveOnly(e.target.checked)}
           />
-          <span className="text-sm text-gray-600">Active only</span>
+          <span className="text-sm text-gray-600">{rb.activeOnly}</span>
         </label>
         {exceeded > 0 && (
           <div className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
             <AlertTriangle className="h-3.5 w-3.5" />
-            {exceeded} budget{exceeded > 1 ? 's' : ''} exceeded
+            {exceeded} {rb.exceeded}
           </div>
         )}
       </div>
 
       {/* Grid */}
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center text-gray-400">Loading…</div>
+        <div className="flex flex-1 items-center justify-center text-gray-400">{common.loading}…</div>
       ) : budgets.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-400">
           <ShieldAlert className="h-12 w-12 opacity-20" />
-          <p className="text-sm">No risk budgets yet.</p>
+          <p className="text-sm">{rb.noBudgets}</p>
           <p className="text-xs text-gray-400 max-w-xs text-center">
-            Create a budget to define safe thresholds for deployments, cost variance, and error
-            rates per domain and environment.
+            {rb.noBudgetsHint}
           </p>
           <button
             onClick={() => setCreating(true)}
             className="mt-2 flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Create first budget
+            {rb.createFirst}
           </button>
         </div>
       ) : (
@@ -390,9 +402,17 @@ export function RiskBudgetsPage() {
             <BudgetCard
               key={b.id}
               budget={b}
+              meta={BUDGET_TYPE_META[b.budget_type]}
+              periodLabel={PERIOD_LABEL[b.period]}
+              deactivateLabel={rb.deactivate}
+              activateLabel={rb.activate}
+              deleteLabel={rb.delete}
+              limitLabel={rb.limitUnit.replace('{{unit}}', BUDGET_TYPE_META[b.budget_type].unit)}
+              noDataLabel={rb.noData}
+              exceededLabel={rb.exceeded}
               onToggle={(id, active) => updateMutation.mutate({ id, data: { is_active: active } })}
               onDelete={(id) => {
-                if (confirm('Delete this risk budget?')) deleteMutation.mutate(id)
+                if (confirm(rb.delete + '?')) deleteMutation.mutate(id)
               }}
             />
           ))}

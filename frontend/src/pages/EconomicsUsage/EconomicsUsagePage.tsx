@@ -2,10 +2,14 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, TrendingUp } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
+import { useI18n } from '../../contexts/I18nContext'
 
 const numberFmt = new Intl.NumberFormat('en-US')
 
 export function EconomicsUsagePage() {
+  const { t } = useI18n()
+  const eu = t.economicsUsage
+
   const [days, setDays] = useState(30)
 
   const trendQuery = useQuery({
@@ -47,68 +51,68 @@ export function EconomicsUsagePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Economics Usage</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Monitor usage behavior, identify volatility and track efficiency stability over time.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{eu.title}</h1>
+        <p className="mt-1 text-sm text-gray-500">{eu.subtitle}</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <label className="text-sm text-gray-600">
-          Time window
+          {eu.timeWindow}
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
             className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           >
-            <option value={30}>Last 30 days</option>
-            <option value={60}>Last 60 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={180}>Last 180 days</option>
+            <option value={30}>{eu.last30}</option>
+            <option value={60}>{eu.last60}</option>
+            <option value={90}>{eu.last90}</option>
+            <option value={180}>{eu.last180}</option>
           </select>
         </label>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <UsageCard
-          title="Daily Average"
+          title={eu.dailyAvg}
           value={numberFmt.format(Math.round(usageSignals.dailyAvg))}
-          subtitle="Cost units / day"
+          subtitle={eu.dailyAvgDesc}
           icon={<Activity className="h-4 w-4" />}
         />
         <UsageCard
-          title="Peak Day"
+          title={eu.peakDay}
           value={numberFmt.format(Math.round(usageSignals.peak))}
-          subtitle="Highest observed day"
+          subtitle={eu.peakDayDesc}
           icon={<TrendingUp className="h-4 w-4" />}
         />
         <UsageCard
-          title="Volatility"
+          title={eu.volatility}
           value={numberFmt.format(Math.round(usageSignals.volatility))}
-          subtitle="Standard deviation"
+          subtitle={eu.volatilityDesc}
           icon={<Activity className="h-4 w-4" />}
         />
         <UsageCard
-          title="Efficiency Score"
+          title={eu.efficiencyScore}
           value={`${efficiencyScore}`}
-          subtitle="Stability and MoM impact"
+          subtitle={eu.efficiencyScoreDesc}
           icon={<TrendingUp className="h-4 w-4" />}
         />
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">Usage Timeline ({days} days)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">
+          {eu.timeline.replace('{{days}}', String(days))}
+        </h2>
         {trendQuery.isLoading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading usage timeline...</div>
+          <div className="py-8 text-center text-sm text-gray-500">{eu.loadingTimeline}</div>
         ) : !(trendQuery.data ?? []).length ? (
-          <div className="py-8 text-center text-sm text-gray-500">No usage data available for this period.</div>
+          <div className="py-8 text-center text-sm text-gray-500">{eu.noData}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs font-medium text-gray-500">
-                  <th className="pb-2 pr-3">Date</th>
-                  <th className="pb-2">Usage Value</th>
+                  <th className="pb-2 pr-3">{eu.colDate}</th>
+                  <th className="pb-2">{eu.colValue}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

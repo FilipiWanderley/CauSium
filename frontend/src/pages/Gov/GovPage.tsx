@@ -8,6 +8,7 @@ import {
   type ResourceRow,
   type UnownedCostRow,
 } from '../../api/gov'
+import { useI18n } from '../../contexts/I18nContext'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -40,19 +41,19 @@ function ComplianceBar({ pct }: { pct: number }) {
   )
 }
 
-function ImpactBadge({ impact }: { impact: string }) {
+function ImpactBadge({ impact, label }: { impact: string; label: string }) {
   const color =
     impact === 'High'   ? 'bg-red-100 text-red-700' :
     impact === 'Medium' ? 'bg-amber-100 text-amber-700' :
                           'bg-gray-100 text-gray-600'
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
-      {impact}
+      {label}
     </span>
   )
 }
 
-function CategoryBadge({ category }: { category: string }) {
+function CategoryBadge({ category, label }: { category: string; label: string }) {
   const palette: Record<string, string> = {
     Cost:                  'bg-blue-100 text-blue-700',
     Security:              'bg-red-100 text-red-700',
@@ -63,19 +64,23 @@ function CategoryBadge({ category }: { category: string }) {
   const color = palette[category] ?? 'bg-gray-100 text-gray-600'
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
-      {category}
+      {label}
     </span>
   )
 }
 
-function StatesBadge({ state }: { state: string }) {
+function StatesBadge({ state, labelSucceeded, labelFailed }: { state: string; labelSucceeded: string; labelFailed: string }) {
   const color =
     state === 'Succeeded' ? 'bg-emerald-100 text-emerald-700' :
     state === 'Failed'    ? 'bg-red-100 text-red-700' :
                             'bg-gray-100 text-gray-500'
+  const display =
+    state === 'Succeeded' ? labelSucceeded :
+    state === 'Failed'    ? labelFailed :
+    state || '—'
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
-      {state || '—'}
+      {display}
     </span>
   )
 }
@@ -103,16 +108,33 @@ function SkeletonRows() {
 
 type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'unowned',         label: 'Unowned Resources' },
-  { id: 'compliance',      label: 'Label Compliance'  },
-  { id: 'recommendations', label: 'Recommendations'   },
-  { id: 'inventory',       label: 'Inventory'         },
-]
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GovPage() {
+  const { t } = useI18n()
+  const g = t.gov
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'unowned',         label: g.tabUnowned         },
+    { id: 'compliance',      label: g.tabCompliance      },
+    { id: 'recommendations', label: g.tabRecommendations },
+    { id: 'inventory',       label: g.tabInventory       },
+  ]
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    Cost:                  g.catCost,
+    Security:              g.catSecurity,
+    Performance:           g.catPerformance,
+    HighAvailability:      g.catHighAvailability,
+    OperationalExcellence: g.catOperationalExcellence,
+  }
+
+  const IMPACT_LABELS: Record<string, string> = {
+    High:   g.impactHigh,
+    Medium: g.impactMedium,
+    Low:    g.impactLow,
+  }
+
   const [days, setDays] = useState(30)
   const [tab, setTab] = useState<Tab>('unowned')
   const [recCategory, setRecCategory] = useState('')
@@ -167,10 +189,10 @@ export function GovPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Landmark className="h-6 w-6 text-brand-500" />
-            PulseGov
+            {g.title}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Resource governance — ownership coverage, label compliance, Advisor recommendations, and full inventory.
+            {g.subtitle}
           </p>
         </div>
 
@@ -179,21 +201,21 @@ export function GovPage() {
           onChange={(e) => setDays(Number(e.target.value))}
           className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
+          <option value={7}>{g.last7}</option>
+          <option value={30}>{g.last30}</option>
+          <option value={90}>{g.last90}</option>
         </select>
       </div>
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          { label: 'Billed Resources', value: s ? s.total_resources.toLocaleString() : '—',     color: 'border-gray-100' },
-          { label: 'Unowned',          value: s ? s.unowned_resources.toLocaleString() : '—',   color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : undefined },
-          { label: 'Avg Compliance',   value: s ? `${s.avg_compliance_pct}%` : '—',             color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100' },
-          { label: 'Recommendations',  value: rs ? rs.total.toLocaleString() : '—',             color: 'border-blue-100',  sub: rs && rs.high_impact > 0 ? `${rs.high_impact} high` : undefined },
-          { label: 'Est. Savings',     value: rs ? money.format(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100' },
-          { label: 'Deployed Resources', value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} types` : undefined },
+          { label: g.billedResources,    value: s ? s.total_resources.toLocaleString() : '—',     color: 'border-gray-100' },
+          { label: g.unowned,            value: s ? s.unowned_resources.toLocaleString() : '—',   color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : undefined },
+          { label: g.avgCompliance,      value: s ? `${s.avg_compliance_pct}%` : '—',             color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100' },
+          { label: g.recommendations,    value: rs ? rs.total.toLocaleString() : '—',             color: 'border-blue-100',  sub: rs && rs.high_impact > 0 ? `${rs.high_impact} ${g.impactHigh.toLowerCase()}` : undefined },
+          { label: g.estSavings,         value: rs ? money.format(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100' },
+          { label: g.deployedResources,  value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : undefined },
         ].map((k) => (
           <div key={k.label} className={`rounded-xl border ${k.color} bg-white p-4 shadow-sm`}>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{k.label}</p>
@@ -205,17 +227,17 @@ export function GovPage() {
 
       {/* Tab switcher */}
       <div className="flex flex-wrap rounded-lg border border-gray-200 bg-white p-1 shadow-sm w-fit gap-0.5">
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={tabItem.id}
+            onClick={() => setTab(tabItem.id)}
             className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              tab === t.id
+              tab === tabItem.id
                 ? 'bg-brand-600 text-white shadow-sm'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -225,14 +247,14 @@ export function GovPage() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
           {unownedQ.isPending ? <SkeletonRows /> :
            unownedQ.isError ? (
-            <div className="p-8 text-center text-sm text-red-500">Failed to load unowned costs data.</div>
+            <div className="p-8 text-center text-sm text-red-500">{g.errorUnowned}</div>
            ) : (unownedQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Tag} message="All resources have an owner assigned." />
+            <EmptyState icon={Tag} message={g.allOwned} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
-                  {['Service', 'Resource ID', 'Region', 'Environment', 'Days Active', 'Cost (USD)'].map((h) => (
+                  {[g.colService, g.colResourceId, g.colRegion, g.colEnvironment, g.colDaysActive, g.colCost].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
                   ))}
                 </tr>
@@ -259,14 +281,14 @@ export function GovPage() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
           {complianceQ.isPending ? <SkeletonRows /> :
            complianceQ.isError ? (
-            <div className="p-8 text-center text-sm text-red-500">Failed to load compliance data.</div>
+            <div className="p-8 text-center text-sm text-red-500">{g.errorCompliance}</div>
            ) : (complianceQ.data ?? []).length === 0 ? (
-            <EmptyState icon={AlertTriangle} message="No compliance data available." />
+            <EmptyState icon={AlertTriangle} message={g.noCompliance} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
-                  {['Team', 'Total Cost', 'Untagged Cost', 'Compliance', ''].map((h) => (
+                  {[g.colTeam, g.colTotalCost, g.colUntaggedCost, g.colCompliance, ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
                   ))}
                 </tr>
@@ -292,8 +314,8 @@ export function GovPage() {
         <div className="space-y-4">
           {/* Category filter */}
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600">Category:</span>
-            {['', 'Cost', 'Security', 'Performance', 'HighAvailability', 'OperationalExcellence'].map((cat) => (
+            <span className="text-sm font-medium text-gray-600">{g.colCategory}:</span>
+            {(['', 'Cost', 'Security', 'Performance', 'HighAvailability', 'OperationalExcellence'] as const).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setRecCategory(cat)}
@@ -303,7 +325,7 @@ export function GovPage() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {cat || 'All'}
+                {cat ? (CATEGORY_LABELS[cat] ?? cat) : t.common.all}
               </button>
             ))}
           </div>
@@ -311,14 +333,14 @@ export function GovPage() {
           <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
             {recsQ.isPending ? <SkeletonRows /> :
              recsQ.isError ? (
-              <div className="p-8 text-center text-sm text-red-500">Failed to load recommendations.</div>
+              <div className="p-8 text-center text-sm text-red-500">{g.errorRecommendations}</div>
              ) : (recsQ.data ?? []).length === 0 ? (
-              <EmptyState icon={Lightbulb} message="No recommendations found. Your Azure environment looks healthy." />
+              <EmptyState icon={Lightbulb} message={g.noRecommendations} />
              ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">
                   <tr>
-                    {['Category', 'Impact', 'Resource', 'Description', 'Est. Savings / yr'].map((h) => (
+                    {[g.colCategory, g.colImpact, g.colResource, g.colDescription, g.colEstSavings].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
                     ))}
                   </tr>
@@ -326,8 +348,12 @@ export function GovPage() {
                 <tbody className="divide-y divide-gray-50">
                   {(recsQ.data as RecommendationRow[]).map((row, i) => (
                     <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-3"><CategoryBadge category={row.category} /></td>
-                      <td className="px-4 py-3"><ImpactBadge impact={row.impact} /></td>
+                      <td className="px-4 py-3">
+                        <CategoryBadge category={row.category} label={CATEGORY_LABELS[row.category] ?? row.category} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <ImpactBadge impact={row.impact} label={IMPACT_LABELS[row.impact] ?? row.impact} />
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800 truncate max-w-[160px]">{row.resource_name || '—'}</p>
                         <p className="text-xs text-gray-400 truncate max-w-[160px]">{row.resource_group}</p>
@@ -350,14 +376,14 @@ export function GovPage() {
         <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
           {inventoryQ.isPending ? <SkeletonRows /> :
            inventoryQ.isError ? (
-            <div className="p-8 text-center text-sm text-red-500">Failed to load inventory data.</div>
+            <div className="p-8 text-center text-sm text-red-500">{g.errorInventory}</div>
            ) : (inventoryQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Server} message="No inventory data yet. Trigger a sync to populate." />
+            <EmptyState icon={Server} message={g.noInventory} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
-                  {['Name', 'Type', 'Resource Group', 'Location', 'Environment', 'Owner', 'SKU', 'State'].map((h) => (
+                  {[g.colName, g.colType, g.colResourceGroup, g.colLocation, g.colEnvironment, g.colOwner, g.colSku, g.colState].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
                   ))}
                 </tr>
@@ -376,11 +402,17 @@ export function GovPage() {
                           ? 'bg-amber-100 text-amber-700'
                           : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {row.owner_team}
+                        {row.owner_team === 'untagged' ? g.untagged : row.owner_team}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{row.sku_name || '—'}</td>
-                    <td className="px-4 py-3"><StatesBadge state={row.provisioning_state} /></td>
+                    <td className="px-4 py-3">
+                      <StatesBadge
+                        state={row.provisioning_state}
+                        labelSucceeded={g.stateSucceeded}
+                        labelFailed={g.stateFailed}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

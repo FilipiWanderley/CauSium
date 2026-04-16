@@ -7,14 +7,7 @@ import {
   type AlertStatus,
   notificationsApi,
 } from '../../api/notifications'
-
-const CATEGORY_LABELS: Record<AlertCategory, string> = {
-  financial: 'Financial',
-  optimization: 'Optimization',
-  governance: 'Governance',
-  activity: 'Activity',
-  security: 'Security',
-}
+import { useI18n } from '../../contexts/I18nContext'
 
 const SEVERITY_COLORS: Record<string, string> = {
   info: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -43,10 +36,18 @@ function AlertCard({
   alert,
   onMarkRead,
   onArchive,
+  labelMarkRead,
+  labelArchive,
+  labelViewDetails,
+  categoryLabel,
 }: {
   alert: AlertRecord
   onMarkRead: (id: string) => void
   onArchive: (id: string) => void
+  labelMarkRead: string
+  labelArchive: string
+  labelViewDetails: string
+  categoryLabel: string
 }) {
   const isUnread = alert.status === 'unread'
 
@@ -73,7 +74,7 @@ function AlertCard({
                 CATEGORY_COLORS[alert.category]
               }`}
             >
-              {CATEGORY_LABELS[alert.category]}
+              {categoryLabel}
             </span>
             <span
               className={`rounded border px-2 py-0.5 text-xs font-semibold capitalize ${
@@ -97,7 +98,7 @@ function AlertCard({
               className="text-xs text-brand-600 hover:underline"
               rel="noreferrer"
             >
-              View details →
+              {labelViewDetails} →
             </a>
           )}
         </div>
@@ -107,7 +108,7 @@ function AlertCard({
           {isUnread && (
             <button
               onClick={() => onMarkRead(alert.id)}
-              title="Mark as read"
+              title={labelMarkRead}
               className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <CheckCheck className="h-4 w-4" />
@@ -116,7 +117,7 @@ function AlertCard({
           {alert.status !== 'archived' && (
             <button
               onClick={() => onArchive(alert.id)}
-              title="Archive"
+              title={labelArchive}
               className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <Archive className="h-4 w-4" />
@@ -129,6 +130,17 @@ function AlertCard({
 }
 
 export function NotificationsPage() {
+  const { t } = useI18n()
+  const n = t.notifications
+
+  const CATEGORY_LABELS: Record<AlertCategory, string> = {
+    financial:    n.financial,
+    optimization: n.optimization,
+    governance:   n.governance,
+    activity:     n.activity,
+    security:     n.security,
+  }
+
   const qc = useQueryClient()
 
   const [categoryFilter, setCategoryFilter] = useState<AlertCategory | ''>('')
@@ -181,7 +193,7 @@ export function NotificationsPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Bell className="h-6 w-6 text-brand-500" />
-            Notifications
+            {n.title}
             {unread > 0 && (
               <span className="ml-1 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
                 {unread}
@@ -189,7 +201,7 @@ export function NotificationsPage() {
             )}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Workspace-wide alerts, budget breaches, and optimization signals.
+            {n.subtitle}
           </p>
         </div>
 
@@ -200,7 +212,7 @@ export function NotificationsPage() {
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-50"
           >
             <CheckCheck className="h-4 w-4" />
-            Mark all read
+            {n.markAllRead}
           </button>
         )}
       </div>
@@ -208,15 +220,15 @@ export function NotificationsPage() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Unread</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{n.unread}</p>
           <p className="mt-1 text-3xl font-bold text-gray-900">{unread}</p>
         </div>
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-red-400">Critical</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-red-400">{n.critical}</p>
           <p className="mt-1 text-3xl font-bold text-red-600">{critical}</p>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Total Visible</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{n.totalVisible}</p>
           <p className="mt-1 text-3xl font-bold text-gray-900">{totalVisible ?? '—'}</p>
         </div>
       </div>
@@ -229,7 +241,7 @@ export function NotificationsPage() {
           onChange={(e) => setCategoryFilter(e.target.value as AlertCategory | '')}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
-          <option value="">All categories</option>
+          <option value="">{n.allCategories}</option>
           {(Object.keys(CATEGORY_LABELS) as AlertCategory[]).map((c) => (
             <option key={c} value={c}>
               {CATEGORY_LABELS[c]}
@@ -242,10 +254,10 @@ export function NotificationsPage() {
           onChange={(e) => setStatusFilter(e.target.value as AlertStatus | '')}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
-          <option value="">All statuses</option>
-          <option value="unread">Unread</option>
-          <option value="read">Read</option>
-          <option value="archived">Archived</option>
+          <option value="">{n.allStatuses}</option>
+          <option value="unread">{n.statusUnread}</option>
+          <option value="read">{n.statusRead}</option>
+          <option value="archived">{n.statusArchived}</option>
         </select>
       </div>
 
@@ -258,15 +270,14 @@ export function NotificationsPage() {
         </div>
       ) : listIsError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">
-          Failed to load notifications. The backend service may still be initializing.
+          {n.error}
         </div>
       ) : alerts.length === 0 ? (
         <div className="rounded-xl border border-gray-100 bg-white p-12 text-center shadow-sm">
           <Bell className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-sm font-medium text-gray-500">No notifications match your filters.</p>
+          <p className="text-sm font-medium text-gray-500">{n.noNotifications}</p>
           <p className="mt-1 text-xs text-gray-400">
-            Alerts are generated from risk budget breaches, optimization signals, and workspace
-            events.
+            {n.emptyHint}
           </p>
         </div>
       ) : (
@@ -277,6 +288,10 @@ export function NotificationsPage() {
               alert={alert}
               onMarkRead={(id) => patchMutation.mutate({ id, status: 'read' })}
               onArchive={(id) => patchMutation.mutate({ id, status: 'archived' })}
+              labelMarkRead={n.markRead}
+              labelArchive={n.archive}
+              labelViewDetails={n.viewDetails}
+              categoryLabel={CATEGORY_LABELS[alert.category]}
             />
           ))}
         </div>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, Filter } from 'lucide-react'
 import { ledgerApi, type ExportJob } from '../../api/ledger'
 import type { PageResponse, ServiceBreakdown, DetailedCostRow } from '../../types'
+import { useI18n } from '../../contexts/I18nContext'
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -21,6 +22,9 @@ type ExportState =
   | { phase: 'error'; message: string }
 
 function ExportPanel({ days, filters }: { days: number; filters: Record<string, string | undefined> }) {
+  const { t } = useI18n()
+  const ec = t.economicsCosts
+
   const [format, setFormat] = useState<ExportFormat>('csv')
   const [state, setState] = useState<ExportState>({ phase: 'idle' })
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -84,20 +88,20 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
         <Download className="h-4 w-4 text-gray-600" />
-        <h2 className="text-sm font-semibold text-gray-900">Export Report</h2>
+        <h2 className="text-sm font-semibold text-gray-900">{ec.exportReport}</h2>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm text-gray-600">
-          Format
+          {ec.format}
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as ExportFormat)}
             disabled={busy}
             className="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:opacity-50"
           >
-            <option value="csv">CSV</option>
-            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="csv">{ec.csv}</option>
+            <option value="xlsx">{ec.excel}</option>
           </select>
         </label>
 
@@ -107,15 +111,15 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
           className="rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
         >
           {state.phase === 'submitting'
-            ? 'Requesting…'
+            ? ec.requesting
             : state.phase === 'polling'
-              ? 'Generating…'
-              : 'Export'}
+              ? ec.generating
+              : t.common.export}
         </button>
 
         {state.phase === 'polling' && (
           <span className="text-xs text-gray-500 animate-pulse">
-            Building {format.toUpperCase()} — please wait…
+            {ec.buildingFormat.replace('{{format}}', format.toUpperCase())}
           </span>
         )}
 
@@ -126,7 +130,7 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
             className="inline-flex items-center gap-1.5 rounded border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
           >
             <Download className="h-3.5 w-3.5" />
-            Download {state.job.file_name ?? `report.${format}`}
+            {ec.downloadFile.replace('{{filename}}', state.job.file_name ?? `report.${format}`)}
           </a>
         )}
 
@@ -140,7 +144,7 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
           onClick={() => { clearPoll(); setState({ phase: 'idle' }) }}
           className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline"
         >
-          Reset
+          {ec.reset}
         </button>
       )}
     </div>
@@ -150,6 +154,10 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function EconomicsCostsPage() {
+  const { t } = useI18n()
+  const ec = t.economicsCosts
+  const common = t.common
+
   const [days, setDays] = useState(30)
   const [serviceQuery, setServiceQuery] = useState('')
   const [providerQuery, setProviderQuery] = useState('')
@@ -194,64 +202,62 @@ export function EconomicsCostsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Economics Costs</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Explore detailed cost distribution by service and team using interactive filters.
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{ec.title}</h1>
+        <p className="mt-1 text-sm text-gray-500">{ec.subtitle}</p>
       </div>
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="text-sm text-gray-600">
-            Time window
+            {ec.timeWindow}
             <select
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
-              <option value={30}>Last 30 days</option>
-              <option value={60}>Last 60 days</option>
-              <option value={90}>Last 90 days</option>
-              <option value={180}>Last 180 days</option>
+              <option value={30}>{ec.last30}</option>
+              <option value={60}>{ec.last60}</option>
+              <option value={90}>{ec.last90}</option>
+              <option value={180}>{ec.last180}</option>
             </select>
           </label>
 
           <label className="text-sm text-gray-600">
-            Service filter
+            {ec.serviceFilter}
             <input
               type="text"
               value={serviceQuery}
               onChange={(e) => { setServiceQuery(e.target.value); setPage(1) }}
-              placeholder="Filter service name"
+              placeholder={ec.serviceFilterPlaceholder}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
           </label>
 
           <label className="text-sm text-gray-600">
-            Provider filter
+            {ec.providerFilter}
             <input
               type="text"
               value={providerQuery}
               onChange={(e) => { setProviderQuery(e.target.value); setPage(1) }}
-              placeholder="azure, aws, gcp"
+              placeholder={ec.providerFilterPlaceholder}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
           </label>
 
           <label className="text-sm text-gray-600">
-            Team filter
+            {ec.teamFilter}
             <input
               type="text"
               value={teamQuery}
               onChange={(e) => { setTeamQuery(e.target.value); setPage(1) }}
-              placeholder="owner team"
+              placeholder={ec.teamFilterPlaceholder}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
           </label>
 
           <div className="rounded-lg border border-gray-200 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">Visible Cost</div>
+            <div className="text-xs uppercase tracking-wide text-gray-500">{ec.visibleCost}</div>
             <div className="mt-1 text-xl font-semibold text-gray-900">{money.format(totalFilteredCost)}</div>
           </div>
         </div>
@@ -267,24 +273,25 @@ export function EconomicsCostsPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Detailed Costs</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              Detailed rows from the ledger with combined filters and pagination.
-            </p>
+            <h2 className="text-sm font-semibold text-gray-900">{ec.detailedCosts}</h2>
+            <p className="mt-1 text-xs text-gray-500">{ec.detailedCostsDesc}</p>
           </div>
-          <div className="text-xs text-gray-500">Total rows: {detailedCostsQuery.data?.total ?? 0}</div>
+          <div className="text-xs text-gray-500">
+            {ec.totalRows.replace('{{count}}', String(detailedCostsQuery.data?.total ?? 0))}
+          </div>
         </div>
         {detailedCostsQuery.isLoading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading detailed costs...</div>
+          <div className="py-8 text-center text-sm text-gray-500">{ec.loadingRows}</div>
         ) : !(detailedCostsQuery.data?.items.length ?? 0) ? (
-          <div className="py-8 text-center text-sm text-gray-500">No cost rows for current filters.</div>
+          <div className="py-8 text-center text-sm text-gray-500">{ec.noRows}</div>
         ) : (
           <>
-            <DetailedCostsTable rows={detailedCostsQuery.data?.items ?? []} />
+            <DetailedCostsTable rows={detailedCostsQuery.data?.items ?? []} ec={ec} />
             <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
               <span>
-                Page {detailedCostsQuery.data?.page ?? page} of{' '}
-                {Math.max(1, Math.ceil((detailedCostsQuery.data?.total ?? 0) / (detailedCostsQuery.data?.page_size ?? 20)))}
+                {ec.pageOf
+                  .replace('{{page}}', String(detailedCostsQuery.data?.page ?? page))
+                  .replace('{{total}}', String(Math.max(1, Math.ceil((detailedCostsQuery.data?.total ?? 0) / (detailedCostsQuery.data?.page_size ?? 20)))))}
               </span>
               <div className="flex gap-2">
                 <button
@@ -292,14 +299,14 @@ export function EconomicsCostsPage() {
                   disabled={page <= 1 || detailedCostsQuery.isFetching}
                   className="rounded border border-gray-300 px-3 py-1 disabled:opacity-50"
                 >
-                  Previous
+                  {ec.previous}
                 </button>
                 <button
                   onClick={() => { if (detailedCostsQuery.data?.has_next) setPage((p) => p + 1) }}
                   disabled={!detailedCostsQuery.data?.has_next || detailedCostsQuery.isFetching}
                   className="rounded border border-gray-300 px-3 py-1 disabled:opacity-50"
                 >
-                  Next
+                  {ec.next}
                 </button>
               </div>
             </div>
@@ -312,19 +319,20 @@ export function EconomicsCostsPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-600" />
-            <h2 className="text-sm font-semibold text-gray-900">Cost by Service</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{ec.costByService}</h2>
           </div>
           {servicesQuery.isLoading ? (
-            <div className="py-8 text-center text-sm text-gray-500">Loading services...</div>
+            <div className="py-8 text-center text-sm text-gray-500">{ec.loadingServices}</div>
           ) : !filteredServices.length ? (
-            <div className="py-8 text-center text-sm text-gray-500">No service data for current filter.</div>
+            <div className="py-8 text-center text-sm text-gray-500">{ec.noServiceData}</div>
           ) : (
             <>
-              <BreakdownTable rows={filteredServices} label="Service" />
+              <BreakdownTable rows={filteredServices} label={ec.costByService} ec={ec} />
               <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
                 <span>
-                  Page {servicesQuery.data?.page ?? servicePage} of{' '}
-                  {Math.max(1, Math.ceil((servicesQuery.data?.total ?? 0) / (servicesQuery.data?.page_size ?? 20)))}
+                  {ec.pageOf
+                    .replace('{{page}}', String(servicesQuery.data?.page ?? servicePage))
+                    .replace('{{total}}', String(Math.max(1, Math.ceil((servicesQuery.data?.total ?? 0) / (servicesQuery.data?.page_size ?? 20)))))}
                 </span>
                 <div className="flex gap-2">
                   <button
@@ -332,14 +340,14 @@ export function EconomicsCostsPage() {
                     disabled={servicePage <= 1 || servicesQuery.isFetching}
                     className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
                   >
-                    Previous
+                    {ec.previous}
                   </button>
                   <button
                     onClick={() => { if (servicesQuery.data?.has_next) setServicePage((p) => p + 1) }}
                     disabled={!servicesQuery.data?.has_next || servicesQuery.isFetching}
                     className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
                   >
-                    Next
+                    {ec.next}
                   </button>
                 </div>
               </div>
@@ -348,18 +356,19 @@ export function EconomicsCostsPage() {
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">Cost by Team</h2>
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">{ec.costByTeam}</h2>
           {teamsQuery.isLoading ? (
-            <div className="py-8 text-center text-sm text-gray-500">Loading teams...</div>
+            <div className="py-8 text-center text-sm text-gray-500">{ec.loadingTeams}</div>
           ) : !(teamsQuery.data?.items ?? []).length ? (
-            <div className="py-8 text-center text-sm text-gray-500">No team data available.</div>
+            <div className="py-8 text-center text-sm text-gray-500">{ec.noTeamData}</div>
           ) : (
             <>
-              <BreakdownTable rows={teamsQuery.data?.items ?? []} label="Team" />
+              <BreakdownTable rows={teamsQuery.data?.items ?? []} label={ec.costByTeam} ec={ec} />
               <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
                 <span>
-                  Page {teamsQuery.data?.page ?? teamPage} of{' '}
-                  {Math.max(1, Math.ceil((teamsQuery.data?.total ?? 0) / (teamsQuery.data?.page_size ?? 20)))}
+                  {ec.pageOf
+                    .replace('{{page}}', String(teamsQuery.data?.page ?? teamPage))
+                    .replace('{{total}}', String(Math.max(1, Math.ceil((teamsQuery.data?.total ?? 0) / (teamsQuery.data?.page_size ?? 20)))))}
                 </span>
                 <div className="flex gap-2">
                   <button
@@ -367,14 +376,14 @@ export function EconomicsCostsPage() {
                     disabled={teamPage <= 1 || teamsQuery.isFetching}
                     className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
                   >
-                    Previous
+                    {ec.previous}
                   </button>
                   <button
                     onClick={() => { if (teamsQuery.data?.has_next) setTeamPage((p) => p + 1) }}
                     disabled={!teamsQuery.data?.has_next || teamsQuery.isFetching}
                     className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
                   >
-                    Next
+                    {ec.next}
                   </button>
                 </div>
               </div>
@@ -386,14 +395,25 @@ export function EconomicsCostsPage() {
   )
 }
 
-function BreakdownTable({ rows, label }: { rows: ServiceBreakdown[]; label: string }) {
+type EcKeys = {
+  colService: string
+  colCost: string
+  colDate: string
+  colProvider: string
+  colResource: string
+  colTeam: string
+  colEnvironment: string
+  colRegion: string
+}
+
+function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: string; ec: EcKeys }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b text-left text-xs font-medium text-gray-500">
             <th className="pb-2 pr-3">{label}</th>
-            <th className="pb-2 pr-3">Cost</th>
+            <th className="pb-2 pr-3">{ec.colCost}</th>
             <th className="pb-2">Share</th>
           </tr>
         </thead>
@@ -411,20 +431,20 @@ function BreakdownTable({ rows, label }: { rows: ServiceBreakdown[]; label: stri
   )
 }
 
-function DetailedCostsTable({ rows }: { rows: DetailedCostRow[] }) {
+function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b text-left text-xs font-medium text-gray-500">
-            <th className="pb-2 pr-3">Date</th>
-            <th className="pb-2 pr-3">Provider</th>
-            <th className="pb-2 pr-3">Service</th>
-            <th className="pb-2 pr-3">Resource</th>
-            <th className="pb-2 pr-3">Team</th>
-            <th className="pb-2 pr-3">Environment</th>
-            <th className="pb-2 pr-3">Region</th>
-            <th className="pb-2">Cost</th>
+            <th className="pb-2 pr-3">{ec.colDate}</th>
+            <th className="pb-2 pr-3">{ec.colProvider}</th>
+            <th className="pb-2 pr-3">{ec.colService}</th>
+            <th className="pb-2 pr-3">{ec.colResource}</th>
+            <th className="pb-2 pr-3">{ec.colTeam}</th>
+            <th className="pb-2 pr-3">{ec.colEnvironment}</th>
+            <th className="pb-2 pr-3">{ec.colRegion}</th>
+            <th className="pb-2">{ec.colCost}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">

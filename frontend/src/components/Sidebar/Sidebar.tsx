@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
+import { useI18n } from '../../contexts/I18nContext'
+import type { Translations } from '../../locales/en'
 
 type NavItem = {
   to: string
@@ -30,183 +32,85 @@ type NavItem = {
   soon?: boolean
 }
 
-const CORE_NAV: NavItem[] = [
-  { to: '/app/economics', icon: LayoutDashboard, label: 'Economics' },
-  { to: '/app/economics/costs', icon: Receipt, label: 'Economics Costs' },
-  { to: '/app/economics/usage', icon: BarChart3, label: 'Economics Usage' },
-  { to: '/app/economics/skus', icon: Boxes, label: 'Economics SKUs' },
-  { to: '/app/economics/reports', icon: FileSpreadsheet, label: 'Economics Reports' },
-  { to: '/app/intel', icon: Lightbulb, label: 'PulseIntel' },
-  { to: '/app/lab', icon: FlaskConical, label: 'PulseLab' },
-  { to: '/app/notifications', icon: Bell, label: 'Notifications', soon: true },
-  { to: '/app/gov', icon: Landmark, label: 'PulseGov', soon: true },
-  { to: '/app/green', icon: Leaf, label: 'PulseGreen', soon: true },
-    { to: '/app/notifications', icon: Bell, label: 'Notifications' },
-    { to: '/app/gov', icon: Landmark, label: 'PulseGov' },
-    { to: '/app/green', icon: Leaf, label: 'PulseGreen' },
-  { to: '/app/initiatives', icon: ListTodo, label: 'Initiatives' },
-  { to: '/app/risk-budgets', icon: ShieldAlert, label: 'Risk Budgets' },
-  { to: '/app/change-events', icon: Activity, label: 'Change Events' },
-  { to: '/app/executive', icon: BarChart3, label: 'Executive' },
-]
+function getCoreNav(nav: Translations['nav']): NavItem[] {
+  return [
+    { to: '/app/economics', icon: LayoutDashboard, label: nav.economics },
+    { to: '/app/economics/costs', icon: Receipt, label: nav.economicsCosts },
+    { to: '/app/economics/usage', icon: BarChart3, label: nav.economicsUsage },
+    { to: '/app/economics/skus', icon: Boxes, label: nav.economicsSkus },
+    { to: '/app/economics/reports', icon: FileSpreadsheet, label: nav.economicsReports },
+    { to: '/app/intel', icon: Lightbulb, label: nav.opportunities },
+    { to: '/app/lab', icon: FlaskConical, label: nav.experiments },
+    { to: '/app/initiatives', icon: ListTodo, label: nav.initiatives },
+    { to: '/app/risk-budgets', icon: ShieldAlert, label: nav.riskBudgets },
+    { to: '/app/change-events', icon: Activity, label: nav.changeEvents },
+    { to: '/app/executive', icon: BarChart3, label: nav.executive },
+    { to: '/app/gov', icon: Landmark, label: nav.gov },
+    { to: '/app/green', icon: Leaf, label: nav.green },
+    { to: '/app/notifications', icon: Bell, label: nav.notifications },
+  ]
+}
+
+const NAV_LINK_CLASS = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors'
+const ACTIVE_CLASS = 'bg-brand-600 text-white'
+const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
+
+function SideNavLink({ to, icon: Icon, label, soon }: NavItem) {
+  const { t } = useI18n()
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        clsx(NAV_LINK_CLASS, isActive ? ACTIVE_CLASS : INACTIVE_CLASS)
+      }
+    >
+      <Icon className="h-4 w-4" />
+      <span className="flex-1 truncate">{label}</span>
+      {soon && (
+        <span className="rounded bg-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
+          {t.nav.soon}
+        </span>
+      )}
+    </NavLink>
+  )
+}
 
 export function Sidebar() {
   const { user } = useAuth()
+  const { t } = useI18n()
   const isPlatformAdmin = user?.role === 'platform_admin'
   const isAdmin = user?.role === 'admin' || isPlatformAdmin
+  const coreNav = getCoreNav(t.nav)
 
   return (
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
         <Cloud className="h-6 w-6 text-brand-500" />
-        <span className="font-bold text-lg tracking-tight">CauSium</span>
+        <span className="font-bold text-lg tracking-tight">StratoPulse</span>
       </div>
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
-        {CORE_NAV.map(({ to, icon: Icon, label, soon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              clsx(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-brand-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )
-            }
-          >
-            <Icon className="h-4 w-4" />
-            <span className="flex-1 truncate">{label}</span>
-            {soon && (
-              <span className="rounded bg-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
-                Soon
-              </span>
-            )}
-          </NavLink>
+        {coreNav.map((item) => (
+          <SideNavLink key={item.to} {...item} />
         ))}
 
         {isAdmin && (
           <>
             <div className="my-2 mx-3 border-t border-gray-700" />
-            <NavLink
-              to="/app/members"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Users className="h-4 w-4" />
-              Members
-            </NavLink>
-            <NavLink
-              to="/app/settings/team"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Settings className="h-4 w-4" />
-              Settings Team
-            </NavLink>
-            <NavLink
-              to="/app/settings/cloud"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Settings className="h-4 w-4" />
-              Settings Cloud
-            </NavLink>
-            <NavLink
-              to="/app/settings/security"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Settings className="h-4 w-4" />
-              Settings Security
-            </NavLink>
+            <SideNavLink to="/app/members" icon={Users} label={t.nav.members} />
+            <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} />
+            <SideNavLink to="/app/settings/cloud" icon={Cloud} label={t.nav.settingsCloud} />
+            <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} />
           </>
         )}
 
-        <NavLink
-          to="/app/settings"
-          className={({ isActive }) =>
-            clsx(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-brand-600 text-white'
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-            )
-          }
-        >
-          <Settings className="h-4 w-4" />
-          Settings
-        </NavLink>
+        <SideNavLink to="/app/settings" icon={Settings} label={t.nav.settings} />
 
         {isPlatformAdmin && (
           <>
             <div className="my-2 mx-3 border-t border-gray-700" />
-            <NavLink
-              to="/app/platform/workspaces"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Building2 className="h-4 w-4" />
-              Platform Workspaces
-            </NavLink>
-            <NavLink
-              to="/app/platform/sync"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <RefreshCw className="h-4 w-4" />
-              Platform Sync
-            </NavLink>
-            <NavLink
-              to="/app/platform/slo"
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                )
-              }
-            >
-              <Siren className="h-4 w-4" />
-              Platform SLO
-            </NavLink>
+            <SideNavLink to="/app/platform/workspaces" icon={Building2} label={t.nav.platformWorkspaces} />
+            <SideNavLink to="/app/platform/sync" icon={RefreshCw} label={t.nav.platformSync} />
+            <SideNavLink to="/app/platform/slo" icon={Siren} label={t.nav.platformSlo} />
           </>
         )}
       </nav>

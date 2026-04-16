@@ -7,6 +7,7 @@ import {
   type EmissionsBreakdownRow,
   type EmissionsMonthRow,
 } from '../../api/green'
+import { useI18n } from '../../contexts/I18nContext'
 
 const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
 const money = new Intl.NumberFormat('en-US', {
@@ -31,14 +32,17 @@ function DeltaBadge({ pct }: { pct: number | null }) {
   )
 }
 
-const BREAKDOWN_LABELS: Record<BreakdownDimension, string> = {
-  service: 'Service',
-  region: 'Region',
-  environment: 'Environment',
-  owner_team: 'Team',
-}
-
 export function GreenPage() {
+  const { t } = useI18n()
+  const gr = t.green
+
+  const BREAKDOWN_LABELS: Record<BreakdownDimension, string> = {
+    service:     gr.byService,
+    region:      gr.byRegion,
+    environment: gr.byEnvironment,
+    owner_team:  gr.byTeam,
+  }
+
   const [months, setMonths] = useState(6)
   const [by, setBy] = useState<BreakdownDimension>('service')
   const [days, setDays] = useState(30)
@@ -70,10 +74,10 @@ export function GreenPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Leaf className="h-6 w-6 text-emerald-500" />
-            PulseGreen
+            {gr.title}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Estimated carbon footprint derived from cloud spend and regional grid intensity.
+            {gr.subtitle}
           </p>
         </div>
 
@@ -82,9 +86,9 @@ export function GreenPage() {
           onChange={(e) => setMonths(Number(e.target.value))}
           className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
-          <option value={3}>Last 3 months</option>
-          <option value={6}>Last 6 months</option>
-          <option value={12}>Last 12 months</option>
+          <option value={3}>{gr.last3m}</option>
+          <option value={6}>{gr.last6m}</option>
+          <option value={12}>{gr.last12m}</option>
         </select>
       </div>
 
@@ -92,18 +96,18 @@ export function GreenPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
-            Total CO₂e
+            {gr.totalCO2}
           </p>
           <p className="mt-1 text-2xl font-bold text-emerald-800">
-            {s ? `${fmt.format(s.total_kg_co2e)} kg` : '—'}
+            {s ? `${fmt.format(s.total_kg_co2e)} ${gr.kg}` : '—'}
           </p>
           <p className="text-xs text-emerald-600">
-            {s ? `${fmt.format(s.total_kg_co2e / 1000)} tCO₂e` : ''}
+            {s ? `${fmt.format(s.total_kg_co2e / 1000)} ${gr.tCO2}` : ''}
           </p>
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Cloud Spend</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.cloudSpend}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {s ? money.format(s.total_cost_usd) : '—'}
           </p>
@@ -111,7 +115,7 @@ export function GreenPage() {
 
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            Intensity (gCO₂e/$)
+            {gr.intensity}
           </p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {s ? fmt.format(s.intensity_avg) : '—'}
@@ -119,7 +123,7 @@ export function GreenPage() {
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">MoM Delta</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.momDelta}</p>
           <div className="mt-1">
             {s ? (
               <DeltaBadge pct={s.mom_delta_pct} />
@@ -133,7 +137,7 @@ export function GreenPage() {
       {/* Monthly trend table */}
       <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
         <div className="border-b border-gray-100 px-5 py-3">
-          <h2 className="text-sm font-semibold text-gray-700">Monthly Emissions Trend</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{gr.monthlyTrend}</h2>
         </div>
         {emissionsQ.isPending ? (
           <div className="p-6 space-y-3">
@@ -143,13 +147,13 @@ export function GreenPage() {
           </div>
         ) : trend.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-400">
-            No emissions data available for this period.
+            {gr.noEmissions}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="border-b border-gray-100 bg-gray-50">
               <tr>
-                {['Month', 'kgCO₂e', 'tCO₂e', 'Cloud Cost', 'MoM'].map((h) => (
+                {[gr.colMonth, gr.colKg, gr.colTCO2, gr.colCost, gr.colMom].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
@@ -179,16 +183,16 @@ export function GreenPage() {
       {/* Breakdown */}
       <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
-          <h2 className="text-sm font-semibold text-gray-700">Emissions Breakdown</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{gr.breakdown}</h2>
           <div className="flex items-center gap-3">
             <select
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
               className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:outline-none"
             >
-              <option value={7}>7 days</option>
-              <option value={30}>30 days</option>
-              <option value={90}>90 days</option>
+              <option value={7}>{gr.window7}</option>
+              <option value={30}>{gr.window30}</option>
+              <option value={90}>{gr.window90}</option>
             </select>
             <select
               value={by}
@@ -197,7 +201,7 @@ export function GreenPage() {
             >
               {(Object.keys(BREAKDOWN_LABELS) as BreakdownDimension[]).map((k) => (
                 <option key={k} value={k}>
-                  By {BREAKDOWN_LABELS[k]}
+                  {BREAKDOWN_LABELS[k]}
                 </option>
               ))}
             </select>
@@ -212,7 +216,7 @@ export function GreenPage() {
               ))}
             </div>
           ) : breakdown.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">No breakdown data available.</p>
+            <p className="py-6 text-center text-sm text-gray-400">{gr.noBreakdown}</p>
           ) : (
             <div className="space-y-3">
               {(breakdown as EmissionsBreakdownRow[]).map((row, i) => (
@@ -225,7 +229,7 @@ export function GreenPage() {
                       {row.dimension}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{fmt.format(row.kg_co2e)} kg</span>
+                      <span>{fmt.format(row.kg_co2e)} {gr.kg}</span>
                       <span className="font-semibold text-emerald-600">{row.share_pct}%</span>
                     </div>
                   </div>
