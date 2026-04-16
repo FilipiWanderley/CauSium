@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ StratoPulse
+# ⚡ CauSium
 
 ### Cloud Efficiency Intelligence Platform
 
