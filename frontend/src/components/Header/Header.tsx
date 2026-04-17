@@ -1,4 +1,7 @@
-import { LogOut } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Bell, LogOut } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { notificationsApi } from '../../api/notifications'
 import { useAuth } from '../../hooks/useAuth'
 import { useI18n, type Language } from '../../contexts/I18nContext'
 import { UserAvatar } from '../Avatar/UserAvatar'
@@ -9,6 +12,13 @@ const LANGS: Language[] = ['en', 'pt']
 export function Header() {
   const { user, logout } = useAuth()
   const { lang, setLang, t } = useI18n()
+  const { data: unreadCount } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: () => notificationsApi.getUnreadCount(),
+    enabled: !!user,
+    refetchInterval: 30_000,
+  })
+  const unread = unreadCount?.unread ?? 0
 
   return (
     <header className="flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
@@ -44,6 +54,20 @@ export function Header() {
             </span>
           </div>
         )}
+
+        <Link
+          to="/app/notifications"
+          className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          title="Notificações"
+          aria-label="Abrir notificações"
+        >
+          <Bell className="h-5 w-5" />
+          {unread > 0 && (
+            <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </Link>
 
         <button
           onClick={logout}

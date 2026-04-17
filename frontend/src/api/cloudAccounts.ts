@@ -1,5 +1,11 @@
 import { apiClient } from './client'
-import type { CloudAccount, ConnectorHealth, ConnectorSyncStatus, PageResponse } from '../types'
+import type {
+  CloudAccount,
+  ConnectorHealth,
+  ConnectorSyncStatus,
+  PageResponse,
+  ScopeValidation,
+} from '../types'
 
 export const cloudAccountsApi = {
   list: (page = 1, page_size = 100) =>
@@ -12,6 +18,16 @@ export const cloudAccountsApi = {
     external_id: string
     display_name: string
     tenant_id?: string
+    azure_credentials?: {
+      tenant_id: string
+      client_id: string
+      client_secret: string
+      subscription_id: string
+      storage_account_url?: string
+      cost_export_container?: string
+      cost_export_prefix?: string
+      cost_export_format?: 'auto' | 'csv' | 'parquet'
+    }
   }) => apiClient.post<CloudAccount>('/cloud-accounts', data),
 
   delete: (id: string) => apiClient.delete(`/cloud-accounts/${id}`),
@@ -27,4 +43,7 @@ export const cloudAccountsApi = {
 
   sync: (id: string) =>
     apiClient.post(`/cloud-accounts/${id}/sync`),
+
+  validate: (id: string) =>
+    apiClient.post<ScopeValidation>(`/cloud-accounts/${id}/validate`),
 }

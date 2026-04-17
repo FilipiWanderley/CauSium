@@ -57,6 +57,15 @@ export interface ConnectorSyncStatus {
   needs_attention: boolean
 }
 
+export interface ScopeValidation {
+  account_id: string
+  provider: CloudProvider
+  ok: boolean
+  message: string
+  validated_scopes: string[]
+  scopes_validated_at: string | null
+}
+
 // Cloud Ledger
 export interface CostTrend {
   date: string

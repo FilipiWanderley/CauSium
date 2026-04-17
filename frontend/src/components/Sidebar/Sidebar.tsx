@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   Lightbulb,
@@ -24,12 +25,15 @@ import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { useI18n } from '../../contexts/I18nContext'
 import type { Translations } from '../../locales/en'
+import { notificationsApi } from '../../api/notifications'
 
 type NavItem = {
   to: string
   icon: React.ComponentType<{ className?: string }>
   label: string
   soon?: boolean
+  end?: boolean
+  badge?: number
 }
 
 function getCoreNav(nav: Translations['nav']): NavItem[] {
@@ -55,17 +59,23 @@ const NAV_LINK_CLASS = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm f
 const ACTIVE_CLASS = 'bg-brand-600 text-white'
 const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
 
-function SideNavLink({ to, icon: Icon, label, soon }: NavItem) {
+function SideNavLink({ to, icon: Icon, label, soon, badge }: NavItem) {
   const { t } = useI18n()
   return (
     <NavLink
       to={to}
+      end
       className={({ isActive }) =>
         clsx(NAV_LINK_CLASS, isActive ? ACTIVE_CLASS : INACTIVE_CLASS)
       }
     >
       <Icon className="h-4 w-4" />
       <span className="flex-1 truncate">{label}</span>
+      {typeof badge === 'number' && badge > 0 && (
+        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
       {soon && (
         <span className="rounded bg-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
           {t.nav.soon}
@@ -81,6 +91,13 @@ export function Sidebar() {
   const isPlatformAdmin = user?.role === 'platform_admin'
   const isAdmin = user?.role === 'admin' || isPlatformAdmin
   const coreNav = getCoreNav(t.nav)
+  const { data: unreadCount } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: () => notificationsApi.getUnreadCount(),
+    enabled: !!user,
+    refetchInterval: 30_000,
+  })
+  const unread = unreadCount?.unread ?? 0
 
   return (
     <aside className="flex w-60 flex-col bg-gray-900 text-white">
@@ -90,7 +107,7 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {coreNav.map((item) => (
-          <SideNavLink key={item.to} {...item} />
+          <SideNavLink key={item.to} {...item} badge={item.to === '/app/notifications' ? unread : undefined} />
         ))}
 
         {isAdmin && (

@@ -12,9 +12,10 @@ class AzureCredentials(BaseModel):
     client_id: str
     client_secret: str
     subscription_id: str
-    storage_account_url: str | None = None
-    cost_export_container: str | None = None
-    cost_export_prefix: str | None = None
+    storage_account_url: str = Field(..., min_length=10)
+    cost_export_container: str = Field(..., min_length=1)
+    cost_export_prefix: str = Field(..., min_length=1)
+    cost_export_format: str = Field(default="auto", pattern="^(auto|csv|parquet)$")
 
 
 class AwsCredentials(BaseModel):
@@ -50,6 +51,16 @@ class CloudAccountCreate(BaseModel):
     azure_credentials: AzureCredentials | None = None
     aws_credentials: AwsCredentials | None = None
     gcp_credentials: GcpCredentials | None = None
+
+    @model_validator(mode="after")
+    def validate_provider_payload(self) -> "CloudAccountCreate":
+        if self.provider == CloudProvider.AZURE and not self.azure_credentials:
+            raise ValueError("azure_credentials is required when provider is azure")
+        if self.provider == CloudProvider.AWS and not self.aws_credentials:
+            raise ValueError("aws_credentials is required when provider is aws")
+        if self.provider == CloudProvider.GCP and not self.gcp_credentials:
+            raise ValueError("gcp_credentials is required when provider is gcp")
+        return self
 
 
 class CloudAccountOut(BaseModel):

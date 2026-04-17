@@ -59,6 +59,7 @@ class AzureConnectorClient(BaseConnector):
         storage_account_url: str | None = None,
         cost_export_container: str | None = None,
         cost_export_prefix: str | None = None,
+        cost_export_format: str = "auto",
     ):
         self.tenant_id = tenant_id
         self.client_id = client_id
@@ -66,6 +67,7 @@ class AzureConnectorClient(BaseConnector):
         self.storage_account_url = storage_account_url
         self.cost_export_container = cost_export_container
         self.cost_export_prefix = cost_export_prefix or ""
+        self.cost_export_format = cost_export_format
         self._credential = None
         self._last_blob_checkpoints: list[dict[str, str]] = []
 
@@ -80,6 +82,7 @@ class AzureConnectorClient(BaseConnector):
                 storage_account_url=creds.storage_account_url,
                 cost_export_container=creds.cost_export_container,
                 cost_export_prefix=creds.cost_export_prefix,
+                cost_export_format=creds.cost_export_format,
             )
         if settings.azure_credentials_available:
             return cls(
@@ -158,6 +161,30 @@ class AzureConnectorClient(BaseConnector):
                 subscription_id=subscription_id,
                 reason=str(exc),
             )
+
+    async def validate_storage_access(self) -> None:
+        """Validate data-plane access to the configured Blob container."""
+        if not self.storage_account_url or not self.cost_export_container:
+            return
+
+        try:
+            from azure.storage.blob.aio import BlobServiceClient
+
+            cred = self._get_credential()
+            blob_service = BlobServiceClient(account_url=self.storage_account_url, credential=cred)
+            container = blob_service.get_container_client(self.cost_export_container)
+            await container.get_container_properties()
+            await blob_service.close()
+            log.info(
+                "azure.storage_validation.ok",
+                storage_account_url=self.storage_account_url,
+                container=self.cost_export_container,
+            )
+        except Exception as exc:
+            raise PermissionError(
+                "The service principal cannot access the configured Azure Blob container. "
+                "Ensure 'Storage Blob Data Reader' (or higher) is granted."
+            ) from exc
 
     async def fetch_costs(
         self,

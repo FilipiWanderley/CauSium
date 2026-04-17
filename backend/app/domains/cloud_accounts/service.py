@@ -57,6 +57,7 @@ class CloudAccountService:
             try:
                 await client.validate_connection()
                 await client.validate_cost_management_scope(req.azure_credentials.subscription_id)
+                await client.validate_storage_access()
             except PermissionError as exc:
                 raise ValueError(str(exc)) from exc
             except Exception as exc:
@@ -151,6 +152,7 @@ class CloudAccountService:
         try:
             await client.validate_connection()
             await client.validate_cost_management_scope(creds.subscription_id)
+            await client.validate_storage_access()
         except PermissionError as exc:
             return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
         except Exception as exc:
@@ -160,7 +162,9 @@ class CloudAccountService:
                 message=f"Could not validate scopes with provider API: {exc}",
             )
 
-        scopes = ["CostManagementReaderOrHigher"]
+        scopes = ["CredentialsValid", "CostManagementReaderOrHigher"]
+        if creds.storage_account_url and creds.cost_export_container:
+            scopes.append("StorageBlobDataReader")
         account.scopes_validated_at = datetime.now(timezone.utc)
         account.validated_scopes = json.dumps(scopes)
         await self.db.flush()
