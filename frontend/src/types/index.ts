@@ -90,6 +90,26 @@ export interface DashboardMetrics {
   active_accounts: number
 }
 
+export interface ReservationCoverageByService {
+  service: string
+  compute_cost_usd: number
+  reserved_cost_usd: number
+  uncovered_cost_usd: number
+  coverage_pct: number
+}
+
+export interface ReservationCoverageSummary {
+  period_start: string
+  period_end: string
+  total_compute_cost_usd: number
+  total_reserved_cost_usd: number
+  uncovered_compute_cost_usd: number
+  coverage_pct: number
+  has_active_reservations: boolean
+  services: ReservationCoverageByService[]
+  recommendation: string
+}
+
 export interface DetailedCostRow {
   date: string
   account_id: string

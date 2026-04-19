@@ -22,6 +22,11 @@ export function EconomicsUsagePage() {
     queryFn: () => ledgerApi.dashboard().then((r) => r.data),
   })
 
+  const reservationCoverageQuery = useQuery({
+    queryKey: ['economics-reservation-coverage', days],
+    queryFn: () => ledgerApi.reservationCoverage(days).then((r) => r.data),
+  })
+
   const usageSignals = useMemo(() => {
     const points = trendQuery.data ?? []
     if (!points.length) {
@@ -96,6 +101,77 @@ export function EconomicsUsagePage() {
           subtitle={eu.efficiencyScoreDesc}
           icon={<TrendingUp className="h-4 w-4" />}
         />
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">
+          Cobertura de Reservas (Reserved Instances / Savings Plans)
+        </h2>
+        {reservationCoverageQuery.isLoading ? (
+          <div className="py-8 text-center text-sm text-gray-500">Calculando cobertura de reservas...</div>
+        ) : !reservationCoverageQuery.data ? (
+          <div className="py-8 text-center text-sm text-gray-500">Sem dados de reserva para o período.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <UsageCard
+                title="Compute Total (USD)"
+                value={numberFmt.format(Math.round(reservationCoverageQuery.data.total_compute_cost_usd))}
+                subtitle="Custo total de recursos de compute"
+                icon={<Activity className="h-4 w-4" />}
+              />
+              <UsageCard
+                title="Reservado (USD)"
+                value={numberFmt.format(Math.round(reservationCoverageQuery.data.total_reserved_cost_usd))}
+                subtitle="Custo associado a reserva/compromisso"
+                icon={<TrendingUp className="h-4 w-4" />}
+              />
+              <UsageCard
+                title="Descoberto (USD)"
+                value={numberFmt.format(Math.round(reservationCoverageQuery.data.uncovered_compute_cost_usd))}
+                subtitle="Parcela ainda em on-demand"
+                icon={<Activity className="h-4 w-4" />}
+              />
+              <UsageCard
+                title="Cobertura (%)"
+                value={`${reservationCoverageQuery.data.coverage_pct}%`}
+                subtitle={reservationCoverageQuery.data.has_active_reservations ? 'Reservas detectadas' : 'Sem reserva ativa detectada'}
+                icon={<TrendingUp className="h-4 w-4" />}
+              />
+            </div>
+
+            <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              {reservationCoverageQuery.data.recommendation}
+            </div>
+
+            {!!reservationCoverageQuery.data.services.length && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs font-medium text-gray-500">
+                      <th className="pb-2 pr-3">Serviço</th>
+                      <th className="pb-2 pr-3">Compute (USD)</th>
+                      <th className="pb-2 pr-3">Reservado (USD)</th>
+                      <th className="pb-2 pr-3">Descoberto (USD)</th>
+                      <th className="pb-2">Cobertura</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {reservationCoverageQuery.data.services.slice(0, 8).map((row) => (
+                      <tr key={row.service}>
+                        <td className="py-2 pr-3 text-gray-700">{row.service}</td>
+                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.compute_cost_usd))}</td>
+                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.reserved_cost_usd))}</td>
+                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.uncovered_cost_usd))}</td>
+                        <td className="py-2 text-gray-900">{row.coverage_pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

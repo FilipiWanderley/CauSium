@@ -15,6 +15,7 @@ from app.domains.cloud_ledger.schemas import (
     DetailedCostRow,
     IngestRequest,
     IngestResult,
+    ReservationCoverageSummary,
     ServiceBreakdown,
 )
 from app.domains.cloud_ledger.service import CloudLedgerService
@@ -51,6 +52,16 @@ async def cost_trend(
 ):
     service = CloudLedgerService(db)
     return service.get_cost_trend(current_user.org_id, days=days)
+
+
+@router.get("/reservations/coverage", response_model=ReservationCoverageSummary)
+async def reservation_coverage(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+    days: int = Query(default=30, ge=7, le=365),
+):
+    service = CloudLedgerService(db)
+    return service.get_reservation_coverage(current_user.org_id, days=days)
 
 
 

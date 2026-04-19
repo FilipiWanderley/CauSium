@@ -16,6 +16,8 @@ from app.domains.cloud_ledger.schemas import (
     DashboardMetrics,
     DetailedCostRow,
     IngestResult,
+    ReservationCoverageByService,
+    ReservationCoverageSummary,
     ServiceBreakdown,
 )
 
@@ -693,4 +695,114 @@ class CloudLedgerService:
             top_teams=top_teams,
             event_count_7d=self.get_event_count(org_id, days=7),
             active_accounts=active_accounts,
+        )
+
+    def get_reservation_coverage(self, org_id: UUID, days: int = 30) -> ReservationCoverageSummary:
+        end = date.today()
+        start = end - timedelta(days=days)
+
+        # Heuristic detection:
+        # - "compute" rows come from VM/compute services
+        # - "reserved" rows are detected by service naming or tag values mentioning reservation/savings/commitment
+        # This works across providers with different line-item schemas.
+        base_query = """
+            SELECT
+                service,
+                sum(
+                    if(
+                        positionCaseInsensitiveUTF8(service, 'virtual machine') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'compute') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'ec2') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'aks') > 0,
+                        cost_usd,
+                        0
+                    )
+                ) AS compute_cost_usd,
+                sum(
+                    if(
+                        positionCaseInsensitiveUTF8(service, 'reservation') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'reserved') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'savings plan') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'commitment') > 0
+                        OR arrayExists(
+                            v -> (
+                                positionCaseInsensitiveUTF8(v, 'reservation') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'reserved') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'savings') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'commitment') > 0
+                            ),
+                            mapValues(tags)
+                        ),
+                        cost_usd,
+                        0
+                    )
+                ) AS reserved_cost_usd
+            FROM cost_facts
+            WHERE org_id = {org_id:String}
+              AND date >= {start:Date}
+              AND date <= {end:Date}
+            GROUP BY service
+            HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
+            ORDER BY compute_cost_usd DESC
+            LIMIT 50
+        """
+
+        try:
+            rows = execute_query(
+                base_query,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+        except Exception as exc:
+            log.warning("ledger.reservation_coverage.failed", error=str(exc))
+            rows = []
+
+        services: list[ReservationCoverageByService] = []
+        total_compute = 0.0
+        total_reserved = 0.0
+
+        for row in rows:
+            compute_cost = float(row.get("compute_cost_usd") or 0.0)
+            reserved_cost = float(row.get("reserved_cost_usd") or 0.0)
+            uncovered = max(compute_cost - reserved_cost, 0.0)
+            coverage = round(min((reserved_cost / compute_cost) * 100, 100.0), 1) if compute_cost > 0 else 0.0
+
+            total_compute += compute_cost
+            total_reserved += reserved_cost
+
+            if compute_cost > 0:
+                services.append(
+                    ReservationCoverageByService(
+                        service=str(row.get("service") or "unknown"),
+                        compute_cost_usd=round(compute_cost, 2),
+                        reserved_cost_usd=round(reserved_cost, 2),
+                        uncovered_cost_usd=round(uncovered, 2),
+                        coverage_pct=coverage,
+                    )
+                )
+
+        uncovered_total = max(total_compute - total_reserved, 0.0)
+        coverage_total = round(min((total_reserved / total_compute) * 100, 100.0), 1) if total_compute > 0 else 0.0
+        has_active_reservations = total_reserved > 0
+
+        if total_compute <= 0:
+            recommendation = "Sem custo de compute no período para avaliar cobertura de reserva."
+        elif not has_active_reservations:
+            recommendation = "Nenhuma reserva detectada. Avalie compra de Reserved Instances/Savings Plans para reduzir custo."
+        elif coverage_total < 60:
+            recommendation = "Cobertura baixa de reservas. Priorize recursos de compute com maior custo descoberto."
+        elif coverage_total < 85:
+            recommendation = "Cobertura parcial. Ajuste mix de reserva para reduzir custo on-demand residual."
+        else:
+            recommendation = "Cobertura saudável de reservas no período analisado."
+
+        return ReservationCoverageSummary(
+            period_start=start,
+            period_end=end,
+            total_compute_cost_usd=round(total_compute, 2),
+            total_reserved_cost_usd=round(total_reserved, 2),
+            uncovered_compute_cost_usd=round(uncovered_total, 2),
+            coverage_pct=coverage_total,
+            has_active_reservations=has_active_reservations,
+            services=services,
+            recommendation=recommendation,
         )

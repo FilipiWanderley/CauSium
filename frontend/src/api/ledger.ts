@@ -1,5 +1,12 @@
 import { apiClient } from './client'
-import type { DashboardMetrics, CostTrend, DetailedCostRow, PageResponse, ServiceBreakdown } from '../types'
+import type {
+  DashboardMetrics,
+  CostTrend,
+  DetailedCostRow,
+  PageResponse,
+  ReservationCoverageSummary,
+  ServiceBreakdown,
+} from '../types'
 
 export interface ExportJob {
   id: string
@@ -20,6 +27,9 @@ export const ledgerApi = {
 
   costTrend: (days = 30) =>
     apiClient.get<CostTrend[]>(`/ledger/costs/trend?days=${days}`),
+
+  reservationCoverage: (days = 30) =>
+    apiClient.get<ReservationCoverageSummary>(`/ledger/reservations/coverage?days=${days}`),
 
   topServicesPaginated: (days = 30, page = 1, page_size = 50) =>
     apiClient.get<PageResponse<ServiceBreakdown>>(`/ledger/costs/services`, { params: { days, page, page_size } }),

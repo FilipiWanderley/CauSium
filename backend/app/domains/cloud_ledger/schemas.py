@@ -52,6 +52,26 @@ class DashboardMetrics(BaseModel):
     active_accounts: int
 
 
+class ReservationCoverageByService(BaseModel):
+    service: str
+    compute_cost_usd: float
+    reserved_cost_usd: float
+    uncovered_cost_usd: float
+    coverage_pct: float
+
+
+class ReservationCoverageSummary(BaseModel):
+    period_start: date
+    period_end: date
+    total_compute_cost_usd: float
+    total_reserved_cost_usd: float
+    uncovered_compute_cost_usd: float
+    coverage_pct: float
+    has_active_reservations: bool
+    services: list[ReservationCoverageByService]
+    recommendation: str
+
+
 class DetailedCostRow(BaseModel):
     date: date
     account_id: str

@@ -152,13 +152,13 @@ export function LoginPage() {
         <div className="pointer-events-none absolute inset-0 z-0 bg-[#020202]/40" />
 
         <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
-          <Link
-            to="/"
+          <a
+            href="/landing/index.html"
             className="fixed left-8 top-8 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white group"
           >
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
             Voltar
-          </Link>
+          </a>
 
           <div className="mb-8 w-full text-center">
             <h1 className="mb-2 text-[28px] font-bold tracking-[0.2em] text-white">CAUSIUM</h1>

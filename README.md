@@ -65,6 +65,7 @@ Ferramentas FinOps convencionais mostram dashboards e recomendações. O CauSium
 - **Auditoria imutável** — toda decisão e ação gera evidência criptográfica verificável (hash SHA-256 encadeado)
 - **Autenticação sem senha** — WebAuthn passkeys como método padrão, com MFA TOTP como fallback e backup codes para recuperação
 - **Observabilidade de ponta** — distributed tracing com OpenTelemetry + Jaeger, métricas Prometheus e SLO dashboard no Grafana
+- **Inteligência de reservas** — leitura de custos de compute e sinais de reserva/compromisso (RI/Savings Plan), com cálculo de cobertura e custo descoberto para orientar decisões de compra
 
 ---
 
@@ -675,6 +676,7 @@ graph LR
 ├── /auth/*              → Autenticação, passkey, OIDC, MFA TOTP, backup codes, LGPD
 ├── /cloud-accounts/*    → Multi-cloud connectors (Azure, AWS CUR, GCP BigQuery)
 ├── /economics/*         → Dashboard, budget, custos, SKUs, forecast, exportação async
+├── /ledger/reservations/coverage → Cobertura de reservas (compute vs reservado vs descoberto)
 ├── /intel/*             → Recomendações, SCA, ARI, backlog adaptativo
 ├── /lab/*               → Experimentos, runs, approvals, simulador
 ├── /notifications/*     → Alertas, preferências, polling
@@ -705,6 +707,27 @@ Todos os endpoints de lista seguem paginação padronizada:
   "has_prev": false
 }
 ```
+
+### Cobertura de Reservas (RI / Savings Plans)
+
+Endpoint:
+
+```
+GET /ledger/reservations/coverage?days=30
+```
+
+Retorna, por workspace:
+
+- `total_compute_cost_usd`: custo de compute no período
+- `total_reserved_cost_usd`: custo detectado como reserva/compromisso
+- `uncovered_compute_cost_usd`: parcela estimada ainda em on-demand
+- `coverage_pct`: cobertura de reservas (%)
+- `services[]`: breakdown por serviço para priorização operacional
+- `recommendation`: recomendação textual objetiva para ação
+
+Permissões:
+
+- Leitura disponível para usuários autenticados do workspace (inclui perfis cliente/viewer).
 
 Erros seguem envelope padronizado:
 
@@ -898,7 +921,7 @@ flowchart LR
 **Configuração via `.env`:**
 ```bash
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=causium-backend
+OTEL_SERVICE_NAME=stratopulse-api
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 OTEL_SAMPLING_RATE=1.0   # 1.0 = 100% em dev; reduzir em prod
 ```
@@ -1132,8 +1155,8 @@ gantt
 | PulseEconomics | 🔶 Parcial | Dashboard, costs, SKUs, export async — forecast P90 no roadmap |
 | Alertas e notificações | ✅ Completo | AlertRecord, AlertRule, NotificationPreference, SMTP + Slack, DLQ |
 | PulseIntel | 🔶 Parcial | ProviderRecommendation sync — SCA/ARI Wave 3 |
-| PulseGov | 🔶 Parcial | UI implementada — SCA/ARI engine e blast radius Wave 3 |
-| PulseGreen | 🔶 Parcial | UI implementada + carbon sync worker — forecast e tendências avançadas Wave 3 |
+| PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
+| PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
 | PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR (S3), GCP (BigQuery + Workload Identity) |
 | Sync / Workers | ✅ Completo | 8 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance |
 | StratoAudit / Compliance | ✅ Completo | Hash chain SHA-256, HMAC checkpoints, DLQ, audit log UI |
@@ -1157,8 +1180,8 @@ gantt
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/FilipiWanderley/StratoPulse.git
-cd StratoPulse
+git clone https://github.com/FilipiWanderley/CauSium.git
+cd CauSium
 
 # 2. Configure as variáveis de ambiente
 cp .env.example .env
@@ -1185,7 +1208,7 @@ npm run dev
 
 ```bash
 # Banco de dados
-DATABASE_URL=postgresql+asyncpg://causium:causium_dev@localhost:5432/causium
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/stratopulse
 DATABASE_SSL=false   # true em produção com certificado
 
 # Cache e filas
@@ -1195,7 +1218,7 @@ REDIS_URL=redis://localhost:6379
 # ClickHouse
 CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
-CLICKHOUSE_DB=causium
+CLICKHOUSE_DB=stratopulse
 # CLICKHOUSE_CA_CERT=/path/to/ca.crt  (TLS em produção)
 
 # Segurança — NUNCA commitar valores reais
@@ -1223,11 +1246,11 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey
 SMTP_PASSWORD=<api-key>
-SMTP_FROM=noreply@causium.local
+SMTP_FROM=noreply@stratopulse.io
 
 # OpenTelemetry
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=causium-backend
+OTEL_SERVICE_NAME=stratopulse-api
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 OTEL_SAMPLING_RATE=1.0
 
@@ -1254,7 +1277,7 @@ CauSium/
 │   │       ├── cloud_accounts/        # Azure, AWS CUR, GCP BigQuery connectors
 │   │       ├── economics/             # Custos, SKUs, forecast, export async
 │   │       ├── experiments/           # PulseLab, runs, approvals
-│   │       ├── workflow/              # Kanban de iniciativas
+│   │       ├── initiatives/           # Kanban de iniciativas
 │   │       ├── notifications/         # Alertas, regras, preferências, Slack
 │   │       ├── opportunities/         # Scoring, recomendações
 │   │       ├── audit_chain/           # StratoAudit hash chain
