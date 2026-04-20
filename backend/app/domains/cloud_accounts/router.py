@@ -13,6 +13,8 @@ from app.core.idempotency import build_fingerprint, build_scope_key, prepare_req
 from app.core.redis import get_redis_pool
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
+from app.domains.notifications.models import AlertCategory, AlertSeverity
+from app.domains.notifications.service import NotificationsService
 from app.domains.cloud_accounts.schemas import (
     CloudAccountCreate,
     CloudAccountOut,
@@ -164,6 +166,21 @@ async def trigger_sync(
         }
     )
     await redis.lpush("ingestion:queue", payload)
+    await NotificationsService(db).create_if_rule_matches(
+        org_id=current_user.org_id,
+        category=AlertCategory.ACTIVITY,
+        severity=AlertSeverity.INFO,
+        event_type="cloud_account.sync.queued",
+        title=f"Sync queued for {account.display_name}",
+        body=f"Ingestion requested for last {lookback_days} days.",
+        source_type="cloud_account_sync",
+        source_id=f"{account_id}:{lookback_days}",
+        extra_metadata={
+            "account_id": str(account_id),
+            "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
+            "lookback_days": lookback_days,
+        },
+    )
     out = SyncStatusOut(
         account_id=account_id,
         triggered=True,

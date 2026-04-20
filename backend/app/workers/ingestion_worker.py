@@ -84,6 +84,25 @@ async def process_account(raw_payload: str) -> None:
                 costs=result.cost_records,
                 events=result.event_records,
             )
+            await NotificationsService(db).create_if_rule_matches(
+                org_id=account.org_id,
+                category=AlertCategory.ACTIVITY,
+                severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
+                event_type="cloud_account.sync.completed" if result.status == "ok" else "cloud_account.sync.warning",
+                title=f"Sync finished for {account.display_name}",
+                body=(
+                    f"Costs: {result.cost_records}, events: {result.event_records}"
+                    if result.status == "ok"
+                    else (result.message or "Sync finished with partial errors.")
+                ),
+                source_type="cloud_account_sync_result",
+                source_id=f"{account_id_str}:{start.isoformat()}:{end.isoformat()}",
+                extra_metadata={
+                    "account_id": account_id_str,
+                    "lookback_days": lookback_days,
+                    "status": result.status,
+                },
+            )
 
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
@@ -119,6 +138,22 @@ async def process_account(raw_payload: str) -> None:
                     error_message=str(e),
                     retry_count=attempts,
                 )
+                if job.org_id:
+                    await NotificationsService(db).create_if_rule_matches(
+                        org_id=job.org_id,
+                        category=AlertCategory.SECURITY,
+                        severity=AlertSeverity.CRITICAL,
+                        event_type="worker.ingestion.dlq_failure",
+                        title="Critical ingestion worker failure",
+                        body=(
+                            "A critical failure occurred in ingestion worker and was moved to DLQ.\n\n"
+                            f"account_id: {account_id_str}\n"
+                            f"org_id: {str(job.org_id) if job.org_id else 'unknown'}\n"
+                            f"error: {str(e)}\n"
+                        ),
+                        source_type="worker_failure",
+                        source_id=f"ingestion:{account_id_str}:{attempts}",
+                    )
                 await db.commit()
             await redis.delete(retry_key(QUEUE_KEY, raw_payload))
 
@@ -135,21 +170,12 @@ async def process_account(raw_payload: str) -> None:
                 text_body=body,
             )
             if job.org_id:
-                await NotificationsService(db).create_if_rule_matches(
-                    org_id=job.org_id,
-                    category=AlertCategory.SECURITY,
-                    severity=AlertSeverity.CRITICAL,
-                    event_type="worker.ingestion.dlq_failure",
-                    title="Critical ingestion worker failure",
-                    body=body,
-                    source_type="worker_failure",
-                    source_id=f"ingestion:{account_id_str}:{attempts}",
-                )
-            await SlackService(db).send_critical_alert(
-                org_id=job.org_id,
-                subject=subject,
-                text_body=body,
-            )
+                async with async_session_factory() as db:
+                    await SlackService(db).send_critical_alert(
+                        org_id=job.org_id,
+                        subject=subject,
+                        text_body=body,
+                    )
     finally:
         await redis.delete(lock_key)
 
