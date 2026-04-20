@@ -491,6 +491,10 @@ export interface Translations {
     immediateActionTitle: string
     immediateActionDesc: string
     focusCritical: string
+    soundOn: string
+    soundOff: string
+    soundEnable: string
+    soundDisable: string
     allStatuses: string
     statusUnread: string
     statusRead: string
@@ -1086,6 +1090,10 @@ export const en: Translations = {
     immediateActionTitle: 'Immediate action required',
     immediateActionDesc: '{{count}} critical unread alerts need attention now.',
     focusCritical: 'Focus critical',
+    soundOn: 'Sound on',
+    soundOff: 'Sound off',
+    soundEnable: 'Enable alert sound',
+    soundDisable: 'Disable alert sound',
     allStatuses: 'All statuses',
     statusUnread: 'Unread',
     statusRead: 'Read',

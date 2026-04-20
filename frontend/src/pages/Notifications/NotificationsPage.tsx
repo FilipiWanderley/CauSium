@@ -10,6 +10,8 @@ import {
   RefreshCw,
   ShieldAlert,
   Trash2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import {
   type AlertCategory,
@@ -18,6 +20,10 @@ import {
   notificationsApi,
 } from '../../api/notifications'
 import { useI18n } from '../../contexts/I18nContext'
+import {
+  isNotificationSoundEnabled,
+  setNotificationSoundEnabled,
+} from '../../realtime/notificationSound'
 
 type NotificationKind = 'activity' | 'created' | 'updated' | 'deleted' | 'sync' | 'security'
 
@@ -216,6 +222,7 @@ export function NotificationsPage() {
   const [categoryFilter, setCategoryFilter] = useState<AlertCategory | ''>('')
   const [statusFilter, setStatusFilter] = useState<AlertStatus | ''>('')
   const [typeFilter, setTypeFilter] = useState<NotificationKind | ''>('')
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => isNotificationSoundEnabled())
 
   const TYPE_LABELS: Record<NotificationKind, string> = {
     activity: n.typeActivity,
@@ -301,14 +308,28 @@ export function NotificationsPage() {
         </div>
 
         {unread > 0 && (
-          <button
-            onClick={() => markAllMutation.mutate()}
-            disabled={markAllMutation.isPending}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-          >
-            <CheckCheck className="h-4 w-4" />
-            {n.markAllRead}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next = !soundEnabled
+                setSoundEnabled(next)
+                setNotificationSoundEnabled(next)
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50"
+              title={soundEnabled ? n.soundDisable : n.soundEnable}
+            >
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {soundEnabled ? n.soundOn : n.soundOff}
+            </button>
+            <button
+              onClick={() => markAllMutation.mutate()}
+              disabled={markAllMutation.isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+            >
+              <CheckCheck className="h-4 w-4" />
+              {n.markAllRead}
+            </button>
+          </div>
         )}
       </div>
 
