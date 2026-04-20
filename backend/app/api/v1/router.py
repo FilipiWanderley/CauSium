@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.core.config import get_settings
 from app.domains.auth.router import router as auth_router
 from app.domains.cloud_accounts.router import router as accounts_router
 from app.domains.cloud_ledger.router import router as ledger_router
@@ -37,3 +38,7 @@ api_router.include_router(economics_router)
 api_router.include_router(notifications_router)
 api_router.include_router(gov_router)
 api_router.include_router(green_router)
+
+if not get_settings().is_production:
+    from app.domains.dev.router import router as dev_router
+    api_router.include_router(dev_router)

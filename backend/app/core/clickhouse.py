@@ -43,3 +43,9 @@ def insert_rows(table: str, data: List[Dict[str, Any]]) -> None:
     columns = list(data[0].keys())
     rows = [[row[col] for col in columns] for row in data]
     client.insert(table, rows, column_names=columns)
+
+
+def execute_command(statement: str, parameters: Dict[str, Any] | None = None) -> None:
+    """Execute a DDL or DML statement (INSERT, DELETE, ALTER, CREATE, etc.)."""
+    client = get_clickhouse_client()
+    client.command(statement, parameters=parameters or {})
