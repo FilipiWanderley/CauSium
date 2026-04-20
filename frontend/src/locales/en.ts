@@ -481,6 +481,13 @@ export interface Translations {
     governance: string
     activity: string
     security: string
+    allTypes: string
+    typeActivity: string
+    typeCreated: string
+    typeUpdated: string
+    typeDeleted: string
+    typeSync: string
+    typeSecurity: string
     allStatuses: string
     statusUnread: string
     statusRead: string
@@ -1066,6 +1073,13 @@ export const en: Translations = {
     governance: 'Governance',
     activity: 'Activity',
     security: 'Security',
+    allTypes: 'All types',
+    typeActivity: 'Activity',
+    typeCreated: 'Created',
+    typeUpdated: 'Updated',
+    typeDeleted: 'Deleted',
+    typeSync: 'Sync',
+    typeSecurity: 'Security',
     allStatuses: 'All statuses',
     statusUnread: 'Unread',
     statusRead: 'Read',

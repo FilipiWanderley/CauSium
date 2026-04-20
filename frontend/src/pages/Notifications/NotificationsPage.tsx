@@ -9,6 +9,8 @@ import {
 } from '../../api/notifications'
 import { useI18n } from '../../contexts/I18nContext'
 
+type NotificationKind = 'activity' | 'created' | 'updated' | 'deleted' | 'sync' | 'security'
+
 const SEVERITY_COLORS: Record<string, string> = {
   info: 'bg-blue-50 text-blue-700 border-blue-200',
   warning: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -21,6 +23,35 @@ const CATEGORY_COLORS: Record<AlertCategory, string> = {
   governance: 'bg-sky-100 text-sky-700',
   activity: 'bg-gray-100 text-gray-600',
   security: 'bg-red-100 text-red-700',
+}
+
+const KIND_COLORS: Record<NotificationKind, string> = {
+  activity: 'bg-gray-100 text-gray-700',
+  created: 'bg-emerald-100 text-emerald-700',
+  updated: 'bg-sky-100 text-sky-700',
+  deleted: 'bg-rose-100 text-rose-700',
+  sync: 'bg-indigo-100 text-indigo-700',
+  security: 'bg-red-100 text-red-700',
+}
+
+function classifyNotificationKind(alert: AlertRecord): NotificationKind {
+  const sourceType = (alert.source_type ?? '').toLowerCase()
+  const blob = `${alert.title} ${alert.body ?? ''} ${sourceType}`.toLowerCase()
+
+  if (alert.category === 'security' || sourceType.includes('worker_failure')) return 'security'
+  if (sourceType.includes('cloud_account_sync') || blob.includes('sync')) return 'sync'
+  if (blob.includes('created') || blob.includes('.created')) return 'created'
+  if (blob.includes('updated') || blob.includes('.updated') || blob.includes('changed')) return 'updated'
+  if (
+    blob.includes('deleted') ||
+    blob.includes('.deleted') ||
+    blob.includes('removed') ||
+    blob.includes('revoked') ||
+    blob.includes('deactivated')
+  ) {
+    return 'deleted'
+  }
+  return 'activity'
 }
 
 function timeAgo(iso: string): string {
@@ -40,6 +71,7 @@ function AlertCard({
   labelArchive,
   labelViewDetails,
   categoryLabel,
+  kindLabel,
 }: {
   alert: AlertRecord
   onMarkRead: (id: string) => void
@@ -48,8 +80,10 @@ function AlertCard({
   labelArchive: string
   labelViewDetails: string
   categoryLabel: string
+  kindLabel: string
 }) {
   const isUnread = alert.status === 'unread'
+  const kind = classifyNotificationKind(alert)
 
   return (
     <div
@@ -75,6 +109,9 @@ function AlertCard({
               }`}
             >
               {categoryLabel}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KIND_COLORS[kind]}`}>
+              {kindLabel}
             </span>
             <span
               className={`rounded border px-2 py-0.5 text-xs font-semibold capitalize ${
@@ -145,6 +182,16 @@ export function NotificationsPage() {
 
   const [categoryFilter, setCategoryFilter] = useState<AlertCategory | ''>('')
   const [statusFilter, setStatusFilter] = useState<AlertStatus | ''>('')
+  const [typeFilter, setTypeFilter] = useState<NotificationKind | ''>('')
+
+  const TYPE_LABELS: Record<NotificationKind, string> = {
+    activity: n.typeActivity,
+    created: n.typeCreated,
+    updated: n.typeUpdated,
+    deleted: n.typeDeleted,
+    sync: n.typeSync,
+    security: n.typeSecurity,
+  }
 
   const listQuery = useQuery({
     queryKey: ['notifications', categoryFilter, statusFilter],
@@ -178,10 +225,14 @@ export function NotificationsPage() {
     },
   })
 
-  const alerts = listQuery.data?.items ?? []
+  const alertsRaw = listQuery.data?.items ?? []
+  const alerts = alertsRaw.filter((alert) => {
+    if (!typeFilter) return true
+    return classifyNotificationKind(alert) === typeFilter
+  })
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
-  const totalVisible = listQuery.data?.total
+  const totalVisible = alerts.length
 
   const listIsPending = listQuery.isPending
   const listIsError = listQuery.isError
@@ -250,6 +301,19 @@ export function NotificationsPage() {
         </select>
 
         <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as NotificationKind | '')}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        >
+          <option value="">{n.allTypes}</option>
+          {(Object.keys(TYPE_LABELS) as NotificationKind[]).map((k) => (
+            <option key={k} value={k}>
+              {TYPE_LABELS[k]}
+            </option>
+          ))}
+        </select>
+
+        <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as AlertStatus | '')}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -292,6 +356,7 @@ export function NotificationsPage() {
               labelArchive={n.archive}
               labelViewDetails={n.viewDetails}
               categoryLabel={CATEGORY_LABELS[alert.category]}
+              kindLabel={TYPE_LABELS[classifyNotificationKind(alert)]}
             />
           ))}
         </div>
