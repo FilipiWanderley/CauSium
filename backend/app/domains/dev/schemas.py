@@ -23,3 +23,14 @@ class SeedResult(BaseModel):
 class ClearResult(BaseModel):
     org_id: UUID
     cleared: bool
+
+
+class SeedStatus(BaseModel):
+    """ClickHouse row counts per table — use to diagnose missing dashboard data."""
+    org_id: UUID
+    seeded: bool
+    cost_records: int
+    event_records: int
+    usage_records: int
+    recommendation_records: int
+    resource_records: int

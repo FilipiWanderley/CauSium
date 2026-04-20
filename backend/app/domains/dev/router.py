@@ -6,10 +6,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.domains.dev.schemas import ClearResult, SeedRequest, SeedResult
+from app.domains.dev.schemas import ClearResult, SeedRequest, SeedResult, SeedStatus
 from app.domains.dev.service import DevSeedService
 
 router = APIRouter(prefix="/dev", tags=["dev"])
+
+
+@router.get(
+    "/seed/status",
+    response_model=SeedStatus,
+    summary="Check how many rows are in ClickHouse for the authenticated tenant",
+    description="Returns row counts per table. Use this to diagnose empty dashboards.",
+)
+async def get_seed_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> SeedStatus:
+    return await DevSeedService(db).status(current_user.org_id)
 
 
 @router.post(
@@ -29,9 +42,8 @@ async def seed_tenant_data(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
 ) -> SeedResult:
-    service = DevSeedService(db)
     try:
-        return await service.seed(current_user.org_id, req)
+        return await DevSeedService(db).seed(current_user.org_id, req)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
