@@ -276,6 +276,7 @@ export function NotificationsPage() {
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
   const totalVisible = alerts.length
+  const criticalUnread = alerts.filter((a) => a.severity === 'critical' && a.status === 'unread')
 
   const listIsPending = listQuery.isPending
   const listIsError = listQuery.isError
@@ -310,6 +311,33 @@ export function NotificationsPage() {
           </button>
         )}
       </div>
+
+      {criticalUnread.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="text-sm font-semibold text-red-700">
+                  {n.immediateActionTitle}
+                </p>
+                <p className="text-xs text-red-600">
+                  {n.immediateActionDesc.replace('{{count}}', String(criticalUnread.length))}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setStatusFilter('unread')
+                setTypeFilter('security')
+              }}
+              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+            >
+              {n.focusCritical}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

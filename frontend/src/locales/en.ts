@@ -488,6 +488,9 @@ export interface Translations {
     typeDeleted: string
     typeSync: string
     typeSecurity: string
+    immediateActionTitle: string
+    immediateActionDesc: string
+    focusCritical: string
     allStatuses: string
     statusUnread: string
     statusRead: string
@@ -1080,6 +1083,9 @@ export const en: Translations = {
     typeDeleted: 'Deleted',
     typeSync: 'Sync',
     typeSecurity: 'Security',
+    immediateActionTitle: 'Immediate action required',
+    immediateActionDesc: '{{count}} critical unread alerts need attention now.',
+    focusCritical: 'Focus critical',
     allStatuses: 'All statuses',
     statusUnread: 'Unread',
     statusRead: 'Read',
