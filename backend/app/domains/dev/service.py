@@ -84,7 +84,7 @@ class DevSeedService:
                 CloudAccount.external_id.like(f"{_MOCK_EXTERNAL_ID_PREFIX}%"),
             )
         )
-        return result.scalar_one_or_none() is not None
+        return result.scalars().first() is not None
 
     async def status(self, org_id: UUID) -> SeedStatus:
         """Return row counts from ClickHouse for the tenant — useful for diagnostics."""
