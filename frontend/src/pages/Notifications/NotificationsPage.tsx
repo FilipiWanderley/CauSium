@@ -1,6 +1,16 @@
-import { useState } from 'react'
+import { type ComponentType, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, Bell, CheckCheck, Filter } from 'lucide-react'
+import {
+  Activity,
+  Archive,
+  Bell,
+  CheckCheck,
+  Filter,
+  Pencil,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+} from 'lucide-react'
 import {
   type AlertCategory,
   type AlertRecord,
@@ -32,6 +42,27 @@ const KIND_COLORS: Record<NotificationKind, string> = {
   deleted: 'bg-rose-100 text-rose-700',
   sync: 'bg-indigo-100 text-indigo-700',
   security: 'bg-red-100 text-red-700',
+}
+
+const KIND_ICONS: Record<NotificationKind, ComponentType<{ className?: string }>> = {
+  activity: Activity,
+  created: Activity,
+  updated: Pencil,
+  deleted: Trash2,
+  sync: RefreshCw,
+  security: ShieldAlert,
+}
+
+const SEVERITY_RANK: Record<AlertRecord['severity'], number> = {
+  critical: 3,
+  warning: 2,
+  info: 1,
+}
+
+const STATUS_RANK: Record<AlertRecord['status'], number> = {
+  unread: 3,
+  read: 2,
+  archived: 1,
 }
 
 function classifyNotificationKind(alert: AlertRecord): NotificationKind {
@@ -84,6 +115,7 @@ function AlertCard({
 }) {
   const isUnread = alert.status === 'unread'
   const kind = classifyNotificationKind(alert)
+  const KindIcon = KIND_ICONS[kind]
 
   return (
     <div
@@ -111,6 +143,7 @@ function AlertCard({
               {categoryLabel}
             </span>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KIND_COLORS[kind]}`}>
+              <KindIcon className="mr-1 inline h-3 w-3" />
               {kindLabel}
             </span>
             <span
@@ -226,10 +259,20 @@ export function NotificationsPage() {
   })
 
   const alertsRaw = listQuery.data?.items ?? []
-  const alerts = alertsRaw.filter((alert) => {
-    if (!typeFilter) return true
-    return classifyNotificationKind(alert) === typeFilter
-  })
+  const alerts = alertsRaw
+    .filter((alert) => {
+      if (!typeFilter) return true
+      return classifyNotificationKind(alert) === typeFilter
+    })
+    .sort((a, b) => {
+      const severityDiff = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
+      if (severityDiff !== 0) return severityDiff
+
+      const statusDiff = STATUS_RANK[b.status] - STATUS_RANK[a.status]
+      if (statusDiff !== 0) return statusDiff
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
   const unread = countQuery.data?.unread ?? 0
   const critical = countQuery.data?.critical ?? 0
   const totalVisible = alerts.length
