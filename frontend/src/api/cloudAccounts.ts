@@ -41,8 +41,10 @@ export const cloudAccountsApi = {
   syncStatus: () =>
     apiClient.get<ConnectorSyncStatus[]>('/cloud-accounts/sync-status'),
 
-  sync: (id: string) =>
-    apiClient.post(`/cloud-accounts/${id}/sync`),
+  sync: (id: string, lookback_days = 90) =>
+    apiClient.post(`/cloud-accounts/${id}/sync`, undefined, {
+      params: { lookback_days },
+    }),
 
   validate: (id: string) =>
     apiClient.post<ScopeValidation>(`/cloud-accounts/${id}/validate`),

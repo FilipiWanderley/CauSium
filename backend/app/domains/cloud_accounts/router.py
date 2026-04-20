@@ -3,7 +3,7 @@ import json
 from typing import Annotated, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -120,6 +120,7 @@ async def trigger_sync(
     db: Annotated[AsyncSession, Depends(get_db)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
+    lookback_days: int = Query(default=90, ge=7, le=90),
 ):
     service = CloudAccountService(db)
     account = await service.get_account(current_user.org_id, account_id)
@@ -159,10 +160,15 @@ async def trigger_sync(
         {
             "org_id": str(current_user.org_id),
             "account_id": str(account_id),
+            "lookback_days": lookback_days,
         }
     )
     await redis.lpush("ingestion:queue", payload)
-    out = SyncStatusOut(account_id=account_id, triggered=True, message="Sync job queued")
+    out = SyncStatusOut(
+        account_id=account_id,
+        triggered=True,
+        message=f"Sync job queued ({lookback_days} days)",
+    )
     if scope_key:
         await store_response(
             redis,

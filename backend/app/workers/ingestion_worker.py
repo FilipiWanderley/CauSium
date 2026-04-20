@@ -66,7 +66,12 @@ async def process_account(raw_payload: str) -> None:
                 return
 
             end = date.today()
-            start = end - timedelta(days=7)
+            # Business rule: always analyze up to the last 3 months.
+            # If the tenant has less historical data, connector returns only what's available.
+            default_lookback_days = 90
+            requested_lookback_days = job.lookback_days if job.lookback_days is not None else default_lookback_days
+            lookback_days = max(7, min(requested_lookback_days, 90))
+            start = end - timedelta(days=lookback_days)
 
             ledger = CloudLedgerService(db)
             result = await ledger.ingest_account(account.org_id, account_id, start, end)
@@ -75,6 +80,7 @@ async def process_account(raw_payload: str) -> None:
             log.info(
                 "ingestion.completed",
                 account_id=account_id_str,
+                lookback_days=lookback_days,
                 costs=result.cost_records,
                 events=result.event_records,
             )

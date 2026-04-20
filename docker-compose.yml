@@ -115,6 +115,8 @@ services:
       jaeger:
         condition: service_healthy
     command: python -m app.workers.runner
+    healthcheck:
+      disable: true
 
   frontend:
     build:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -12,6 +13,9 @@ from app.domains.admin.models import DlqMessage
 log = get_logger(__name__)
 
 MAX_RETRIES = 3
+UUID_PATTERN = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
 
 
 @dataclass
@@ -19,6 +23,7 @@ class QueueJob:
     queue_name: str
     org_id: UUID | None
     account_id: UUID | None
+    lookback_days: int | None
     payload: str
 
 
@@ -32,13 +37,29 @@ def parse_job(queue_name: str, raw_payload: str) -> QueueJob:
         data = json.loads(raw_payload)
         org_id = UUID(data["org_id"]) if data.get("org_id") else None
         account_id = UUID(data["account_id"]) if data.get("account_id") else None
-        return QueueJob(queue_name=queue_name, org_id=org_id, account_id=account_id, payload=raw_payload)
+        lookback_days_raw = data.get("lookback_days")
+        lookback_days = int(lookback_days_raw) if lookback_days_raw is not None else None
+        return QueueJob(
+            queue_name=queue_name,
+            org_id=org_id,
+            account_id=account_id,
+            lookback_days=lookback_days,
+            payload=raw_payload,
+        )
     except Exception:
         try:
             account_id = UUID(raw_payload)
         except Exception:
-            account_id = None
-        return QueueJob(queue_name=queue_name, org_id=None, account_id=account_id, payload=raw_payload)
+            # Best-effort fallback for malformed JSON payloads that still contain a UUID.
+            match = UUID_PATTERN.search(raw_payload)
+            account_id = UUID(match.group(0)) if match else None
+        return QueueJob(
+            queue_name=queue_name,
+            org_id=None,
+            account_id=account_id,
+            lookback_days=None,
+            payload=raw_payload,
+        )
 
 
 def retry_key(queue_name: str, payload: str) -> str:

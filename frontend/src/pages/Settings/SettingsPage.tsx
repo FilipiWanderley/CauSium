@@ -48,6 +48,10 @@ export function SettingsPage() {
     storage: 'idle',
   })
   const [validationMessage, setValidationMessage] = useState<string | null>(null)
+  const [cloudActionFeedback, setCloudActionFeedback] = useState<{
+    tone: 'success' | 'error'
+    message: string
+  } | null>(null)
 
   const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
   const section =
@@ -111,10 +115,32 @@ export function SettingsPage() {
   })
   const syncCloudAccountMutation = useMutation({
     mutationFn: (accountId: string) => cloudAccountsApi.sync(accountId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['platform-sync-status'] }),
+      ])
+      setCloudActionFeedback({ tone: 'success', message: 'Sincronizacao enfileirada com sucesso.' })
+    },
+    onError: (error) => {
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        'Falha ao enfileirar sincronizacao. Verifique permissao e tente novamente.'
+      setCloudActionFeedback({ tone: 'error', message: detail })
+    },
   })
   const deleteCloudAccountMutation = useMutation({
     mutationFn: (accountId: string) => cloudAccountsApi.delete(accountId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] })
+      setCloudActionFeedback({ tone: 'success', message: 'Conta removida com sucesso.' })
+    },
+    onError: (error) => {
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        'Falha ao excluir conta cloud.'
+      setCloudActionFeedback({ tone: 'error', message: detail })
+    },
   })
 
   const handleLogoutAll = async () => {
@@ -291,6 +317,10 @@ export function SettingsPage() {
       'Write-Host ("Container: " + $ContainerName)',
       'Write-Host ("Prefixo: " + $ExportPrefix)',
     ].join('\n')
+    const syncingAccountId = syncCloudAccountMutation.isPending ? syncCloudAccountMutation.variables : null
+    const deletingAccountId = deleteCloudAccountMutation.isPending ? deleteCloudAccountMutation.variables : null
+    const formatSyncDate = (value: string | null) =>
+      value ? new Date(value).toLocaleString() : 'Nunca sincronizado'
 
     return (
       <div className="mx-auto w-full max-w-6xl space-y-8 px-2 md:px-4">
@@ -458,24 +488,59 @@ export function SettingsPage() {
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-3">
           <h3 className="text-sm font-semibold text-gray-700">Contas Cadastradas</h3>
+          {cloudActionFeedback && (
+            <div
+              className={`rounded border px-3 py-2 text-xs ${
+                cloudActionFeedback.tone === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {cloudActionFeedback.message}
+            </div>
+          )}
           {cloudAccounts && cloudAccounts.length > 0 ? (
             <ul className="space-y-2">
               {cloudAccounts.map((acc) => (
                 <li key={acc.id} className="rounded border border-gray-200 p-3 text-sm">
-                  <div className="font-medium text-gray-800">{acc.display_name}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-medium text-gray-800">{acc.display_name}</div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                        acc.status === 'active'
+                          ? 'bg-green-100 text-green-700'
+                          : acc.status === 'error'
+                            ? 'bg-red-100 text-red-700'
+                            : acc.status === 'pending'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {acc.status}
+                    </span>
+                  </div>
                   <div className="text-gray-600">{acc.provider} · {acc.external_id}</div>
+                  <div className="text-xs text-gray-500">Ultimo sync: {formatSyncDate(acc.last_sync_at)}</div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => syncCloudAccountMutation.mutate(acc.id)}
-                      className="rounded bg-emerald-600 px-2.5 py-1 text-xs text-white hover:bg-emerald-700"
+                      onClick={() => {
+                        setCloudActionFeedback(null)
+                        syncCloudAccountMutation.mutate(acc.id)
+                      }}
+                      disabled={syncCloudAccountMutation.isPending || deleteCloudAccountMutation.isPending}
+                      className="rounded bg-emerald-600 px-2.5 py-1 text-xs text-white hover:bg-emerald-700 disabled:opacity-60"
                     >
-                      Sync
+                      {syncingAccountId === acc.id ? 'Queueing...' : 'Sync'}
                     </button>
                     <button
-                      onClick={() => deleteCloudAccountMutation.mutate(acc.id)}
-                      className="rounded bg-red-600 px-2.5 py-1 text-xs text-white hover:bg-red-700"
+                      onClick={() => {
+                        setCloudActionFeedback(null)
+                        deleteCloudAccountMutation.mutate(acc.id)
+                      }}
+                      disabled={syncCloudAccountMutation.isPending || deleteCloudAccountMutation.isPending}
+                      className="rounded bg-red-600 px-2.5 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-60"
                     >
-                      Excluir
+                      {deletingAccountId === acc.id ? 'Excluindo...' : 'Excluir'}
                     </button>
                   </div>
                 </li>

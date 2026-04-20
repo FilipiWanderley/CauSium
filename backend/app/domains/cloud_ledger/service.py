@@ -31,7 +31,7 @@ class CloudLedgerService:
     async def ingest_account(
         self, org_id: UUID, account_id: UUID, start: date, end: date
     ) -> IngestResult:
-        from app.domains.cloud_accounts.models import CloudProvider
+        from app.domains.cloud_accounts.models import CloudProvider, ConnectorStatus
         from app.domains.connectors.aws.client import AwsConnectorClient
         from app.domains.connectors.azure.client import AzureConnectorClient
         from app.domains.connectors.factory import get_connector_for_account
@@ -49,14 +49,18 @@ class CloudLedgerService:
             creds = await account_service.get_gcp_credentials(account)
         client = get_connector_for_account(account, creds)
 
-        try:
-            checkpoint_keys: set[str] | None = None
-            aws_checkpoint_keys: set[str] | None = None
-            if isinstance(client, AzureConnectorClient):
-                checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
-            if isinstance(client, AwsConnectorClient):
-                aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
+        checkpoint_keys: set[str] | None = None
+        aws_checkpoint_keys: set[str] | None = None
+        if isinstance(client, AzureConnectorClient):
+            checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
+        if isinstance(client, AwsConnectorClient):
+            aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
 
+        costs = []
+        events = []
+        fetch_errors: list[str] = []
+
+        try:
             if isinstance(client, AzureConnectorClient):
                 costs = await client.fetch_costs(
                     account.external_id,
@@ -73,11 +77,27 @@ class CloudLedgerService:
                 )
             else:
                 costs = await client.fetch_costs(account.external_id, start, end)
+        except Exception as e:
+            fetch_errors.append(f"costs: {e}")
+            log.warning("ledger.ingest.cost_fetch_failed", account_id=str(account_id), error=str(e))
 
+        try:
             events = await client.fetch_events(account.external_id, start, end)
         except Exception as e:
-            log.error("ledger.ingest.failed", account_id=str(account_id), error=str(e))
-            return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message=str(e))
+            fetch_errors.append(f"events: {e}")
+            log.warning("ledger.ingest.event_fetch_failed", account_id=str(account_id), error=str(e))
+
+        if not costs and not events and fetch_errors:
+            account.status = ConnectorStatus.ERROR
+            account.last_sync_at = datetime.now(timezone.utc)
+            await self.db.flush()
+            return IngestResult(
+                account_id=account_id,
+                cost_records=0,
+                event_records=0,
+                status="error",
+                message="; ".join(fetch_errors),
+            )
 
         blob_checkpoints: list[dict[str, str]] = []
         aws_cur_checkpoints: list[dict[str, str]] = []
@@ -202,6 +222,10 @@ class CloudLedgerService:
             )
 
         # Update last sync
+        account.status = ConnectorStatus.ACTIVE
+        from app.domains.cloud_accounts.models import ConnectorStatus
+
+        account.status = ConnectorStatus.ACTIVE
         account.last_sync_at = datetime.now(timezone.utc)
         await self.db.flush()
 

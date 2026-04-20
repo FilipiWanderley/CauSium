@@ -141,3 +141,8 @@ class OptimizationOpportunity(Base):
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     initiatives: Mapped[list] = relationship("Initiative", back_populates="opportunity")
+
+
+# Ensure SQLAlchemy resolves "Initiative" relationship in worker contexts
+# where decision engine models may load before workflow models.
+from app.domains.workflow import models as _workflow_models  # noqa: E402,F401

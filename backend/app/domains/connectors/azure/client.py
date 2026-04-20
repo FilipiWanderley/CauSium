@@ -461,6 +461,11 @@ class AzureConnectorClient(BaseConnector):
         )
 
         records: list[CanonicalEventRecord] = []
+        def _enum_or_str(value: object, default: str) -> str:
+            if value is None:
+                return default
+            return str(getattr(value, "value", value))
+
         for ev in events:
             ts = ev.event_timestamp or datetime.now(timezone.utc)
             records.append(
@@ -468,11 +473,11 @@ class AzureConnectorClient(BaseConnector):
                     timestamp=ts,
                     provider="azure",
                     subscription_id=subscription_id,
-                    event_type=str(ev.operation_name.value if ev.operation_name else "unknown"),
+                    event_type=_enum_or_str(ev.operation_name, "unknown"),
                     resource_id=str(ev.resource_id or ""),
                     resource_name=str(ev.resource_group_name or ""),
                     region="azure",
-                    severity=str(ev.level.value if ev.level else "informational"),
+                    severity=_enum_or_str(ev.level, "informational"),
                     description=str(ev.description or ""),
                     caller=str(ev.caller or ""),
                     correlation_id=str(ev.correlation_id or ""),

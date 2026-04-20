@@ -729,6 +729,25 @@ Permissões:
 
 - Leitura disponível para usuários autenticados do workspace (inclui perfis cliente/viewer).
 
+### Janela Histórica de Ingestão (Cloud Sync)
+
+Regra de negócio padrão para onboarding e sincronização de contas cloud:
+
+- O software sempre tenta analisar até os últimos `90 dias` (3 meses).
+- Se o tenant tiver menos histórico disponível (ex.: 30 ou 60 dias), a ingestão traz somente o período existente.
+- O limite máximo permitido por sync é `90 dias` para manter previsibilidade de performance.
+
+Endpoint de sync:
+
+```http
+POST /cloud-accounts/{account_id}/sync?lookback_days=90
+```
+
+Restrições:
+
+- `lookback_days` aceita valores de `7` a `90`.
+- Valores acima de `90` não são aceitos pela API.
+
 Erros seguem envelope padronizado:
 
 ```json
