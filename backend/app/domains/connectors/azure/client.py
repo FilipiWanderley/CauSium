@@ -3,7 +3,7 @@ import csv
 import io
 import json
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
@@ -234,49 +234,138 @@ class AzureConnectorClient(BaseConnector):
         client = CostManagementClient(cred)
         scope = f"/subscriptions/{subscription_id}"
 
-        query = QueryDefinition(
-            type=ExportType.ACTUAL_COST,
-            timeframe="Custom",
-            time_period=QueryTimePeriod(
-                from_property=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
-                to=datetime(end.year, end.month, end.day, tzinfo=timezone.utc),
-            ),
-            dataset=QueryDataset(
-                granularity=GranularityType.DAILY,
-                grouping=[
-                    {"type": "Dimension", "name": "ServiceName"},
-                    {"type": "Dimension", "name": "ResourceId"},
-                    {"type": "Dimension", "name": "ResourceGroupName"},
-                    {"type": "Dimension", "name": "ResourceLocation"},
-                ],
-            ),
-        )
-
-        result = client.query.usage(scope=scope, parameters=query)
-        columns = [col.name for col in result.columns]
         records: list[CanonicalCostRecord] = []
 
-        for row in result.rows:
-            row_dict = dict(zip(columns, row))
-            tags = _parse_tags(row_dict.get("Tags"))
-            records.append(
-                CanonicalCostRecord(
-                    date=start,
-                    provider="azure",
-                    subscription_id=subscription_id,
-                    service=str(row_dict.get("ServiceName", "unknown")),
-                    resource_id=str(row_dict.get("ResourceId", "")),
-                    resource_name=str(row_dict.get("ResourceGroupName", "")),
-                    region=str(row_dict.get("ResourceLocation", "unknown")),
-                    environment=_infer_environment(tags),
-                    owner_team=_infer_owner_team(tags),
-                    cost_usd=float(row_dict.get("PreTaxCost", row_dict.get("Cost", 0))),
-                    usage_quantity=float(row_dict.get("UsageQuantity", 0)),
-                    usage_unit=str(row_dict.get("UnitOfMeasure", "")),
-                    currency=str(row_dict.get("Currency", "USD")),
-                    tags=tags,
-                )
+        def _to_float(value: object) -> float:
+            if value is None:
+                return 0.0
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                raw = str(value).strip()
+                cleaned = "".join(ch for ch in raw if ch.isdigit() or ch in ",.-")
+                if not cleaned:
+                    return 0.0
+                if "," in cleaned and "." in cleaned:
+                    if cleaned.rfind(",") > cleaned.rfind("."):
+                        cleaned = cleaned.replace(".", "").replace(",", ".")
+                    else:
+                        cleaned = cleaned.replace(",", "")
+                elif "," in cleaned:
+                    cleaned = cleaned.replace(",", ".")
+                try:
+                    return float(cleaned)
+                except ValueError:
+                    return 0.0
+
+        def _to_usage_date(value: object) -> date:
+            if value is None:
+                return start
+            raw = str(value).strip()
+            if len(raw) == 8 and raw.isdigit():
+                try:
+                    return datetime.strptime(raw, "%Y%m%d").date()
+                except ValueError:
+                    return start
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%SZ"):
+                try:
+                    return datetime.strptime(raw, fmt).date()
+                except ValueError:
+                    continue
+            return start
+
+        def _build_query(period_start: date, period_end: date) -> QueryDefinition:
+            return QueryDefinition(
+                type=ExportType.ACTUAL_COST,
+                timeframe="Custom",
+                time_period=QueryTimePeriod(
+                    from_property=datetime(period_start.year, period_start.month, period_start.day, tzinfo=timezone.utc),
+                    to=datetime(period_end.year, period_end.month, period_end.day, tzinfo=timezone.utc),
+                ),
+                dataset=QueryDataset(
+                    granularity=GranularityType.DAILY,
+                    aggregation={
+                        "totalCost": {"name": "PreTaxCost", "function": "Sum"},
+                    },
+                    grouping=[
+                        {"type": "Dimension", "name": "ServiceName"},
+                        {"type": "Dimension", "name": "ResourceId"},
+                        {"type": "Dimension", "name": "ResourceGroupName"},
+                        {"type": "Dimension", "name": "ResourceLocation"},
+                    ],
+                ),
             )
+
+        def _append_from_result(result_obj) -> None:
+            columns = [col.name for col in result_obj.columns]
+            for row in result_obj.rows:
+                row_dict = dict(zip(columns, row))
+                tags = _parse_tags(row_dict.get("Tags"))
+                usage_date = _to_usage_date(
+                    row_dict.get("UsageDate")
+                    or row_dict.get("Date")
+                    or row_dict.get("ChargePeriodStart")
+                )
+                if usage_date < start or usage_date > end:
+                    usage_date = start
+
+                cost_value = _to_float(
+                    row_dict.get("totalCost")
+                    or row_dict.get("TotalCost")
+                    or row_dict.get("PreTaxCost")
+                    or row_dict.get("Cost")
+                    or row_dict.get("CostInBillingCurrency")
+                    or row_dict.get("BillingCurrencyCost")
+                )
+                if cost_value == 0.0:
+                    for key, value in row_dict.items():
+                        if "cost" in str(key).lower():
+                            parsed = _to_float(value)
+                            if parsed != 0.0:
+                                cost_value = parsed
+                                break
+
+                records.append(
+                    CanonicalCostRecord(
+                        date=usage_date,
+                        provider="azure",
+                        subscription_id=subscription_id,
+                        service=str(row_dict.get("ServiceName", "unknown")),
+                        resource_id=str(row_dict.get("ResourceId", "")),
+                        resource_name=str(row_dict.get("ResourceGroupName", "")),
+                        region=str(row_dict.get("ResourceLocation", "unknown")),
+                        environment=_infer_environment(tags),
+                        owner_team=_infer_owner_team(tags),
+                        cost_usd=cost_value,
+                        usage_quantity=_to_float(row_dict.get("UsageQuantity") or row_dict.get("Quantity")),
+                        usage_unit=str(row_dict.get("UnitOfMeasure", "")),
+                        currency=str(row_dict.get("Currency", "USD")),
+                        tags=tags,
+                    )
+                )
+
+        try:
+            result = client.query.usage(scope=scope, parameters=_build_query(start, end))
+            _append_from_result(result)
+        except Exception as exc:
+            if "Too many requests" not in str(exc):
+                raise
+            log.warning("azure.fetch_costs.rate_limited", subscription=subscription_id, reason=str(exc))
+            window_start = start
+            while window_start <= end:
+                window_end = min(window_start + timedelta(days=29), end)
+                try:
+                    result = client.query.usage(scope=scope, parameters=_build_query(window_start, window_end))
+                    _append_from_result(result)
+                except Exception as chunk_exc:
+                    log.warning(
+                        "azure.fetch_costs.chunk.failed",
+                        subscription=subscription_id,
+                        start=window_start.isoformat(),
+                        end=window_end.isoformat(),
+                        reason=str(chunk_exc),
+                    )
+                window_start = window_end + timedelta(days=1)
 
         log.info("azure.fetch_costs.done", subscription=subscription_id, records=len(records))
         return records
@@ -374,7 +463,13 @@ class AzureConnectorClient(BaseConnector):
         start: date,
         end: date,
     ) -> CanonicalCostRecord | None:
-        normalized = {str(k).strip().lower(): ("" if v is None else str(v).strip()) for k, v in row.items()}
+        def _normalize_key(key: object) -> str:
+            raw = str(key).strip().lower()
+            # Normalize variations like "Cost In Billing Currency", "cost_in_billing_currency",
+            # or "cost-in-billing-currency" to the same token.
+            return "".join(ch for ch in raw if ch.isalnum())
+
+        normalized = {_normalize_key(k): ("" if v is None else str(v).strip()) for k, v in row.items()}
 
         usage_date_raw = normalized.get("date") or normalized.get("usagedate") or normalized.get("usage_date")
         if not usage_date_raw:
@@ -418,6 +513,33 @@ class AzureConnectorClient(BaseConnector):
                 try:
                     return float(value)
                 except ValueError:
+                    pass
+
+                # Handle localized/currency strings such as:
+                # "1.234,56", "R$ 1,234.56", "(123,45)".
+                raw = value.strip()
+                if not raw:
+                    continue
+
+                negative = raw.startswith("(") and raw.endswith(")")
+                raw = raw.strip("()")
+                cleaned = "".join(ch for ch in raw if ch.isdigit() or ch in ",.-")
+                if not cleaned:
+                    continue
+
+                if "," in cleaned and "." in cleaned:
+                    # Keep the right-most separator as decimal separator.
+                    if cleaned.rfind(",") > cleaned.rfind("."):
+                        cleaned = cleaned.replace(".", "").replace(",", ".")
+                    else:
+                        cleaned = cleaned.replace(",", "")
+                elif "," in cleaned and "." not in cleaned:
+                    cleaned = cleaned.replace(",", ".")
+
+                try:
+                    parsed = float(cleaned)
+                    return -parsed if negative else parsed
+                except ValueError:
                     continue
             return 0.0
 
@@ -434,9 +556,17 @@ class AzureConnectorClient(BaseConnector):
             region=normalized.get("resourcelocation") or normalized.get("region") or "unknown",
             environment=_infer_environment(tags),
             owner_team=_infer_owner_team(tags),
-            cost_usd=_float_value("pretaxcost", "cost", "costusd", "cost_usd"),
-            usage_quantity=_float_value("usagequantity", "quantity", "usage_quantity"),
-            usage_unit=normalized.get("unitofmeasure") or normalized.get("usageunit") or "",
+            cost_usd=_float_value(
+                "pretaxcost",
+                "cost",
+                "costusd",
+                "costinbillingcurrency",
+                "billingcurrencycost",
+                "effectivecost",
+                "amortizedcost",
+            ),
+            usage_quantity=_float_value("usagequantity", "quantity", "consumedquantity", "billedquantity"),
+            usage_unit=normalized.get("unitofmeasure") or normalized.get("usageunit") or normalized.get("unit") or "",
             currency=normalized.get("currency") or "USD",
             tags=tags,
         )
@@ -449,8 +579,9 @@ class AzureConnectorClient(BaseConnector):
         cred = self._get_credential()
         client = MonitorManagementClient(cred, subscription_id)
 
+        safe_start = max(start, date.today() - timedelta(days=89))
         filter_str = (
-            f"eventTimestamp ge '{start.isoformat()}T00:00:00Z' "
+            f"eventTimestamp ge '{safe_start.isoformat()}T00:00:00Z' "
             f"and eventTimestamp le '{end.isoformat()}T23:59:59Z'"
         )
         events = list(
