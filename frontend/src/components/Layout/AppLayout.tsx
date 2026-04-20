@@ -2,6 +2,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Sidebar } from '../Sidebar/Sidebar'
 import { Header } from '../Header/Header'
+import { NotificationsRealtimeBridge } from '../../realtime/NotificationsRealtimeBridge'
 
 export function AppLayout() {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -24,6 +25,7 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
+      <NotificationsRealtimeBridge />
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />

@@ -21,6 +21,7 @@ from app.domains.notifications.models import (
     AlertSeverity,
     AlertStatus,
 )
+from app.domains.notifications.realtime import notifications_realtime_broker
 
 log = get_logger(__name__)
 
@@ -202,6 +203,21 @@ class NotificationsService:
         self.db.add(alert)
         await self.db.flush()
         await self.db.refresh(alert)
+        await notifications_realtime_broker.publish(
+            org_id,
+            {
+                "type": "notification.created",
+                "notification": {
+                    "id": str(alert.id),
+                    "org_id": str(alert.org_id),
+                    "category": alert.category.value,
+                    "severity": alert.severity.value,
+                    "status": alert.status.value,
+                    "title": alert.title,
+                    "created_at": alert.created_at.isoformat(),
+                },
+            },
+        )
         return alert
 
     async def _get_alert_by_source(

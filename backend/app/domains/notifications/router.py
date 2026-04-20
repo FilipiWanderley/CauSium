@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime
+import asyncio
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.config import get_settings
+from app.core.database import async_session_factory, get_db
 from app.core.dependencies import get_current_user, require_roles
+from app.core.security import decode_token
 from app.core.schemas import Page, PageParams
-from app.domains.auth.models import UserRole
+from app.domains.auth.models import UserRole, WorkspaceLifecycleState
+from app.domains.auth.service import AuthService
+from app.domains.auth.token_blacklist import is_token_revoked
 from app.domains.notifications.models import AlertCategory, AlertStatus
+from app.domains.notifications.realtime import notifications_realtime_broker
 from app.domains.notifications.schemas import (
     ActivityEventCreate,
     ActivityEventOut,
@@ -28,6 +34,38 @@ from app.domains.notifications.schemas import (
 from app.domains.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+async def _resolve_ws_user(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        cookie_name = get_settings().auth_cookie_access_name
+        token = websocket.cookies.get(cookie_name)
+    if not token:
+        return None
+
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+    except Exception:
+        return None
+
+    user_id = UUID(payload["sub"])
+    issued_at = datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.utc)
+    async with async_session_factory() as db:
+        if await is_token_revoked(db, user_id, issued_at):
+            return None
+
+        service = AuthService(db)
+        user = await service.get_user_by_id(user_id)
+        if not user or not user.is_active:
+            return None
+        if user.role != UserRole.PLATFORM_ADMIN:
+            org = await service.get_org(user.org_id)
+            if org and org.lifecycle_state != WorkspaceLifecycleState.ACTIVE:
+                return None
+        return user
 
 
 @router.get("/rules/{category}", response_model=NotificationAlertRuleOut)
@@ -228,3 +266,25 @@ async def update_slack_config(
         enabled=cfg.enabled,
         webhook_configured=bool(cfg.webhook_encrypted),
     )
+
+
+@router.websocket("/stream")
+async def notifications_stream(websocket: WebSocket) -> None:
+    user = await _resolve_ws_user(websocket)
+    if user is None:
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    queue = await notifications_realtime_broker.subscribe(user.org_id)
+    try:
+        while True:
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=25)
+                await websocket.send_json(event)
+            except asyncio.TimeoutError:
+                await websocket.send_json(notifications_realtime_broker.heartbeat())
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await notifications_realtime_broker.unsubscribe(user.org_id, queue)
