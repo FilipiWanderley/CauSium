@@ -679,7 +679,7 @@ graph LR
 ├── /ledger/reservations/coverage → Cobertura de reservas (compute vs reservado vs descoberto)
 ├── /intel/*             → Recomendações, SCA, ARI, backlog adaptativo
 ├── /lab/*               → Experimentos, runs, approvals, simulador
-├── /notifications/*     → Alertas, preferências, polling
+├── /notifications/*     → Alertas, preferências, stream em tempo real (WebSocket)
 ├── /gov/*               → Inventário, labels, compliance, blast radius
 ├── /green/*             → Emissões, tendências, breakdown
 ├── /sync/*              → Triggers manuais de sincronização por domínio
@@ -747,6 +747,22 @@ Restrições:
 
 - `lookback_days` aceita valores de `7` a `90`.
 - Valores acima de `90` não são aceitos pela API.
+
+### Notificações em Tempo Real (In-App)
+
+Funcionalidades implementadas no módulo de notificações:
+
+- Stream em tempo real por workspace via WebSocket (`/notifications/stream`).
+- Geração automática de alertas a partir de eventos auditados de ação do usuário (`create/update/delete`) e ciclo de sync cloud (queued/completed/failure).
+- Classificação visual por tipo no frontend: `activity`, `created`, `updated`, `deleted`, `sync`, `security`.
+- Filtros por categoria, tipo e status, com ordenação priorizando severidade e não lidas.
+- Banner de ação imediata para alertas `critical + unread`.
+- Alerta sonoro para notificações críticas em tempo real, com toggle `Som ligado / Som desligado` persistido no navegador.
+
+Notas operacionais:
+
+- O stream atual usa broker in-process (single-node). Para escala horizontal, substituir por Redis Pub/Sub ou event bus dedicado.
+- O toggle de som é preferência local (localStorage), por usuário/navegador.
 
 Erros seguem envelope padronizado:
 
@@ -1223,54 +1239,6 @@ npm run dev
 
 > As migrações são aplicadas automaticamente pelo `entrypoint.sh` ao subir o container do backend. Não é necessário rodar `alembic upgrade head` manualmente no fluxo Docker.
 
-### Seed de Dados para Desenvolvimento Local
-
-Após registrar um tenant, o dashboard aparece vazio porque o ClickHouse não possui dados históricos de custo. Use o endpoint de seed para popular dados realistas instantaneamente — **disponível apenas fora de produção**.
-
-```bash
-# 1. Obtenha o token de acesso após o login
-TOKEN="seu_access_token"
-
-# 2. Popule o tenant com 90 dias de dados históricos (Azure + AWS + GCP)
-curl -X POST http://localhost:8000/api/v1/dev/seed \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"days": 90, "force": false}'
-
-# Resposta:
-# {
-#   "org_id": "...",
-#   "accounts_created": 3,
-#   "cost_records": 1350,
-#   "event_records": 72,
-#   "usage_records": 720,
-#   "recommendation_records": 6,
-#   "resource_records": 12,
-#   "days_seeded": 90
-# }
-
-# 3. Para resetar e regerar os dados:
-curl -X POST http://localhost:8000/api/v1/dev/seed \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"days": 90, "force": true}'
-
-# 4. Para limpar todos os dados de seed:
-curl -X DELETE http://localhost:8000/api/v1/dev/seed \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**O que é gerado:**
-- 3 cloud accounts mock (Azure Production, AWS Production, GCP Production) com status `active`
-- 90 dias de custo diário por serviço com variação realista (dip de ~20% fins de semana)
-- Múltiplos serviços por provider: VMs, AKS, SQL, S3, EC2, BigQuery, Cloud Run, etc.
-- Múltiplos teams (`platform`, `data`, `backend`, `infra`, `analytics`) → top_teams no dashboard
-- Eventos de mudança dos últimos 30 dias → contador de eventos
-- 6 recomendações de saving por provider → painel de oportunidades
-- 12 recursos no inventário → PulseGov
-
-> O endpoint `/api/v1/dev/seed` é registrado condicionalmente: `if not settings.is_production`. Em produção ele simplesmente não existe.
-
 ### Variáveis de Ambiente Principais
 
 ```bash
@@ -1339,7 +1307,7 @@ CauSium/
 │   ├── app/
 │   │   ├── main.py                    # FastAPI app + lifespan + OTel setup
 │   │   ├── core/                      # Config, segurança, middleware, política, schemas
-│   │   └── domains/                   # 13 domínios de negócio
+│   │   └── domains/                   # 12 domínios de negócio
 │   │       ├── auth/                  # Passkey, OIDC, MFA, TOTP, backup codes, LGPD
 │   │       ├── cloud_accounts/        # Azure, AWS CUR, GCP BigQuery connectors
 │   │       ├── economics/             # Custos, SKUs, forecast, export async
@@ -1351,8 +1319,7 @@ CauSium/
 │   │       ├── risk_budgets/          # Risk budgets por domínio
 │   │       ├── change_events/         # ChangeEvent tracking
 │   │       ├── workspaces/            # Workspace lifecycle
-│   │       ├── platform/             # Operação global
-│   │       └── dev/                   # Seed de dados (apenas fora de produção)
+│   │       └── platform/             # Operação global
 │   ├── app/workers/                   # 8 workers assíncronos
 │   │   ├── ingestion_worker.py
 │   │   ├── scoring_worker.py

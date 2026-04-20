@@ -307,20 +307,20 @@ export function NotificationsPage() {
           </p>
         </div>
 
-        {unread > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const next = !soundEnabled
-                setSoundEnabled(next)
-                setNotificationSoundEnabled(next)
-              }}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50"
-              title={soundEnabled ? n.soundDisable : n.soundEnable}
-            >
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-              {soundEnabled ? n.soundOn : n.soundOff}
-            </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const next = !soundEnabled
+              setSoundEnabled(next)
+              setNotificationSoundEnabled(next)
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50"
+            title={soundEnabled ? n.soundDisable : n.soundEnable}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            {soundEnabled ? n.soundOn : n.soundOff}
+          </button>
+          {unread > 0 && (
             <button
               onClick={() => markAllMutation.mutate()}
               disabled={markAllMutation.isPending}
@@ -329,8 +329,8 @@ export function NotificationsPage() {
               <CheckCheck className="h-4 w-4" />
               {n.markAllRead}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {criticalUnread.length > 0 && (
