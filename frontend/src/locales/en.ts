@@ -96,6 +96,9 @@ export interface Translations {
     resActionScheduleStop: string
     resActionExchange: string
     resActionDoNotRenew: string
+    reservationsHighBadge: string
+    reservationsCriticalOnly: string
+    reservationsShowAll: string
   }
   budget: {
     title: string
@@ -705,6 +708,9 @@ export const en: Translations = {
     resActionScheduleStop: 'Schedule stop',
     resActionExchange: 'Exchange',
     resActionDoNotRenew: 'Do not renew',
+    reservationsHighBadge: '{{count}} high',
+    reservationsCriticalOnly: 'Critical only',
+    reservationsShowAll: 'Show all',
   },
   budget: {
     title: 'Workspace Budget',

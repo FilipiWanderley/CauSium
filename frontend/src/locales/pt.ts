@@ -98,6 +98,9 @@ export const pt: Translations = {
     resActionScheduleStop: 'Programar desligamento',
     resActionExchange: 'Trocar reserva',
     resActionDoNotRenew: 'Não renovar',
+    reservationsHighBadge: '{{count}} alta',
+    reservationsCriticalOnly: 'Somente críticas',
+    reservationsShowAll: 'Mostrar todas',
   },
   budget: {
     title: 'Orçamento do Workspace',

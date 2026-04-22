@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
@@ -91,6 +92,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const d = t.dashboard
   const ce = t.changeEvents
+  const [criticalOnly, setCriticalOnly] = useState(false)
 
   const eventLabels: Record<ChangeEventType, string> = {
     incident: ce.incident,
@@ -144,6 +146,10 @@ export function DashboardPage() {
   const topReservationFamilies = [...(reservationEfficiency?.families ?? [])]
     .sort((a, b) => b.action_priority - a.action_priority || b.waste_cost_usd - a.waste_cost_usd)
     .slice(0, 3)
+  const highPriorityCount = (reservationEfficiency?.families ?? []).filter((item) => item.action_priority >= 4).length
+  const visibleReservationFamilies = criticalOnly
+    ? topReservationFamilies.filter((item) => item.action_priority >= 4)
+    : topReservationFamilies
 
   const actionLabel: Record<ReservationEfficiencyAction, string> = {
     keep: d.resActionKeep,
@@ -253,18 +259,32 @@ export function DashboardPage() {
             <div className="flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold text-gray-900">{d.reservationsTitle}</h2>
+              {highPriorityCount > 0 && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                  {d.reservationsHighBadge.replace('{{count}}', String(highPriorityCount))}
+                </span>
+              )}
             </div>
-            <button
-              type="button"
-              className="text-xs text-brand-600 hover:underline"
-              onClick={() => navigate('/app/economics/costs')}
-            >
-              {d.reservationsViewAll}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="text-xs text-gray-600 hover:underline"
+                onClick={() => setCriticalOnly((prev) => !prev)}
+              >
+                {criticalOnly ? d.reservationsShowAll : d.reservationsCriticalOnly}
+              </button>
+              <button
+                type="button"
+                className="text-xs text-brand-600 hover:underline"
+                onClick={() => navigate('/app/economics/costs')}
+              >
+                {d.reservationsViewAll}
+              </button>
+            </div>
           </div>
-          {topReservationFamilies.length > 0 ? (
+          {visibleReservationFamilies.length > 0 ? (
             <div className="space-y-3">
-              {topReservationFamilies.map((item) => (
+              {visibleReservationFamilies.map((item) => (
                 <div key={item.family} className="rounded-lg border border-gray-100 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-gray-900">{item.family}</p>
