@@ -124,3 +124,43 @@ def test_get_reservation_efficiency_recommends_schedule_stop_for_tiny_workload(m
     assert result.total_families == 1
     assert result.families[0].recommended_action == "schedule_stop"
     assert result.total_waste_cost_usd == 85.0
+
+
+def test_get_reservation_efficiency_uses_advisor_signals_for_exchange_and_renewal(monkeypatch):
+    org_id = uuid4()
+
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        if "FROM cost_facts" in query:
+            return [
+                {
+                    "service": "Virtual Machines",
+                    "resource_name": "Standard_D4s_v5",
+                    "tags": {"family": "Standard_D4s_v5"},
+                    "compute_cost_usd": 40.0,
+                    "reserved_cost_usd": 100.0,
+                }
+            ]
+        if "FROM resource_inventory" in query:
+            return [{"sku_name": "Standard_D4s_v5", "resource_count": 2}]
+        if "FROM recommendation_facts" in query:
+            return [
+                {
+                    "short_description": "Reservation expires in 30 days. Consider exchange for better utilization.",
+                    "recommendation_type_id": "reservation-exchange",
+                    "service": "Virtual Machines D4s_v5",
+                    "estimated_savings_usd": 120.0,
+                }
+            ]
+        return []
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.execute_query", fake_execute_query)
+
+    service = CloudLedgerService(db=None)
+    result = service.get_reservation_efficiency(org_id, days=30)
+
+    assert result.total_families == 1
+    assert result.families[0].family == "D4s"
+    assert result.families[0].exchange_eligible is True
+    assert result.families[0].renewal_window_days == 30
+    assert result.families[0].recommended_action == "do_not_renew"
+    assert result.families[0].action_priority >= 4

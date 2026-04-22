@@ -901,6 +901,9 @@ class CloudLedgerService:
         reserved_cost_usd: float,
         compute_cost_usd: float,
         resource_count: int,
+        *,
+        exchange_hint: bool = False,
+        renewal_window_days: int | None = None,
     ) -> tuple[str, str, float]:
         idle_cost = max(reserved_cost_usd - compute_cost_usd, 0.0)
         utilization_gap = max(100.0 - utilization_pct, 0.0)
@@ -911,6 +914,20 @@ class CloudLedgerService:
                 "keep",
                 "Reserva com boa aderencia de uso no periodo; manter estrategia atual.",
                 0.9,
+            )
+
+        if renewal_window_days is not None and renewal_window_days <= 45 and utilization_pct < 50:
+            return (
+                "do_not_renew",
+                "Reserva com renovacao proxima e baixa eficiencia; evitar renovacao sem replanejamento.",
+                max(confidence, 0.87),
+            )
+
+        if exchange_hint and utilization_pct < 75:
+            return (
+                "exchange_reservation",
+                "Advisor sinaliza oportunidade de troca e a utilizacao esta abaixo do ideal.",
+                max(confidence, 0.84),
             )
 
         if utilization_pct < 25 and resource_count <= 1 and compute_cost_usd < (reserved_cost_usd * 0.40):
@@ -946,6 +963,46 @@ class CloudLedgerService:
             "Reserva com baixa eficiencia no periodo; reavaliar renovacao e estrategia de compromisso.",
             max(confidence, 0.7),
         )
+
+    @staticmethod
+    def _parse_renewal_window_days(text: str) -> int | None:
+        if not text:
+            return None
+
+        patterns = (
+            r"expire[s]?\s+in\s+(\d{1,3})\s+day",
+            r"renov[a-z]*\s+in\s+(\d{1,3})\s+day",
+            r"(\d{1,3})\s+day[s]?\s+(?:to|until)\s+(?:expire|renew)",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                try:
+                    return int(match.group(1))
+                except ValueError:
+                    return None
+        return None
+
+    @staticmethod
+    def _compute_action_priority(
+        *,
+        utilization_pct: float,
+        waste_cost_usd: float,
+        renewal_window_days: int | None,
+        exchange_eligible: bool,
+    ) -> int:
+        priority = 1
+        if utilization_pct < 70:
+            priority += 1
+        if utilization_pct < 50:
+            priority += 1
+        if waste_cost_usd >= 100:
+            priority += 1
+        if renewal_window_days is not None and renewal_window_days <= 45:
+            priority += 1
+        if exchange_eligible and utilization_pct < 80:
+            priority += 1
+        return max(1, min(priority, 5))
 
     def get_reservation_efficiency(self, org_id: UUID, days: int = 30) -> ReservationEfficiencySummary:
         end = date.today()
@@ -1000,6 +1057,22 @@ class CloudLedgerService:
             WHERE org_id = {org_id:String}
             GROUP BY sku_name
         """
+        advisor_query = """
+            SELECT
+                short_description,
+                recommendation_type_id,
+                service,
+                estimated_savings_usd
+            FROM recommendation_facts
+            WHERE org_id = {org_id:String}
+              AND fetched_at >= {start_dt:DateTime}
+              AND (
+                positionCaseInsensitiveUTF8(category, 'cost') > 0
+                OR positionCaseInsensitiveUTF8(short_description, 'reservation') > 0
+                OR positionCaseInsensitiveUTF8(short_description, 'savings plan') > 0
+              )
+            LIMIT 10000
+        """
 
         try:
             cost_rows = execute_query(
@@ -1019,10 +1092,52 @@ class CloudLedgerService:
             log.warning("ledger.reservation_efficiency.inventory_failed", error=str(exc))
             inventory_rows = []
 
+        try:
+            advisor_rows = execute_query(
+                advisor_query,
+                {
+                    "org_id": str(org_id),
+                    "start_dt": datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+                },
+            )
+        except Exception as exc:
+            log.warning("ledger.reservation_efficiency.advisor_failed", error=str(exc))
+            advisor_rows = []
+
         resources_by_family: dict[str, int] = {}
         for row in inventory_rows:
             family = self._detect_reservation_family(None, row.get("sku_name"), None)
             resources_by_family[family] = resources_by_family.get(family, 0) + int(row.get("resource_count") or 0)
+
+        advisor_by_family: dict[str, dict[str, object]] = {}
+        for row in advisor_rows:
+            description = str(row.get("short_description") or "")
+            recommendation_type_id = str(row.get("recommendation_type_id") or "")
+            service_name = str(row.get("service") or "")
+            family = self._detect_reservation_family(service_name, description, None)
+            if family not in advisor_by_family:
+                advisor_by_family[family] = {
+                    "exchange_eligible": False,
+                    "renewal_window_days": None,
+                    "signals": set(),
+                }
+
+            signal_bucket = advisor_by_family[family]
+            signals = signal_bucket["signals"]
+            if isinstance(signals, set):
+                if description:
+                    signals.add(description)
+                if recommendation_type_id:
+                    signals.add(f"type:{recommendation_type_id}")
+
+            lower_blob = f"{description} {recommendation_type_id}".lower()
+            if any(token in lower_blob for token in ("exchange", "swap", "migrate", "right-size", "rightsize")):
+                signal_bucket["exchange_eligible"] = True
+
+            renewal_days = self._parse_renewal_window_days(description)
+            current_days = signal_bucket.get("renewal_window_days")
+            if renewal_days is not None and (current_days is None or renewal_days < current_days):
+                signal_bucket["renewal_window_days"] = renewal_days
 
         family_buckets: dict[str, dict[str, float]] = {}
         for row in cost_rows:
@@ -1061,6 +1176,15 @@ class CloudLedgerService:
             estimated_discount_rate = 0.30
             payg_equivalent = max(compute_cost, effective_used / (1.0 - estimated_discount_rate))
             waste_cost = idle_reserved
+            advisor_signal = advisor_by_family.get(family, {})
+            exchange_eligible = bool(advisor_signal.get("exchange_eligible", False))
+            renewal_window_days = advisor_signal.get("renewal_window_days")
+            advisory_signals_raw = advisor_signal.get("signals")
+            advisory_signals = []
+            if isinstance(advisory_signals_raw, set):
+                advisory_signals = sorted(
+                    (str(item) for item in advisory_signals_raw if item),
+                )[:5]
 
             resource_count = resources_by_family.get(family, 0)
             action, reason, confidence = self._recommend_efficiency_action(
@@ -1068,6 +1192,14 @@ class CloudLedgerService:
                 reserved_cost_usd=reserved_cost,
                 compute_cost_usd=compute_cost,
                 resource_count=resource_count,
+                exchange_hint=exchange_eligible,
+                renewal_window_days=renewal_window_days if isinstance(renewal_window_days, int) else None,
+            )
+            action_priority = self._compute_action_priority(
+                utilization_pct=utilization_pct,
+                waste_cost_usd=waste_cost,
+                renewal_window_days=renewal_window_days if isinstance(renewal_window_days, int) else None,
+                exchange_eligible=exchange_eligible,
             )
 
             families.append(
@@ -1083,6 +1215,10 @@ class CloudLedgerService:
                     recommended_action=action,
                     reason=reason,
                     confidence=round(confidence, 2),
+                    action_priority=action_priority,
+                    exchange_eligible=exchange_eligible,
+                    renewal_window_days=renewal_window_days if isinstance(renewal_window_days, int) else None,
+                    advisory_signals=advisory_signals,
                 )
             )
 
@@ -1092,7 +1228,10 @@ class CloudLedgerService:
             total_waste += waste_cost
             total_payg_equivalent += payg_equivalent
 
-        families.sort(key=lambda item: item.waste_cost_usd, reverse=True)
+        families.sort(
+            key=lambda item: (item.action_priority, item.waste_cost_usd),
+            reverse=True,
+        )
 
         avg_utilization = (total_used / total_reserved) * 100 if total_reserved > 0 else 0.0
         top_action = families[0].recommended_action if families else None

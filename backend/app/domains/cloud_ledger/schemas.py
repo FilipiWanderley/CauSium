@@ -91,6 +91,10 @@ class ReservationEfficiencyByFamily(BaseModel):
     ]
     reason: str
     confidence: float = Field(ge=0.0, le=1.0)
+    action_priority: int = Field(ge=1, le=5)
+    exchange_eligible: bool = False
+    renewal_window_days: int | None = None
+    advisory_signals: list[str] = Field(default_factory=list)
 
 
 class ReservationEfficiencySummary(BaseModel):
