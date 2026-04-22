@@ -10,7 +10,7 @@ import type {
   ReservationEfficiencyByFamily,
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
-import { usePersistentBoolean, usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { usePersistentBoolean, usePersistentNumber, usePersistentString } from '../../hooks/usePersistentBoolean'
 
 const DAYS_OPTIONS = [30, 60, 90, 180] as const
 
@@ -167,9 +167,9 @@ export function EconomicsCostsPage() {
   const ec = t.economicsCosts
 
   const [days, setDays] = usePersistentNumber('sp.economicsCosts.days', 30, [...DAYS_OPTIONS])
-  const [serviceQuery, setServiceQuery] = useState('')
-  const [providerQuery, setProviderQuery] = useState('')
-  const [teamQuery, setTeamQuery] = useState('')
+  const [serviceQuery, setServiceQuery] = usePersistentString('sp.economicsCosts.filters.service', '')
+  const [providerQuery, setProviderQuery] = usePersistentString('sp.economicsCosts.filters.provider', '')
+  const [teamQuery, setTeamQuery] = usePersistentString('sp.economicsCosts.filters.team', '')
   const [servicePage, setServicePage] = useState(1)
   const [teamPage, setTeamPage] = useState(1)
   const [page, setPage] = useState(1)

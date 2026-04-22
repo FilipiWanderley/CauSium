@@ -48,3 +48,26 @@ export function usePersistentNumber(storageKey: string, defaultValue: number, al
 
   return [value, setValue] as const
 }
+
+export function usePersistentString(storageKey: string, defaultValue = '') {
+  const [value, setValue] = useState<string>(() => {
+    if (typeof window === 'undefined') return defaultValue
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (raw == null) return defaultValue
+      return raw
+    } catch {
+      return defaultValue
+    }
+  })
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, value)
+    } catch {
+      // Ignore storage write failures (privacy mode or quota).
+    }
+  }, [storageKey, value])
+
+  return [value, setValue] as const
+}
