@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, TrendingUp } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
 
 const numberFmt = new Intl.NumberFormat('en-US')
 
@@ -10,7 +11,7 @@ export function EconomicsUsagePage() {
   const { t } = useI18n()
   const eu = t.economicsUsage
 
-  const [days, setDays] = useState(30)
+  const [days, setDays] = usePersistentNumber('sp.economicsUsage.days', 30, [30, 60, 90, 180])
 
   const trendQuery = useQuery({
     queryKey: ['economics-usage-trend', days],

@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -15,7 +16,7 @@ export function EconomicsReportsPage() {
   const { t } = useI18n()
   const er = t.economicsReports
 
-  const [days, setDays] = useState(30)
+  const [days, setDays] = usePersistentNumber('sp.economicsReports.days', 30, [30, 60, 90])
   const [exportJobId, setExportJobId] = useState<string | null>(null)
   const [downloadedJobId, setDownloadedJobId] = useState<string | null>(null)
 
