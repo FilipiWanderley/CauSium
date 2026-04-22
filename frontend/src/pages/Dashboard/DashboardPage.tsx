@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
@@ -12,6 +11,7 @@ import { changeEventsApi } from '../../api/changeEvents'
 import { useI18n } from '../../contexts/I18nContext'
 import type { ChangeEvent, ChangeEventType, ReservationEfficiencyAction } from '../../types'
 import clsx from 'clsx'
+import { usePersistentBoolean } from '../../hooks/usePersistentBoolean'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -92,7 +92,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const d = t.dashboard
   const ce = t.changeEvents
-  const [criticalOnly, setCriticalOnly] = useState(false)
+  const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
 
   const eventLabels: Record<ChangeEventType, string> = {
     incident: ce.incident,

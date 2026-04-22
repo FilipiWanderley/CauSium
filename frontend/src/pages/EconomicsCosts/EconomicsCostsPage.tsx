@@ -10,6 +10,7 @@ import type {
   ReservationEfficiencyByFamily,
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePersistentBoolean } from '../../hooks/usePersistentBoolean'
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -170,7 +171,7 @@ export function EconomicsCostsPage() {
   const [servicePage, setServicePage] = useState(1)
   const [teamPage, setTeamPage] = useState(1)
   const [page, setPage] = useState(1)
-  const [criticalOnly, setCriticalOnly] = useState(false)
+  const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
 
   const servicesQuery = useQuery<PageResponse<ServiceBreakdown>>({
     queryKey: ['economics-costs-services', days, servicePage],
