@@ -433,6 +433,9 @@ export const pt: Translations = {
     actionScheduleStop: 'Programar desligamento',
     actionExchange: 'Trocar reserva',
     actionDoNotRenew: 'Não renovar',
+    reservationHighBadge: '{{count}} alta',
+    reservationCriticalOnly: 'Somente críticas',
+    reservationShowAll: 'Mostrar todas',
   },
   economicsUsage: {
     title: 'Uso da Economia',

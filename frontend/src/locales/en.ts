@@ -410,6 +410,30 @@ export interface Translations {
     colEnvironment: string
     colRegion: string
     colCost: string
+    reservationEfficiency: string
+    familiesCount: string
+    loadingReservationEfficiency: string
+    noReservationEfficiency: string
+    avgUtilization: string
+    totalWaste: string
+    totalReserved: string
+    colFamily: string
+    colPriority: string
+    colUtilization: string
+    colAction: string
+    colWaste: string
+    colRenewal: string
+    colAdvisor: string
+    noRenewalWindow: string
+    noAdvisorSignals: string
+    actionKeep: string
+    actionResize: string
+    actionScheduleStop: string
+    actionExchange: string
+    actionDoNotRenew: string
+    reservationHighBadge: string
+    reservationCriticalOnly: string
+    reservationShowAll: string
   }
   economicsUsage: {
     title: string
@@ -1043,6 +1067,9 @@ export const en: Translations = {
     actionScheduleStop: 'Schedule stop',
     actionExchange: 'Exchange reservation',
     actionDoNotRenew: 'Do not renew',
+    reservationHighBadge: '{{count}} high',
+    reservationCriticalOnly: 'Critical only',
+    reservationShowAll: 'Show all',
   },
   economicsUsage: {
     title: 'Economics Usage',

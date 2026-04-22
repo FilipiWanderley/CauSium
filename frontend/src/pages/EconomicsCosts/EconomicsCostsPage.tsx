@@ -170,6 +170,7 @@ export function EconomicsCostsPage() {
   const [servicePage, setServicePage] = useState(1)
   const [teamPage, setTeamPage] = useState(1)
   const [page, setPage] = useState(1)
+  const [criticalOnly, setCriticalOnly] = useState(false)
 
   const servicesQuery = useQuery<PageResponse<ServiceBreakdown>>({
     queryKey: ['economics-costs-services', days, servicePage],
@@ -207,6 +208,12 @@ export function EconomicsCostsPage() {
     ? serviceItems.filter((item) => item.service.toLowerCase().includes(serviceQuery.trim().toLowerCase()))
     : serviceItems
   const totalFilteredCost = filteredServices.reduce((sum, item) => sum + item.cost_usd, 0)
+  const prioritizedFamilies = [...(reservationEfficiencyQuery.data?.families ?? [])]
+    .sort((a, b) => b.action_priority - a.action_priority || b.waste_cost_usd - a.waste_cost_usd)
+  const highPriorityCount = prioritizedFamilies.filter((item) => item.action_priority >= 4).length
+  const visibleFamilies = criticalOnly
+    ? prioritizedFamilies.filter((item) => item.action_priority >= 4)
+    : prioritizedFamilies
 
   return (
     <div className="space-y-6">
@@ -283,9 +290,23 @@ export function EconomicsCostsPage() {
           <div className="flex items-center gap-2">
             <Lightbulb className="h-4 w-4 text-amber-500" />
             <h2 className="text-sm font-semibold text-gray-900">{ec.reservationEfficiency}</h2>
+            {highPriorityCount > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                {ec.reservationHighBadge.replace('{{count}}', String(highPriorityCount))}
+              </span>
+            )}
           </div>
-          <div className="text-xs text-gray-500">
-            {ec.familiesCount.replace('{{count}}', String(reservationEfficiencyQuery.data?.total_families ?? 0))}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="text-xs text-gray-600 hover:underline"
+              onClick={() => setCriticalOnly((prev) => !prev)}
+            >
+              {criticalOnly ? ec.reservationShowAll : ec.reservationCriticalOnly}
+            </button>
+            <div className="text-xs text-gray-500">
+              {ec.familiesCount.replace('{{count}}', String(visibleFamilies.length))}
+            </div>
           </div>
         </div>
         {reservationEfficiencyQuery.isLoading ? (
@@ -315,7 +336,7 @@ export function EconomicsCostsPage() {
               </div>
             </div>
             <p className="mb-3 text-sm text-gray-600">{reservationEfficiencyQuery.data?.recommendation}</p>
-            <ReservationEfficiencyTable rows={reservationEfficiencyQuery.data?.families ?? []} ec={ec} />
+            <ReservationEfficiencyTable rows={visibleFamilies} ec={ec} />
           </>
         )}
       </div>
@@ -476,6 +497,9 @@ type EcKeys = {
   actionScheduleStop: string
   actionExchange: string
   actionDoNotRenew: string
+  reservationHighBadge: string
+  reservationCriticalOnly: string
+  reservationShowAll: string
 }
 
 function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: string; ec: EcKeys }) {
