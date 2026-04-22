@@ -10,7 +10,9 @@ import type {
   ReservationEfficiencyByFamily,
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
-import { usePersistentBoolean } from '../../hooks/usePersistentBoolean'
+import { usePersistentBoolean, usePersistentNumber } from '../../hooks/usePersistentBoolean'
+
+const DAYS_OPTIONS = [30, 60, 90, 180] as const
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -164,7 +166,7 @@ export function EconomicsCostsPage() {
   const { t } = useI18n()
   const ec = t.economicsCosts
 
-  const [days, setDays] = useState(30)
+  const [days, setDays] = usePersistentNumber('sp.economicsCosts.days', 30, [...DAYS_OPTIONS])
   const [serviceQuery, setServiceQuery] = useState('')
   const [providerQuery, setProviderQuery] = useState('')
   const [teamQuery, setTeamQuery] = useState('')
