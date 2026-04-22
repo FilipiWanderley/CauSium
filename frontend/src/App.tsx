@@ -108,6 +108,7 @@ export default function App() {
             <Route path="gov" element={<GovPage />} />
             <Route path="green" element={<GreenPage />} />
             <Route path="members" element={<MembersPage />} />
+            <Route path="cloud" element={<SettingsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="settings/team" element={<SettingsPage />} />
             <Route path="settings/cloud" element={<SettingsPage />} />

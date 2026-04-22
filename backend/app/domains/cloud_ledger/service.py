@@ -467,9 +467,9 @@ class CloudLedgerService:
                 f"""
                 SELECT date, sum(cost_usd) as cost_usd
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND date >= {start:Date}
-                  AND date <= {end:Date}
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
                   {provider_where}
                 GROUP BY date
                 ORDER BY date
@@ -623,9 +623,9 @@ class CloudLedgerService:
                 f"""
                 SELECT count(DISTINCT service) as total
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND date >= {start:Date}
-                  AND date <= {end:Date}
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
                   {provider_where}
                 """,
                 params,
@@ -637,13 +637,13 @@ class CloudLedgerService:
                 f"""
                 SELECT service, sum(cost_usd) as cost_usd
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND date >= {start:Date}
-                  AND date <= {end:Date}
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
                   {provider_where}
                 GROUP BY service
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
+                LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
                 """,
                 params,
             )
@@ -687,9 +687,9 @@ class CloudLedgerService:
                 f"""
                 SELECT count(DISTINCT owner_team) as total
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND date >= {start:Date}
-                  AND date <= {end:Date}
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
                   {provider_where}
                 """,
                 params,
@@ -701,13 +701,13 @@ class CloudLedgerService:
                 f"""
                 SELECT owner_team as service, sum(cost_usd) as cost_usd
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND date >= {start:Date}
-                  AND date <= {end:Date}
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
                   {provider_where}
                 GROUP BY owner_team
                 ORDER BY cost_usd DESC
-                LIMIT {limit:UInt32} OFFSET {offset:UInt32}
+                LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
                 """,
                 params,
             )
@@ -741,9 +741,9 @@ class CloudLedgerService:
                 f"""
                 SELECT sum(cost_usd) as total
                 FROM cost_facts
-                WHERE org_id = {org_id:String}
-                  AND toYear(date) = {year:UInt16}
-                  AND toMonth(date) = {month:UInt8}
+                WHERE org_id = {{org_id:String}}
+                  AND toYear(date) = {{year:UInt16}}
+                  AND toMonth(date) = {{month:UInt8}}
                   {provider_where}
                 """,
                 params,
@@ -764,8 +764,8 @@ class CloudLedgerService:
                 f"""
                 SELECT count() as cnt
                 FROM event_facts
-                WHERE org_id = {org_id:String}
-                  AND timestamp >= {start:DateTime}
+                WHERE org_id = {{org_id:String}}
+                  AND timestamp >= {{start:DateTime}}
                   {provider_where}
                 """,
                 params,
@@ -856,9 +856,9 @@ class CloudLedgerService:
                     )
                 ) AS reserved_cost_usd
             FROM cost_facts
-            WHERE org_id = {org_id:String}
-              AND date >= {start:Date}
-              AND date <= {end:Date}
+            WHERE org_id = {{org_id:String}}
+              AND date >= {{start:Date}}
+              AND date <= {{end:Date}}
               {provider_where}
             GROUP BY service
             HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
@@ -1144,9 +1144,9 @@ class CloudLedgerService:
                     )
                 ) AS reserved_cost_usd
             FROM cost_facts
-            WHERE org_id = {org_id:String}
-              AND date >= {start:Date}
-              AND date <= {end:Date}
+            WHERE org_id = {{org_id:String}}
+              AND date >= {{start:Date}}
+              AND date <= {{end:Date}}
               {provider_where}
             GROUP BY service, resource_name, tags
             HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0

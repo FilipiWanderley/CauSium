@@ -730,7 +730,7 @@ Permissões:
 
 - Leitura disponível para usuários autenticados do workspace (inclui perfis cliente/viewer).
 
-### Eficiência de Reservas vs Recursos Utilizados (Em implementação)
+### Eficiência de Reservas vs Recursos Utilizados
 
 Objetivo:
 
@@ -768,6 +768,29 @@ Notas:
 
 - A recomendação considera histórico de consumo, previsibilidade de uso e custo comparativo contra PAYG.
 - Elegibilidade de exchange/refund depende de regras do provedor cloud e contrato vigente do cliente.
+
+### Dashboard Multi-Cloud (Escopo Global por Provedor)
+
+Para operação diária, o dashboard possui seletor global de escopo:
+
+- `Todos os provedores`
+- `Azure`
+- `AWS`
+- `GCP`
+
+Comportamento:
+
+- O filtro é aplicado aos KPIs, tendência de custo, top serviços/equipes, eficiência de reservas e tabela de contas conectadas.
+- A preferência do usuário é persistida no navegador (`localStorage`) para manter contexto entre sessões.
+- Se o filtro salvo não existir mais nas contas conectadas (ex.: só Azure ativo), o sistema faz fallback automático para o provedor válido ou para `Todos`.
+
+### Onboarding Cloud Unificado (UX)
+
+O onboarding de credenciais cloud foi consolidado em uma experiência única para reduzir ambiguidade:
+
+- Rota direta no menu: `Cloud` (`/app/cloud`)
+- Tela unificada com abas de provedor: `Azure | AWS | GCP`
+- Formulário contextual por provedor, mantendo validação e sync no mesmo fluxo operacional
 
 ### Janela Histórica de Ingestão (Cloud Sync)
 

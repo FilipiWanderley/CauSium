@@ -66,7 +66,7 @@ export function SettingsPage() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'platform_admin'
   const section =
-    pathname.endsWith('/settings/cloud')
+    pathname.endsWith('/settings/cloud') || pathname.endsWith('/cloud')
       ? 'cloud'
       : pathname.endsWith('/settings/team')
         ? 'team'
@@ -286,6 +286,17 @@ export function SettingsPage() {
     }
   }
 
+  const handleProviderTabChange = (provider: 'azure' | 'aws' | 'gcp') => {
+    setCloudForm((prev) => ({ ...prev, provider }))
+    setValidationMessage(null)
+    setValidationChecks({
+      credentials: 'idle',
+      subscription: 'idle',
+      cost: 'idle',
+      storage: 'idle',
+    })
+  }
+
   if (section === 'cloud') {
     const provider = cloudForm.provider as 'azure' | 'aws' | 'gcp'
     const isBusy = createCloudAccountMutation.isPending || validateCloudAccountMutation.isPending
@@ -431,16 +442,48 @@ export function SettingsPage() {
               </>
             )}
 
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-2">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleProviderTabChange('azure')}
+                  className={`rounded px-3 py-2 text-sm font-medium transition ${
+                    provider === 'azure'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Azure
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleProviderTabChange('aws')}
+                  className={`rounded px-3 py-2 text-sm font-medium transition ${
+                    provider === 'aws'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  AWS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleProviderTabChange('gcp')}
+                  className={`rounded px-3 py-2 text-sm font-medium transition ${
+                    provider === 'gcp'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  GCP
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-600">
+                Selecione o provedor para preencher somente os campos necessarios.
+              </p>
+            </div>
+
             <div className="grid gap-3 md:grid-cols-2">
-              <select
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                value={cloudForm.provider}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, provider: e.target.value }))}
-              >
-                <option value="azure">Azure</option>
-                <option value="aws">AWS</option>
-                <option value="gcp">GCP</option>
-              </select>
               <input
                 className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
                 placeholder="Nome da credencial"

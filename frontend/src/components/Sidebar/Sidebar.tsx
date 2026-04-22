@@ -114,9 +114,9 @@ export function Sidebar() {
         {isAdmin && (
           <>
             <div className="my-2 mx-3 border-t border-gray-700" />
+            <SideNavLink to="/app/cloud" icon={Cloud} label={t.nav.settingsCloud} />
             <SideNavLink to="/app/members" icon={Users} label={t.nav.members} />
             <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} />
-            <SideNavLink to="/app/settings/cloud" icon={Cloud} label={t.nav.settingsCloud} />
             <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} />
           </>
         )}

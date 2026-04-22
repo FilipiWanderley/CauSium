@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
@@ -126,6 +127,27 @@ export function DashboardPage() {
     queryKey: ['cloud-accounts'],
     queryFn: () => cloudAccountsApi.list().then((r) => r.data.items),
   })
+
+  useEffect(() => {
+    if (!accounts || accounts.length === 0) return
+    if (providerFilter === 'all') return
+
+    const connectedProviders = new Set(
+      accounts
+        .map((account) => account.provider)
+        .filter((provider): provider is CloudProvider => provider === 'azure' || provider === 'aws' || provider === 'gcp'),
+    )
+
+    if (connectedProviders.has(providerFilter)) return
+
+    if (connectedProviders.size === 1) {
+      const [singleProvider] = [...connectedProviders]
+      setProviderFilterRaw(singleProvider)
+      return
+    }
+
+    setProviderFilterRaw('all')
+  }, [accounts, providerFilter, setProviderFilterRaw])
 
   const { data: summary } = useQuery({
     queryKey: ['opportunities', 'summary'],
