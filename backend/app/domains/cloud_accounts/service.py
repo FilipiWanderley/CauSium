@@ -126,45 +126,118 @@ class CloudAccountService:
           - account.scopes_validated_at
           - account.validated_scopes (JSON list[str])
         """
-        if account.provider != CloudProvider.AZURE:
+        scopes: list[str] = []
+
+        if account.provider == CloudProvider.AZURE:
+            creds = await self.get_azure_credentials(account)
+            if creds is None:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message="Azure credentials not found for this account",
+                )
+
+            from app.domains.connectors.azure.client import AzureConnectorClient
+
+            client = AzureConnectorClient(
+                tenant_id=creds.tenant_id,
+                client_id=creds.client_id,
+                client_secret=creds.client_secret,
+                storage_account_url=creds.storage_account_url,
+                cost_export_container=creds.cost_export_container,
+            )
+
+            try:
+                await client.validate_connection()
+                await client.validate_cost_management_scope(creds.subscription_id)
+                await client.validate_storage_access()
+            except PermissionError as exc:
+                return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
+            except Exception as exc:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message=f"Could not validate scopes with provider API: {exc}",
+                )
+
+            scopes = ["CredentialsValid", "CostManagementReaderOrHigher"]
+            if creds.storage_account_url and creds.cost_export_container:
+                scopes.append("StorageBlobDataReader")
+        elif account.provider == CloudProvider.AWS:
+            creds = await self.get_aws_credentials(account)
+            if creds is None:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message="AWS credentials not found for this account",
+                )
+
+            from app.domains.connectors.aws.client import AwsConnectorClient
+
+            client = AwsConnectorClient(
+                access_key_id=creds.access_key_id,
+                secret_access_key=creds.secret_access_key,
+                session_token=creds.session_token,
+                region=creds.region or "us-east-1",
+                cur_bucket=creds.cur_bucket,
+                cur_prefix=creds.cur_prefix,
+            )
+            try:
+                await client.validate_connection()
+                await client.validate_cost_management_scope(account.external_id)
+            except PermissionError as exc:
+                return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
+            except Exception as exc:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message=f"Could not validate scopes with provider API: {exc}",
+                )
+
+            scopes = ["CredentialsValid", "CostExplorerRead"]
+            if creds.cur_bucket:
+                scopes.append("CurBucketRead")
+        elif account.provider == CloudProvider.GCP:
+            creds = await self.get_gcp_credentials(account)
+            if creds is None:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message="GCP credentials not found for this account",
+                )
+
+            from app.domains.connectors.gcp.client import GcpConnectorClient
+
+            client = GcpConnectorClient(
+                service_account_json=creds.service_account_json,
+                project_id=creds.project_id,
+                use_workload_identity=creds.use_workload_identity,
+                billing_export_table=creds.billing_export_table,
+                logging_filter=creds.logging_filter,
+            )
+            try:
+                await client.validate_connection()
+                await client.validate_cost_management_scope(account.external_id)
+            except PermissionError as exc:
+                return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
+            except Exception as exc:
+                return ScopeValidationResult(
+                    ok=False,
+                    validated_scopes=[],
+                    message=f"Could not validate scopes with provider API: {exc}",
+                )
+
+            scopes = ["CredentialsValid"]
+            if creds.billing_export_table:
+                scopes.append("BillingExportRead")
+            scopes.append("LoggingRead")
+        else:
             return ScopeValidationResult(
                 ok=False,
                 validated_scopes=[],
-                message=f"Scope validation for provider '{account.provider.value}' is not implemented yet",
+                message=f"Unsupported provider '{account.provider.value}' for scope validation",
             )
 
-        creds = await self.get_azure_credentials(account)
-        if creds is None:
-            return ScopeValidationResult(
-                ok=False,
-                validated_scopes=[],
-                message="Azure credentials not found for this account",
-            )
-
-        from app.domains.connectors.azure.client import AzureConnectorClient
-
-        client = AzureConnectorClient(
-            tenant_id=creds.tenant_id,
-            client_id=creds.client_id,
-            client_secret=creds.client_secret,
-        )
-
-        try:
-            await client.validate_connection()
-            await client.validate_cost_management_scope(creds.subscription_id)
-            await client.validate_storage_access()
-        except PermissionError as exc:
-            return ScopeValidationResult(ok=False, validated_scopes=[], message=str(exc))
-        except Exception as exc:
-            return ScopeValidationResult(
-                ok=False,
-                validated_scopes=[],
-                message=f"Could not validate scopes with provider API: {exc}",
-            )
-
-        scopes = ["CredentialsValid", "CostManagementReaderOrHigher"]
-        if creds.storage_account_url and creds.cost_export_container:
-            scopes.append("StorageBlobDataReader")
         account.scopes_validated_at = datetime.now(timezone.utc)
         account.validated_scopes = json.dumps(scopes)
         await self.db.flush()

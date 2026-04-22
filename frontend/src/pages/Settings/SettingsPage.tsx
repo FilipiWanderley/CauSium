@@ -19,6 +19,17 @@ const defaultCloudForm = {
   container: '',
   cost_export_prefix: '',
   cost_export_format: 'auto' as 'auto' | 'csv' | 'parquet',
+  aws_access_key_id: '',
+  aws_secret_access_key: '',
+  aws_session_token: '',
+  aws_region: 'us-east-1',
+  aws_cur_bucket: '',
+  aws_cur_prefix: '',
+  gcp_project_id: '',
+  gcp_service_account_json: '',
+  gcp_use_workload_identity: false,
+  gcp_billing_export_table: '',
+  gcp_logging_filter: '',
 }
 
 type ValidationCheckState = 'idle' | 'ok' | 'error'
@@ -79,28 +90,51 @@ export function SettingsPage() {
   })
   const createCloudAccountMutation = useMutation({
     mutationFn: () => {
-      const provider = cloudForm.provider.trim().toLowerCase()
-      const subscriptionId = cloudForm.external_id.trim()
+      const provider = cloudForm.provider.trim().toLowerCase() as 'azure' | 'aws' | 'gcp'
+      const externalId = cloudForm.external_id.trim()
       const tenantId = cloudForm.tenant_id.trim()
       const storageAccount = cloudForm.storage_account.trim()
       const storageAccountUrl = storageAccount ? `https://${storageAccount}.blob.core.windows.net` : undefined
 
       return cloudAccountsApi.create({
         provider,
-        external_id: subscriptionId,
+        external_id: externalId,
         display_name: cloudForm.display_name.trim(),
-        tenant_id: tenantId || undefined,
+        tenant_id: provider === 'azure' ? tenantId || undefined : undefined,
         azure_credentials:
           provider === 'azure'
             ? {
                 tenant_id: tenantId,
                 client_id: cloudForm.client_id.trim(),
                 client_secret: cloudForm.client_secret.trim(),
-                subscription_id: subscriptionId,
+                subscription_id: externalId,
                 storage_account_url: storageAccountUrl,
                 cost_export_container: cloudForm.container.trim(),
                 cost_export_prefix: cloudForm.cost_export_prefix.trim(),
                 cost_export_format: cloudForm.cost_export_format,
+              }
+            : undefined,
+        aws_credentials:
+          provider === 'aws'
+            ? {
+                access_key_id: cloudForm.aws_access_key_id.trim(),
+                secret_access_key: cloudForm.aws_secret_access_key.trim(),
+                session_token: cloudForm.aws_session_token.trim() || undefined,
+                region: cloudForm.aws_region.trim() || 'us-east-1',
+                cur_bucket: cloudForm.aws_cur_bucket.trim() || undefined,
+                cur_prefix: cloudForm.aws_cur_prefix.trim() || undefined,
+              }
+            : undefined,
+        gcp_credentials:
+          provider === 'gcp'
+            ? {
+                project_id: cloudForm.gcp_project_id.trim(),
+                service_account_json: cloudForm.gcp_use_workload_identity
+                  ? undefined
+                  : cloudForm.gcp_service_account_json.trim(),
+                use_workload_identity: cloudForm.gcp_use_workload_identity,
+                billing_export_table: cloudForm.gcp_billing_export_table.trim() || undefined,
+                logging_filter: cloudForm.gcp_logging_filter.trim() || undefined,
               }
             : undefined,
       })
@@ -191,6 +225,7 @@ export function SettingsPage() {
   }
 
   const handleValidateAndSave = async () => {
+    const provider = cloudForm.provider.trim().toLowerCase() as 'azure' | 'aws' | 'gcp'
     setValidationMessage(null)
     setValidationChecks({
       credentials: 'idle',
@@ -200,20 +235,22 @@ export function SettingsPage() {
     })
 
     try {
-      const storageAccountName = cloudForm.storage_account.trim()
-      if (
-        storageAccountName.includes('://') ||
-        storageAccountName.includes('/') ||
-        storageAccountName.includes('.')
-      ) {
-        setValidationMessage('Informe somente o nome do Storage Account (sem URL).')
-        setValidationChecks({
-          credentials: 'error',
-          subscription: 'idle',
-          cost: 'idle',
-          storage: 'idle',
-        })
-        return
+      if (provider === 'azure') {
+        const storageAccountName = cloudForm.storage_account.trim()
+        if (
+          storageAccountName.includes('://') ||
+          storageAccountName.includes('/') ||
+          storageAccountName.includes('.')
+        ) {
+          setValidationMessage('Informe somente o nome do Storage Account (sem URL).')
+          setValidationChecks({
+            credentials: 'error',
+            subscription: 'idle',
+            cost: 'idle',
+            storage: 'idle',
+          })
+          return
+        }
       }
 
       const createdAccount = await createCloudAccountMutation.mutateAsync()
@@ -221,15 +258,18 @@ export function SettingsPage() {
 
       const validation = await validateCloudAccountMutation.mutateAsync(createdAccount.data.id)
       const scopes = validation.data.validated_scopes || []
+      const hasCredentials = scopes.includes('CredentialsValid')
+      const hasCostScope =
+        scopes.includes('CostManagementReaderOrHigher') ||
+        scopes.includes('CostExplorerRead') ||
+        scopes.includes('BillingExportRead')
+      const hasStorageScope = scopes.includes('StorageBlobDataReader') || scopes.includes('CurBucketRead')
 
       setValidationChecks({
-        credentials: scopes.includes('CredentialsValid') ? 'ok' : 'idle',
-        subscription: scopes.includes('CostManagementReaderOrHigher') ? 'ok' : 'error',
-        cost: scopes.includes('CostManagementReaderOrHigher') ? 'ok' : 'error',
-        storage:
-          cloudForm.storage_account || cloudForm.container
-            ? (scopes.includes('StorageBlobDataReader') ? 'ok' : 'error')
-            : 'idle',
+        credentials: hasCredentials ? 'ok' : 'idle',
+        subscription: hasCostScope ? 'ok' : 'error',
+        cost: hasCostScope ? 'ok' : 'error',
+        storage: hasStorageScope ? 'ok' : 'idle',
       })
       setValidationMessage(validation.data.message || 'Credencial validada com sucesso.')
     } catch (error) {
@@ -247,16 +287,30 @@ export function SettingsPage() {
   }
 
   if (section === 'cloud') {
+    const provider = cloudForm.provider as 'azure' | 'aws' | 'gcp'
     const isBusy = createCloudAccountMutation.isPending || validateCloudAccountMutation.isPending
-    const isFormValid =
-      !!cloudForm.external_id &&
-      !!cloudForm.display_name &&
-      !!cloudForm.tenant_id &&
-      !!cloudForm.client_id &&
-      !!cloudForm.client_secret &&
-      !!cloudForm.storage_account &&
-      !!cloudForm.container &&
-      !!cloudForm.cost_export_prefix
+    const isFormValid = (() => {
+      if (!cloudForm.external_id || !cloudForm.display_name) return false
+      if (provider === 'azure') {
+        return (
+          !!cloudForm.tenant_id &&
+          !!cloudForm.client_id &&
+          !!cloudForm.client_secret &&
+          !!cloudForm.storage_account &&
+          !!cloudForm.container &&
+          !!cloudForm.cost_export_prefix
+        )
+      }
+      if (provider === 'aws') {
+        return !!cloudForm.aws_access_key_id && !!cloudForm.aws_secret_access_key
+      }
+      if (provider === 'gcp') {
+        if (!cloudForm.gcp_project_id) return false
+        if (cloudForm.gcp_use_workload_identity) return true
+        return !!cloudForm.gcp_service_account_json
+      }
+      return false
+    })()
 
     const statusText = (state: ValidationCheckState, label: string) => {
       if (state === 'ok') return `OK: ${label}`
@@ -328,46 +382,65 @@ export function SettingsPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
             <div>
               <h2 className="text-lg font-semibold text-gray-800">Nova Credencial</h2>
-              <p className="text-sm text-gray-600">Conecte Azure com segurança e valide antes de salvar.</p>
+              <p className="text-sm text-gray-600">
+                {provider === 'azure'
+                  ? 'Conecte Azure com segurança e valide antes de salvar.'
+                  : provider === 'aws'
+                    ? 'Conecte AWS com IAM access key e valide antes de salvar.'
+                    : 'Conecte GCP com Service Account JSON ou Workload Identity.'}
+              </p>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsScriptExpanded((prev) => !prev)}
-                  className="inline-flex items-center gap-2 text-sm text-gray-700 font-medium"
-                  aria-expanded={isScriptExpanded}
-                >
-                  <span>{isScriptExpanded ? '▼' : '▶'}</span>
-                  <span>Script de configuração Azure (PowerShell)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(azureSetupScript)
-                      setValidationMessage('Script copiado para a area de transferencia.')
-                    } catch {
-                      setValidationMessage('Nao foi possivel copiar o script automaticamente.')
-                    }
-                  }}
-                  className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  Copiar script
-                </button>
-              </div>
-              {isScriptExpanded && (
-                <pre className="max-h-72 overflow-auto rounded bg-gray-900 p-3 text-[11px] leading-5 text-gray-100">
-                  <code>{azureSetupScript}</code>
-                </pre>
-              )}
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Use apenas credenciais de Service Principal (App Registration). Nao use login pessoal do cliente.
-            </div>
+            {provider === 'azure' && (
+              <>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsScriptExpanded((prev) => !prev)}
+                      className="inline-flex items-center gap-2 text-sm text-gray-700 font-medium"
+                      aria-expanded={isScriptExpanded}
+                    >
+                      <span>{isScriptExpanded ? '▼' : '▶'}</span>
+                      <span>Script de configuração Azure (PowerShell)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(azureSetupScript)
+                          setValidationMessage('Script copiado para a area de transferencia.')
+                        } catch {
+                          setValidationMessage('Nao foi possivel copiar o script automaticamente.')
+                        }
+                      }}
+                      className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      Copiar script
+                    </button>
+                  </div>
+                  {isScriptExpanded && (
+                    <pre className="max-h-72 overflow-auto rounded bg-gray-900 p-3 text-[11px] leading-5 text-gray-100">
+                      <code>{azureSetupScript}</code>
+                    </pre>
+                  )}
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Use apenas credenciais de Service Principal (App Registration). Nao use login pessoal do cliente.
+                </div>
+              </>
+            )}
 
             <div className="grid gap-3 md:grid-cols-2">
+              <select
+                className="rounded border border-gray-300 px-3 py-2 text-sm"
+                value={cloudForm.provider}
+                onChange={(e) => setCloudForm((prev) => ({ ...prev, provider: e.target.value }))}
+              >
+                <option value="azure">Azure</option>
+                <option value="aws">AWS</option>
+                <option value="gcp">GCP</option>
+              </select>
               <input
                 className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
                 placeholder="Nome da credencial"
@@ -376,62 +449,146 @@ export function SettingsPage() {
               />
               <input
                 className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Tenant ID"
-                value={cloudForm.tenant_id}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, tenant_id: e.target.value }))}
-              />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Subscription ID"
+                placeholder={provider === 'azure' ? 'Subscription ID' : provider === 'aws' ? 'AWS Account ID' : 'GCP Project ID'}
                 value={cloudForm.external_id}
                 onChange={(e) => setCloudForm((prev) => ({ ...prev, external_id: e.target.value }))}
               />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Client ID (Service Principal / Application ID)"
-                value={cloudForm.client_id}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, client_id: e.target.value }))}
-              />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                type="password"
-                placeholder="Client Secret (Service Principal)"
-                autoComplete="new-password"
-                value={cloudForm.client_secret}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, client_secret: e.target.value }))}
-              />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Storage Account"
-                value={cloudForm.storage_account}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, storage_account: e.target.value }))}
-              />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Container"
-                value={cloudForm.container}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, container: e.target.value }))}
-              />
-              <input
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="Prefixo"
-                value={cloudForm.cost_export_prefix}
-                onChange={(e) => setCloudForm((prev) => ({ ...prev, cost_export_prefix: e.target.value }))}
-              />
-              <select
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
-                value={cloudForm.cost_export_format}
-                onChange={(e) =>
-                  setCloudForm((prev) => ({
-                    ...prev,
-                    cost_export_format: e.target.value as 'auto' | 'csv' | 'parquet',
-                  }))
-                }
-              >
-                <option value="auto">Formato: auto</option>
-                <option value="csv">Formato: csv</option>
-                <option value="parquet">Formato: parquet</option>
-              </select>
+              {provider === 'azure' && (
+                <>
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Tenant ID"
+                    value={cloudForm.tenant_id}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, tenant_id: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Client ID (Service Principal / Application ID)"
+                    value={cloudForm.client_id}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, client_id: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    type="password"
+                    placeholder="Client Secret (Service Principal)"
+                    autoComplete="new-password"
+                    value={cloudForm.client_secret}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, client_secret: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Storage Account"
+                    value={cloudForm.storage_account}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, storage_account: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Container"
+                    value={cloudForm.container}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, container: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Prefixo"
+                    value={cloudForm.cost_export_prefix}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, cost_export_prefix: e.target.value }))}
+                  />
+                  <select
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    value={cloudForm.cost_export_format}
+                    onChange={(e) =>
+                      setCloudForm((prev) => ({
+                        ...prev,
+                        cost_export_format: e.target.value as 'auto' | 'csv' | 'parquet',
+                      }))
+                    }
+                  >
+                    <option value="auto">Formato: auto</option>
+                    <option value="csv">Formato: csv</option>
+                    <option value="parquet">Formato: parquet</option>
+                  </select>
+                </>
+              )}
+              {provider === 'aws' && (
+                <>
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Access Key ID"
+                    value={cloudForm.aws_access_key_id}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_access_key_id: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    type="password"
+                    placeholder="Secret Access Key"
+                    autoComplete="new-password"
+                    value={cloudForm.aws_secret_access_key}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_secret_access_key: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Session Token (opcional)"
+                    value={cloudForm.aws_session_token}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_session_token: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Region (ex: us-east-1)"
+                    value={cloudForm.aws_region}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_region: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="CUR Bucket (opcional)"
+                    value={cloudForm.aws_cur_bucket}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_cur_bucket: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="CUR Prefix (opcional)"
+                    value={cloudForm.aws_cur_prefix}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_cur_prefix: e.target.value }))}
+                  />
+                </>
+              )}
+              {provider === 'gcp' && (
+                <>
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm"
+                    placeholder="Project ID"
+                    value={cloudForm.gcp_project_id}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_project_id: e.target.value }))}
+                  />
+                  <label className="flex items-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={cloudForm.gcp_use_workload_identity}
+                      onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_use_workload_identity: e.target.checked }))}
+                    />
+                    Usar Workload Identity (ADC)
+                  </label>
+                  {!cloudForm.gcp_use_workload_identity && (
+                    <textarea
+                      className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2 min-h-36"
+                      placeholder="Service Account JSON"
+                      value={cloudForm.gcp_service_account_json}
+                      onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_service_account_json: e.target.value }))}
+                    />
+                  )}
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
+                    placeholder="Billing Export Table (opcional)"
+                    value={cloudForm.gcp_billing_export_table}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_billing_export_table: e.target.value }))}
+                  />
+                  <input
+                    className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
+                    placeholder="Logging Filter (opcional)"
+                    value={cloudForm.gcp_logging_filter}
+                    onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_logging_filter: e.target.value }))}
+                  />
+                </>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -472,17 +629,49 @@ export function SettingsPage() {
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-2">
               <h3 className="text-sm font-semibold text-gray-700">Precisa de ajuda?</h3>
-              <p className="text-xs text-gray-600">
-                Garanta permissões de Reader na subscription e Storage Blob Data Reader no container.
-              </p>
-              <a
-                href="https://learn.microsoft.com/azure/cost-management-billing/costs/assign-access-acm-data"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Ver documentação Microsoft
-              </a>
+              {provider === 'azure' ? (
+                <>
+                  <p className="text-xs text-gray-600">
+                    Garanta permissões de Reader na subscription e Storage Blob Data Reader no container.
+                  </p>
+                  <a
+                    href="https://learn.microsoft.com/azure/cost-management-billing/costs/assign-access-acm-data"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Ver documentação Microsoft
+                  </a>
+                </>
+              ) : provider === 'aws' ? (
+                <>
+                  <p className="text-xs text-gray-600">
+                    Garanta acesso a `sts:GetCallerIdentity` e `ce:GetCostAndUsage`. CUR no S3 é opcional.
+                  </p>
+                  <a
+                    href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-api-best-practices.html"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Ver documentação AWS
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-600">
+                    Garanta acesso ao projeto e, se usado, leitura da tabela de billing export no BigQuery.
+                  </p>
+                  <a
+                    href="https://cloud.google.com/billing/docs/how-to/export-data-bigquery"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Ver documentação GCP
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </div>

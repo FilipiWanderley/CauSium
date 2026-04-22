@@ -28,6 +28,21 @@ export const cloudAccountsApi = {
       cost_export_prefix?: string
       cost_export_format?: 'auto' | 'csv' | 'parquet'
     }
+    aws_credentials?: {
+      access_key_id: string
+      secret_access_key: string
+      session_token?: string
+      region?: string
+      cur_bucket?: string
+      cur_prefix?: string
+    }
+    gcp_credentials?: {
+      service_account_json?: string
+      project_id: string
+      use_workload_identity?: boolean
+      billing_export_table?: string
+      logging_filter?: string
+    }
   }) => apiClient.post<CloudAccount>('/cloud-accounts', data),
 
   delete: (id: string) => apiClient.delete(`/cloud-accounts/${id}`),
