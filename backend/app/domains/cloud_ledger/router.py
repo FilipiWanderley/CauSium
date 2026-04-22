@@ -16,6 +16,7 @@ from app.domains.cloud_ledger.schemas import (
     IngestRequest,
     IngestResult,
     ReservationCoverageSummary,
+    ReservationEfficiencySummary,
     ServiceBreakdown,
 )
 from app.domains.cloud_ledger.service import CloudLedgerService
@@ -62,6 +63,16 @@ async def reservation_coverage(
 ):
     service = CloudLedgerService(db)
     return service.get_reservation_coverage(current_user.org_id, days=days)
+
+
+@router.get("/reservations/efficiency", response_model=ReservationEfficiencySummary)
+async def reservation_efficiency(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+    days: int = Query(default=30, ge=7, le=365),
+):
+    service = CloudLedgerService(db)
+    return service.get_reservation_efficiency(current_user.org_id, days=days)
 
 
 

@@ -67,3 +67,60 @@ def test_get_detailed_costs_returns_empty_when_query_fails(monkeypatch):
 
     assert rows == []
     assert total == 0
+
+
+def test_get_reservation_efficiency_recommends_exchange_for_low_utilization(monkeypatch):
+    org_id = uuid4()
+
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        if "FROM cost_facts" in query:
+            return [
+                {
+                    "service": "Virtual Machines",
+                    "resource_name": "Standard_B2s",
+                    "tags": {"family": "Standard_B2s"},
+                    "compute_cost_usd": 30.0,
+                    "reserved_cost_usd": 100.0,
+                }
+            ]
+        if "FROM resource_inventory" in query:
+            return [{"sku_name": "Standard_B2s", "resource_count": 3}]
+        return []
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.execute_query", fake_execute_query)
+
+    service = CloudLedgerService(db=None)
+    result = service.get_reservation_efficiency(org_id, days=30)
+
+    assert result.total_families == 1
+    assert result.avg_utilization_pct == 30.0
+    assert result.families[0].recommended_action == "exchange_reservation"
+    assert result.families[0].exchange_candidate is True
+
+
+def test_get_reservation_efficiency_recommends_schedule_stop_for_tiny_workload(monkeypatch):
+    org_id = uuid4()
+
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        if "FROM cost_facts" in query:
+            return [
+                {
+                    "service": "Virtual Machines",
+                    "resource_name": "B2s",
+                    "tags": {"vm_size": "Standard_B2s"},
+                    "compute_cost_usd": 15.0,
+                    "reserved_cost_usd": 100.0,
+                }
+            ]
+        if "FROM resource_inventory" in query:
+            return [{"sku_name": "Standard_B2s", "resource_count": 1}]
+        return []
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.execute_query", fake_execute_query)
+
+    service = CloudLedgerService(db=None)
+    result = service.get_reservation_efficiency(org_id, days=30)
+
+    assert result.total_families == 1
+    assert result.families[0].recommended_action == "schedule_stop"
+    assert result.total_waste_cost_usd == 85.0

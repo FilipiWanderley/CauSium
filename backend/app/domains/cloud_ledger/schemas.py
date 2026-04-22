@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -69,6 +70,40 @@ class ReservationCoverageSummary(BaseModel):
     coverage_pct: float
     has_active_reservations: bool
     services: list[ReservationCoverageByService]
+    recommendation: str
+
+
+class ReservationEfficiencyByFamily(BaseModel):
+    family: str
+    reserved_capacity_units: float
+    effective_used_units: float
+    idle_reserved_units: float
+    utilization_pct: float
+    waste_cost_usd: float
+    payg_equivalent_cost_usd: float
+    exchange_candidate: bool
+    recommended_action: Literal[
+        "keep",
+        "resize_resource",
+        "schedule_stop",
+        "exchange_reservation",
+        "do_not_renew",
+    ]
+    reason: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class ReservationEfficiencySummary(BaseModel):
+    period_start: date
+    period_end: date
+    total_families: int
+    total_reserved_capacity_units: float
+    total_effective_used_units: float
+    total_idle_reserved_units: float
+    avg_utilization_pct: float
+    total_waste_cost_usd: float
+    total_payg_equivalent_cost_usd: float
+    families: list[ReservationEfficiencyByFamily]
     recommendation: str
 
 

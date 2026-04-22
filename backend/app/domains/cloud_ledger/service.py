@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
+import re
 from time import perf_counter
 from uuid import UUID
 
@@ -18,6 +19,8 @@ from app.domains.cloud_ledger.schemas import (
     IngestResult,
     ReservationCoverageByService,
     ReservationCoverageSummary,
+    ReservationEfficiencyByFamily,
+    ReservationEfficiencySummary,
     ServiceBreakdown,
 )
 
@@ -828,5 +831,295 @@ class CloudLedgerService:
             coverage_pct=coverage_total,
             has_active_reservations=has_active_reservations,
             services=services,
+            recommendation=recommendation,
+        )
+
+    @staticmethod
+    def _extract_family_token(raw_value: str) -> str | None:
+        if not raw_value:
+            return None
+
+        value = raw_value.strip()
+        if not value:
+            return None
+
+        # Common cloud SKU formats:
+        # - Standard_B2s
+        # - B2s
+        # - m5.large
+        # - t3.micro
+        normalized = value.replace("Standard_", "").replace("standard_", "")
+        direct_match = re.search(r"\b([A-Za-z]+\d+[A-Za-z0-9.]*)\b", normalized)
+        if direct_match:
+            return direct_match.group(1)
+
+        dotted_match = re.search(r"\b([a-z]\d\.[a-z0-9]+)\b", normalized, flags=re.IGNORECASE)
+        if dotted_match:
+            return dotted_match.group(1)
+
+        return None
+
+    def _detect_reservation_family(
+        self,
+        service: str | None,
+        resource_name: str | None,
+        tags: dict | None,
+    ) -> str:
+        if isinstance(tags, dict):
+            preferred_keys = (
+                "family",
+                "sku",
+                "sku_name",
+                "vm_size",
+                "vmsize",
+                "instance_type",
+                "instancetype",
+            )
+            for key in preferred_keys:
+                value = tags.get(key)
+                if isinstance(value, str):
+                    token = self._extract_family_token(value)
+                    if token:
+                        return token
+
+            for value in tags.values():
+                if isinstance(value, str):
+                    token = self._extract_family_token(value)
+                    if token:
+                        return token
+
+        for candidate in (resource_name or "", service or ""):
+            token = self._extract_family_token(candidate)
+            if token:
+                return token
+
+        return "unknown"
+
+    @staticmethod
+    def _recommend_efficiency_action(
+        utilization_pct: float,
+        reserved_cost_usd: float,
+        compute_cost_usd: float,
+        resource_count: int,
+    ) -> tuple[str, str, float]:
+        idle_cost = max(reserved_cost_usd - compute_cost_usd, 0.0)
+        utilization_gap = max(100.0 - utilization_pct, 0.0)
+        confidence = min(0.55 + (utilization_gap / 200.0), 0.95)
+
+        if utilization_pct >= 85:
+            return (
+                "keep",
+                "Reserva com boa aderencia de uso no periodo; manter estrategia atual.",
+                0.9,
+            )
+
+        if utilization_pct < 25 and resource_count <= 1 and compute_cost_usd < (reserved_cost_usd * 0.40):
+            return (
+                "schedule_stop",
+                "Reserva altamente ociosa com workload pequeno; avaliar desligamento/agendamento da VM.",
+                max(confidence, 0.85),
+            )
+
+        if utilization_pct < 35 and resource_count == 0:
+            return (
+                "do_not_renew",
+                "Reserva sem consumo detectado para a familia no periodo; evitar renovacao no proximo ciclo.",
+                max(confidence, 0.88),
+            )
+
+        if utilization_pct < 60 and resource_count > 0:
+            return (
+                "exchange_reservation",
+                "Cobertura baixa e mismatch de uso; avaliar exchange para familia/SKU mais aderente.",
+                max(confidence, 0.8),
+            )
+
+        if idle_cost > 0 and resource_count <= 1:
+            return (
+                "resize_resource",
+                "Existe ociosidade relevante na reserva; redimensionar recurso pode melhorar aproveitamento.",
+                max(confidence, 0.72),
+            )
+
+        return (
+            "do_not_renew",
+            "Reserva com baixa eficiencia no periodo; reavaliar renovacao e estrategia de compromisso.",
+            max(confidence, 0.7),
+        )
+
+    def get_reservation_efficiency(self, org_id: UUID, days: int = 30) -> ReservationEfficiencySummary:
+        end = date.today()
+        start = end - timedelta(days=days)
+
+        costs_query = """
+            SELECT
+                service,
+                resource_name,
+                tags,
+                sum(
+                    if(
+                        positionCaseInsensitiveUTF8(service, 'virtual machine') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'compute') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'ec2') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'aks') > 0,
+                        cost_usd,
+                        0
+                    )
+                ) AS compute_cost_usd,
+                sum(
+                    if(
+                        positionCaseInsensitiveUTF8(service, 'reservation') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'reserved') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'savings plan') > 0
+                        OR positionCaseInsensitiveUTF8(service, 'commitment') > 0
+                        OR arrayExists(
+                            v -> (
+                                positionCaseInsensitiveUTF8(v, 'reservation') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'reserved') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'savings') > 0
+                                OR positionCaseInsensitiveUTF8(v, 'commitment') > 0
+                            ),
+                            mapValues(tags)
+                        ),
+                        cost_usd,
+                        0
+                    )
+                ) AS reserved_cost_usd
+            FROM cost_facts
+            WHERE org_id = {org_id:String}
+              AND date >= {start:Date}
+              AND date <= {end:Date}
+            GROUP BY service, resource_name, tags
+            HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
+            LIMIT 10000
+        """
+
+        inventory_query = """
+            SELECT sku_name, count() AS resource_count
+            FROM resource_inventory
+            WHERE org_id = {org_id:String}
+            GROUP BY sku_name
+        """
+
+        try:
+            cost_rows = execute_query(
+                costs_query,
+                {"org_id": str(org_id), "start": start, "end": end},
+            )
+        except Exception as exc:
+            log.warning("ledger.reservation_efficiency.costs_failed", error=str(exc))
+            cost_rows = []
+
+        try:
+            inventory_rows = execute_query(
+                inventory_query,
+                {"org_id": str(org_id)},
+            )
+        except Exception as exc:
+            log.warning("ledger.reservation_efficiency.inventory_failed", error=str(exc))
+            inventory_rows = []
+
+        resources_by_family: dict[str, int] = {}
+        for row in inventory_rows:
+            family = self._detect_reservation_family(None, row.get("sku_name"), None)
+            resources_by_family[family] = resources_by_family.get(family, 0) + int(row.get("resource_count") or 0)
+
+        family_buckets: dict[str, dict[str, float]] = {}
+        for row in cost_rows:
+            family = self._detect_reservation_family(
+                row.get("service"),
+                row.get("resource_name"),
+                row.get("tags"),
+            )
+            if family not in family_buckets:
+                family_buckets[family] = {
+                    "compute_cost_usd": 0.0,
+                    "reserved_cost_usd": 0.0,
+                }
+            family_buckets[family]["compute_cost_usd"] += float(row.get("compute_cost_usd") or 0.0)
+            family_buckets[family]["reserved_cost_usd"] += float(row.get("reserved_cost_usd") or 0.0)
+
+        families: list[ReservationEfficiencyByFamily] = []
+        total_reserved = 0.0
+        total_used = 0.0
+        total_idle = 0.0
+        total_waste = 0.0
+        total_payg_equivalent = 0.0
+
+        for family, values in family_buckets.items():
+            compute_cost = values["compute_cost_usd"]
+            reserved_cost = values["reserved_cost_usd"]
+
+            if reserved_cost <= 0:
+                continue
+
+            effective_used = min(compute_cost, reserved_cost)
+            idle_reserved = max(reserved_cost - effective_used, 0.0)
+            utilization_pct = (effective_used / reserved_cost) * 100 if reserved_cost > 0 else 0.0
+
+            # Conservative proxy: reserved commitment usually lands below PAYG list price.
+            estimated_discount_rate = 0.30
+            payg_equivalent = max(compute_cost, effective_used / (1.0 - estimated_discount_rate))
+            waste_cost = idle_reserved
+
+            resource_count = resources_by_family.get(family, 0)
+            action, reason, confidence = self._recommend_efficiency_action(
+                utilization_pct=utilization_pct,
+                reserved_cost_usd=reserved_cost,
+                compute_cost_usd=compute_cost,
+                resource_count=resource_count,
+            )
+
+            families.append(
+                ReservationEfficiencyByFamily(
+                    family=family,
+                    reserved_capacity_units=round(reserved_cost, 2),
+                    effective_used_units=round(effective_used, 2),
+                    idle_reserved_units=round(idle_reserved, 2),
+                    utilization_pct=round(min(utilization_pct, 100.0), 1),
+                    waste_cost_usd=round(waste_cost, 2),
+                    payg_equivalent_cost_usd=round(payg_equivalent, 2),
+                    exchange_candidate=action == "exchange_reservation",
+                    recommended_action=action,
+                    reason=reason,
+                    confidence=round(confidence, 2),
+                )
+            )
+
+            total_reserved += reserved_cost
+            total_used += effective_used
+            total_idle += idle_reserved
+            total_waste += waste_cost
+            total_payg_equivalent += payg_equivalent
+
+        families.sort(key=lambda item: item.waste_cost_usd, reverse=True)
+
+        avg_utilization = (total_used / total_reserved) * 100 if total_reserved > 0 else 0.0
+        top_action = families[0].recommended_action if families else None
+
+        if not families:
+            recommendation = "Nenhuma reserva ativa detectada no periodo para analise de eficiencia."
+        elif avg_utilization >= 85:
+            recommendation = "Eficiencia global de reservas saudavel. Mantenha a estrategia atual."
+        elif top_action == "exchange_reservation":
+            recommendation = "Priorize exchange de reservas com maior ociosidade para familias mais aderentes."
+        elif top_action == "schedule_stop":
+            recommendation = "Existem reservas com baixa utilizacao em workloads pequenos; avalie desligamento programado."
+        elif top_action == "resize_resource":
+            recommendation = "Ha oportunidade de ganho com redimensionamento de recursos para aumentar aderencia da reserva."
+        else:
+            recommendation = "Eficiencia abaixo do ideal. Reavalie renovacao e mix de reservas no proximo ciclo."
+
+        return ReservationEfficiencySummary(
+            period_start=start,
+            period_end=end,
+            total_families=len(families),
+            total_reserved_capacity_units=round(total_reserved, 2),
+            total_effective_used_units=round(total_used, 2),
+            total_idle_reserved_units=round(total_idle, 2),
+            avg_utilization_pct=round(min(avg_utilization, 100.0), 1),
+            total_waste_cost_usd=round(total_waste, 2),
+            total_payg_equivalent_cost_usd=round(total_payg_equivalent, 2),
+            families=families,
             recommendation=recommendation,
         )
