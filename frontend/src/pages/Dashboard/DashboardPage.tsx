@@ -9,9 +9,9 @@ import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
 import { changeEventsApi } from '../../api/changeEvents'
 import { useI18n } from '../../contexts/I18nContext'
-import type { ChangeEvent, ChangeEventType, ReservationEfficiencyAction } from '../../types'
+import type { ChangeEvent, ChangeEventType, CloudProvider, ReservationEfficiencyAction } from '../../types'
 import clsx from 'clsx'
-import { usePersistentBoolean } from '../../hooks/usePersistentBoolean'
+import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -41,6 +41,9 @@ const ACTION_COLOR: Record<ReservationEfficiencyAction, string> = {
   exchange_reservation: 'bg-purple-50 text-purple-700',
   do_not_renew: 'bg-red-50 text-red-700',
 }
+
+const DASHBOARD_PROVIDERS = ['all', 'azure', 'aws', 'gcp'] as const
+type DashboardProviderFilter = (typeof DASHBOARD_PROVIDERS)[number]
 
 function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
   const Icon = EVENT_ICON[ev.event_type]
@@ -93,6 +96,17 @@ export function DashboardPage() {
   const d = t.dashboard
   const ce = t.changeEvents
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
+  const [providerFilterRaw, setProviderFilterRaw] = usePersistentString(
+    'sp.dashboard.providerFilter',
+    'all',
+  )
+  const providerFilter: DashboardProviderFilter = DASHBOARD_PROVIDERS.includes(
+    providerFilterRaw as DashboardProviderFilter,
+  )
+    ? (providerFilterRaw as DashboardProviderFilter)
+    : 'all'
+  const providerParam: CloudProvider | undefined =
+    providerFilter === 'all' ? undefined : providerFilter
 
   const eventLabels: Record<ChangeEventType, string> = {
     incident: ce.incident,
@@ -104,8 +118,8 @@ export function DashboardPage() {
   }
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => ledgerApi.dashboard().then((r) => r.data),
+    queryKey: ['dashboard', providerFilter],
+    queryFn: () => ledgerApi.dashboard(providerParam).then((r) => r.data),
   })
 
   const { data: accounts } = useQuery({
@@ -124,8 +138,8 @@ export function DashboardPage() {
   })
 
   const { data: reservationEfficiency } = useQuery({
-    queryKey: ['dashboard', 'reservation-efficiency'],
-    queryFn: () => ledgerApi.reservationEfficiency(30).then((r) => r.data),
+    queryKey: ['dashboard', 'reservation-efficiency', providerFilter],
+    queryFn: () => ledgerApi.reservationEfficiency(30, providerParam).then((r) => r.data),
   })
 
   if (metricsLoading) {
@@ -137,7 +151,10 @@ export function DashboardPage() {
   }
 
   const openCount = summary?.open ?? 0
-  const totalConnected = accounts?.length ?? 0
+  const filteredAccounts = (accounts ?? []).filter((a) =>
+    providerParam ? a.provider === providerParam : true,
+  )
+  const totalConnected = filteredAccounts.length
 
   // Events sorted by occurred_at desc, show last 8 in feed
   const feedEvents = [...recentEvents]
@@ -161,9 +178,24 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{d.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{d.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
+        </div>
+        <label className="text-sm text-gray-600">
+          {d.providerScope}
+          <select
+            value={providerFilter}
+            onChange={(e) => setProviderFilterRaw(e.target.value)}
+            className="mt-1 block min-w-44 rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          >
+            <option value="all">{d.providerAll}</option>
+            <option value="azure">{d.providerAzure}</option>
+            <option value="aws">{d.providerAws}</option>
+            <option value="gcp">{d.providerGcp}</option>
+          </select>
+        </label>
       </div>
 
       {/* KPI cards */}
@@ -185,7 +217,7 @@ export function DashboardPage() {
         />
         <MetricCard
           title={d.activeAccounts}
-          value={accounts?.filter((a) => a.status === 'active').length ?? 0}
+            value={filteredAccounts.filter((a) => a.status === 'active').length}
           subtitle={d.totalConnected.replace('{{count}}', String(totalConnected))}
           icon={<Cloud className="h-5 w-5" />}
         />
@@ -341,7 +373,7 @@ export function DashboardPage() {
         {/* Accounts table */}
         <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-900">{d.connectedAccounts}</h2>
-          {accounts && accounts.length > 0 ? (
+          {filteredAccounts.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -353,7 +385,7 @@ export function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {accounts.map((a) => (
+                  {filteredAccounts.map((a) => (
                     <tr key={a.id}>
                       <td className="py-3 pr-4 font-medium text-gray-900">{a.display_name}</td>
                       <td className="py-3 pr-4 text-gray-500 uppercase text-xs">{a.provider}</td>

@@ -24,7 +24,8 @@ export interface ExportJob {
 }
 
 export const ledgerApi = {
-  dashboard: () => apiClient.get<DashboardMetrics>('/ledger/dashboard'),
+  dashboard: (provider?: string) =>
+    apiClient.get<DashboardMetrics>('/ledger/dashboard', { params: { provider } }),
 
   costTrend: (days = 30) =>
     apiClient.get<CostTrend[]>(`/ledger/costs/trend?days=${days}`),
@@ -32,8 +33,10 @@ export const ledgerApi = {
   reservationCoverage: (days = 30) =>
     apiClient.get<ReservationCoverageSummary>(`/ledger/reservations/coverage?days=${days}`),
 
-  reservationEfficiency: (days = 30) =>
-    apiClient.get<ReservationEfficiencySummary>(`/ledger/reservations/efficiency?days=${days}`),
+  reservationEfficiency: (days = 30, provider?: string) =>
+    apiClient.get<ReservationEfficiencySummary>('/ledger/reservations/efficiency', {
+      params: { days, provider },
+    }),
 
   topServicesPaginated: (days = 30, page = 1, page_size = 50) =>
     apiClient.get<PageResponse<ServiceBreakdown>>(`/ledger/costs/services`, { params: { days, page, page_size } }),

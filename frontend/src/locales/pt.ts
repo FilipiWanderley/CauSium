@@ -65,6 +65,11 @@ export const pt: Translations = {
   dashboard: {
     title: 'Painel',
     subtitle: 'Visão geral de gastos em nuvem e scorecard de otimização',
+    providerScope: 'Escopo de provedor',
+    providerAll: 'Todos os provedores',
+    providerAzure: 'Azure',
+    providerAws: 'AWS',
+    providerGcp: 'GCP',
     currentMonthCost: 'Custo do Mês Atual',
     vsLastMonth: 'vs mês anterior',
     potentialSavings: 'Economia Potencial',

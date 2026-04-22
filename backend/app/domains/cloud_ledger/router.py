@@ -38,11 +38,22 @@ async def trigger_ingest(
 async def get_dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    provider: str | None = Query(default=None),
 ):
     accounts, _ = await CloudAccountService(db).list_accounts(current_user.org_id)
-    active = sum(1 for a in accounts if a.status.value == "active")
+    provider_filter = provider.lower() if provider else None
+    filtered_accounts = (
+        [a for a in accounts if a.provider.value == provider_filter]
+        if provider_filter
+        else accounts
+    )
+    active = sum(1 for a in filtered_accounts if a.status.value == "active")
     service = CloudLedgerService(db)
-    return await service.get_dashboard_metrics(current_user.org_id, active)
+    return await service.get_dashboard_metrics(
+        current_user.org_id,
+        active,
+        provider=provider_filter,
+    )
 
 
 @router.get("/costs/trend", response_model=List[CostTrend])
@@ -60,9 +71,14 @@ async def reservation_coverage(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
     days: int = Query(default=30, ge=7, le=365),
+    provider: str | None = Query(default=None),
 ):
     service = CloudLedgerService(db)
-    return service.get_reservation_coverage(current_user.org_id, days=days)
+    return service.get_reservation_coverage(
+        current_user.org_id,
+        days=days,
+        provider=provider.lower() if provider else None,
+    )
 
 
 @router.get("/reservations/efficiency", response_model=ReservationEfficiencySummary)
@@ -70,9 +86,14 @@ async def reservation_efficiency(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
     days: int = Query(default=30, ge=7, le=365),
+    provider: str | None = Query(default=None),
 ):
     service = CloudLedgerService(db)
-    return service.get_reservation_efficiency(current_user.org_id, days=days)
+    return service.get_reservation_efficiency(
+        current_user.org_id,
+        days=days,
+        provider=provider.lower() if provider else None,
+    )
 
 
 

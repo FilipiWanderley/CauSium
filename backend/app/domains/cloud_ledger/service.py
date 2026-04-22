@@ -450,21 +450,31 @@ class CloudLedgerService:
         )
         return {row[0] for row in result.all()}
 
-    def get_cost_trend(self, org_id: UUID, days: int = 30) -> list[CostTrend]:
+    def get_cost_trend(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        provider: str | None = None,
+    ) -> list[CostTrend]:
         end = date.today()
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {"org_id": str(org_id), "start": start, "end": end}
+        if provider:
+            params["provider"] = provider
         try:
             rows = execute_query(
-                """
+                f"""
                 SELECT date, sum(cost_usd) as cost_usd
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND date >= {start:Date}
                   AND date <= {end:Date}
+                  {provider_where}
                 GROUP BY date
                 ORDER BY date
                 """,
-                {"org_id": str(org_id), "start": start, "end": end},
+                params,
             )
             return [CostTrend(date=r["date"], cost_usd=r["cost_usd"]) for r in rows]
         except Exception as e:
@@ -587,36 +597,55 @@ class CloudLedgerService:
             log.warning("ledger.detailed_costs.failed", error=str(exc))
             return [], 0
 
-    def get_top_services(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
+    def get_top_services(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        limit: int = 10,
+        offset: int = 0,
+        provider: str | None = None,
+    ) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {
+            "org_id": str(org_id),
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "offset": offset,
+        }
+        if provider:
+            params["provider"] = provider
         try:
             # Total count
             total_rows = execute_query(
-                """
+                f"""
                 SELECT count(DISTINCT service) as total
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND date >= {start:Date}
                   AND date <= {end:Date}
+                  {provider_where}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end},
+                params,
             )
             total = int(total_rows[0]["total"]) if total_rows else 0
 
             # Paged items
             rows = execute_query(
-                """
+                f"""
                 SELECT service, sum(cost_usd) as cost_usd
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND date >= {start:Date}
                   AND date <= {end:Date}
+                  {provider_where}
                 GROUP BY service
                 ORDER BY cost_usd DESC
                 LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
+                params,
             )
             cost_total = sum(r["cost_usd"] for r in rows) or 1
             items = [
@@ -632,36 +661,55 @@ class CloudLedgerService:
             log.warning("ledger.top_services.failed", error=str(e))
             return [], 0
 
-    def get_top_teams(self, org_id: UUID, days: int = 30, limit: int = 10, offset: int = 0) -> tuple[list[ServiceBreakdown], int]:
+    def get_top_teams(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        limit: int = 10,
+        offset: int = 0,
+        provider: str | None = None,
+    ) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {
+            "org_id": str(org_id),
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "offset": offset,
+        }
+        if provider:
+            params["provider"] = provider
         try:
             # Total count
             total_rows = execute_query(
-                """
+                f"""
                 SELECT count(DISTINCT owner_team) as total
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND date >= {start:Date}
                   AND date <= {end:Date}
+                  {provider_where}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end},
+                params,
             )
             total = int(total_rows[0]["total"]) if total_rows else 0
 
             # Paged items
             rows = execute_query(
-                """
+                f"""
                 SELECT owner_team as service, sum(cost_usd) as cost_usd
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND date >= {start:Date}
                   AND date <= {end:Date}
+                  {provider_where}
                 GROUP BY owner_team
                 ORDER BY cost_usd DESC
                 LIMIT {limit:UInt32} OFFSET {offset:UInt32}
                 """,
-                {"org_id": str(org_id), "start": start, "end": end, "limit": limit, "offset": offset},
+                params,
             )
             cost_total = sum(r["cost_usd"] for r in rows) or 1
             items = [
@@ -677,70 +725,105 @@ class CloudLedgerService:
             log.warning("ledger.top_teams.failed", error=str(e))
             return [], 0
 
-    def get_month_cost(self, org_id: UUID, year: int, month: int) -> float:
+    def get_month_cost(
+        self,
+        org_id: UUID,
+        year: int,
+        month: int,
+        provider: str | None = None,
+    ) -> float:
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {"org_id": str(org_id), "year": year, "month": month}
+        if provider:
+            params["provider"] = provider
         try:
             rows = execute_query(
-                """
+                f"""
                 SELECT sum(cost_usd) as total
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
                   AND toYear(date) = {year:UInt16}
                   AND toMonth(date) = {month:UInt8}
+                  {provider_where}
                 """,
-                {"org_id": str(org_id), "year": year, "month": month},
+                params,
             )
             return float(rows[0]["total"]) if rows else 0.0
         except Exception:
             return 0.0
 
-    def get_event_count(self, org_id: UUID, days: int = 7) -> int:
+    def get_event_count(self, org_id: UUID, days: int = 7, provider: str | None = None) -> int:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {"org_id": str(org_id), "start": start}
+        if provider:
+            params["provider"] = provider
         try:
             rows = execute_query(
-                """
+                f"""
                 SELECT count() as cnt
                 FROM event_facts
                 WHERE org_id = {org_id:String}
                   AND timestamp >= {start:DateTime}
+                  {provider_where}
                 """,
-                {"org_id": str(org_id), "start": start},
+                params,
             )
             return int(rows[0]["cnt"]) if rows else 0
         except Exception:
             return 0
 
-    async def get_dashboard_metrics(self, org_id: UUID, active_accounts: int) -> DashboardMetrics:
+    async def get_dashboard_metrics(
+        self,
+        org_id: UUID,
+        active_accounts: int,
+        provider: str | None = None,
+    ) -> DashboardMetrics:
         today = date.today()
-        current_month = self.get_month_cost(org_id, today.year, today.month)
+        current_month = self.get_month_cost(org_id, today.year, today.month, provider=provider)
         prev_month = today.replace(day=1) - timedelta(days=1)
-        previous_month = self.get_month_cost(org_id, prev_month.year, prev_month.month)
+        previous_month = self.get_month_cost(
+            org_id,
+            prev_month.year,
+            prev_month.month,
+            provider=provider,
+        )
         mom_change = (
             (current_month - previous_month) / previous_month * 100 if previous_month else 0
         )
 
-        top_services, _ = self.get_top_services(org_id)
-        top_teams, _ = self.get_top_teams(org_id)
+        top_services, _ = self.get_top_services(org_id, provider=provider)
+        top_teams, _ = self.get_top_teams(org_id, provider=provider)
         return DashboardMetrics(
             current_month_cost=current_month,
             previous_month_cost=previous_month,
             mom_change_pct=round(mom_change, 1),
-            daily_trend=self.get_cost_trend(org_id, days=30),
+            daily_trend=self.get_cost_trend(org_id, days=30, provider=provider),
             top_services=top_services,
             top_teams=top_teams,
-            event_count_7d=self.get_event_count(org_id, days=7),
+            event_count_7d=self.get_event_count(org_id, days=7, provider=provider),
             active_accounts=active_accounts,
         )
 
-    def get_reservation_coverage(self, org_id: UUID, days: int = 30) -> ReservationCoverageSummary:
+    def get_reservation_coverage(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        provider: str | None = None,
+    ) -> ReservationCoverageSummary:
         end = date.today()
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {"org_id": str(org_id), "start": start, "end": end}
+        if provider:
+            params["provider"] = provider
 
         # Heuristic detection:
         # - "compute" rows come from VM/compute services
         # - "reserved" rows are detected by service naming or tag values mentioning reservation/savings/commitment
         # This works across providers with different line-item schemas.
-        base_query = """
+        base_query = f"""
             SELECT
                 service,
                 sum(
@@ -776,6 +859,7 @@ class CloudLedgerService:
             WHERE org_id = {org_id:String}
               AND date >= {start:Date}
               AND date <= {end:Date}
+              {provider_where}
             GROUP BY service
             HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
             ORDER BY compute_cost_usd DESC
@@ -785,7 +869,7 @@ class CloudLedgerService:
         try:
             rows = execute_query(
                 base_query,
-                {"org_id": str(org_id), "start": start, "end": end},
+                params,
             )
         except Exception as exc:
             log.warning("ledger.reservation_coverage.failed", error=str(exc))
@@ -1012,11 +1096,20 @@ class CloudLedgerService:
             priority += 1
         return max(1, min(priority, 5))
 
-    def get_reservation_efficiency(self, org_id: UUID, days: int = 30) -> ReservationEfficiencySummary:
+    def get_reservation_efficiency(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        provider: str | None = None,
+    ) -> ReservationEfficiencySummary:
         end = date.today()
         start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        params = {"org_id": str(org_id), "start": start, "end": end}
+        if provider:
+            params["provider"] = provider
 
-        costs_query = """
+        costs_query = f"""
             SELECT
                 service,
                 resource_name,
@@ -1054,6 +1147,7 @@ class CloudLedgerService:
             WHERE org_id = {org_id:String}
               AND date >= {start:Date}
               AND date <= {end:Date}
+              {provider_where}
             GROUP BY service, resource_name, tags
             HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
             LIMIT 10000
@@ -1085,7 +1179,7 @@ class CloudLedgerService:
         try:
             cost_rows = execute_query(
                 costs_query,
-                {"org_id": str(org_id), "start": start, "end": end},
+                params,
             )
         except Exception as exc:
             log.warning("ledger.reservation_efficiency.costs_failed", error=str(exc))

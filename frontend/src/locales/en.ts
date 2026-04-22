@@ -63,6 +63,11 @@ export interface Translations {
   dashboard: {
     title: string
     subtitle: string
+    providerScope: string
+    providerAll: string
+    providerAzure: string
+    providerAws: string
+    providerGcp: string
     currentMonthCost: string
     vsLastMonth: string
     potentialSavings: string
@@ -702,6 +707,11 @@ export const en: Translations = {
   dashboard: {
     title: 'Dashboard',
     subtitle: 'Cloud spending overview and optimization scorecard',
+    providerScope: 'Provider scope',
+    providerAll: 'All providers',
+    providerAzure: 'Azure',
+    providerAws: 'AWS',
+    providerGcp: 'GCP',
     currentMonthCost: 'Current Month Cost',
     vsLastMonth: 'vs last month',
     potentialSavings: 'Potential Savings',
