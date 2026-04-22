@@ -11,6 +11,7 @@ class GreenSummaryOut(BaseModel):
     intensity_avg: float
     mom_delta_pct: Optional[float]
     months_available: int
+    data_source: str
     note: str
 
 

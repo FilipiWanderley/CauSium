@@ -79,10 +79,35 @@ class GreenSummary:
     intensity_avg: float         # gCO2e / USD
     mom_delta_pct: float | None  # month-over-month change
     months_available: int
+    data_source: str             # official | estimated | mixed
     note: str
 
 
 class GreenService:
+    def _detect_carbon_data_source(self, org_id: UUID, months: int) -> str:
+        cutoff = (date.today() - timedelta(days=months * 30)).strftime("%Y-%m")
+        rows = _safe_query(
+            """
+            SELECT provider, count() AS total
+            FROM carbon_facts
+            WHERE org_id = {org_id:String}
+              AND year_month >= {cutoff:String}
+            GROUP BY provider
+            """,
+            {"org_id": str(org_id), "cutoff": cutoff},
+        )
+        if not rows:
+            return "estimated"
+
+        providers = {str(r.get("provider") or "").lower() for r in rows if r.get("provider")}
+        if not providers:
+            return "estimated"
+        if providers == {"azure"}:
+            return "official"
+        if providers & {"aws", "gcp"}:
+            return "mixed" if "azure" in providers else "estimated"
+        return "estimated"
+
     def _has_real_carbon_data(self, org_id: UUID, months: int) -> bool:
         cutoff = (date.today() - timedelta(days=months * 30)).strftime("%Y-%m")
         rows = _safe_query(
@@ -164,6 +189,7 @@ class GreenService:
             intensity_avg=round(intensity_avg, 1),
             mom_delta_pct=mom,
             months_available=months,
+            data_source="estimated",
             note="Estimates based on regional grid carbon intensity. Connect Azure Carbon Optimization API for certified data.",
         )
 
@@ -202,13 +228,26 @@ class GreenService:
 
         intensity_avg = (total_kg * 1000.0 / max(total_cost, 0.01)) if total_cost else _DEFAULT_INTENSITY
 
+        source = self._detect_carbon_data_source(org_id, months)
+        note = "Real emissions data from Azure Carbon API."
+        if source == "mixed":
+            note = (
+                "Mixed emissions dataset: Azure uses official carbon API data; "
+                "AWS/GCP currently use calibrated cost-based estimation."
+            )
+        elif source == "estimated":
+            note = (
+                "Emissions currently estimated from cloud cost profiles for active providers."
+            )
+
         return GreenSummary(
             total_kg_co2e=round(total_kg, 1),
             total_cost_usd=round(total_cost, 2),
             intensity_avg=round(intensity_avg, 1),
             mom_delta_pct=mom,
             months_available=months,
-            note="Real emissions data from Azure Carbon API.",
+            data_source=source,
+            note=note,
         )
 
     # ------------------------------------------------------------------

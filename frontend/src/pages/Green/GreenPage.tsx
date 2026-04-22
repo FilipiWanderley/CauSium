@@ -66,6 +66,12 @@ export function GreenPage() {
   const trend = emissionsQ.data ?? []
   const breakdown = breakdownQ.data ?? []
   const maxKg = Math.max(...breakdown.map((r) => r.kg_co2e), 1)
+  const sourceLabel =
+    s?.data_source === 'official'
+      ? gr.dataOfficial
+      : s?.data_source === 'mixed'
+        ? gr.dataMixed
+        : gr.dataEstimated
 
   return (
     <div className="space-y-6">
@@ -76,6 +82,11 @@ export function GreenPage() {
             <Leaf className="h-6 w-6 text-emerald-500" />
             {gr.title}
           </h1>
+          {s && (
+            <div className="mt-2 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              {sourceLabel}
+            </div>
+          )}
           <p className="mt-1 text-sm text-gray-500">
             {gr.subtitle}
           </p>

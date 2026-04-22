@@ -31,6 +31,7 @@ def get_summary(
         intensity_avg=s.intensity_avg,
         mom_delta_pct=s.mom_delta_pct,
         months_available=s.months_available,
+        data_source=s.data_source,
         note=s.note,
     )
 

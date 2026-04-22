@@ -148,3 +148,55 @@ async def test_fetch_carbon_emissions_estimates_from_costs(monkeypatch):
     by_service = {row.service: row.kg_co2e for row in rows}
     assert by_service["AmazonEC2"] == 42.0
     assert by_service["AmazonS3"] == 11.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_carbon_emissions_uses_configured_factors(monkeypatch):
+    client = AwsConnectorClient(access_key_id="a", secret_access_key="b")
+
+    class _Settings:
+        aws_carbon_factors_json = '{"amazonec2": 0.5, "default": 0.25}'
+
+    monkeypatch.setattr("app.domains.connectors.aws.client.get_settings", lambda: _Settings())
+
+    async def fake_fetch_costs(subscription_id: str, start: date, end: date):
+        return [
+            CanonicalCostRecord(
+                date=date(2026, 4, 1),
+                provider="aws",
+                subscription_id=subscription_id,
+                service="AmazonEC2",
+                resource_id="",
+                resource_name="",
+                region="us-east-1",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=10.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+            CanonicalCostRecord(
+                date=date(2026, 4, 1),
+                provider="aws",
+                subscription_id=subscription_id,
+                service="AmazonCloudFront",
+                resource_id="",
+                resource_name="",
+                region="global",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=10.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+        ]
+
+    monkeypatch.setattr(client, "fetch_costs", fake_fetch_costs)
+    rows = await client.fetch_carbon_emissions("123456789012", date(2026, 4, 1), date(2026, 4, 30))
+    by_service = {row.service: row.kg_co2e for row in rows}
+    assert by_service["AmazonEC2"] == 5.0
+    assert by_service["AmazonCloudFront"] == 2.5

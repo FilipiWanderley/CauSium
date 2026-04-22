@@ -363,6 +363,9 @@ export interface Translations {
     byEnvironment: string
     byTeam: string
     noBreakdown: string
+    dataOfficial: string
+    dataEstimated: string
+    dataMixed: string
   }
   economicsCosts: {
     title: string
@@ -999,6 +1002,9 @@ export const en: Translations = {
     byEnvironment: 'By Environment',
     byTeam: 'By Team',
     noBreakdown: 'No breakdown data available.',
+    dataOfficial: 'Data source: official provider carbon API',
+    dataEstimated: 'Data source: calibrated cost-based estimate',
+    dataMixed: 'Data source: mixed (official + estimated)',
   },
   economicsCosts: {
     title: 'Economics Costs',

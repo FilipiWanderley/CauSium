@@ -64,11 +64,17 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     aws_cur_bucket: str = ""
     aws_cur_prefix: str = ""
+    # Optional JSON map for kgCO2e per USD factors by AWS service token.
+    # Example: {"ec2": 0.45, "s3": 0.2, "default": 0.3}
+    aws_carbon_factors_json: str = ""
     gcp_service_account_json: str = ""
     gcp_project_id: str = ""
     gcp_use_workload_identity: bool = False
     gcp_billing_export_table: str = ""
     gcp_logging_filter: str = ""
+    # Optional JSON map for kgCO2e per USD factors by GCP service token.
+    # Example: {"compute": 0.42, "storage": 0.19, "default": 0.29}
+    gcp_carbon_factors_json: str = ""
     azure_oidc_redirect_uri: str = "http://localhost:8000/api/v1/auth/oidc/azure/callback"
     azure_oidc_scopes: str = "openid profile email"
     # JWKS cache TTL in seconds — fetch at most once per period to avoid hammering

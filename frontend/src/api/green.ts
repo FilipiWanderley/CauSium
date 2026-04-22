@@ -6,6 +6,7 @@ export interface GreenSummary {
   intensity_avg: number
   mom_delta_pct: number | null
   months_available: number
+  data_source: 'official' | 'estimated' | 'mixed'
   note: string
 }
 

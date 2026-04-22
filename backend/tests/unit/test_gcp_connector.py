@@ -60,3 +60,60 @@ async def test_fetch_carbon_emissions_estimates_from_costs(monkeypatch):
     by_service = {row.service: row.kg_co2e for row in rows}
     assert by_service["Compute Engine"] == 32.0
     assert by_service["Cloud Storage"] == 4.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_carbon_emissions_uses_configured_factors(monkeypatch):
+    client = GcpConnectorClient(
+        service_account_json=None,
+        project_id="my-project",
+        use_workload_identity=True,
+        billing_export_table="billing.export_table",
+    )
+
+    class _Settings:
+        gcp_carbon_factors_json = '{"compute engine": 0.55, "default": 0.2}'
+
+    monkeypatch.setattr("app.domains.connectors.gcp.client.get_settings", lambda: _Settings())
+
+    async def fake_fetch_costs(subscription_id: str, start: date, end: date):
+        return [
+            CanonicalCostRecord(
+                date=date(2026, 4, 1),
+                provider="gcp",
+                subscription_id=subscription_id,
+                service="Compute Engine",
+                resource_id="",
+                resource_name="",
+                region="us-central1",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=10.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+            CanonicalCostRecord(
+                date=date(2026, 4, 1),
+                provider="gcp",
+                subscription_id=subscription_id,
+                service="Cloud Storage",
+                resource_id="",
+                resource_name="",
+                region="us-central1",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=10.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+        ]
+
+    monkeypatch.setattr(client, "fetch_costs", fake_fetch_costs)
+    rows = await client.fetch_carbon_emissions("my-project", date(2026, 4, 1), date(2026, 4, 30))
+    by_service = {row.service: row.kg_co2e for row in rows}
+    assert by_service["Compute Engine"] == 5.5
+    assert by_service["Cloud Storage"] == 2.0

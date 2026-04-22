@@ -4,6 +4,7 @@ import asyncio
 import csv
 import gzip
 import io
+import json
 import re
 from datetime import date, datetime, timedelta, timezone
 
@@ -87,6 +88,26 @@ class AwsConnectorClient(BaseConnector):
             aws_session_token=self.session_token,
             region_name="us-east-1",
         )
+
+    @staticmethod
+    def _configured_carbon_factors() -> dict[str, float]:
+        raw = (get_settings().aws_carbon_factors_json or "").strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            log.warning("aws.carbon_factors.invalid_json")
+            return {}
+        if not isinstance(parsed, dict):
+            return {}
+        out: dict[str, float] = {}
+        for key, value in parsed.items():
+            try:
+                out[str(key).lower()] = float(value)
+            except (TypeError, ValueError):
+                continue
+        return out
 
     async def _call_with_backoff(self, operation_name: str, fn, *args, **kwargs):
         max_attempts = 3
@@ -656,9 +677,18 @@ class AwsConnectorClient(BaseConnector):
                 return str(val)
         return "untagged"
 
-    @staticmethod
-    def _estimate_carbon_factor_kg_per_usd(service: str) -> float:
+    def _estimate_carbon_factor_kg_per_usd(self, service: str) -> float:
         token = service.lower()
+        overrides = self._configured_carbon_factors()
+        if token in overrides:
+            return overrides[token]
+        for key, value in overrides.items():
+            if key == "default":
+                continue
+            if key and key in token:
+                return value
+        if "default" in overrides:
+            return overrides["default"]
         # Cost-to-emissions approximation to unlock cross-cloud baseline carbon views
         # when a provider-native carbon API is unavailable.
         if any(key in token for key in ("ec2", "compute", "lambda", "eks")):

@@ -365,6 +365,9 @@ export const pt: Translations = {
     byEnvironment: 'Por Ambiente',
     byTeam: 'Por Equipe',
     noBreakdown: 'Nenhum dado de detalhamento disponível.',
+    dataOfficial: 'Origem dos dados: API oficial de carbono do provedor',
+    dataEstimated: 'Origem dos dados: estimativa calibrada baseada em custo',
+    dataMixed: 'Origem dos dados: mista (oficial + estimada)',
   },
   economicsCosts: {
     title: 'Custos da Economia',
