@@ -8,7 +8,15 @@ import httpx
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domains.connectors.base import BaseConnector, CanonicalCarbonRecord, CanonicalCostRecord, CanonicalEventRecord
+from app.domains.connectors.base import (
+    BaseConnector,
+    CanonicalCarbonRecord,
+    CanonicalCostRecord,
+    CanonicalEventRecord,
+    CanonicalRecommendationRecord,
+    CanonicalResourceRecord,
+    CanonicalUsageRecord,
+)
 
 log = get_logger(__name__)
 
@@ -103,6 +111,12 @@ class GcpConnectorClient(BaseConnector):
             resp = await client.get(url, headers={"Authorization": f"Bearer {creds.token}"})
             if resp.status_code >= 400:
                 raise ValueError(f"Unable to access GCP project '{self.project_id}': {resp.text}")
+
+    def _access_token(self) -> str:
+        google_auth_request = self._import_symbol("google.auth.transport.requests", "Request")
+        creds = self._get_credentials()
+        creds.refresh(google_auth_request())
+        return str(creds.token)
 
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
         if not self.billing_export_table:
@@ -230,3 +244,256 @@ class GcpConnectorClient(BaseConnector):
     ) -> list[CanonicalCarbonRecord]:
         # Dedicated GCP carbon API integration remains out-of-scope for phase 1.
         return []
+
+    async def fetch_recommendations(
+        self,
+        subscription_id: str,
+    ) -> list[CanonicalRecommendationRecord]:
+        headers = {"Authorization": f"Bearer {self._access_token()}"}
+        records: list[CanonicalRecommendationRecord] = []
+        now = datetime.now(timezone.utc)
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                recs_resp = await client.get(
+                    f"https://recommender.googleapis.com/v1/projects/{self.project_id}/locations/-/recommenders",
+                    headers=headers,
+                )
+                recs_resp.raise_for_status()
+                recommenders = recs_resp.json().get("recommenders", [])
+                for recommender in recommenders:
+                    rec_name = str(recommender.get("name") or "")
+                    if not rec_name:
+                        continue
+                    lowered = rec_name.lower()
+                    if "cost" not in lowered and "idle" not in lowered and "machine" not in lowered:
+                        continue
+                    page_token: str | None = None
+                    while True:
+                        params = {"filter": 'stateInfo.state = "ACTIVE"', "pageSize": 100}
+                        if page_token:
+                            params["pageToken"] = page_token
+                        response = await client.get(
+                            f"https://recommender.googleapis.com/v1/{rec_name}/recommendations",
+                            headers=headers,
+                            params=params,
+                        )
+                        if response.status_code in {403, 404}:
+                            break
+                        response.raise_for_status()
+                        payload = response.json()
+                        for item in payload.get("recommendations", []):
+                            name = str(item.get("name") or "")
+                            description = str(item.get("description") or "")
+                            subtype = str(item.get("recommenderSubtype") or "")
+                            resource_id = self._parse_gcp_resource_id(item)
+                            records.append(
+                                CanonicalRecommendationRecord(
+                                    recommendation_id=name or f"{rec_name}:{hash(description)}",
+                                    provider="gcp",
+                                    subscription_id=subscription_id,
+                                    category="Cost",
+                                    impact=self._parse_gcp_impact(item),
+                                    resource_id=resource_id,
+                                    resource_name=resource_id.split("/")[-1] if resource_id else "",
+                                    resource_group="",
+                                    service="Recommender",
+                                    short_description=description,
+                                    recommendation_type_id=subtype or rec_name.split("/")[-1],
+                                    estimated_savings_usd=self._parse_gcp_estimated_savings(item),
+                                    fetched_at=now,
+                                )
+                            )
+                        page_token = payload.get("nextPageToken")
+                        if not page_token:
+                            break
+        except Exception as exc:
+            log.warning("gcp.fetch_recommendations.failed", project=self.project_id, reason=str(exc))
+            return []
+
+        log.info("gcp.fetch_recommendations.done", project=self.project_id, records=len(records))
+        return records
+
+    async def fetch_inventory(
+        self,
+        subscription_id: str,
+    ) -> list[CanonicalResourceRecord]:
+        headers = {"Authorization": f"Bearer {self._access_token()}"}
+        now = datetime.now(timezone.utc)
+        records: list[CanonicalResourceRecord] = []
+        page_token: str | None = None
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                while True:
+                    params = {"maxResults": 500}
+                    if page_token:
+                        params["pageToken"] = page_token
+                    response = await client.get(
+                        f"https://compute.googleapis.com/compute/v1/projects/{self.project_id}/aggregated/instances",
+                        headers=headers,
+                        params=params,
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    for scoped in (payload.get("items") or {}).values():
+                        for instance in scoped.get("instances", []) or []:
+                            labels = {str(k): str(v) for k, v in (instance.get("labels") or {}).items()}
+                            machine_type = str(instance.get("machineType") or "").split("/")[-1]
+                            zone = str(instance.get("zone") or "").split("/")[-1]
+                            records.append(
+                                CanonicalResourceRecord(
+                                    resource_id=str(instance.get("selfLink") or ""),
+                                    provider="gcp",
+                                    subscription_id=subscription_id,
+                                    name=str(instance.get("name") or ""),
+                                    resource_type="compute.instances",
+                                    resource_group="",
+                                    location=zone,
+                                    environment=self._infer_environment(labels),
+                                    owner_team=self._infer_owner_team(labels),
+                                    sku_name=machine_type,
+                                    sku_tier="",
+                                    provisioning_state=str(instance.get("status") or "unknown").lower(),
+                                    tags=labels,
+                                    fetched_at=now,
+                                )
+                            )
+                    page_token = payload.get("nextPageToken")
+                    if not page_token:
+                        break
+        except Exception as exc:
+            log.warning("gcp.fetch_inventory.failed", project=self.project_id, reason=str(exc))
+            return []
+
+        log.info("gcp.fetch_inventory.done", project=self.project_id, records=len(records))
+        return records
+
+    async def fetch_usage_metrics(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalUsageRecord]:
+        headers = {"Authorization": f"Bearer {self._access_token()}"}
+        records: list[CanonicalUsageRecord] = []
+        start_ts = datetime(start.year, start.month, start.day, tzinfo=timezone.utc).isoformat()
+        end_ts = datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc).isoformat()
+        page_token: str | None = None
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                while True:
+                    params = {
+                        "filter": 'metric.type = "compute.googleapis.com/instance/cpu/utilization"',
+                        "interval.startTime": start_ts,
+                        "interval.endTime": end_ts,
+                        "aggregation.alignmentPeriod": "86400s",
+                        "aggregation.perSeriesAligner": "ALIGN_MEAN",
+                        "view": "FULL",
+                        "pageSize": 500,
+                    }
+                    if page_token:
+                        params["pageToken"] = page_token
+                    response = await client.get(
+                        f"https://monitoring.googleapis.com/v3/projects/{self.project_id}/timeSeries",
+                        headers=headers,
+                        params=params,
+                    )
+                    if response.status_code in {403, 404}:
+                        break
+                    response.raise_for_status()
+                    payload = response.json()
+                    for series in payload.get("timeSeries", []) or []:
+                        resource_labels = (series.get("resource") or {}).get("labels") or {}
+                        instance_id = str(resource_labels.get("instance_id") or "")
+                        zone = str(resource_labels.get("zone") or "")
+                        for point in series.get("points", []) or []:
+                            end_time = (((point.get("interval") or {}).get("endTime") or "")).replace("Z", "+00:00")
+                            value = ((point.get("value") or {}).get("doubleValue"))
+                            if not end_time or value is None:
+                                continue
+                            dt = datetime.fromisoformat(end_time)
+                            records.append(
+                                CanonicalUsageRecord(
+                                    date=dt.date(),
+                                    provider="gcp",
+                                    subscription_id=subscription_id,
+                                    service="Compute Engine",
+                                    resource_id=instance_id,
+                                    metric_name="CPUUtilization",
+                                    metric_value=float(value),
+                                    metric_unit="1",
+                                    region=zone,
+                                    environment="unknown",
+                                )
+                            )
+                    page_token = payload.get("nextPageToken")
+                    if not page_token:
+                        break
+        except Exception as exc:
+            log.warning("gcp.fetch_usage_metrics.failed", project=self.project_id, reason=str(exc))
+            return []
+
+        log.info("gcp.fetch_usage_metrics.done", project=self.project_id, records=len(records))
+        return records
+
+    @staticmethod
+    def _parse_gcp_impact(payload: dict[str, object]) -> str:
+        impact = ((payload.get("primaryImpact") or {}) if isinstance(payload, dict) else {}) or {}
+        category = str((impact.get("category") or "")).lower()
+        if "cost" in category:
+            return "High"
+        if "performance" in category:
+            return "Medium"
+        return "Low"
+
+    @staticmethod
+    def _parse_gcp_estimated_savings(payload: dict[str, object]) -> float | None:
+        impact = ((payload.get("primaryImpact") or {}) if isinstance(payload, dict) else {}) or {}
+        projection = ((impact.get("costProjection") or {}) if isinstance(impact, dict) else {}) or {}
+        amount = ((projection.get("cost") or {}) if isinstance(projection, dict) else {}) or {}
+        units = amount.get("units")
+        nanos = amount.get("nanos")
+        if units is None and nanos is None:
+            return None
+        try:
+            value = float(units or 0) + (float(nanos or 0) / 1_000_000_000.0)
+            return value if value > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_gcp_resource_id(payload: dict[str, object]) -> str:
+        content = ((payload.get("content") or {}) if isinstance(payload, dict) else {}) or {}
+        groups = content.get("operationGroups") if isinstance(content, dict) else None
+        if not isinstance(groups, list):
+            return ""
+        for group in groups:
+            operations = group.get("operations") if isinstance(group, dict) else None
+            if not isinstance(operations, list):
+                continue
+            for operation in operations:
+                if not isinstance(operation, dict):
+                    continue
+                resource = operation.get("resource")
+                if resource:
+                    return str(resource)
+        return ""
+
+    @staticmethod
+    def _infer_environment(labels: dict[str, str]) -> str:
+        for key in ("env", "environment", "Environment", "Env"):
+            val = str(labels.get(key, "")).lower()
+            if val in {"prod", "production"}:
+                return "production"
+            if val in {"staging", "stage"}:
+                return "staging"
+            if val in {"dev", "development"}:
+                return "development"
+        return "unknown"
+
+    @staticmethod
+    def _infer_owner_team(labels: dict[str, str]) -> str:
+        for key in ("team", "owner", "squad", "Team", "Owner", "Squad"):
+            val = labels.get(key)
+            if val:
+                return str(val)
+        return "untagged"

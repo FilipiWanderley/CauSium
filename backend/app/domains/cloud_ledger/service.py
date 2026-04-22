@@ -208,21 +208,20 @@ class CloudLedgerService:
                 )
                 existing_keys.add(key)
 
-        # Azure-specific: recommendations, inventory, usage metrics
+        # Provider advanced ingestion: recommendations, inventory, usage metrics
         recommendation_count = 0
         inventory_count = 0
         usage_count = 0
 
-        if isinstance(client, AzureConnectorClient):
-            recommendation_count = await self._ingest_azure_recommendations(
-                client, org_id, account_id, account.external_id
-            )
-            inventory_count = await self._ingest_azure_inventory(
-                client, org_id, account_id, account.external_id
-            )
-            usage_count = await self._ingest_azure_usage_metrics(
-                client, org_id, account_id, account.external_id, start, end
-            )
+        recommendation_count = await self._ingest_provider_recommendations(
+            client, org_id, account_id, account.external_id
+        )
+        inventory_count = await self._ingest_provider_inventory(
+            client, org_id, account_id, account.external_id
+        )
+        usage_count = await self._ingest_provider_usage_metrics(
+            client, org_id, account_id, account.external_id, start, end
+        )
 
         # Update last sync
         account.status = ConnectorStatus.ACTIVE
@@ -251,17 +250,20 @@ class CloudLedgerService:
             status="ok",
         )
 
-    async def _ingest_azure_recommendations(
+    async def _ingest_provider_recommendations(
         self,
         client,
         org_id,
         account_id,
         subscription_id: str,
     ) -> int:
+        fetch_recommendations = getattr(client, "fetch_recommendations", None)
+        if not callable(fetch_recommendations):
+            return 0
         try:
-            recs = await client.fetch_recommendations(subscription_id)
+            recs = await fetch_recommendations(subscription_id)
         except Exception as exc:
-            log.warning("ledger.azure_recommendations.fetch_failed", error=str(exc))
+            log.warning("ledger.provider_recommendations.fetch_failed", error=str(exc))
             return 0
 
         rows = [
@@ -293,17 +295,20 @@ class CloudLedgerService:
 
         return len(rows)
 
-    async def _ingest_azure_inventory(
+    async def _ingest_provider_inventory(
         self,
         client,
         org_id,
         account_id,
         subscription_id: str,
     ) -> int:
+        fetch_inventory = getattr(client, "fetch_inventory", None)
+        if not callable(fetch_inventory):
+            return 0
         try:
-            resources = await client.fetch_inventory(subscription_id)
+            resources = await fetch_inventory(subscription_id)
         except Exception as exc:
-            log.warning("ledger.azure_inventory.fetch_failed", error=str(exc))
+            log.warning("ledger.provider_inventory.fetch_failed", error=str(exc))
             return 0
 
         rows = [
@@ -336,7 +341,7 @@ class CloudLedgerService:
 
         return len(rows)
 
-    async def _ingest_azure_usage_metrics(
+    async def _ingest_provider_usage_metrics(
         self,
         client,
         org_id,
@@ -345,10 +350,13 @@ class CloudLedgerService:
         start,
         end,
     ) -> int:
+        fetch_usage_metrics = getattr(client, "fetch_usage_metrics", None)
+        if not callable(fetch_usage_metrics):
+            return 0
         try:
-            usage = await client.fetch_usage_metrics(subscription_id, start, end)
+            usage = await fetch_usage_metrics(subscription_id, start, end)
         except Exception as exc:
-            log.warning("ledger.azure_usage.fetch_failed", error=str(exc))
+            log.warning("ledger.provider_usage.fetch_failed", error=str(exc))
             return 0
 
         rows = [

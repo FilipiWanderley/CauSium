@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import gzip
 import io
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
@@ -10,7 +11,15 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domains.connectors.base import BaseConnector, CanonicalCarbonRecord, CanonicalCostRecord, CanonicalEventRecord
+from app.domains.connectors.base import (
+    BaseConnector,
+    CanonicalCarbonRecord,
+    CanonicalCostRecord,
+    CanonicalEventRecord,
+    CanonicalRecommendationRecord,
+    CanonicalResourceRecord,
+    CanonicalUsageRecord,
+)
 
 log = get_logger(__name__)
 
@@ -66,6 +75,16 @@ class AwsConnectorClient(BaseConnector):
             aws_secret_access_key=self.secret_access_key,
             aws_session_token=self.session_token,
             region_name=self.region,
+        )
+
+    def _support_client(self):
+        # Trusted Advisor APIs are only available in us-east-1.
+        return boto3.client(
+            "support",
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            aws_session_token=self.session_token,
+            region_name="us-east-1",
         )
 
     async def validate_connection(self) -> None:
@@ -342,3 +361,217 @@ class AwsConnectorClient(BaseConnector):
     ) -> list[CanonicalCarbonRecord]:
         # AWS carbon integration is out-of-scope for phase 1 in this connector.
         return []
+
+    async def fetch_recommendations(
+        self, subscription_id: str
+    ) -> list[CanonicalRecommendationRecord]:
+        records: list[CanonicalRecommendationRecord] = []
+        now = datetime.now(timezone.utc)
+        try:
+            support = self._support_client()
+            checks = support.describe_trusted_advisor_checks(language="en").get("checks", [])
+            for check in checks:
+                if check.get("category") != "cost_optimizing":
+                    continue
+                check_id = str(check.get("id") or "")
+                if not check_id:
+                    continue
+                result = support.describe_trusted_advisor_check_result(
+                    checkId=check_id,
+                    language="en",
+                ).get("result", {})
+                flagged = result.get("flaggedResources", [])
+                for item in flagged:
+                    if str(item.get("status", "")).lower() == "ok":
+                        continue
+                    metadata = item.get("metadata") or []
+                    metadata_blob = " | ".join(str(v) for v in metadata if v)
+                    savings = self._extract_first_usd_amount(metadata_blob)
+                    resource_id = str(item.get("resourceId") or "")
+                    records.append(
+                        CanonicalRecommendationRecord(
+                            recommendation_id=f"{check_id}:{resource_id or item.get('region') or 'unknown'}",
+                            provider="aws",
+                            subscription_id=subscription_id,
+                            category="Cost",
+                            impact=self._map_ta_status_to_impact(str(item.get("status") or "")),
+                            resource_id=resource_id,
+                            resource_name=str(metadata[0] if metadata else ""),
+                            resource_group="",
+                            service=str(check.get("name") or "Trusted Advisor"),
+                            short_description=str(check.get("description") or ""),
+                            recommendation_type_id=check_id,
+                            estimated_savings_usd=savings,
+                            fetched_at=now,
+                        )
+                    )
+        except Exception as exc:
+            log.warning("aws.fetch_recommendations.failed", account=subscription_id, reason=str(exc))
+            return []
+
+        log.info("aws.fetch_recommendations.done", account=subscription_id, records=len(records))
+        return records
+
+    async def fetch_inventory(
+        self, subscription_id: str
+    ) -> list[CanonicalResourceRecord]:
+        tagging = self._client("resourcegroupstaggingapi")
+        now = datetime.now(timezone.utc)
+        records: list[CanonicalResourceRecord] = []
+        token: str | None = None
+
+        try:
+            while True:
+                args = {"ResourcesPerPage": 100}
+                if token:
+                    args["PaginationToken"] = token
+                page = tagging.get_resources(**args)
+                for mapping in page.get("ResourceTagMappingList", []):
+                    arn = str(mapping.get("ResourceARN") or "")
+                    tags_list = mapping.get("Tags") or []
+                    tags = {str(t.get("Key") or ""): str(t.get("Value") or "") for t in tags_list}
+                    region, resource_type, resource_name = self._parse_arn_components(arn)
+                    records.append(
+                        CanonicalResourceRecord(
+                            resource_id=arn,
+                            provider="aws",
+                            subscription_id=subscription_id,
+                            name=resource_name,
+                            resource_type=resource_type,
+                            resource_group=str(tags.get("aws:cloudformation:stack-name") or ""),
+                            location=region or self.region,
+                            environment=self._infer_environment(tags),
+                            owner_team=self._infer_owner_team(tags),
+                            sku_name="",
+                            sku_tier="",
+                            provisioning_state="active",
+                            tags=tags,
+                            fetched_at=now,
+                        )
+                    )
+                token = page.get("PaginationToken")
+                if not token:
+                    break
+        except Exception as exc:
+            log.warning("aws.fetch_inventory.failed", account=subscription_id, reason=str(exc))
+            return []
+
+        log.info("aws.fetch_inventory.done", account=subscription_id, records=len(records))
+        return records
+
+    async def fetch_usage_metrics(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalUsageRecord]:
+        ec2 = self._client("ec2")
+        cloudwatch = self._client("cloudwatch")
+        records: list[CanonicalUsageRecord] = []
+        start_dt = datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
+        end_dt = datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc)
+        try:
+            paginator = ec2.get_paginator("describe_instances")
+            for page in paginator.paginate():
+                reservations = page.get("Reservations", [])
+                for reservation in reservations:
+                    for instance in reservation.get("Instances", []):
+                        instance_id = str(instance.get("InstanceId") or "")
+                        if not instance_id:
+                            continue
+                        tags = {
+                            str(t.get("Key") or ""): str(t.get("Value") or "")
+                            for t in (instance.get("Tags") or [])
+                        }
+                        region = self.region
+                        metric = cloudwatch.get_metric_statistics(
+                            Namespace="AWS/EC2",
+                            MetricName="CPUUtilization",
+                            Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
+                            StartTime=start_dt,
+                            EndTime=end_dt,
+                            Period=86400,
+                            Statistics=["Average"],
+                        )
+                        for point in metric.get("Datapoints", []):
+                            ts = point.get("Timestamp")
+                            avg = point.get("Average")
+                            if ts is None or avg is None:
+                                continue
+                            records.append(
+                                CanonicalUsageRecord(
+                                    date=ts.date(),
+                                    provider="aws",
+                                    subscription_id=subscription_id,
+                                    service="AmazonEC2",
+                                    resource_id=instance_id,
+                                    metric_name="CPUUtilization",
+                                    metric_value=float(avg),
+                                    metric_unit="Percent",
+                                    region=region,
+                                    environment=self._infer_environment(tags),
+                                )
+                            )
+        except Exception as exc:
+            log.warning("aws.fetch_usage_metrics.failed", account=subscription_id, reason=str(exc))
+            return []
+
+        log.info("aws.fetch_usage_metrics.done", account=subscription_id, records=len(records))
+        return records
+
+    @staticmethod
+    def _extract_first_usd_amount(text: str) -> float | None:
+        match = re.search(r"\$([0-9][0-9,]*(?:\.[0-9]+)?)", text)
+        if not match:
+            return None
+        raw = match.group(1).replace(",", "")
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _map_ta_status_to_impact(status: str) -> str:
+        normalized = status.strip().lower()
+        if normalized in {"error", "warning"}:
+            return "High"
+        if normalized in {"warn"}:
+            return "Medium"
+        return "Low"
+
+    @staticmethod
+    def _parse_arn_components(arn: str) -> tuple[str, str, str]:
+        # arn:partition:service:region:account-id:resource
+        parts = arn.split(":", 5)
+        if len(parts) < 6:
+            return "", "unknown", arn
+        region = parts[3]
+        service = parts[2]
+        resource = parts[5]
+        if "/" in resource:
+            resource_type, resource_name = resource.split("/", 1)
+        elif ":" in resource:
+            resource_type, resource_name = resource.split(":", 1)
+        else:
+            resource_type, resource_name = service, resource
+        return region, f"{service}:{resource_type}", resource_name
+
+    @staticmethod
+    def _infer_environment(tags: dict[str, str]) -> str:
+        for key in ("env", "environment", "Environment", "Env"):
+            val = str(tags.get(key, "")).lower()
+            if val in {"prod", "production"}:
+                return "production"
+            if val in {"staging", "stage"}:
+                return "staging"
+            if val in {"dev", "development"}:
+                return "development"
+        return "unknown"
+
+    @staticmethod
+    def _infer_owner_team(tags: dict[str, str]) -> str:
+        for key in ("team", "owner", "squad", "Team", "Owner", "Squad"):
+            val = tags.get(key)
+            if val:
+                return str(val)
+        return "untagged"

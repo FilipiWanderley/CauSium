@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
+import pytest
+
 from app.domains.cloud_ledger.service import CloudLedgerService
+from app.domains.connectors.base import (
+    CanonicalRecommendationRecord,
+    CanonicalResourceRecord,
+    CanonicalUsageRecord,
+)
 
 
 def test_get_detailed_costs_applies_combined_filters_and_paginates(monkeypatch):
@@ -164,3 +172,86 @@ def test_get_reservation_efficiency_uses_advisor_signals_for_exchange_and_renewa
     assert result.families[0].renewal_window_days == 30
     assert result.families[0].recommended_action == "do_not_renew"
     assert result.families[0].action_priority >= 4
+
+
+@pytest.mark.asyncio
+async def test_provider_advanced_ingestion_works_for_non_azure_clients(monkeypatch):
+    inserted_tables: list[str] = []
+
+    def fake_insert_rows(table: str, rows: list[dict]):
+        assert rows
+        inserted_tables.append(table)
+
+    monkeypatch.setattr("app.domains.cloud_ledger.service.insert_rows", fake_insert_rows)
+
+    class DummyClient:
+        async def fetch_recommendations(self, subscription_id: str):
+            return [
+                CanonicalRecommendationRecord(
+                    recommendation_id="r-1",
+                    provider="aws",
+                    subscription_id=subscription_id,
+                    category="Cost",
+                    impact="High",
+                    resource_id="i-123",
+                    resource_name="i-123",
+                    resource_group="",
+                    service="EC2",
+                    short_description="Right size instance",
+                    recommendation_type_id="rightsize",
+                    estimated_savings_usd=25.0,
+                    fetched_at=datetime.now(timezone.utc),
+                )
+            ]
+
+        async def fetch_inventory(self, subscription_id: str):
+            return [
+                CanonicalResourceRecord(
+                    resource_id="arn:aws:ec2:us-east-1:123:instance/i-123",
+                    provider="aws",
+                    subscription_id=subscription_id,
+                    name="i-123",
+                    resource_type="ec2:instance",
+                    resource_group="",
+                    location="us-east-1",
+                    environment="production",
+                    owner_team="platform",
+                    sku_name="t3.medium",
+                    sku_tier="",
+                    provisioning_state="running",
+                    tags={"team": "platform"},
+                    fetched_at=datetime.now(timezone.utc),
+                )
+            ]
+
+        async def fetch_usage_metrics(self, subscription_id: str, start: date, end: date):
+            return [
+                CanonicalUsageRecord(
+                    date=start,
+                    provider="aws",
+                    subscription_id=subscription_id,
+                    service="AmazonEC2",
+                    resource_id="i-123",
+                    metric_name="CPUUtilization",
+                    metric_value=12.5,
+                    metric_unit="Percent",
+                    region="us-east-1",
+                    environment="production",
+                )
+            ]
+
+    service = CloudLedgerService(db=None)
+    org_id = uuid4()
+    account_id = uuid4()
+    subscription_id = "123456789012"
+
+    recs = await service._ingest_provider_recommendations(DummyClient(), org_id, account_id, subscription_id)
+    inv = await service._ingest_provider_inventory(DummyClient(), org_id, account_id, subscription_id)
+    usage = await service._ingest_provider_usage_metrics(
+        DummyClient(), org_id, account_id, subscription_id, date(2026, 1, 1), date(2026, 1, 2)
+    )
+
+    assert recs == 1
+    assert inv == 1
+    assert usage == 1
+    assert inserted_tables == ["recommendation_facts", "resource_inventory", "usage_facts"]
