@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import csv
 import gzip
 import io
@@ -87,9 +88,43 @@ class AwsConnectorClient(BaseConnector):
             region_name="us-east-1",
         )
 
+    async def _call_with_backoff(self, operation_name: str, fn, *args, **kwargs):
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return fn(*args, **kwargs)
+            except (ClientError, BotoCoreError) as exc:
+                if attempt >= max_attempts or not self._is_retryable_error(exc):
+                    raise
+                delay_s = 0.5 * (2 ** (attempt - 1))
+                log.warning(
+                    "aws.api.retry",
+                    operation=operation_name,
+                    attempt=attempt,
+                    delay_s=delay_s,
+                    reason=str(exc),
+                )
+                await asyncio.sleep(delay_s)
+
+    @staticmethod
+    def _is_retryable_error(exc: Exception) -> bool:
+        if isinstance(exc, BotoCoreError):
+            return True
+        if isinstance(exc, ClientError):
+            code = str((exc.response or {}).get("Error", {}).get("Code", "")).lower()
+            retryable_tokens = (
+                "throttl",
+                "toomanyrequests",
+                "requestlimit",
+                "serviceunavailable",
+                "internalerror",
+            )
+            return any(token in code for token in retryable_tokens)
+        return False
+
     async def validate_connection(self) -> None:
         sts = self._client("sts")
-        identity = sts.get_caller_identity()
+        identity = await self._call_with_backoff("sts.get_caller_identity", sts.get_caller_identity)
         log.info("aws.validate_connection.ok", account=str(identity.get("Account") or "unknown"))
 
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
@@ -97,7 +132,9 @@ class AwsConnectorClient(BaseConnector):
         end = date.today()
         start = end - timedelta(days=1)
         try:
-            ce.get_cost_and_usage(
+            await self._call_with_backoff(
+                "ce.get_cost_and_usage",
+                ce.get_cost_and_usage,
                 TimePeriod={"Start": start.isoformat(), "End": end.isoformat()},
                 Granularity="DAILY",
                 Metrics=["UnblendedCost"],
@@ -359,8 +396,35 @@ class AwsConnectorClient(BaseConnector):
         start: date,
         end: date,
     ) -> list[CanonicalCarbonRecord]:
-        # AWS carbon integration is out-of-scope for phase 1 in this connector.
-        return []
+        try:
+            costs = await self.fetch_costs(subscription_id, start, end)
+        except Exception as exc:
+            log.warning("aws.fetch_carbon.failed", account=subscription_id, reason=str(exc))
+            return []
+
+        aggregated: dict[tuple[str, str], float] = {}
+        for row in costs:
+            year_month = row.date.strftime("%Y-%m")
+            service = row.service or "unknown"
+            factor = self._estimate_carbon_factor_kg_per_usd(service)
+            kg = max(row.cost_usd, 0.0) * factor
+            key = (year_month, service)
+            aggregated[key] = aggregated.get(key, 0.0) + kg
+
+        records = [
+            CanonicalCarbonRecord(
+                year_month=ym,
+                provider="aws",
+                subscription_id=subscription_id,
+                service=service,
+                resource_group="global",
+                kg_co2e=round(kg, 6),
+            )
+            for (ym, service), kg in sorted(aggregated.items(), key=lambda item: item[0])
+            if kg > 0
+        ]
+        log.info("aws.fetch_carbon.done", account=subscription_id, records=len(records))
+        return records
 
     async def fetch_recommendations(
         self, subscription_id: str
@@ -369,16 +433,26 @@ class AwsConnectorClient(BaseConnector):
         now = datetime.now(timezone.utc)
         try:
             support = self._support_client()
-            checks = support.describe_trusted_advisor_checks(language="en").get("checks", [])
+            checks = (
+                await self._call_with_backoff(
+                    "support.describe_trusted_advisor_checks",
+                    support.describe_trusted_advisor_checks,
+                    language="en",
+                )
+            ).get("checks", [])
             for check in checks:
                 if check.get("category") != "cost_optimizing":
                     continue
                 check_id = str(check.get("id") or "")
                 if not check_id:
                     continue
-                result = support.describe_trusted_advisor_check_result(
-                    checkId=check_id,
-                    language="en",
+                result = (
+                    await self._call_with_backoff(
+                        "support.describe_trusted_advisor_check_result",
+                        support.describe_trusted_advisor_check_result,
+                        checkId=check_id,
+                        language="en",
+                    )
                 ).get("result", {})
                 flagged = result.get("flaggedResources", [])
                 for item in flagged:
@@ -425,7 +499,11 @@ class AwsConnectorClient(BaseConnector):
                 args = {"ResourcesPerPage": 100}
                 if token:
                     args["PaginationToken"] = token
-                page = tagging.get_resources(**args)
+                page = await self._call_with_backoff(
+                    "resourcegroupstaggingapi.get_resources",
+                    tagging.get_resources,
+                    **args,
+                )
                 for mapping in page.get("ResourceTagMappingList", []):
                     arn = str(mapping.get("ResourceARN") or "")
                     tags_list = mapping.get("Tags") or []
@@ -484,7 +562,9 @@ class AwsConnectorClient(BaseConnector):
                             for t in (instance.get("Tags") or [])
                         }
                         region = self.region
-                        metric = cloudwatch.get_metric_statistics(
+                        metric = await self._call_with_backoff(
+                            "cloudwatch.get_metric_statistics",
+                            cloudwatch.get_metric_statistics,
                             Namespace="AWS/EC2",
                             MetricName="CPUUtilization",
                             Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
@@ -575,3 +655,18 @@ class AwsConnectorClient(BaseConnector):
             if val:
                 return str(val)
         return "untagged"
+
+    @staticmethod
+    def _estimate_carbon_factor_kg_per_usd(service: str) -> float:
+        token = service.lower()
+        # Cost-to-emissions approximation to unlock cross-cloud baseline carbon views
+        # when a provider-native carbon API is unavailable.
+        if any(key in token for key in ("ec2", "compute", "lambda", "eks")):
+            return 0.42
+        if any(key in token for key in ("rds", "redshift", "dynamodb", "elasticache")):
+            return 0.35
+        if any(key in token for key in ("s3", "storage", "ebs", "efs")):
+            return 0.22
+        if any(key in token for key in ("cloudfront", "data transfer", "network")):
+            return 0.18
+        return 0.3

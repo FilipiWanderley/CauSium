@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date, datetime, timezone
 from importlib import import_module
@@ -108,15 +109,48 @@ class GcpConnectorClient(BaseConnector):
 
         url = f"https://cloudresourcemanager.googleapis.com/v1/projects/{self.project_id}"
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(url, headers={"Authorization": f"Bearer {creds.token}"})
-            if resp.status_code >= 400:
-                raise ValueError(f"Unable to access GCP project '{self.project_id}': {resp.text}")
+            resp = await self._get_with_retries(
+                client,
+                url,
+                headers={"Authorization": f"Bearer {creds.token}"},
+            )
+            if resp is None:
+                raise ValueError(f"Unable to access GCP project '{self.project_id}'")
 
     def _access_token(self) -> str:
         google_auth_request = self._import_symbol("google.auth.transport.requests", "Request")
         creds = self._get_credentials()
         creds.refresh(google_auth_request())
         return str(creds.token)
+
+    async def _get_with_retries(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        headers: dict[str, str],
+        params: dict | None = None,
+        allow_missing: bool = False,
+    ) -> httpx.Response | None:
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            response = await client.get(url, headers=headers, params=params)
+            if allow_missing and response.status_code in {403, 404}:
+                return None
+            if response.status_code in {429, 500, 502, 503, 504} and attempt < max_attempts:
+                delay_s = 0.5 * (2 ** (attempt - 1))
+                log.warning(
+                    "gcp.http.retry",
+                    url=url,
+                    status=response.status_code,
+                    attempt=attempt,
+                    delay_s=delay_s,
+                )
+                await asyncio.sleep(delay_s)
+                continue
+            response.raise_for_status()
+            return response
+        return None
 
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
         if not self.billing_export_table:
@@ -242,8 +276,35 @@ class GcpConnectorClient(BaseConnector):
         start: date,
         end: date,
     ) -> list[CanonicalCarbonRecord]:
-        # Dedicated GCP carbon API integration remains out-of-scope for phase 1.
-        return []
+        try:
+            costs = await self.fetch_costs(subscription_id, start, end)
+        except Exception as exc:
+            log.warning("gcp.fetch_carbon.failed", project=self.project_id, reason=str(exc))
+            return []
+
+        aggregated: dict[tuple[str, str], float] = {}
+        for row in costs:
+            year_month = row.date.strftime("%Y-%m")
+            service = row.service or "unknown"
+            factor = self._estimate_carbon_factor_kg_per_usd(service)
+            kg = max(row.cost_usd, 0.0) * factor
+            key = (year_month, service)
+            aggregated[key] = aggregated.get(key, 0.0) + kg
+
+        records = [
+            CanonicalCarbonRecord(
+                year_month=ym,
+                provider="gcp",
+                subscription_id=subscription_id,
+                service=service,
+                resource_group="global",
+                kg_co2e=round(kg, 6),
+            )
+            for (ym, service), kg in sorted(aggregated.items(), key=lambda item: item[0])
+            if kg > 0
+        ]
+        log.info("gcp.fetch_carbon.done", project=self.project_id, records=len(records))
+        return records
 
     async def fetch_recommendations(
         self,
@@ -254,10 +315,13 @@ class GcpConnectorClient(BaseConnector):
         now = datetime.now(timezone.utc)
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
-                recs_resp = await client.get(
+                recs_resp = await self._get_with_retries(
+                    client,
                     f"https://recommender.googleapis.com/v1/projects/{self.project_id}/locations/-/recommenders",
                     headers=headers,
                 )
+                if recs_resp is None:
+                    return []
                 recs_resp.raise_for_status()
                 recommenders = recs_resp.json().get("recommenders", [])
                 for recommender in recommenders:
@@ -272,12 +336,14 @@ class GcpConnectorClient(BaseConnector):
                         params = {"filter": 'stateInfo.state = "ACTIVE"', "pageSize": 100}
                         if page_token:
                             params["pageToken"] = page_token
-                        response = await client.get(
+                        response = await self._get_with_retries(
+                            client,
                             f"https://recommender.googleapis.com/v1/{rec_name}/recommendations",
                             headers=headers,
                             params=params,
+                            allow_missing=True,
                         )
-                        if response.status_code in {403, 404}:
+                        if response is None:
                             break
                         response.raise_for_status()
                         payload = response.json()
@@ -327,11 +393,14 @@ class GcpConnectorClient(BaseConnector):
                     params = {"maxResults": 500}
                     if page_token:
                         params["pageToken"] = page_token
-                    response = await client.get(
+                    response = await self._get_with_retries(
+                        client,
                         f"https://compute.googleapis.com/compute/v1/projects/{self.project_id}/aggregated/instances",
                         headers=headers,
                         params=params,
                     )
+                    if response is None:
+                        break
                     response.raise_for_status()
                     payload = response.json()
                     for scoped in (payload.get("items") or {}).values():
@@ -392,12 +461,14 @@ class GcpConnectorClient(BaseConnector):
                     }
                     if page_token:
                         params["pageToken"] = page_token
-                    response = await client.get(
+                    response = await self._get_with_retries(
+                        client,
                         f"https://monitoring.googleapis.com/v3/projects/{self.project_id}/timeSeries",
                         headers=headers,
                         params=params,
+                        allow_missing=True,
                     )
-                    if response.status_code in {403, 404}:
+                    if response is None:
                         break
                     response.raise_for_status()
                     payload = response.json()
@@ -497,3 +568,16 @@ class GcpConnectorClient(BaseConnector):
             if val:
                 return str(val)
         return "untagged"
+
+    @staticmethod
+    def _estimate_carbon_factor_kg_per_usd(service: str) -> float:
+        token = service.lower()
+        if any(key in token for key in ("compute", "gke", "run", "functions")):
+            return 0.4
+        if any(key in token for key in ("sql", "spanner", "bigtable", "database")):
+            return 0.34
+        if any(key in token for key in ("storage", "filestore", "persistent disk")):
+            return 0.2
+        if any(key in token for key in ("network", "load balancing", "cdn")):
+            return 0.17
+        return 0.29

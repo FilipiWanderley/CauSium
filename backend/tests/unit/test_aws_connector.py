@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from app.domains.connectors.aws.client import AwsConnectorClient
+from app.domains.connectors.base import CanonicalCostRecord
 
 
 def test_normalize_cost_explorer_page_maps_groups() -> None:
@@ -96,3 +99,52 @@ def test_consume_last_cur_checkpoints_clears_state() -> None:
     assert len(first) == 1
     assert first[0]["checkpoint_key"] == "k1"
     assert second == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_carbon_emissions_estimates_from_costs(monkeypatch):
+    client = AwsConnectorClient(access_key_id="a", secret_access_key="b")
+
+    async def fake_fetch_costs(subscription_id: str, start: date, end: date):
+        return [
+            CanonicalCostRecord(
+                date=date(2026, 4, 1),
+                provider="aws",
+                subscription_id=subscription_id,
+                service="AmazonEC2",
+                resource_id="",
+                resource_name="",
+                region="us-east-1",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=100.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+            CanonicalCostRecord(
+                date=date(2026, 4, 2),
+                provider="aws",
+                subscription_id=subscription_id,
+                service="AmazonS3",
+                resource_id="",
+                resource_name="",
+                region="us-east-1",
+                environment="unknown",
+                owner_team="untagged",
+                cost_usd=50.0,
+                usage_quantity=0.0,
+                usage_unit="",
+                currency="USD",
+                tags={},
+            ),
+        ]
+
+    monkeypatch.setattr(client, "fetch_costs", fake_fetch_costs)
+    rows = await client.fetch_carbon_emissions("123456789012", date(2026, 4, 1), date(2026, 4, 30))
+
+    assert len(rows) == 2
+    by_service = {row.service: row.kg_co2e for row in rows}
+    assert by_service["AmazonEC2"] == 42.0
+    assert by_service["AmazonS3"] == 11.0
