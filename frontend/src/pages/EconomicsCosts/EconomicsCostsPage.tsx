@@ -217,6 +217,16 @@ export function EconomicsCostsPage() {
   const visibleFamilies = criticalOnly
     ? prioritizedFamilies.filter((item) => item.action_priority >= 4)
     : prioritizedFamilies
+  const hasTextFilters = Boolean(serviceQuery || providerQuery || teamQuery)
+
+  const clearTextFilters = () => {
+    setServiceQuery('')
+    setProviderQuery('')
+    setTeamQuery('')
+    setServicePage(1)
+    setTeamPage(1)
+    setPage(1)
+  }
 
   return (
     <div className="space-y-6">
@@ -279,6 +289,16 @@ export function EconomicsCostsPage() {
             <div className="text-xs uppercase tracking-wide text-gray-500">{ec.visibleCost}</div>
             <div className="mt-1 text-xl font-semibold text-gray-900">{money.format(totalFilteredCost)}</div>
           </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={clearTextFilters}
+            disabled={!hasTextFilters}
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t.common.reset}
+          </button>
         </div>
       </div>
 
