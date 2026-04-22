@@ -30,6 +30,7 @@
 - [Modelo de Dados](#-modelo-de-dados)
 - [APIs](#-apis)
 - [Fluxos Principais](#-fluxos-principais)
+- [Análise de Eficiência de Reservas](#-análise-de-eficiência-de-reservas)
 - [Workers e Processamento](#-workers-e-processamento)
 - [Observabilidade](#-observabilidade)
 - [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
@@ -729,6 +730,45 @@ Permissões:
 
 - Leitura disponível para usuários autenticados do workspace (inclui perfis cliente/viewer).
 
+### Eficiência de Reservas vs Recursos Utilizados (Em implementação)
+
+Objetivo:
+
+- Identificar quando a reserva comprada (por família/SKU) está subutilizada em relação ao parque real de recursos.
+- Recomendar a melhor ação financeira e operacional para cada caso: manter, redimensionar workload, trocar reserva (exchange) ou encerrar no ciclo de renovação.
+
+Endpoint planejado:
+
+```
+GET /ledger/reservations/efficiency?days=30
+```
+
+Saída planejada:
+
+- `family`: família de reserva (ex.: `Standard_B2s`)
+- `reserved_capacity_units`: capacidade reservada contratada
+- `effective_used_units`: capacidade efetivamente usada no período
+- `idle_reserved_units`: capacidade ociosa da reserva
+- `utilization_pct`: taxa de utilização da reserva
+- `waste_cost_usd`: custo estimado de desperdício da reserva
+- `payg_equivalent_cost_usd`: custo equivalente sem reserva (on-demand)
+- `exchange_candidate`: indicador se há potencial de troca de reserva por perfil mais aderente
+- `recommended_action`: ação recomendada (`keep`, `resize_resource`, `schedule_stop`, `exchange_reservation`, `do_not_renew`)
+- `reason`: justificativa legível para usuário final
+- `confidence`: confiança da recomendação (0-1)
+
+Regras de decisão planejadas:
+
+- Reserva com baixa utilização e workload não crítico: priorizar `schedule_stop` ou `resize_resource`.
+- Reserva com ociosidade recorrente e mismatch de família/SKU: priorizar `exchange_reservation` quando elegível.
+- Reserva próxima da expiração com baixa utilização histórica: priorizar `do_not_renew`.
+- Workload estável e reserva bem aproveitada: manter `keep`.
+
+Notas:
+
+- A recomendação considera histórico de consumo, previsibilidade de uso e custo comparativo contra PAYG.
+- Elegibilidade de exchange/refund depende de regras do provedor cloud e contrato vigente do cliente.
+
 ### Janela Histórica de Ingestão (Cloud Sync)
 
 Regra de negócio padrão para onboarding e sincronização de contas cloud:
@@ -783,6 +823,29 @@ Mutações críticas aceitam header `Idempotency-Key: <uuid4>` para garantia de 
 ---
 
 ## 🔄 Fluxos Principais
+
+## 🧠 Análise de Eficiência de Reservas
+
+### Objetivo de Negócio
+
+- Fechar o gap entre o que foi contratado em reserva e o que está realmente em execução no ambiente.
+- Evitar desperdício por reserva ociosa e evitar decisões agressivas que gerem risco operacional.
+
+### Matriz de Decisão (planejada)
+
+| Situação detectada | Ação principal | Resultado esperado |
+|--------------------|----------------|--------------------|
+| Reserva bem utilizada (`utilization_pct` alto) | `keep` | Preserva economia já capturada |
+| Reserva subutilizada + workload flexível | `resize_resource` | Melhor aderência da VM ao compromisso |
+| Reserva subutilizada + janela ociosa previsível | `schedule_stop` | Redução de custo operacional adicional |
+| Mismatch estrutural de família/SKU | `exchange_reservation` | Migração para reserva mais aderente |
+| Baixa utilização recorrente no fim do termo | `do_not_renew` | Evita perpetuar desperdício no próximo ciclo |
+
+### Escopo técnico da implementação
+
+- Agregação por família/SKU a partir de custos e inventário de recursos.
+- Simulação financeira comparando reserva atual vs cenário alternativo.
+- Geração de recomendação explicável com score de confiança.
 
 ### Fluxo 1 — Anomalia para Experimento
 
