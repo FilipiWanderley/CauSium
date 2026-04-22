@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, Filter } from 'lucide-react'
+import { Download, Filter, Lightbulb, AlertTriangle, CalendarClock } from 'lucide-react'
 import { ledgerApi, type ExportJob } from '../../api/ledger'
-import type { PageResponse, ServiceBreakdown, DetailedCostRow } from '../../types'
+import type {
+  PageResponse,
+  ServiceBreakdown,
+  DetailedCostRow,
+  ReservationEfficiencyAction,
+  ReservationEfficiencyByFamily,
+} from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 
 const money = new Intl.NumberFormat('en-US', {
@@ -156,7 +162,6 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
 export function EconomicsCostsPage() {
   const { t } = useI18n()
   const ec = t.economicsCosts
-  const common = t.common
 
   const [days, setDays] = useState(30)
   const [serviceQuery, setServiceQuery] = useState('')
@@ -191,6 +196,10 @@ export function EconomicsCostsPage() {
           page_size: 20,
         })
         .then((r) => r.data),
+  })
+  const reservationEfficiencyQuery = useQuery({
+    queryKey: ['economics-reservation-efficiency', days],
+    queryFn: () => ledgerApi.reservationEfficiency(days).then((r) => r.data),
   })
 
   const serviceItems = servicesQuery.data?.items ?? []
@@ -268,6 +277,48 @@ export function EconomicsCostsPage() {
         days={days}
         filters={{ service: serviceQuery || undefined, provider: providerQuery || undefined, owner_team: teamQuery || undefined }}
       />
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-500" />
+            <h2 className="text-sm font-semibold text-gray-900">{ec.reservationEfficiency}</h2>
+          </div>
+          <div className="text-xs text-gray-500">
+            {ec.familiesCount.replace('{{count}}', String(reservationEfficiencyQuery.data?.total_families ?? 0))}
+          </div>
+        </div>
+        {reservationEfficiencyQuery.isLoading ? (
+          <div className="py-8 text-center text-sm text-gray-500">{ec.loadingReservationEfficiency}</div>
+        ) : !(reservationEfficiencyQuery.data?.families.length ?? 0) ? (
+          <div className="py-8 text-center text-sm text-gray-500">{ec.noReservationEfficiency}</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.avgUtilization}</div>
+                <div className="mt-1 text-lg font-semibold text-gray-900">
+                  {reservationEfficiencyQuery.data?.avg_utilization_pct.toFixed(1)}%
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalWaste}</div>
+                <div className="mt-1 text-lg font-semibold text-red-600">
+                  {money.format(reservationEfficiencyQuery.data?.total_waste_cost_usd ?? 0)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalReserved}</div>
+                <div className="mt-1 text-lg font-semibold text-gray-900">
+                  {money.format(reservationEfficiencyQuery.data?.total_reserved_capacity_units ?? 0)}
+                </div>
+              </div>
+            </div>
+            <p className="mb-3 text-sm text-gray-600">{reservationEfficiencyQuery.data?.recommendation}</p>
+            <ReservationEfficiencyTable rows={reservationEfficiencyQuery.data?.families ?? []} ec={ec} />
+          </>
+        )}
+      </div>
 
       {/* Detailed costs table */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -404,6 +455,27 @@ type EcKeys = {
   colTeam: string
   colEnvironment: string
   colRegion: string
+  colFamily: string
+  colPriority: string
+  colUtilization: string
+  colAction: string
+  colWaste: string
+  colRenewal: string
+  colAdvisor: string
+  reservationEfficiency: string
+  familiesCount: string
+  loadingReservationEfficiency: string
+  noReservationEfficiency: string
+  avgUtilization: string
+  totalWaste: string
+  totalReserved: string
+  noRenewalWindow: string
+  noAdvisorSignals: string
+  actionKeep: string
+  actionResize: string
+  actionScheduleStop: string
+  actionExchange: string
+  actionDoNotRenew: string
 }
 
 function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: string; ec: EcKeys }) {
@@ -458,6 +530,65 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
               <td className="py-2 pr-3 text-gray-700">{row.environment ?? '-'}</td>
               <td className="py-2 pr-3 text-gray-700">{row.region ?? '-'}</td>
               <td className="py-2 text-gray-700">{money.format(row.cost_usd)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ReservationEfficiencyTable({ rows, ec }: { rows: ReservationEfficiencyByFamily[]; ec: EcKeys }) {
+  const actionLabel: Record<ReservationEfficiencyAction, string> = {
+    keep: ec.actionKeep,
+    resize_resource: ec.actionResize,
+    schedule_stop: ec.actionScheduleStop,
+    exchange_reservation: ec.actionExchange,
+    do_not_renew: ec.actionDoNotRenew,
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left text-xs font-medium text-gray-500">
+            <th className="pb-2 pr-3">{ec.colFamily}</th>
+            <th className="pb-2 pr-3">{ec.colPriority}</th>
+            <th className="pb-2 pr-3">{ec.colUtilization}</th>
+            <th className="pb-2 pr-3">{ec.colWaste}</th>
+            <th className="pb-2 pr-3">{ec.colAction}</th>
+            <th className="pb-2 pr-3">{ec.colRenewal}</th>
+            <th className="pb-2">{ec.colAdvisor}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((row) => (
+            <tr key={row.family}>
+              <td className="py-2 pr-3 font-medium text-gray-800">{row.family}</td>
+              <td className="py-2 pr-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                  <AlertTriangle className="h-3 w-3" />
+                  P{row.action_priority}
+                </span>
+              </td>
+              <td className="py-2 pr-3 text-gray-700">{row.utilization_pct.toFixed(1)}%</td>
+              <td className="py-2 pr-3 text-red-600">{money.format(row.waste_cost_usd)}</td>
+              <td className="py-2 pr-3">
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  {actionLabel[row.recommended_action]}
+                </span>
+              </td>
+              <td className="py-2 pr-3 text-gray-700">
+                {row.renewal_window_days != null ? (
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarClock className="h-3 w-3 text-gray-500" />
+                    {row.renewal_window_days}d
+                  </span>
+                ) : ec.noRenewalWindow}
+              </td>
+              <td className="py-2 text-gray-700">
+                {row.advisory_signals.length ? row.advisory_signals[0] : ec.noAdvisorSignals}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -5,6 +5,7 @@ import type {
   DetailedCostRow,
   PageResponse,
   ReservationCoverageSummary,
+  ReservationEfficiencySummary,
   ServiceBreakdown,
 } from '../types'
 
@@ -30,6 +31,9 @@ export const ledgerApi = {
 
   reservationCoverage: (days = 30) =>
     apiClient.get<ReservationCoverageSummary>(`/ledger/reservations/coverage?days=${days}`),
+
+  reservationEfficiency: (days = 30) =>
+    apiClient.get<ReservationEfficiencySummary>(`/ledger/reservations/efficiency?days=${days}`),
 
   topServicesPaginated: (days = 30, page = 1, page_size = 50) =>
     apiClient.get<PageResponse<ServiceBreakdown>>(`/ledger/costs/services`, { params: { days, page, page_size } }),

@@ -110,6 +110,45 @@ export interface ReservationCoverageSummary {
   recommendation: string
 }
 
+export type ReservationEfficiencyAction =
+  | 'keep'
+  | 'resize_resource'
+  | 'schedule_stop'
+  | 'exchange_reservation'
+  | 'do_not_renew'
+
+export interface ReservationEfficiencyByFamily {
+  family: string
+  reserved_capacity_units: number
+  effective_used_units: number
+  idle_reserved_units: number
+  utilization_pct: number
+  waste_cost_usd: number
+  payg_equivalent_cost_usd: number
+  exchange_candidate: boolean
+  recommended_action: ReservationEfficiencyAction
+  reason: string
+  confidence: number
+  action_priority: number
+  exchange_eligible: boolean
+  renewal_window_days: number | null
+  advisory_signals: string[]
+}
+
+export interface ReservationEfficiencySummary {
+  period_start: string
+  period_end: string
+  total_families: number
+  total_reserved_capacity_units: number
+  total_effective_used_units: number
+  total_idle_reserved_units: number
+  avg_utilization_pct: number
+  total_waste_cost_usd: number
+  total_payg_equivalent_cost_usd: number
+  families: ReservationEfficiencyByFamily[]
+  recommendation: string
+}
+
 export interface DetailedCostRow {
   date: string
   account_id: string
