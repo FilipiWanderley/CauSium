@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap } from 'lucide-react'
+import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
@@ -9,7 +9,7 @@ import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
 import { changeEventsApi } from '../../api/changeEvents'
 import { useI18n } from '../../contexts/I18nContext'
-import type { ChangeEvent, ChangeEventType } from '../../types'
+import type { ChangeEvent, ChangeEventType, ReservationEfficiencyAction } from '../../types'
 import clsx from 'clsx'
 
 const fmt = (n: number) =>
@@ -31,6 +31,14 @@ const EVENT_COLOR: Record<ChangeEventType, string> = {
   config_change: 'text-purple-500 bg-purple-50',
   scaling: 'text-cyan-500 bg-cyan-50',
   policy_change: 'text-gray-500 bg-gray-100',
+}
+
+const ACTION_COLOR: Record<ReservationEfficiencyAction, string> = {
+  keep: 'bg-green-50 text-green-700',
+  resize_resource: 'bg-blue-50 text-blue-700',
+  schedule_stop: 'bg-amber-50 text-amber-700',
+  exchange_reservation: 'bg-purple-50 text-purple-700',
+  do_not_renew: 'bg-red-50 text-red-700',
 }
 
 function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
@@ -113,6 +121,11 @@ export function DashboardPage() {
     queryFn: () => changeEventsApi.list({ limit: 50 }).then((r) => r.data.items),
   })
 
+  const { data: reservationEfficiency } = useQuery({
+    queryKey: ['dashboard', 'reservation-efficiency'],
+    queryFn: () => ledgerApi.reservationEfficiency(30).then((r) => r.data),
+  })
+
   if (metricsLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -128,6 +141,17 @@ export function DashboardPage() {
   const feedEvents = [...recentEvents]
     .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
     .slice(0, 8)
+  const topReservationFamilies = [...(reservationEfficiency?.families ?? [])]
+    .sort((a, b) => b.action_priority - a.action_priority || b.waste_cost_usd - a.waste_cost_usd)
+    .slice(0, 3)
+
+  const actionLabel: Record<ReservationEfficiencyAction, string> = {
+    keep: d.resActionKeep,
+    resize_resource: d.resActionResize,
+    schedule_stop: d.resActionScheduleStop,
+    exchange_reservation: d.resActionExchange,
+    do_not_renew: d.resActionDoNotRenew,
+  }
 
   return (
     <div className="space-y-6">
@@ -223,7 +247,52 @@ export function DashboardPage() {
       </div>
 
       {/* Change events feed + Accounts table */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <h2 className="text-sm font-semibold text-gray-900">{d.reservationsTitle}</h2>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-brand-600 hover:underline"
+              onClick={() => navigate('/app/economics/costs')}
+            >
+              {d.reservationsViewAll}
+            </button>
+          </div>
+          {topReservationFamilies.length > 0 ? (
+            <div className="space-y-3">
+              {topReservationFamilies.map((item) => (
+                <div key={item.family} className="rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-gray-900">{item.family}</p>
+                    <span
+                      className={clsx(
+                        'rounded-full px-2 py-0.5 text-xs font-medium',
+                        ACTION_COLOR[item.recommended_action],
+                      )}
+                    >
+                      {actionLabel[item.recommended_action]}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {d.reservationsPriority.replace('{{priority}}', String(item.action_priority))}
+                    {' · '}
+                    {d.reservationsWaste.replace('{{waste}}', fmt(item.waste_cost_usd))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600 line-clamp-2">{item.reason}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-32 items-center justify-center text-sm text-gray-400">
+              {d.reservationsEmpty}
+            </div>
+          )}
+        </div>
+
         {/* Recent change events feed */}
         <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">

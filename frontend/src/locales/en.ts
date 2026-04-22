@@ -86,6 +86,16 @@ export interface Translations {
     noChangeEvents: string
     noAccounts: string
     changeEventsOverlaid: string
+    reservationsTitle: string
+    reservationsViewAll: string
+    reservationsPriority: string
+    reservationsWaste: string
+    reservationsEmpty: string
+    resActionKeep: string
+    resActionResize: string
+    resActionScheduleStop: string
+    resActionExchange: string
+    resActionDoNotRenew: string
   }
   budget: {
     title: string
@@ -685,6 +695,16 @@ export const en: Translations = {
     noChangeEvents: 'No change events logged yet.',
     noAccounts: 'No accounts connected yet.',
     changeEventsOverlaid: '{{count}} change event{{s}} overlaid',
+    reservationsTitle: 'Reservation Priorities',
+    reservationsViewAll: 'Open costs →',
+    reservationsPriority: 'Priority P{{priority}}',
+    reservationsWaste: 'Waste {{waste}}',
+    reservationsEmpty: 'No reservation action items for now.',
+    resActionKeep: 'Keep',
+    resActionResize: 'Resize',
+    resActionScheduleStop: 'Schedule stop',
+    resActionExchange: 'Exchange',
+    resActionDoNotRenew: 'Do not renew',
   },
   budget: {
     title: 'Workspace Budget',
