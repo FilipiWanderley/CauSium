@@ -38,6 +38,8 @@ class AwsConnectorClient(BaseConnector):
         region: str = "us-east-1",
         cur_bucket: str | None = None,
         cur_prefix: str | None = None,
+        carbon_export_bucket: str | None = None,
+        carbon_export_prefix: str | None = None,
     ):
         self.access_key_id = access_key_id
         self.secret_access_key = secret_access_key
@@ -45,6 +47,8 @@ class AwsConnectorClient(BaseConnector):
         self.region = region
         self.cur_bucket = cur_bucket
         self.cur_prefix = cur_prefix or ""
+        self.carbon_export_bucket = carbon_export_bucket
+        self.carbon_export_prefix = carbon_export_prefix or ""
         self._last_cur_checkpoints: list[dict[str, str]] = []
 
     @classmethod
@@ -58,6 +62,8 @@ class AwsConnectorClient(BaseConnector):
                 region=creds.region or "us-east-1",
                 cur_bucket=creds.cur_bucket,
                 cur_prefix=creds.cur_prefix,
+                carbon_export_bucket=settings.aws_carbon_export_bucket or None,
+                carbon_export_prefix=settings.aws_carbon_export_prefix or None,
             )
         if settings.aws_credentials_available:
             return cls(
@@ -67,6 +73,8 @@ class AwsConnectorClient(BaseConnector):
                 region=settings.aws_region,
                 cur_bucket=settings.aws_cur_bucket or None,
                 cur_prefix=settings.aws_cur_prefix or None,
+                carbon_export_bucket=settings.aws_carbon_export_bucket or None,
+                carbon_export_prefix=settings.aws_carbon_export_prefix or None,
             )
         raise ValueError("AWS credentials are required for this account")
 
@@ -417,6 +425,11 @@ class AwsConnectorClient(BaseConnector):
         start: date,
         end: date,
     ) -> list[CanonicalCarbonRecord]:
+        official_rows = await self._fetch_carbon_from_export_files(subscription_id, start, end)
+        if official_rows:
+            log.info("aws.fetch_carbon.official.done", account=subscription_id, records=len(official_rows))
+            return official_rows
+
         try:
             costs = await self.fetch_costs(subscription_id, start, end)
         except Exception as exc:
@@ -446,6 +459,113 @@ class AwsConnectorClient(BaseConnector):
         ]
         log.info("aws.fetch_carbon.done", account=subscription_id, records=len(records))
         return records
+
+    async def _fetch_carbon_from_export_files(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCarbonRecord]:
+        if not self.carbon_export_bucket:
+            return []
+
+        s3 = self._client("s3")
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=self.carbon_export_bucket, Prefix=self.carbon_export_prefix)
+
+        aggregate: dict[tuple[str, str], float] = {}
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = str(obj.get("Key") or "")
+                if not key.endswith(".csv") and not key.endswith(".csv.gz"):
+                    continue
+                try:
+                    payload = s3.get_object(Bucket=self.carbon_export_bucket, Key=key)["Body"].read()
+                    for row in self._parse_carbon_export_csv(payload, start, end):
+                        k = (row.year_month, row.service)
+                        aggregate[k] = aggregate.get(k, 0.0) + row.kg_co2e
+                except Exception as exc:
+                    log.warning("aws.fetch_carbon.export_file_failed", key=key, reason=str(exc))
+                    continue
+
+        return [
+            CanonicalCarbonRecord(
+                year_month=year_month,
+                provider="aws",
+                subscription_id=subscription_id,
+                service=service,
+                resource_group="global",
+                kg_co2e=round(kg, 6),
+            )
+            for (year_month, service), kg in sorted(aggregate.items(), key=lambda x: x[0])
+            if kg > 0
+        ]
+
+    @staticmethod
+    def _parse_carbon_export_csv(
+        raw_bytes: bytes,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCarbonRecord]:
+        try:
+            decoded = gzip.decompress(raw_bytes).decode("utf-8")
+        except Exception:
+            decoded = raw_bytes.decode("utf-8")
+
+        start_ym = f"{start.year:04d}-{start.month:02d}"
+        end_ym = f"{end.year:04d}-{end.month:02d}"
+
+        out: list[CanonicalCarbonRecord] = []
+        reader = csv.DictReader(io.StringIO(decoded))
+        for row in reader:
+            normalized = {str(k or "").strip().lower(): str(v or "").strip() for k, v in row.items()}
+            raw_month = (
+                normalized.get("year_month")
+                or normalized.get("month")
+                or normalized.get("billing_month")
+                or normalized.get("period")
+            )
+            if not raw_month:
+                continue
+            month = raw_month[:7].replace("/", "-")
+            if len(month) != 7:
+                continue
+            if month < start_ym or month > end_ym:
+                continue
+
+            raw_service = (
+                normalized.get("service")
+                or normalized.get("service_name")
+                or normalized.get("product")
+                or "unknown"
+            )
+            raw_kg = (
+                normalized.get("kg_co2e")
+                or normalized.get("kgco2e")
+                or normalized.get("co2e_kg")
+                or normalized.get("emissions_kg")
+            )
+            if raw_kg is None:
+                continue
+            try:
+                kg = float(raw_kg)
+            except ValueError:
+                continue
+            if kg <= 0:
+                continue
+
+            out.append(
+                CanonicalCarbonRecord(
+                    year_month=month,
+                    provider="aws",
+                    subscription_id="",
+                    service=raw_service,
+                    resource_group="global",
+                    kg_co2e=kg,
+                )
+            )
+
+        return out
 
     async def fetch_recommendations(
         self, subscription_id: str

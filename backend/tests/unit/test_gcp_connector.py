@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.connectors.base import CanonicalCostRecord
+from app.domains.connectors.base import CanonicalCarbonRecord, CanonicalCostRecord
 from app.domains.connectors.gcp.client import GcpConnectorClient
 
 
@@ -117,3 +117,35 @@ async def test_fetch_carbon_emissions_uses_configured_factors(monkeypatch):
     by_service = {row.service: row.kg_co2e for row in rows}
     assert by_service["Compute Engine"] == 5.5
     assert by_service["Cloud Storage"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_fetch_carbon_emissions_prefers_official_bigquery(monkeypatch):
+    client = GcpConnectorClient(
+        service_account_json=None,
+        project_id="my-project",
+        use_workload_identity=True,
+        billing_export_table="billing.export_table",
+    )
+
+    async def fake_official(subscription_id: str, start: date, end: date):
+        return [
+            CanonicalCarbonRecord(
+                year_month="2026-04",
+                provider="gcp",
+                subscription_id=subscription_id,
+                service="Compute Engine",
+                resource_group="global",
+                kg_co2e=8.5,
+            )
+        ]
+
+    async def fail_fetch_costs(subscription_id: str, start: date, end: date):
+        raise AssertionError("fetch_costs should not be called when official carbon exists")
+
+    monkeypatch.setattr(client, "_fetch_carbon_from_bigquery", fake_official)
+    monkeypatch.setattr(client, "fetch_costs", fail_fetch_costs)
+
+    rows = await client.fetch_carbon_emissions("my-project", date(2026, 4, 1), date(2026, 4, 30))
+    assert len(rows) == 1
+    assert rows[0].kg_co2e == 8.5

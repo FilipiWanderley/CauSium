@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 
 from app.domains.connectors.aws.client import AwsConnectorClient
-from app.domains.connectors.base import CanonicalCostRecord
+from app.domains.connectors.base import CanonicalCarbonRecord, CanonicalCostRecord
 
 
 def test_normalize_cost_explorer_page_maps_groups() -> None:
@@ -200,3 +200,49 @@ async def test_fetch_carbon_emissions_uses_configured_factors(monkeypatch):
     by_service = {row.service: row.kg_co2e for row in rows}
     assert by_service["AmazonEC2"] == 5.0
     assert by_service["AmazonCloudFront"] == 2.5
+
+
+def test_parse_carbon_export_csv_filters_period() -> None:
+    payload = (
+        "year_month,service,kg_co2e\n"
+        "2026-03,AmazonEC2,100\n"
+        "2026-04,AmazonEC2,10\n"
+        "2026-04,AmazonS3,4\n"
+        "2026-05,AmazonEC2,7\n"
+    ).encode("utf-8")
+
+    rows = AwsConnectorClient._parse_carbon_export_csv(
+        payload,
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 30),
+    )
+    assert len(rows) == 2
+    services = {row.service for row in rows}
+    assert services == {"AmazonEC2", "AmazonS3"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_carbon_emissions_prefers_official_source(monkeypatch):
+    client = AwsConnectorClient(access_key_id="a", secret_access_key="b")
+
+    async def fake_official(subscription_id: str, start: date, end: date):
+        return [
+            CanonicalCarbonRecord(
+                year_month="2026-04",
+                provider="aws",
+                subscription_id=subscription_id,
+                service="AmazonEC2",
+                resource_group="global",
+                kg_co2e=9.0,
+            )
+        ]
+
+    async def fail_fetch_costs(subscription_id: str, start: date, end: date):
+        raise AssertionError("fetch_costs should not be called when official carbon exists")
+
+    monkeypatch.setattr(client, "_fetch_carbon_from_export_files", fake_official)
+    monkeypatch.setattr(client, "fetch_costs", fail_fetch_costs)
+
+    rows = await client.fetch_carbon_emissions("123456789012", date(2026, 4, 1), date(2026, 4, 30))
+    assert len(rows) == 1
+    assert rows[0].kg_co2e == 9.0

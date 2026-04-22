@@ -33,12 +33,14 @@ class GcpConnectorClient(BaseConnector):
         use_workload_identity: bool = False,
         billing_export_table: str | None = None,
         logging_filter: str | None = None,
+        carbon_footprint_table: str | None = None,
     ):
         self.service_account_json = service_account_json
         self.project_id = project_id
         self.use_workload_identity = use_workload_identity
         self.billing_export_table = billing_export_table
         self.logging_filter = logging_filter
+        self.carbon_footprint_table = carbon_footprint_table
         self._credentials = None
 
     @classmethod
@@ -51,6 +53,7 @@ class GcpConnectorClient(BaseConnector):
                 use_workload_identity=bool(getattr(creds, "use_workload_identity", False)),
                 billing_export_table=creds.billing_export_table,
                 logging_filter=creds.logging_filter,
+                carbon_footprint_table=settings.gcp_carbon_footprint_table or None,
             )
         if settings.gcp_credentials_available:
             return cls(
@@ -59,6 +62,7 @@ class GcpConnectorClient(BaseConnector):
                 use_workload_identity=settings.gcp_use_workload_identity,
                 billing_export_table=settings.gcp_billing_export_table or None,
                 logging_filter=settings.gcp_logging_filter or None,
+                carbon_footprint_table=settings.gcp_carbon_footprint_table or None,
             )
         raise ValueError("GCP credentials are required for this account")
 
@@ -296,6 +300,11 @@ class GcpConnectorClient(BaseConnector):
         start: date,
         end: date,
     ) -> list[CanonicalCarbonRecord]:
+        official = await self._fetch_carbon_from_bigquery(subscription_id, start, end)
+        if official:
+            log.info("gcp.fetch_carbon.official.done", project=self.project_id, records=len(official))
+            return official
+
         try:
             costs = await self.fetch_costs(subscription_id, start, end)
         except Exception as exc:
@@ -325,6 +334,71 @@ class GcpConnectorClient(BaseConnector):
         ]
         log.info("gcp.fetch_carbon.done", project=self.project_id, records=len(records))
         return records
+
+    async def _fetch_carbon_from_bigquery(
+        self,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCarbonRecord]:
+        if not self.carbon_footprint_table:
+            return []
+
+        bigquery = self._import_module("google.cloud.bigquery")
+        client = bigquery.Client(project=self.project_id, credentials=self._get_credentials())
+        start_month = date(start.year, start.month, 1)
+        end_month = date(end.year, end.month, 1)
+
+        query = f"""
+        SELECT
+          FORMAT_DATE('%Y-%m', usage_month) AS year_month,
+          IFNULL(service.description, 'unknown') AS service_name,
+          SUM(carbon_footprint_total_kgCO2e) AS kg_co2e
+        FROM `{self.carbon_footprint_table}`
+        WHERE usage_month BETWEEN @start_month AND @end_month
+        GROUP BY year_month, service_name
+        ORDER BY year_month ASC
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("start_month", "DATE", start_month.isoformat()),
+                bigquery.ScalarQueryParameter("end_month", "DATE", end_month.isoformat()),
+            ]
+        )
+        try:
+            rows = client.query(query, job_config=job_config).result()
+        except Exception as exc:
+            log.warning(
+                "gcp.fetch_carbon.official_query_failed",
+                project=self.project_id,
+                table=self.carbon_footprint_table,
+                reason=str(exc),
+            )
+            return []
+
+        out: list[CanonicalCarbonRecord] = []
+        for row in rows:
+            row_dict = dict(row)
+            year_month = str(row_dict.get("year_month") or "")
+            service = str(row_dict.get("service_name") or "unknown")
+            try:
+                kg = float(row_dict.get("kg_co2e") or 0)
+            except (TypeError, ValueError):
+                continue
+            if len(year_month) != 7 or kg <= 0:
+                continue
+            out.append(
+                CanonicalCarbonRecord(
+                    year_month=year_month,
+                    provider="gcp",
+                    subscription_id=subscription_id,
+                    service=service,
+                    resource_group="global",
+                    kg_co2e=kg,
+                )
+            )
+
+        return out
 
     async def fetch_recommendations(
         self,

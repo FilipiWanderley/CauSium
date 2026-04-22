@@ -1255,7 +1255,7 @@ gantt
 | PulseIntel | 🔶 Parcial | ProviderRecommendation sync — SCA/ARI Wave 3 |
 | PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
 | PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
-| PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR (S3), GCP (BigQuery + Workload Identity) |
+| PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR + Carbon Export (S3), GCP Billing + Carbon Footprint (BigQuery + Workload Identity) |
 | Sync / Workers | ✅ Completo | 8 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance |
 | StratoAudit / Compliance | ✅ Completo | Hash chain SHA-256, HMAC checkpoints, DLQ, audit log UI |
 | Observabilidade | ✅ Completo | OTel tracing, Jaeger, Prometheus, Grafana, SLO endpoint |
@@ -1356,9 +1356,18 @@ OTEL_SAMPLING_RATE=1.0
 WORKER_CONCURRENCY=4
 EXPORT_STORAGE_BACKEND=local   # ou "azure_blob" / "s3"
 
+# Carbono AWS/GCP (official-first com fallback estimado)
+AWS_CARBON_EXPORT_BUCKET=<bucket-opcional-com-export-oficial-de-carbono>
+AWS_CARBON_EXPORT_PREFIX=<prefixo-opcional>
+AWS_CARBON_FACTORS_JSON={"ec2":0.45,"s3":0.2,"default":0.3}
+GCP_CARBON_FOOTPRINT_TABLE=<project.dataset.table-opcional>
+GCP_CARBON_FACTORS_JSON={"compute":0.42,"storage":0.19,"default":0.29}
+
 # Grafana
 GRAFANA_ADMIN_PASSWORD=admin
 ```
+
+> Para AWS e GCP, o módulo PulseGreen usa estratégia **official-first**: tenta primeiro o dataset oficial do provedor (S3 export no AWS, BigQuery Carbon Footprint no GCP). Se o dataset não estiver configurado ou falhar, aplica fallback por estimativa baseada em custo, mantendo continuidade operacional.
 
 > ⚠️ **Nunca commite o arquivo `.env`** — ele está no `.gitignore`. Use apenas `.env.example` com valores de exemplo.
 

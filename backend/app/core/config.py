@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     aws_cur_bucket: str = ""
     aws_cur_prefix: str = ""
+    # Optional AWS carbon export location (CSV/CSV.GZ). When set, carbon ingestion
+    # will prefer this provider dataset before cost-based estimation.
+    aws_carbon_export_bucket: str = ""
+    aws_carbon_export_prefix: str = ""
     # Optional JSON map for kgCO2e per USD factors by AWS service token.
     # Example: {"ec2": 0.45, "s3": 0.2, "default": 0.3}
     aws_carbon_factors_json: str = ""
@@ -72,6 +76,9 @@ class Settings(BaseSettings):
     gcp_use_workload_identity: bool = False
     gcp_billing_export_table: str = ""
     gcp_logging_filter: str = ""
+    # Optional GCP Carbon Footprint BigQuery table.
+    # Expected schema follows Cloud Carbon Footprint export conventions.
+    gcp_carbon_footprint_table: str = ""
     # Optional JSON map for kgCO2e per USD factors by GCP service token.
     # Example: {"compute": 0.42, "storage": 0.19, "default": 0.29}
     gcp_carbon_factors_json: str = ""
