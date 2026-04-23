@@ -6,6 +6,7 @@ import { opportunitiesApi } from '../../api/opportunities'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { useI18n } from '../../contexts/I18nContext'
 import type { Opportunity, OpportunityStatus } from '../../types'
+import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -47,6 +48,12 @@ export function OpportunitiesPage() {
       setSelectedOpp(null)
     },
   })
+
+  const selectedParsedResource = parseAzureResourceId(selectedOpp?.resource_id)
+  const selectedAzurePortalUrl = buildAzurePortalResourceUrl(selectedOpp?.resource_id)
+  const selectedMachineName = selectedParsedResource?.resourceName ?? o.unknownResource
+  const selectedResourceGroup =
+    selectedParsedResource?.resourceGroup ?? selectedOpp?.resource_name ?? o.unknownResource
 
   return (
     <div className="space-y-6">
@@ -115,6 +122,33 @@ export function OpportunitiesPage() {
                 <h3 className="text-lg font-bold text-gray-900">{selectedOpp.title}</h3>
                 <p className="mt-2 text-sm text-gray-600">{selectedOpp.description}</p>
               </div>
+
+              {(selectedOpp.resource_id || selectedOpp.resource_name) && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <h4 className="text-sm font-semibold text-gray-700">{o.targetResource}</h4>
+                  <p className="mt-2 text-xs text-gray-700">
+                    {o.machineName}: <strong>{selectedMachineName}</strong>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-700">
+                    {o.resourceGroup}: <strong>{selectedResourceGroup}</strong>
+                  </p>
+                  {selectedOpp.resource_id && (
+                    <p className="mt-1 break-all text-xs text-gray-500">
+                      {o.resourceId}: {selectedOpp.resource_id}
+                    </p>
+                  )}
+                  {selectedAzurePortalUrl && (
+                    <a
+                      href={selectedAzurePortalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
+                    >
+                      {o.openInAzure}
+                    </a>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-green-50 p-3">

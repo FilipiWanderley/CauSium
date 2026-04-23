@@ -164,6 +164,12 @@ export interface Translations {
     noOpportunities: string
     noOpportunitiesHint: string
     detailTitle: string
+    targetResource: string
+    machineName: string
+    resourceGroup: string
+    resourceId: string
+    openInAzure: string
+    unknownResource: string
     monthlySavings: string
     compositeScore: string
     scoreRationale: string
@@ -987,6 +993,12 @@ export const en: Translations = {
     noOpportunities: 'No opportunities found.',
     noOpportunitiesHint: 'Sync a cloud account and generate opportunities to see results here.',
     detailTitle: 'Opportunity Detail',
+    targetResource: 'Target Resource',
+    machineName: 'Machine',
+    resourceGroup: 'Resource Group',
+    resourceId: 'Resource ID',
+    openInAzure: 'Open in Azure Portal',
+    unknownResource: 'Unknown',
     monthlySavings: 'Monthly Savings',
     compositeScore: 'Composite Score',
     scoreRationale: 'Score Rationale',

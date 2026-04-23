@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 import type { Opportunity } from '../../types'
+import { useI18n } from '../../contexts/I18nContext'
+import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
 
 const RISK_COLORS = {
   low: 'bg-green-100 text-green-700',
@@ -29,6 +31,13 @@ interface Props {
 }
 
 export function OpportunityCard({ opportunity: op, onClick }: Props) {
+  const { t } = useI18n()
+  const o = t.opportunities
+  const parsedResource = parseAzureResourceId(op.resource_id)
+  const azurePortalUrl = buildAzurePortalResourceUrl(op.resource_id)
+  const machineName = parsedResource?.resourceName ?? o.unknownResource
+  const resourceGroup = parsedResource?.resourceGroup ?? op.resource_name ?? o.unknownResource
+
   return (
     <div
       className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
@@ -83,6 +92,29 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
           </p>
         </div>
       </div>
+
+      {(op.resource_id || op.resource_name) && (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-500">{o.targetResource}</p>
+          <p className="mt-1 text-xs text-gray-700">
+            {o.machineName}: <strong>{machineName}</strong>
+          </p>
+          <p className="mt-1 text-xs text-gray-700">
+            {o.resourceGroup}: <strong>{resourceGroup}</strong>
+          </p>
+          {azurePortalUrl && (
+            <a
+              href={azurePortalUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {o.openInAzure}
+            </a>
+          )}
+        </div>
+      )}
 
       {op.owner_team && (
         <div className="mt-3 border-t border-gray-100 pt-3">
