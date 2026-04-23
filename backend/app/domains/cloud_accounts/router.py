@@ -1,13 +1,15 @@
 from __future__ import annotations
+import asyncio
 import json
-from typing import Annotated, List
+from datetime import date, timedelta
+from typing import Annotated, List, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import async_session_factory, get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.core.idempotency import build_fingerprint, build_scope_key, prepare_request, store_response
 from app.core.redis import get_redis_pool
@@ -24,8 +26,66 @@ from app.domains.cloud_accounts.schemas import (
     SyncStatusOut,
 )
 from app.domains.cloud_accounts.service import CloudAccountService
+from app.core.logging import get_logger
 
 router = APIRouter(prefix="/cloud-accounts", tags=["cloud-accounts"])
+log = get_logger(__name__)
+
+
+async def _run_inline_sync_pipeline(org_id: UUID, account_id: UUID, lookback_days: int) -> None:
+    from app.domains.cloud_ledger.service import CloudLedgerService
+    from app.domains.decision_engine.service import DecisionEngineService
+
+    async with async_session_factory() as db:
+        account_service = CloudAccountService(db)
+        account = await account_service.get_account(org_id, account_id)
+        if not account:
+            log.warning(
+                "cloud_account.inline_sync.account_not_found",
+                org_id=str(org_id),
+                account_id=str(account_id),
+            )
+            return
+
+        end = date.today()
+        start = end - timedelta(days=lookback_days)
+        ledger = CloudLedgerService(db)
+        result = await ledger.ingest_account(org_id, account_id, start, end)
+
+        opportunities_generated = 0
+        try:
+            decision_engine = DecisionEngineService(db)
+            opportunities = await decision_engine.generate_opportunities_for_account(org_id, account_id)
+            opportunities_generated = len(opportunities)
+        except Exception as exc:
+            log.warning(
+                "cloud_account.inline_sync.scoring_failed",
+                org_id=str(org_id),
+                account_id=str(account_id),
+                error=str(exc),
+            )
+
+        await NotificationsService(db).create_if_rule_matches(
+            org_id=org_id,
+            category=AlertCategory.ACTIVITY,
+            severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
+            event_type="cloud_account.sync.completed" if result.status == "ok" else "cloud_account.sync.warning",
+            title=f"Sync finished for {account.display_name}",
+            body=(
+                f"Costs: {result.cost_records}, events: {result.event_records}, inventory: {result.inventory_records}, opportunities: {opportunities_generated}"
+                if result.status == "ok"
+                else (result.message or "Sync finished with partial errors.")
+            ),
+            source_type="cloud_account_sync",
+            source_id=f"{account_id}:{lookback_days}:inline",
+            extra_metadata={
+                "account_id": str(account_id),
+                "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
+                "lookback_days": lookback_days,
+                "mode": "inline",
+            },
+        )
+        await db.commit()
 
 
 @router.post("", response_model=CloudAccountOut, status_code=status.HTTP_201_CREATED)
@@ -123,6 +183,7 @@ async def trigger_sync(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
     lookback_days: int = Query(default=90, ge=7, le=90),
+    sync_mode: Literal["queued", "inline"] = Query(default="inline"),
 ):
     service = CloudAccountService(db)
     account = await service.get_account(current_user.org_id, account_id)
@@ -158,34 +219,45 @@ async def trigger_sync(
                 detail="Request with this Idempotency-Key is still being processed",
             )
 
-    payload = json.dumps(
-        {
-            "org_id": str(current_user.org_id),
-            "account_id": str(account_id),
-            "lookback_days": lookback_days,
-        }
-    )
-    await redis.lpush("ingestion:queue", payload)
-    await NotificationsService(db).create_if_rule_matches(
-        org_id=current_user.org_id,
-        category=AlertCategory.ACTIVITY,
-        severity=AlertSeverity.INFO,
-        event_type="cloud_account.sync.queued",
-        title=f"Sync queued for {account.display_name}",
-        body=f"Ingestion requested for last {lookback_days} days.",
-        source_type="cloud_account_sync",
-        source_id=f"{account_id}:{lookback_days}",
-        extra_metadata={
-            "account_id": str(account_id),
-            "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
-            "lookback_days": lookback_days,
-        },
-    )
-    out = SyncStatusOut(
-        account_id=account_id,
-        triggered=True,
-        message=f"Sync job queued ({lookback_days} days)",
-    )
+    if sync_mode == "inline":
+        asyncio.create_task(
+            _run_inline_sync_pipeline(current_user.org_id, account_id, lookback_days)
+        )
+        out = SyncStatusOut(
+            account_id=account_id,
+            triggered=True,
+            message=f"Sync started inline ({lookback_days} days).",
+        )
+    else:
+        payload = json.dumps(
+            {
+                "org_id": str(current_user.org_id),
+                "account_id": str(account_id),
+                "lookback_days": lookback_days,
+            }
+        )
+        await redis.lpush("ingestion:queue", payload)
+        await NotificationsService(db).create_if_rule_matches(
+            org_id=current_user.org_id,
+            category=AlertCategory.ACTIVITY,
+            severity=AlertSeverity.INFO,
+            event_type="cloud_account.sync.queued",
+            title=f"Sync queued for {account.display_name}",
+            body=f"Ingestion requested for last {lookback_days} days.",
+            source_type="cloud_account_sync",
+            source_id=f"{account_id}:{lookback_days}",
+            extra_metadata={
+                "account_id": str(account_id),
+                "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
+                "lookback_days": lookback_days,
+                "mode": "queued",
+            },
+        )
+        out = SyncStatusOut(
+            account_id=account_id,
+            triggered=True,
+            message=f"Sync job queued ({lookback_days} days)",
+        )
     if scope_key:
         await store_response(
             redis,

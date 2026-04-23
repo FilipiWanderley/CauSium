@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb, ChevronDown } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
@@ -113,9 +113,12 @@ function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Recor
 export function DashboardPage() {
   const { t, lang } = useI18n()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const d = t.dashboard
   const ce = t.changeEvents
   const [explainOpen, setExplainOpen] = useState(false)
+  const budgetSectionRef = useRef<HTMLDivElement | null>(null)
+  const [actionMessage, setActionMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
   const [anomalyHighOnly, setAnomalyHighOnly] = usePersistentBoolean('sp.dashboard.anomalyHighOnly', false)
   const [providerMenuOpen, setProviderMenuOpen] = useState(false)
@@ -167,6 +170,56 @@ export function DashboardPage() {
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
     queryFn: () => cloudAccountsApi.list().then((r) => r.data.items),
+  })
+
+  const refreshDashboardMutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['cloud-accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['opportunities', 'summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['change-events', 'dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['workspace-budget'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard', 'reservation-efficiency'] }),
+        queryClient.invalidateQueries({ queryKey: ['intel'] }),
+      ])
+    },
+    onSuccess: () => setActionMessage({ kind: 'success', text: d.refreshSuccess }),
+    onError: () => setActionMessage({ kind: 'error', text: d.actionError }),
+  })
+
+  const queueIngestionMutation = useMutation({
+    mutationFn: async () => {
+      const targetAccounts = (accounts ?? []).filter(
+        (a) =>
+          a.status === 'active' &&
+          (providerParam ? a.provider === providerParam : true),
+      )
+      if (targetAccounts.length === 0) {
+        throw new Error('NO_ACTIVE_ACCOUNTS')
+      }
+      await Promise.all(targetAccounts.map((a) => cloudAccountsApi.sync(a.id, 30)))
+      return targetAccounts.length
+    },
+    onSuccess: async (queuedCount) => {
+      setActionMessage({
+        kind: 'success',
+        text: d.ingestQueuedSuccess.replace('{{count}}', String(queuedCount)),
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['cloud-accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['opportunities', 'summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['change-events', 'dashboard'] }),
+      ])
+    },
+    onError: (error) => {
+      const isNoAccounts = error instanceof Error && error.message === 'NO_ACTIVE_ACCOUNTS'
+      setActionMessage({
+        kind: 'error',
+        text: isNoAccounts ? d.ingestNoAccounts : d.actionError,
+      })
+    },
   })
 
   useEffect(() => {
@@ -359,46 +412,85 @@ export function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">{d.title}</h1>
           <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
         </div>
-        <label className="text-sm text-gray-600">
-          {d.providerScope}
-          <div className="relative mt-1">
+        <div className="flex flex-col items-end gap-2">
+          <label className="text-sm text-gray-600">
+            {d.providerScope}
+            <div className="relative mt-1">
+              <button
+                type="button"
+                onClick={() => setProviderMenuOpen((prev) => !prev)}
+                className="inline-flex min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                <span>{providerLabelMap[providerFilter]}</span>
+                <ChevronDown
+                  className={clsx(
+                    'h-4 w-4 text-gray-400 transition-transform',
+                    providerMenuOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+              {providerMenuOpen && (
+                <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+                  {DASHBOARD_PROVIDERS.map((providerOption) => (
+                    <button
+                      key={providerOption}
+                      type="button"
+                      onClick={() => {
+                        setProviderFilterRaw(providerOption)
+                        setProviderMenuOpen(false)
+                      }}
+                      className={clsx(
+                        'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
+                        providerOption === providerFilter
+                          ? 'bg-brand-50 text-brand-700'
+                          : 'text-gray-700 hover:bg-gray-50',
+                      )}
+                    >
+                      {providerLabelMap[providerOption]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </label>
+          <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
-              onClick={() => setProviderMenuOpen((prev) => !prev)}
-              className="inline-flex min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              onClick={() => refreshDashboardMutation.mutate()}
+              disabled={refreshDashboardMutation.isPending}
+              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span>{providerLabelMap[providerFilter]}</span>
-              <ChevronDown
-                className={clsx(
-                  'h-4 w-4 text-gray-400 transition-transform',
-                  providerMenuOpen && 'rotate-180',
-                )}
-              />
+              {refreshDashboardMutation.isPending ? d.refreshingData : d.refreshData}
             </button>
-            {providerMenuOpen && (
-              <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-                {DASHBOARD_PROVIDERS.map((providerOption) => (
-                  <button
-                    key={providerOption}
-                    type="button"
-                    onClick={() => {
-                      setProviderFilterRaw(providerOption)
-                      setProviderMenuOpen(false)
-                    }}
-                    className={clsx(
-                      'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
-                      providerOption === providerFilter
-                        ? 'bg-brand-50 text-brand-700'
-                        : 'text-gray-700 hover:bg-gray-50',
-                    )}
-                  >
-                    {providerLabelMap[providerOption]}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                budgetSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              {d.adjustBudget}
+            </button>
+            <button
+              type="button"
+              onClick={() => queueIngestionMutation.mutate()}
+              disabled={queueIngestionMutation.isPending || !accounts}
+              className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}
+            </button>
           </div>
-        </label>
+          {actionMessage && (
+            <p
+              className={clsx(
+                'text-xs',
+                actionMessage.kind === 'success' ? 'text-green-700' : 'text-red-700',
+              )}
+            >
+              {actionMessage.text}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -451,7 +543,9 @@ export function DashboardPage() {
       </div>
 
       {/* Budget widget — SP-EC01 */}
-      <BudgetWidget />
+      <div ref={budgetSectionRef}>
+        <BudgetWidget />
+      </div>
 
       {/* AI Insights + Cost Anomalies */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

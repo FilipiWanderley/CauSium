@@ -64,6 +64,15 @@ export interface Translations {
     title: string
     subtitle: string
     providerScope: string
+    refreshData: string
+    refreshingData: string
+    adjustBudget: string
+    queueIngestion: string
+    queueingIngestion: string
+    refreshSuccess: string
+    ingestQueuedSuccess: string
+    ingestNoAccounts: string
+    actionError: string
     providerAll: string
     providerAzure: string
     providerAws: string
@@ -895,6 +904,15 @@ export const en: Translations = {
     title: 'Dashboard',
     subtitle: 'Cloud spending overview and optimization scorecard',
     providerScope: 'Provider scope',
+    refreshData: 'Refresh data',
+    refreshingData: 'Refreshing...',
+    adjustBudget: 'Adjust budget',
+    queueIngestion: 'Queue ingestion',
+    queueingIngestion: 'Queueing...',
+    refreshSuccess: 'Dashboard data refreshed.',
+    ingestQueuedSuccess: 'Ingestion queued for {{count}} account(s).',
+    ingestNoAccounts: 'No active account available for ingestion.',
+    actionError: 'Action failed. Please try again.',
     providerAll: 'All providers',
     providerAzure: 'Azure',
     providerAws: 'AWS',
