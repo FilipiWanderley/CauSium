@@ -28,6 +28,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useI18n } from '../../contexts/I18nContext'
 import type { Translations } from '../../locales/en'
 import { notificationsApi } from '../../api/notifications'
+import { preloadRoute } from '../../routes/lazyPages'
 
 type NavItem = {
   to: string
@@ -67,6 +68,9 @@ function SideNavLink({ to, icon: Icon, label, soon, badge }: NavItem) {
     <NavLink
       to={to}
       end
+      onMouseEnter={() => preloadRoute(to)}
+      onFocus={() => preloadRoute(to)}
+      onPointerDown={() => preloadRoute(to)}
       className={({ isActive }) =>
         clsx(NAV_LINK_CLASS, isActive ? ACTIVE_CLASS : INACTIVE_CLASS)
       }

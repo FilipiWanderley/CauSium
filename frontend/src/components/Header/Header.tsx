@@ -5,6 +5,7 @@ import { notificationsApi } from '../../api/notifications'
 import { useAuth } from '../../hooks/useAuth'
 import { useI18n, type Language } from '../../contexts/I18nContext'
 import { UserAvatar } from '../Avatar/UserAvatar'
+import { preloadRoute } from '../../routes/lazyPages'
 
 const LANG_LABELS: Record<Language, string> = { en: 'EN', pt: 'PT' }
 const LANGS: Language[] = ['en', 'pt']
@@ -57,6 +58,9 @@ export function Header() {
 
         <Link
           to="/app/notifications"
+          onMouseEnter={() => preloadRoute('/app/notifications')}
+          onFocus={() => preloadRoute('/app/notifications')}
+          onPointerDown={() => preloadRoute('/app/notifications')}
           className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
           title="Notificações"
           aria-label="Abrir notificações"
