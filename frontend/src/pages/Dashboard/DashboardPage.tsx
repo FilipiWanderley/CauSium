@@ -102,7 +102,7 @@ function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Recor
 }
 
 export function DashboardPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const navigate = useNavigate()
   const d = t.dashboard
   const ce = t.changeEvents
@@ -345,6 +345,7 @@ export function DashboardPage() {
                 explainMutation.mutate({
                   start_date: explainWindow.start_date,
                   end_date: explainWindow.end_date,
+                  language: lang,
                   ...(providerParam ? { provider: providerParam } : {}),
                 })
               }}

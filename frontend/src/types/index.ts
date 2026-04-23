@@ -480,6 +480,7 @@ export interface ExplainCostChangeRequest {
   start_date: string
   end_date: string
   provider?: CloudProvider
+  language?: 'pt' | 'en'
 }
 
 export interface ExplainCostCause {

@@ -29,6 +29,7 @@ async def explain_cost_change(
             start_date=req.start_date,
             end_date=req.end_date,
             provider=req.provider.lower() if req.provider else None,
+            language=req.language or "en",
         )
     except PermissionError:
         raise HTTPException(

@@ -49,6 +49,7 @@ class CostExplanationService:
         start_date: date,
         end_date: date,
         provider: str | None = None,
+        language: str = "en",
     ) -> ExplainCostChangeOut:
         await self._require_ai_feature(org_id)
 
@@ -64,6 +65,7 @@ class CostExplanationService:
 
         context = {
             "workspace": {"org_id": str(org_id), "plan": (await self._get_org_plan(org_id))},
+            "language": (language or "en").lower(),
             "period": {
                 "current": {"start": str(current.start), "end": str(current.end)},
                 "previous": {"start": str(previous.start), "end": str(previous.end)},
@@ -315,4 +317,3 @@ class CostExplanationService:
                 }
             )
         return out
-

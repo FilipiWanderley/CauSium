@@ -15,16 +15,24 @@ class LlmService:
 
     async def explain_cost_change(self, context: dict[str, Any]) -> ExplainCostChangeOut:
         provider = (self.settings.ai_provider or "mock").lower()
+        language = _normalize_language(context.get("language"))
         if provider == "mock":
-            return _mock_explain_cost_change(context)
+            return _mock_explain_cost_change(context, language=language)
         if provider == "openai":
-            return await self._openai_explain_cost_change(context)
+            return await self._openai_explain_cost_change(context, language=language)
         raise ValueError(f"Unsupported AI provider: {provider}")
 
-    async def _openai_explain_cost_change(self, context: dict[str, Any]) -> ExplainCostChangeOut:
+    async def _openai_explain_cost_change(
+        self, context: dict[str, Any], *, language: str
+    ) -> ExplainCostChangeOut:
         if not self.settings.ai_openai_api_key:
             raise ValueError("AI provider is openai, but AI_OPENAI_API_KEY is not set")
 
+        language_instruction = (
+            "Respond in Brazilian Portuguese."
+            if language == "pt"
+            else "Respond in English."
+        )
         payload = {
             "model": self.settings.ai_model,
             "temperature": 0.2,
@@ -34,14 +42,19 @@ class LlmService:
                     "content": (
                         "You are a FinOps assistant for a cloud cost intelligence platform. "
                         "You receive structured telemetry about cost changes and relevant events. "
-                        "Return only valid JSON matching the required schema."
+                        "Return only valid JSON matching the required schema. "
+                        f"{language_instruction}"
                     ),
                 },
                 {
                     "role": "user",
                     "content": json.dumps(
                         {
-                            "task": "Explain cost change for a workspace and propose actions.",
+                            "task": (
+                                "Explain cost change for a workspace and propose actions."
+                                if language == "en"
+                                else "Explique a variacao de custo do workspace e proponha acoes."
+                            ),
                             "required_json_schema": {
                                 "summary": "string",
                                 "causes": [
@@ -74,7 +87,7 @@ class LlmService:
 
         content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
         parsed = _parse_llm_json(content)
-        out = _coerce_out(parsed)
+        out = _coerce_out(parsed, language=language)
         out.model = self.settings.ai_model
         return out
 
@@ -90,7 +103,7 @@ def _parse_llm_json(text: str) -> dict[str, Any]:
         raise
 
 
-def _coerce_out(payload: dict[str, Any]) -> ExplainCostChangeOut:
+def _coerce_out(payload: dict[str, Any], *, language: str = "en") -> ExplainCostChangeOut:
     causes_raw = payload.get("causes") or []
     causes: list[ExplainCostCause] = []
     for item in causes_raw[:10]:
@@ -98,7 +111,8 @@ def _coerce_out(payload: dict[str, Any]) -> ExplainCostChangeOut:
             continue
         causes.append(
             ExplainCostCause(
-                cause=str(item.get("cause") or "").strip() or "Unknown driver",
+                cause=str(item.get("cause") or "").strip()
+                or ("Driver desconhecido" if language == "pt" else "Unknown driver"),
                 evidence=[str(e) for e in (item.get("evidence") or []) if str(e).strip()][:8],
                 estimated_impact_usd=(
                     float(item["estimated_impact_usd"])
@@ -116,40 +130,79 @@ def _coerce_out(payload: dict[str, Any]) -> ExplainCostChangeOut:
     confidence_f = max(0.0, min(1.0, confidence_f))
 
     return ExplainCostChangeOut(
-        summary=str(payload.get("summary") or "").strip() or "No summary provided.",
+        summary=str(payload.get("summary") or "").strip()
+        or ("Resumo nao disponivel." if language == "pt" else "No summary provided."),
         causes=causes,
-        impact=str(payload.get("impact") or "").strip() or "Impact not available.",
+        impact=str(payload.get("impact") or "").strip()
+        or ("Impacto nao disponivel." if language == "pt" else "Impact not available."),
         recommendation=str(payload.get("recommendation") or "").strip()
-        or "Review the cost drivers and validate scaling and deployment changes.",
+        or (
+            "Revise os drivers de custo e valide mudancas recentes de deploy e escalabilidade."
+            if language == "pt"
+            else "Review the cost drivers and validate scaling and deployment changes."
+        ),
         confidence=confidence_f,
     )
 
 
-def _mock_explain_cost_change(context: dict[str, Any]) -> ExplainCostChangeOut:
+def _mock_explain_cost_change(
+    context: dict[str, Any], *, language: str = "en"
+) -> ExplainCostChangeOut:
     pct = context.get("delta", {}).get("change_pct")
     top_increases = context.get("drivers", {}).get("top_increases") or []
-    top_service = (top_increases[0].get("service") if top_increases else None) or "unknown service"
+    top_service = (
+        (top_increases[0].get("service") if top_increases else None)
+        or ("servico desconhecido" if language == "pt" else "unknown service")
+    )
     summary = (
-        f"Cost changed by {pct}% driven primarily by {top_service} and recent workload changes."
+        (
+            f"O custo variou {pct}% puxado principalmente por {top_service} e mudancas recentes de carga."
+            if language == "pt"
+            else f"Cost changed by {pct}% driven primarily by {top_service} and recent workload changes."
+        )
         if pct is not None
-        else "Cost changed in the selected period due to workload and resource usage shifts."
+        else (
+            "O custo variou no periodo selecionado por mudancas de uso e comportamento de recursos."
+            if language == "pt"
+            else "Cost changed in the selected period due to workload and resource usage shifts."
+        )
     )
     causes = []
     if top_increases:
         d = top_increases[0]
         causes.append(
             ExplainCostCause(
-                cause=f"Increased spend in {d.get('service')}",
-                evidence=[f"Delta USD: {d.get('delta_usd')}"] if d.get("delta_usd") is not None else [],
+                cause=(
+                    f"Aumento de gasto em {d.get('service')}"
+                    if language == "pt"
+                    else f"Increased spend in {d.get('service')}"
+                ),
+                evidence=(
+                    [f"Delta USD: {d.get('delta_usd')}"]
+                    if d.get("delta_usd") is not None
+                    else []
+                ),
                 estimated_impact_usd=float(d["delta_usd"]) if d.get("delta_usd") is not None else None,
             )
         )
     return ExplainCostChangeOut(
         summary=summary,
         causes=causes,
-        impact="Top drivers indicate service-level increases concentrated in a small set of services.",
-        recommendation="Validate recent deploys and scaling events, then right-size or adjust autoscaling policies.",
+        impact=(
+            "Os principais drivers mostram aumentos de custo concentrados em poucos servicos."
+            if language == "pt"
+            else "Top drivers indicate service-level increases concentrated in a small set of services."
+        ),
+        recommendation=(
+            "Valide deploys e eventos de escala recentes, depois faca rightsizing e ajuste de autoscaling."
+            if language == "pt"
+            else "Validate recent deploys and scaling events, then right-size or adjust autoscaling policies."
+        ),
         confidence=0.35,
         model="mock",
     )
 
+
+def _normalize_language(value: Any) -> str:
+    v = str(value or "en").strip().lower()
+    return "pt" if v.startswith("pt") else "en"

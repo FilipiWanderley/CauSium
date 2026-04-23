@@ -98,12 +98,13 @@ A primeira capacidade de IA do produto está implementada em produção local: *
 - Destaca causas prováveis com evidências e impacto estimado.
 - Cruza dados de custos (`cost_facts`), eventos (`event_facts`) e recomendações (`recommendation_facts`).
 - Retorna plano de ação objetivo para engenharia/FinOps.
+- Respeita idioma da interface (`PT`/`EN`) para conteúdo gerado pela IA.
 - Controla acesso por plano (`AI_ENABLED_PLANS` + regras default de plano com IA).
 
 **Contrato de API**
 
 - Endpoint: `POST /api/v1/intel/explain-cost`
-- Entrada: `start_date`, `end_date`, `provider?`
+- Entrada: `start_date`, `end_date`, `provider?`, `language?` (`pt` | `en`)
 - Saída: `summary`, `causes[]`, `impact`, `recommendation`, `confidence`, `model?`, `debug?`
 - Erros esperados: `422` (período inválido), `403` (IA não habilitada no plano)
 
