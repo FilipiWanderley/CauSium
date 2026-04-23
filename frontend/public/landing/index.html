@@ -65,8 +65,8 @@
                         <span id="currentLangText">EN</span>
                     </button>
 
-                    <a href="/login" class="text-[13px] hover:text-white transition-colors hidden sm:block text-white/60" data-i18n="nav_signin">Sign in</a>
-                    <button class="group hidden sm:inline-flex overflow-hidden transition-all duration-300 hover:-translate-y-0.5 rounded-sm pt-[1px] pr-[1px] pb-[1px] pl-[1px] relative items-center justify-center" onclick="window.location.href='/login'" role="button">
+                    <a href="/login?prompt=login" class="text-[13px] hover:text-white transition-colors hidden sm:block text-white/60" data-i18n="nav_signin">Sign in</a>
+                    <button class="group hidden sm:inline-flex overflow-hidden transition-all duration-300 hover:-translate-y-0.5 rounded-sm pt-[1px] pr-[1px] pb-[1px] pl-[1px] relative items-center justify-center" onclick="window.location.href='/login?prompt=login'" role="button">
                         <span class="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,transparent_75%,#ffffff_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
                         <span class="absolute inset-0 rounded-sm bg-zinc-800 transition-opacity duration-300 group-hover:opacity-0"></span>
                         <span class="flex items-center justify-center gap-2 transition-colors duration-300 group-hover:text-white text-[11px] font-medium text-zinc-300 tracking-tight bg-black w-full h-full rounded-sm pt-2 pr-4 pb-2 pl-4 relative">
@@ -86,8 +86,8 @@
                 <a href="#product" class="text-sm hover:text-white transition-colors text-white/60 mobile-link" data-i18n="nav_product">Product</a>
                 <a href="#solutions" class="text-sm hover:text-white transition-colors text-white/60 mobile-link" data-i18n="nav_solutions">Solutions</a>
                 <a href="#pricing" class="text-sm hover:text-white transition-colors text-white/60 mobile-link" data-i18n="nav_pricing">Pricing</a>
-                <a href="/login" class="text-sm hover:text-white transition-colors text-white/60 mobile-link" data-i18n="nav_signin">Sign in</a>
-                <a href="/login" class="text-sm font-semibold hover:text-white transition-colors text-indigo-400 mobile-link" data-i18n="nav_demo">Request Demo</a>
+                <a href="/login?prompt=login" class="text-sm hover:text-white transition-colors text-white/60 mobile-link" data-i18n="nav_signin">Sign in</a>
+                <a href="/login?prompt=login" class="text-sm font-semibold hover:text-white transition-colors text-indigo-400 mobile-link" data-i18n="nav_demo">Request Demo</a>
             </div>
         </nav>
 
@@ -1082,7 +1082,7 @@
                         </a>
 
                         <!-- Request Demo -->
-                        <a href="/login" class="group relative py-8 lg:pl-8 flex items-center justify-between hover:bg-white/[0.02] transition-all duration-500">
+                        <a href="/login?prompt=login" class="group relative py-8 lg:pl-8 flex items-center justify-between hover:bg-white/[0.02] transition-all duration-500">
                             <div class="flex items-center gap-4">
                                 <iconify-icon icon="solar:rocket-2-linear" class="text-white/40 group-hover:text-white transition-colors duration-300" width="20"></iconify-icon>
                                 <span class="text-sm font-medium text-white/60 group-hover:text-white transition-colors font-sans" data-i18n="ft_soc4">Request Demo</span>

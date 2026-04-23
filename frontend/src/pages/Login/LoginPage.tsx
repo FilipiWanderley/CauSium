@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Cpu, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useI18n } from '../../contexts/I18nContext'
 
 export function LoginPage() {
-  const { login, loginWithPasskey, isAuthenticated } = useAuth()
+  const { login, loginWithPasskey, isAuthenticated, logout } = useAuth()
   const { t } = useI18n()
+  const navigate = useNavigate()
   const lg = t.login
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,11 +18,13 @@ export function LoginPage() {
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [oidcLoading, setOidcLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [forceLoginPrompt, setForceLoginPrompt] = useState(false)
   const apiBase = useMemo(() => import.meta.env.VITE_API_URL || '', [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oidcError = params.get('oidc_error')
+    setForceLoginPrompt(params.get('prompt') === 'login')
     if (oidcError) setError(lg.oidcFailed.replace('{{error}}', oidcError))
     if (params.get('reset') === 'success') {
       setResetSuccess(true)
@@ -32,6 +35,12 @@ export function LoginPage() {
       setError('')
     }
   }, [lg.oidcFailed])
+
+  useEffect(() => {
+    if (forceLoginPrompt && isAuthenticated) {
+      logout()
+    }
+  }, [forceLoginPrompt, isAuthenticated, logout])
 
   useEffect(() => {
     if ((window as unknown as { UnicornStudio?: { isInitialized?: boolean } }).UnicornStudio?.isInitialized) {
@@ -51,7 +60,7 @@ export function LoginPage() {
     document.head.appendChild(script)
   }, [])
 
-  if (isAuthenticated) return <Navigate to="/app/dashboard" replace />
+  if (isAuthenticated && !forceLoginPrompt) return <Navigate to="/app/dashboard" replace />
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +68,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
+      navigate('/app/dashboard', { replace: true })
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 401 || status === 403) {
@@ -78,6 +88,7 @@ export function LoginPage() {
     setPasskeyLoading(true)
     try {
       await loginWithPasskey(email)
+      navigate('/app/dashboard', { replace: true })
     } catch {
       setError(lg.passkeyFailed)
     } finally {
