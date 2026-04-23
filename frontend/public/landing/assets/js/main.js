@@ -325,11 +325,13 @@
         };
 
         // Language Handling Logic
-        let currentLang = localStorage.getItem('causium_lang') || 'en';
+        // Read from React app key first, fallback to landing key, then default 'en'
+        let currentLang = localStorage.getItem('causium:lang') || localStorage.getItem('causium_lang') || 'en';
 
         function setLanguage(lang) {
             currentLang = lang;
             localStorage.setItem('causium_lang', lang);
+            localStorage.setItem('causium:lang', lang); // sync with React app
             document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
             document.getElementById('currentLangText').innerText = lang.toUpperCase();
 
