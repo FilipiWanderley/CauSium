@@ -125,6 +125,8 @@ class OptimizationOpportunity(Base):
     # Resource context
     resource_id: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     resource_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sku_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    machine_family: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     service: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     region: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     environment: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

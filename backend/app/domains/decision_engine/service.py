@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
+import re
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -44,6 +45,7 @@ class DecisionEngineService:
                     sum(cost_usd) as monthly_cost,
                     argMax(resource_id, date) as resource_id,
                     argMax(resource_name, date) as resource_name,
+                    argMax(sku_name, date) as sku_name,
                     count() as data_points
                 FROM cost_facts
                 WHERE org_id = {org_id:String}
@@ -103,6 +105,8 @@ class DecisionEngineService:
             team = str(row.get("owner_team", "untagged"))
             resource_id = str(row.get("resource_id", ""))
             resource_name = str(row.get("resource_name", ""))
+            sku_name = (row.get("sku_name") or "").strip()
+            machine_family = _infer_machine_family(sku_name, resource_name, service)
             region = str(row.get("region", ""))
 
             # Determine category heuristically
@@ -147,6 +151,8 @@ class DecisionEngineService:
                 existing.effort_level = score.effort_level
                 existing.resource_id = resource_id
                 existing.resource_name = resource_name
+                existing.sku_name = sku_name or None
+                existing.machine_family = machine_family
                 existing.service = service
                 existing.region = region
                 existing.environment = env
@@ -174,6 +180,8 @@ class DecisionEngineService:
                     effort_level=score.effort_level,
                     resource_id=resource_id,
                     resource_name=resource_name,
+                    sku_name=sku_name or None,
+                    machine_family=machine_family,
                     service=service,
                     region=region,
                     environment=env,
@@ -224,6 +232,8 @@ class DecisionEngineService:
             effort_level=score.effort_level,
             resource_id=req.resource_id,
             resource_name=req.resource_name,
+            sku_name=req.sku_name,
+            machine_family=req.machine_family,
             service=req.service,
             region=req.region,
             environment=req.environment,
@@ -403,6 +413,40 @@ def _generate_description(
         f"Analysis indicates a {rate:.0f}% cost reduction opportunity (${estimated_savings:,.2f}/month) "
         f"through {category.value.replace('_', ' ')}."
     )
+
+
+def _extract_family_token(raw_value: str) -> str | None:
+    value = (raw_value or "").strip()
+    if not value:
+        return None
+
+    normalized = re.sub(r"^standard[_-]", "", value, flags=re.IGNORECASE)
+    normalized = normalized.strip()
+    if not normalized:
+        return None
+
+    # AWS-style (e.g., m5.large -> m5) and GCP-style (e.g., n2-standard-4 -> n2).
+    dotted_prefix = re.match(r"^([a-z]\d+)\.", normalized, flags=re.IGNORECASE)
+    if dotted_prefix:
+        return dotted_prefix.group(1).lower()
+    hyphen_prefix = re.match(r"^([a-z]\d+)-", normalized, flags=re.IGNORECASE)
+    if hyphen_prefix:
+        return hyphen_prefix.group(1).lower()
+
+    # Azure-style (e.g., Standard_D4s_v5 -> D4s).
+    token_match = re.search(r"\b([A-Za-z]+\d+[A-Za-z0-9]*)\b", normalized)
+    if token_match:
+        return token_match.group(1)
+
+    return None
+
+
+def _infer_machine_family(sku_name: str | None, resource_name: str | None, service: str | None) -> str | None:
+    for candidate in (sku_name or "", resource_name or "", service or ""):
+        token = _extract_family_token(candidate)
+        if token:
+            return token
+    return None
 
 
 def _norm_text(value: str | None) -> str:

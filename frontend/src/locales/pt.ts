@@ -168,6 +168,8 @@ export const pt: Translations = {
     detailTitle: 'Detalhe da Oportunidade',
     targetResource: 'Recurso Alvo',
     machineName: 'Máquina',
+    machineSku: 'SKU',
+    machineFamily: 'Família',
     resourceGroup: 'Resource Group',
     resourceId: 'Resource ID',
     openInAzure: 'Abrir no Azure Portal',

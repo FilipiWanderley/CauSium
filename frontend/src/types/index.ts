@@ -208,6 +208,8 @@ export interface Opportunity {
   status: OpportunityStatus
   resource_id: string | null
   resource_name: string | null
+  sku_name: string | null
+  machine_family: string | null
   service: string | null
   region: string | null
   environment: string | null

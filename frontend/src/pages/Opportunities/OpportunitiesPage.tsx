@@ -54,6 +54,8 @@ export function OpportunitiesPage() {
   const selectedMachineName = selectedParsedResource?.resourceName ?? o.unknownResource
   const selectedResourceGroup =
     selectedParsedResource?.resourceGroup ?? selectedOpp?.resource_name ?? o.unknownResource
+  const selectedMachineSku = selectedOpp?.sku_name ?? o.unknownResource
+  const selectedMachineFamily = selectedOpp?.machine_family ?? o.unknownResource
 
   return (
     <div className="space-y-6">
@@ -131,6 +133,12 @@ export function OpportunitiesPage() {
                   </p>
                   <p className="mt-1 text-xs text-gray-700">
                     {o.resourceGroup}: <strong>{selectedResourceGroup}</strong>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-700">
+                    {o.machineSku}: <strong>{selectedMachineSku}</strong>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-700">
+                    {o.machineFamily}: <strong>{selectedMachineFamily}</strong>
                   </p>
                   {selectedOpp.resource_id && (
                     <p className="mt-1 break-all text-xs text-gray-500">

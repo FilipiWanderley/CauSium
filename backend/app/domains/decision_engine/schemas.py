@@ -32,6 +32,8 @@ class OpportunityOut(BaseModel):
     status: OpportunityStatus
     resource_id: str | None
     resource_name: str | None
+    sku_name: str | None
+    machine_family: str | None
     service: str | None
     region: str | None
     environment: str | None
@@ -52,6 +54,8 @@ class OpportunityCreate(BaseModel):
     account_id: UUID | None = None
     resource_id: str | None = None
     resource_name: str | None = None
+    sku_name: str | None = None
+    machine_family: str | None = None
     service: str | None = None
     region: str | None = None
     environment: str = "unknown"

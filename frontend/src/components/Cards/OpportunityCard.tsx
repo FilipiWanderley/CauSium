@@ -37,6 +37,8 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
   const azurePortalUrl = buildAzurePortalResourceUrl(op.resource_id)
   const machineName = parsedResource?.resourceName ?? o.unknownResource
   const resourceGroup = parsedResource?.resourceGroup ?? op.resource_name ?? o.unknownResource
+  const machineSku = op.sku_name ?? o.unknownResource
+  const machineFamily = op.machine_family ?? o.unknownResource
 
   return (
     <div
@@ -101,6 +103,12 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
           </p>
           <p className="mt-1 text-xs text-gray-700">
             {o.resourceGroup}: <strong>{resourceGroup}</strong>
+          </p>
+          <p className="mt-1 text-xs text-gray-700">
+            {o.machineSku}: <strong>{machineSku}</strong>
+          </p>
+          <p className="mt-1 text-xs text-gray-700">
+            {o.machineFamily}: <strong>{machineFamily}</strong>
           </p>
           {azurePortalUrl && (
             <a

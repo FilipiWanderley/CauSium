@@ -166,6 +166,8 @@ export interface Translations {
     detailTitle: string
     targetResource: string
     machineName: string
+    machineSku: string
+    machineFamily: string
     resourceGroup: string
     resourceId: string
     openInAzure: string
@@ -995,6 +997,8 @@ export const en: Translations = {
     detailTitle: 'Opportunity Detail',
     targetResource: 'Target Resource',
     machineName: 'Machine',
+    machineSku: 'SKU',
+    machineFamily: 'Family',
     resourceGroup: 'Resource Group',
     resourceId: 'Resource ID',
     openInAzure: 'Open in Azure Portal',
