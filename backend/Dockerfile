@@ -42,7 +42,9 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
-RUN chown -R appuser:appgroup /app && chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh \
+    && chown -R appuser:appgroup /app \
+    && chmod +x /app/entrypoint.sh
 USER appuser
 
 EXPOSE 8000
