@@ -7,3 +7,50 @@
     @apply antialiased text-gray-900;
   }
 }
+
+@layer utilities {
+  /* Thin dark scrollbar for sidebar */
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar {
+    width: 3px;
+  }
+  .scrollbar-dark::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .scrollbar-dark::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  /* Thin light scrollbar for content areas */
+  .scrollbar-light {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+  }
+  .scrollbar-light::-webkit-scrollbar {
+    height: 3px;
+    width: 3px;
+  }
+  .scrollbar-light::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-light::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 9999px;
+  }
+  .scrollbar-light::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .scrollbar-light::-webkit-scrollbar-button {
+    display: none;
+  }
+}

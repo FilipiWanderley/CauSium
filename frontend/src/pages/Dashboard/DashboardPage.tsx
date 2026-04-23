@@ -555,41 +555,45 @@ export function DashboardPage() {
         <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-900">{d.connectedAccounts}</h2>
           {filteredAccounts.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs font-medium text-gray-500">
-                    <th className="pb-3 pr-4">{d.colAccount}</th>
-                    <th className="pb-3 pr-4">{d.colProvider}</th>
-                    <th className="pb-3 pr-4">{d.colStatus}</th>
-                    <th className="pb-3">{d.colLastSync}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredAccounts.map((a) => (
-                    <tr key={a.id}>
-                      <td className="py-3 pr-4 font-medium text-gray-900">{a.display_name}</td>
-                      <td className="py-3 pr-4 text-gray-500 uppercase text-xs">{a.provider}</td>
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            a.status === 'active'
-                              ? 'bg-green-100 text-green-700'
-                              : a.status === 'error'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {a.status}
-                        </span>
-                      </td>
-                      <td className="py-3 text-gray-500 text-xs">
-                        {a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : d.never}
-                      </td>
+            <div className="relative overflow-hidden rounded-lg">
+              <div className="overflow-x-auto scrollbar-light">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs font-medium text-gray-500">
+                      <th className="pb-3 pr-4">{d.colAccount}</th>
+                      <th className="pb-3 pr-4">{d.colProvider}</th>
+                      <th className="pb-3 pr-4">{d.colStatus}</th>
+                      <th className="pb-3">{d.colLastSync}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredAccounts.map((a) => (
+                      <tr key={a.id}>
+                        <td className="py-3 pr-4 font-medium text-gray-900">{a.display_name}</td>
+                        <td className="py-3 pr-4 text-gray-500 uppercase text-xs">{a.provider}</td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              a.status === 'active'
+                                ? 'bg-green-100 text-green-700'
+                                : a.status === 'error'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {a.status}
+                          </span>
+                        </td>
+                        <td className="py-3 text-gray-500 text-xs">
+                          {a.last_sync_at ? new Date(a.last_sync_at).toLocaleString() : d.never}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Right fade — indicates horizontal overflow */}
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-400">
