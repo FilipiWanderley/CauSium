@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, RefreshCw, Siren, Timer } from 'lucide-react'
 import clsx from 'clsx'
 import { adminApi } from '../../api/admin'
+import { useI18n } from '../../contexts/I18nContext'
 
 function SeverityBadge({ severity }: { severity: string }) {
   const className =
@@ -15,6 +16,9 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 export function SloPage() {
+  const { t } = useI18n()
+  const p = t.platform
+
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ['platform-slo-overview'],
     queryFn: () => adminApi.getSloOverview().then((r) => r.data),
@@ -31,10 +35,8 @@ export function SloPage() {
         <div className="flex items-center gap-3">
           <Siren className="h-6 w-6 text-brand-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Platform SLI/SLO</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Operational reliability view with error budget, latency targets and actionable alerts.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{p.sloTitle}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{p.sloSubtitle}</p>
           </div>
         </div>
         <button
@@ -43,55 +45,59 @@ export function SloPage() {
           className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
         >
           <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
-          Refresh
+          {p.refresh}
         </button>
       </div>
 
       {isLoading || !data ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-          Loading SLI/SLO snapshot...
+          {p.sloLoading}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Requests</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{p.sloRequests}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{data.global_sli.requests_total}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Error Rate</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{p.sloErrorRate}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{data.global_sli.api_error_rate_pct.toFixed(3)}%</p>
               <p className="mt-1 text-xs text-gray-500">
-                target: {data.targets.api_error_budget_pct.toFixed(2)}%
+                {p.sloTarget.replace('{{value}}', data.targets.api_error_budget_pct.toFixed(2))}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Burn Rate</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{p.sloBurnRate}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{data.global_sli.error_budget_burn_rate.toFixed(2)}x</p>
-              <p className="mt-1 text-xs text-gray-500">error budget consumption speed</p>
+              <p className="mt-1 text-xs text-gray-500">{p.sloBurnDesc}</p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Alerts</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">{p.sloAlerts}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{alerts.length}</p>
-              <p className="mt-1 text-xs text-gray-500">critical {criticalAlerts} · warning {warningAlerts}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                {p.sloCriticalWarning
+                  .replace('{{c}}', String(criticalAlerts))
+                  .replace('{{w}}', String(warningAlerts))}
+              </p>
             </div>
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
               <Timer className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">API Path SLOs (Top 10)</span>
+              <span className="text-sm font-semibold text-gray-700">{p.sloApiPathsTitle}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <th className="px-5 py-3">Path</th>
-                    <th className="px-4 py-3">Req</th>
-                    <th className="px-4 py-3">Error %</th>
-                    <th className="px-4 py-3">P95 (ms)</th>
-                    <th className="px-4 py-3">Avg (ms)</th>
-                    <th className="px-4 py-3">Max (ms)</th>
+                    <th className="px-5 py-3">{p.sloColPath}</th>
+                    <th className="px-4 py-3">{p.sloColReq}</th>
+                    <th className="px-4 py-3">{p.sloColErrorPct}</th>
+                    <th className="px-4 py-3">{p.sloColP95}</th>
+                    <th className="px-4 py-3">{p.sloColAvg}</th>
+                    <th className="px-4 py-3">{p.sloColMax}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -113,18 +119,18 @@ export function SloPage() {
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">Worker Reliability</span>
+              <span className="text-sm font-semibold text-gray-700">{p.sloWorkerTitle}</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <th className="px-5 py-3">Worker</th>
-                    <th className="px-4 py-3">Total</th>
-                    <th className="px-4 py-3">Success</th>
-                    <th className="px-4 py-3">Retry</th>
-                    <th className="px-4 py-3">Failed</th>
-                    <th className="px-4 py-3">Error %</th>
+                    <th className="px-5 py-3">{p.sloColWorker}</th>
+                    <th className="px-4 py-3">{p.sloColTotal}</th>
+                    <th className="px-4 py-3">{p.sloColSuccess}</th>
+                    <th className="px-4 py-3">{p.sloColRetry}</th>
+                    <th className="px-4 py-3">{p.sloColFailed}</th>
+                    <th className="px-4 py-3">{p.sloColErrorPct}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -146,10 +152,10 @@ export function SloPage() {
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">Actionable Alerts</span>
+              <span className="text-sm font-semibold text-gray-700">{p.sloAlertsTitle}</span>
             </div>
             {!alerts.length ? (
-              <div className="p-6 text-sm text-green-700 bg-green-50">No active SLO alerts.</div>
+              <div className="p-6 text-sm text-green-700 bg-green-50">{p.sloNoAlerts}</div>
             ) : (
               <ul className="divide-y divide-gray-100">
                 {alerts.map((alert, idx) => (
@@ -160,7 +166,7 @@ export function SloPage() {
                     </div>
                     <p className="text-sm text-gray-600">{alert.detail}</p>
                     <p className="text-sm text-gray-800">
-                      <span className="font-semibold">Action:</span> {alert.recommended_action}
+                      <span className="font-semibold">{p.sloAlertAction}</span> {alert.recommended_action}
                     </p>
                   </li>
                 ))}

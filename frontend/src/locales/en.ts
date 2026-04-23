@@ -70,6 +70,14 @@ export interface Translations {
     providerGcp: string
     currentMonthCost: string
     vsLastMonth: string
+    explainCostCta: string
+    explainCostTitle: string
+    explainCostLoading: string
+    explainCostError: string
+    explainCostSummary: string
+    explainCostCauses: string
+    explainCostRecommendation: string
+    explainCostConfidence: string
     potentialSavings: string
     openOpportunities: string
     activeAccounts: string
@@ -639,6 +647,130 @@ export interface Translations {
     toastInviteError: string
     toastInviteRevoked: string
     toastInviteRevokeError: string
+  }
+  platform: {
+    syncTitle: string
+    syncSubtitle: string
+    syncAccounts: string
+    syncNeedsAttention: string
+    syncHealthy: string
+    syncOpenDlq: string
+    syncConnectorOps: string
+    syncAllProviders: string
+    syncAllStatus: string
+    syncStatusActive: string
+    syncStatusPending: string
+    syncStatusInactive: string
+    syncStatusError: string
+    syncAllAttention: string
+    syncNeedsAttentionFilter: string
+    syncHealthyOnly: string
+    syncSortAttentionFirst: string
+    syncSortDlqDesc: string
+    syncSortLatestSync: string
+    syncSortNameAsc: string
+    syncPerPage: string
+    syncColAccount: string
+    syncColProvider: string
+    syncColStatus: string
+    syncColLastSync: string
+    syncColLastHealth: string
+    syncColOpenDlq: string
+    syncColAttention: string
+    syncColAction: string
+    syncAttentionYes: string
+    syncAttentionOk: string
+    syncQueueing: string
+    syncTrigger: string
+    syncShowing: string
+    syncPage: string
+    workspacesTitle: string
+    workspacesSubtitle: string
+    workspacesAllOrgs: string
+    workspacesSearch: string
+    workspacesAllStates: string
+    workspacesStateActive: string
+    workspacesStateSuspended: string
+    workspacesStateArchived: string
+    workspacesLoading: string
+    workspacesNoOrgs: string
+    workspacesColOrg: string
+    workspacesColPlan: string
+    workspacesColMembers: string
+    workspacesColState: string
+    workspacesColCreated: string
+    workspacesColActions: string
+    workspacesLoadingUsers: string
+    workspacesNoUsers: string
+    workspacesUsers: string
+    workspacesAuditWindow: string
+    workspacesLast24h: string
+    workspacesLast7d: string
+    workspacesLast30d: string
+    workspacesAllTime: string
+    workspacesPwdResetBadge: string
+    workspacesMfaResetBadge: string
+    workspacesDeactivatedBadge: string
+    workspacesInactive: string
+    workspacesResetMfa: string
+    workspacesResetting: string
+    workspacesResetPassword: string
+    workspacesDeactivateUser: string
+    workspacesDeactivating: string
+    workspacesSuspendTitle: string
+    workspacesRestoreTitle: string
+    workspacesArchiveTitle: string
+    workspacesArchiveWarning: string
+    workspacesReasonRequired: string
+    workspacesReasonOptional: string
+    workspacesReasonPlaceholder: string
+    workspacesRestorePlaceholder: string
+    workspacesActionFailed: string
+    workspacesProcessing: string
+    workspacesSuspend: string
+    workspacesRestore: string
+    workspacesArchive: string
+    workspacesTempPwdTitle: string
+    workspacesTempPwdNote: string
+    workspacesConfirmResetMfa: string
+    workspacesConfirmResetPassword: string
+    workspacesConfirmDeactivate: string
+    workspacesDeactivatePrompt: string
+    workspacesDeactivateDefault: string
+    workspacesViewUsers: string
+    workspacesSuspendHint: string
+    workspacesRestoreHint: string
+    workspacesArchiveHint: string
+    sloTitle: string
+    sloSubtitle: string
+    sloLoading: string
+    sloRequests: string
+    sloErrorRate: string
+    sloTarget: string
+    sloBurnRate: string
+    sloBurnDesc: string
+    sloAlerts: string
+    sloCriticalWarning: string
+    sloApiPathsTitle: string
+    sloColPath: string
+    sloColReq: string
+    sloColErrorPct: string
+    sloColP95: string
+    sloColAvg: string
+    sloColMax: string
+    sloWorkerTitle: string
+    sloColWorker: string
+    sloColTotal: string
+    sloColSuccess: string
+    sloColRetry: string
+    sloColFailed: string
+    sloAlertsTitle: string
+    sloNoAlerts: string
+    sloAlertAction: string
+    syncSuccessMsg: string
+    syncErrorMsg: string
+    syncNoAccounts: string
+    refresh: string
   }
 }
 
@@ -1291,5 +1423,129 @@ export const en: Translations = {
     toastInviteError: 'Could not create invite.',
     toastInviteRevoked: 'Invite revoked for {{email}}.',
     toastInviteRevokeError: 'Could not revoke invite.',
+  },
+  platform: {
+    syncTitle: 'Platform Sync Status',
+    syncSubtitle: 'Operational visibility for connector health and ingestion backlog.',
+    syncAccounts: 'Accounts',
+    syncNeedsAttention: 'Needs Attention',
+    syncHealthy: 'Healthy',
+    syncOpenDlq: 'Open DLQ',
+    syncConnectorOps: 'Connector Operations',
+    syncAllProviders: 'All providers',
+    syncAllStatus: 'All status',
+    syncStatusActive: 'Active',
+    syncStatusPending: 'Pending',
+    syncStatusInactive: 'Inactive',
+    syncStatusError: 'Error',
+    syncAllAttention: 'All attention',
+    syncNeedsAttentionFilter: 'Needs attention',
+    syncHealthyOnly: 'Healthy only',
+    syncSortAttentionFirst: 'Sort: Attention first',
+    syncSortDlqDesc: 'Sort: DLQ high to low',
+    syncSortLatestSync: 'Sort: Latest sync',
+    syncSortNameAsc: 'Sort: Name A-Z',
+    syncPerPage: '{{n}} / page',
+    syncColAccount: 'Account',
+    syncColProvider: 'Provider',
+    syncColStatus: 'Status',
+    syncColLastSync: 'Last Sync',
+    syncColLastHealth: 'Last Health Check',
+    syncColOpenDlq: 'Open DLQ',
+    syncColAttention: 'Attention',
+    syncColAction: 'Action',
+    syncAttentionYes: 'Yes',
+    syncAttentionOk: 'OK',
+    syncQueueing: 'Queueing...',
+    syncTrigger: 'Trigger Sync',
+    syncShowing: 'Showing {{from}}-{{to}} of {{total}}',
+    syncPage: 'Page {{current}} / {{total}}',
+    workspacesTitle: 'Platform Workspaces',
+    workspacesSubtitle: 'Manage all organizations — suspend, restore, or archive workspaces.',
+    workspacesAllOrgs: 'All Organizations',
+    workspacesSearch: 'Search by name or slug',
+    workspacesAllStates: 'All states',
+    workspacesStateActive: 'Active',
+    workspacesStateSuspended: 'Suspended',
+    workspacesStateArchived: 'Archived',
+    workspacesLoading: 'Loading workspaces…',
+    workspacesNoOrgs: 'No organizations found.',
+    workspacesColOrg: 'Organization',
+    workspacesColPlan: 'Plan',
+    workspacesColMembers: 'Members',
+    workspacesColState: 'State',
+    workspacesColCreated: 'Created',
+    workspacesColActions: 'Actions',
+    workspacesLoadingUsers: 'Loading users…',
+    workspacesNoUsers: 'No users in this workspace.',
+    workspacesUsers: 'Users ({{total}})',
+    workspacesAuditWindow: 'Audit timeline window',
+    workspacesLast24h: 'Last 24h',
+    workspacesLast7d: 'Last 7 days',
+    workspacesLast30d: 'Last 30 days',
+    workspacesAllTime: 'All time',
+    workspacesPwdResetBadge: 'pwd reset:',
+    workspacesMfaResetBadge: 'mfa reset:',
+    workspacesDeactivatedBadge: 'deactivated:',
+    workspacesInactive: 'inactive',
+    workspacesResetMfa: 'Reset MFA',
+    workspacesResetting: 'Resetting...',
+    workspacesResetPassword: 'Reset Password',
+    workspacesDeactivateUser: 'Deactivate',
+    workspacesDeactivating: 'Deactivating...',
+    workspacesSuspendTitle: 'Suspend Workspace',
+    workspacesRestoreTitle: 'Restore Workspace',
+    workspacesArchiveTitle: 'Archive Workspace',
+    workspacesArchiveWarning: '— this action is irreversible.',
+    workspacesReasonRequired: 'Reason',
+    workspacesReasonOptional: 'Reason (optional)',
+    workspacesReasonPlaceholder: 'Describe the reason for this action…',
+    workspacesRestorePlaceholder: 'Describe the reason for restoring…',
+    workspacesActionFailed: 'Action failed. Please try again.',
+    workspacesProcessing: 'Processing…',
+    workspacesSuspend: 'Suspend',
+    workspacesRestore: 'Restore',
+    workspacesArchive: 'Archive',
+    workspacesTempPwdTitle: 'Temporary Password Generated',
+    workspacesTempPwdNote: 'Share this password securely. It is shown only once and the user must change it on next login.',
+    workspacesConfirmResetMfa: 'Reset MFA for {{email}}? This will revoke all registered passkeys.',
+    workspacesConfirmResetPassword: 'Reset password for {{email}}? A temporary password will be generated.',
+    workspacesConfirmDeactivate: 'Deactivate {{email}}? This blocks login immediately while keeping audit history.',
+    workspacesDeactivatePrompt: 'Reason for deactivation (required):',
+    workspacesDeactivateDefault: 'Member offboarding',
+    workspacesViewUsers: 'View users',
+    workspacesSuspendHint: 'Suspend workspace',
+    workspacesRestoreHint: 'Restore workspace',
+    workspacesArchiveHint: 'Archive workspace (irreversible)',
+    sloTitle: 'Platform SLI/SLO',
+    sloSubtitle: 'Operational reliability view with error budget, latency targets and actionable alerts.',
+    sloLoading: 'Loading SLI/SLO snapshot...',
+    sloRequests: 'Requests',
+    sloErrorRate: 'Error Rate',
+    sloTarget: 'target: {{value}}%',
+    sloBurnRate: 'Burn Rate',
+    sloBurnDesc: 'error budget consumption speed',
+    sloAlerts: 'Alerts',
+    sloCriticalWarning: 'critical {{c}} · warning {{w}}',
+    sloApiPathsTitle: 'API Path SLOs (Top 10)',
+    sloColPath: 'Path',
+    sloColReq: 'Req',
+    sloColErrorPct: 'Error %',
+    sloColP95: 'P95 (ms)',
+    sloColAvg: 'Avg (ms)',
+    sloColMax: 'Max (ms)',
+    sloWorkerTitle: 'Worker Reliability',
+    sloColWorker: 'Worker',
+    sloColTotal: 'Total',
+    sloColSuccess: 'Success',
+    sloColRetry: 'Retry',
+    sloColFailed: 'Failed',
+    sloAlertsTitle: 'Actionable Alerts',
+    sloNoAlerts: 'No active SLO alerts.',
+    sloAlertAction: 'Action:',
+    syncSuccessMsg: 'Sync job queued successfully.',
+    syncErrorMsg: 'Could not trigger sync for this account. Please try again.',
+    syncNoAccounts: 'No cloud accounts found.',
+    refresh: 'Refresh',
   },
 }

@@ -6,17 +6,13 @@ import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import type { CloudProvider, ConnectorStatus } from '../../types'
+import { useI18n } from '../../contexts/I18nContext'
 
 const STATUS_BADGE: Record<ConnectorStatus, string> = {
   active: 'bg-green-100 text-green-700',
   inactive: 'bg-gray-100 text-gray-700',
   error: 'bg-red-100 text-red-700',
   pending: 'bg-yellow-100 text-yellow-700',
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return 'Never'
-  return new Date(value).toLocaleString()
 }
 
 type AttentionFilter = 'all' | 'needs_attention' | 'healthy'
@@ -41,26 +37,24 @@ function isInOptions<T extends string>(value: string | null, options: readonly T
 
 export function SyncStatusPage() {
   const { user } = useAuth()
+  const { t, lang } = useI18n()
+  const p = t.platform
+  const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const formatDate = (value: string | null) =>
+    value ? new Date(value).toLocaleString(locale) : t.dashboard.never
 
   const providerRaw = searchParams.get('provider')
   const statusRaw = searchParams.get('status')
   const attentionRaw = searchParams.get('attention')
   const sortRaw = searchParams.get('sort')
 
-  const providerFilter = isInOptions(providerRaw, PROVIDER_OPTIONS)
-    ? providerRaw
-    : DEFAULT_PROVIDER
-  const statusFilter = isInOptions(statusRaw, STATUS_OPTIONS)
-    ? statusRaw
-    : DEFAULT_STATUS
-  const attentionFilter = isInOptions(attentionRaw, ATTENTION_OPTIONS)
-    ? attentionRaw
-    : DEFAULT_ATTENTION
-  const sortKey = isInOptions(sortRaw, SORT_OPTIONS)
-    ? sortRaw
-    : DEFAULT_SORT
+  const providerFilter = isInOptions(providerRaw, PROVIDER_OPTIONS) ? providerRaw : DEFAULT_PROVIDER
+  const statusFilter = isInOptions(statusRaw, STATUS_OPTIONS) ? statusRaw : DEFAULT_STATUS
+  const attentionFilter = isInOptions(attentionRaw, ATTENTION_OPTIONS) ? attentionRaw : DEFAULT_ATTENTION
+  const sortKey = isInOptions(sortRaw, SORT_OPTIONS) ? sortRaw : DEFAULT_SORT
 
   const pageSizeRaw = Number(searchParams.get('pageSize'))
   const pageSize: PageSize = PAGE_SIZE_OPTIONS.includes(pageSizeRaw as PageSize)
@@ -108,23 +102,14 @@ export function SyncStatusPage() {
       })
 
     items.sort((a, b) => {
-      if (sortKey === 'open_dlq_desc') {
-        return b.open_dlq_count - a.open_dlq_count
-      }
-
+      if (sortKey === 'open_dlq_desc') return b.open_dlq_count - a.open_dlq_count
       if (sortKey === 'last_sync_desc') {
         const aTs = a.last_sync_at ? new Date(a.last_sync_at).getTime() : 0
         const bTs = b.last_sync_at ? new Date(b.last_sync_at).getTime() : 0
         return bTs - aTs
       }
-
-      if (sortKey === 'name_asc') {
-        return a.display_name.localeCompare(b.display_name)
-      }
-
-      if (a.needs_attention !== b.needs_attention) {
-        return a.needs_attention ? -1 : 1
-      }
+      if (sortKey === 'name_asc') return a.display_name.localeCompare(b.display_name)
+      if (a.needs_attention !== b.needs_attention) return a.needs_attention ? -1 : 1
       return b.open_dlq_count - a.open_dlq_count
     })
 
@@ -175,9 +160,7 @@ export function SyncStatusPage() {
   }
 
   const handleTriggerSync = (accountId: string) => {
-    if (!syncMutation.isPending) {
-      syncMutation.mutate(accountId)
-    }
+    if (!syncMutation.isPending) syncMutation.mutate(accountId)
   }
 
   return (
@@ -186,10 +169,8 @@ export function SyncStatusPage() {
         <div className="flex items-center gap-3">
           <ServerCog className="h-6 w-6 text-brand-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Platform Sync Status</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Operational visibility for connector health and ingestion backlog.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{p.syncTitle}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{p.syncSubtitle}</p>
           </div>
         </div>
         <button
@@ -198,25 +179,25 @@ export function SyncStatusPage() {
           className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
         >
           <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
-          Refresh
+          {p.refresh}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Accounts</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">{p.syncAccounts}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{summary.total}</p>
         </div>
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-xs text-red-700 uppercase tracking-wide">Needs Attention</p>
+          <p className="text-xs text-red-700 uppercase tracking-wide">{p.syncNeedsAttention}</p>
           <p className="mt-1 text-2xl font-bold text-red-800">{summary.attention}</p>
         </div>
         <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <p className="text-xs text-green-700 uppercase tracking-wide">Healthy</p>
+          <p className="text-xs text-green-700 uppercase tracking-wide">{p.syncHealthy}</p>
           <p className="mt-1 text-2xl font-bold text-green-800">{summary.healthy}</p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs text-amber-700 uppercase tracking-wide">Open DLQ</p>
+          <p className="text-xs text-amber-700 uppercase tracking-wide">{p.syncOpenDlq}</p>
           <p className="mt-1 text-2xl font-bold text-amber-800">{summary.openDlq}</p>
         </div>
       </div>
@@ -224,14 +205,14 @@ export function SyncStatusPage() {
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <span className="text-sm font-semibold text-gray-700">Connector Operations</span>
+            <span className="text-sm font-semibold text-gray-700">{p.syncConnectorOps}</span>
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={providerFilter}
                 onChange={(e) => updateParams({ provider: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
-                <option value="all">All providers</option>
+                <option value="all">{p.syncAllProviders}</option>
                 <option value="azure">Azure</option>
                 <option value="aws">AWS</option>
                 <option value="gcp">GCP</option>
@@ -242,11 +223,11 @@ export function SyncStatusPage() {
                 onChange={(e) => updateParams({ status: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
-                <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-                <option value="error">Error</option>
+                <option value="all">{p.syncAllStatus}</option>
+                <option value="active">{p.syncStatusActive}</option>
+                <option value="pending">{p.syncStatusPending}</option>
+                <option value="inactive">{p.syncStatusInactive}</option>
+                <option value="error">{p.syncStatusError}</option>
               </select>
 
               <select
@@ -254,9 +235,9 @@ export function SyncStatusPage() {
                 onChange={(e) => updateParams({ attention: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
-                <option value="all">All attention</option>
-                <option value="needs_attention">Needs attention</option>
-                <option value="healthy">Healthy only</option>
+                <option value="all">{p.syncAllAttention}</option>
+                <option value="needs_attention">{p.syncNeedsAttentionFilter}</option>
+                <option value="healthy">{p.syncHealthyOnly}</option>
               </select>
 
               <select
@@ -264,10 +245,10 @@ export function SyncStatusPage() {
                 onChange={(e) => updateParams({ sort: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
-                <option value="attention_first">Sort: Attention first</option>
-                <option value="open_dlq_desc">Sort: DLQ high to low</option>
-                <option value="last_sync_desc">Sort: Latest sync</option>
-                <option value="name_asc">Sort: Name A-Z</option>
+                <option value="attention_first">{p.syncSortAttentionFirst}</option>
+                <option value="open_dlq_desc">{p.syncSortDlqDesc}</option>
+                <option value="last_sync_desc">{p.syncSortLatestSync}</option>
+                <option value="name_asc">{p.syncSortNameAsc}</option>
               </select>
 
               <select
@@ -275,9 +256,11 @@ export function SyncStatusPage() {
                 onChange={(e) => updateParams({ pageSize: e.target.value, page: '1' })}
                 className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
-                <option value={10}>10 / page</option>
-                <option value={25}>25 / page</option>
-                <option value={50}>50 / page</option>
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {p.syncPerPage.replace('{{n}}', String(n))}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -285,32 +268,32 @@ export function SyncStatusPage() {
 
         {syncMutation.isError && (
           <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            Could not trigger sync for this account. Please try again.
+            {p.syncErrorMsg}
           </div>
         )}
 
         {syncMutation.isSuccess && (
           <div className="mx-5 mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-            Sync job queued successfully.
+            {p.syncSuccessMsg}
           </div>
         )}
 
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">Loading sync status...</div>
+          <div className="py-12 text-center text-sm text-gray-400">{t.common.loading}</div>
         ) : !filteredData.length ? (
-          <div className="py-12 text-center text-sm text-gray-500">No cloud accounts found.</div>
+          <div className="py-12 text-center text-sm text-gray-500">{p.syncNoAccounts}</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-5 py-3">Account</th>
-                <th className="px-4 py-3">Provider</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Last Sync</th>
-                <th className="px-4 py-3">Last Health Check</th>
-                <th className="px-4 py-3">Open DLQ</th>
-                <th className="px-4 py-3 text-center">Attention</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-5 py-3">{p.syncColAccount}</th>
+                <th className="px-4 py-3">{p.syncColProvider}</th>
+                <th className="px-4 py-3">{p.syncColStatus}</th>
+                <th className="px-4 py-3">{p.syncColLastSync}</th>
+                <th className="px-4 py-3">{p.syncColLastHealth}</th>
+                <th className="px-4 py-3">{p.syncColOpenDlq}</th>
+                <th className="px-4 py-3 text-center">{p.syncColAttention}</th>
+                <th className="px-4 py-3 text-right">{p.syncColAction}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -341,9 +324,7 @@ export function SyncStatusPage() {
                     <span
                       className={clsx(
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        item.open_dlq_count > 0
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-gray-100 text-gray-600'
+                        item.open_dlq_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                       )}
                     >
                       {item.open_dlq_count}
@@ -354,12 +335,12 @@ export function SyncStatusPage() {
                       {item.needs_attention ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          Yes
+                          {p.syncAttentionYes}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          OK
+                          {p.syncAttentionOk}
                         </span>
                       )}
                     </div>
@@ -372,12 +353,9 @@ export function SyncStatusPage() {
                         className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-60"
                       >
                         <RefreshCw
-                          className={clsx(
-                            'h-3.5 w-3.5',
-                            syncingAccountId === item.account_id && 'animate-spin'
-                          )}
+                          className={clsx('h-3.5 w-3.5', syncingAccountId === item.account_id && 'animate-spin')}
                         />
-                        {syncingAccountId === item.account_id ? 'Queueing...' : 'Trigger Sync'}
+                        {syncingAccountId === item.account_id ? p.syncQueueing : p.syncTrigger}
                       </button>
                     </div>
                   </td>
@@ -390,8 +368,10 @@ export function SyncStatusPage() {
         {!isLoading && filteredData.length > 0 && (
           <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3 text-xs text-gray-500">
             <span>
-              Showing {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length}
+              {p.syncShowing
+                .replace('{{from}}', String((currentPage - 1) * pageSize + 1))
+                .replace('{{to}}', String(Math.min(currentPage * pageSize, filteredData.length)))
+                .replace('{{total}}', String(filteredData.length))}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -403,7 +383,9 @@ export function SyncStatusPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span>
-                Page {currentPage} / {totalPages}
+                {p.syncPage
+                  .replace('{{current}}', String(currentPage))
+                  .replace('{{total}}', String(totalPages))}
               </span>
               <button
                 onClick={() => updateParams({ page: String(Math.min(totalPages, currentPage + 1)) })}

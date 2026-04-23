@@ -7,6 +7,7 @@ import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyR
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate, useSearchParams } from 'react-router-dom'
+import { useI18n } from '../../contexts/I18nContext'
 
 const STATE_BADGE: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -46,6 +47,10 @@ const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
   const { user } = useAuth()
+  const { t, lang } = useI18n()
+  const p = t.platform
+  const m = t.members
+  const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -101,21 +106,15 @@ export function WorkspacesPage() {
 
   const setAuditWindow = (window: AuditWindow) => {
     const next = new URLSearchParams(searchParams)
-    if (window === '7d') {
-      next.delete('auditWindow')
-    } else {
-      next.set('auditWindow', window)
-    }
+    if (window === '7d') next.delete('auditWindow')
+    else next.set('auditWindow', window)
     setSearchParams(next)
   }
 
   const setPage = (nextPage: number) => {
     const next = new URLSearchParams(searchParams)
-    if (nextPage <= 1) {
-      next.delete('page')
-    } else {
-      next.set('page', String(nextPage))
-    }
+    if (nextPage <= 1) next.delete('page')
+    else next.set('page', String(nextPage))
     setSearchParams(next)
   }
 
@@ -189,7 +188,7 @@ export function WorkspacesPage() {
 
   const formatAuditDate = (value: string | null) => {
     if (!value) return null
-    return new Date(value).toLocaleString()
+    return new Date(value).toLocaleString(locale)
   }
 
   const actionMutation = useMutation({
@@ -210,16 +209,18 @@ export function WorkspacesPage() {
     onSuccess: (payload, userId) => {
       queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
       const targetUser = expandedUsers?.items.find((u) => u.id === userId)
-      const userLabel = targetUser?.email ?? 'Selected user'
+      const userLabel = targetUser?.email ?? t.common.unknown
       setUserFeedback({
         level: 'success',
-        message: `MFA reset completed for ${userLabel}. Revoked passkeys: ${payload.revoked_passkeys}.`,
+        message: m.toastMfaReset
+          .replace('{{email}}', userLabel)
+          .replace('{{count}}', String(payload.revoked_passkeys)),
       })
     },
     onError: (error) => {
       setUserFeedback({
         level: 'error',
-        message: (error as Error)?.message ?? 'Could not reset MFA for this user.',
+        message: (error as Error)?.message ?? m.toastMfaError,
       })
     },
   })
@@ -230,19 +231,16 @@ export function WorkspacesPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
       const targetUser = expandedUsers?.items.find((u) => u.id === userId)
       const userLabel = targetUser?.email ?? payload.user.email
-      setPasswordResetResult({
-        email: userLabel,
-        temporaryPassword: payload.temporary_password,
-      })
+      setPasswordResetResult({ email: userLabel, temporaryPassword: payload.temporary_password })
       setUserFeedback({
         level: 'success',
-        message: `Password reset completed for ${userLabel}. User must change password on next login.`,
+        message: m.toastPasswordReset.replace('{{email}}', userLabel),
       })
     },
     onError: (error) => {
       setUserFeedback({
         level: 'error',
-        message: (error as Error)?.message ?? 'Could not reset password for this user.',
+        message: (error as Error)?.message ?? m.toastPasswordError,
       })
     },
   })
@@ -253,16 +251,16 @@ export function WorkspacesPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
       const targetUser = expandedUsers?.items.find((u) => u.id === variables.userId)
-      const userLabel = targetUser?.email ?? 'Selected user'
+      const userLabel = targetUser?.email ?? t.common.unknown
       setUserFeedback({
         level: 'success',
-        message: `User ${userLabel} was deactivated and access is now blocked.`,
+        message: m.toastDeactivated.replace('{{email}}', userLabel),
       })
     },
     onError: (error) => {
       setUserFeedback({
         level: 'error',
-        message: (error as Error)?.message ?? 'Could not deactivate this user.',
+        message: (error as Error)?.message ?? m.toastDeactivateError,
       })
     },
   })
@@ -281,13 +279,13 @@ export function WorkspacesPage() {
     actionMutation.mutate({
       action: dialog.action,
       orgId: dialog.org.id,
-      reason: dialog.reason.trim() || 'No reason provided',
+      reason: dialog.reason.trim() || t.common.reason,
     })
   }
 
   const handleResetMfa = (member: AdminUserItem) => {
     const confirmed = window.confirm(
-      `Reset MFA for ${member.email}? This will revoke all registered passkeys.`
+      p.workspacesConfirmResetMfa.replace('{{email}}', member.email)
     )
     if (!confirmed) return
     setUserFeedback(null)
@@ -296,7 +294,7 @@ export function WorkspacesPage() {
 
   const handleResetPassword = (member: AdminUserItem) => {
     const confirmed = window.confirm(
-      `Reset password for ${member.email}? A temporary password will be generated.`
+      p.workspacesConfirmResetPassword.replace('{{email}}', member.email)
     )
     if (!confirmed) return
     setUserFeedback(null)
@@ -307,10 +305,10 @@ export function WorkspacesPage() {
   const handleDeactivateUser = (member: AdminUserItem) => {
     if (!member.is_active) return
     const confirmed = window.confirm(
-      `Deactivate ${member.email}? This blocks login immediately while keeping audit history.`
+      p.workspacesConfirmDeactivate.replace('{{email}}', member.email)
     )
     if (!confirmed) return
-    const reason = window.prompt('Reason for deactivation (required):', 'Member offboarding')
+    const reason = window.prompt(p.workspacesDeactivatePrompt, p.workspacesDeactivateDefault)
     if (!reason || reason.trim().length < 3) return
     setUserFeedback(null)
     deactivateUserMutation.mutate({ userId: member.id, reason: reason.trim() })
@@ -323,10 +321,8 @@ export function WorkspacesPage() {
       <div className="flex items-center gap-3">
         <Shield className="h-6 w-6 text-brand-600" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Platform Workspaces</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Manage all organizations — suspend, restore, or archive workspaces.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{p.workspacesTitle}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{p.workspacesSubtitle}</p>
         </div>
       </div>
 
@@ -334,12 +330,12 @@ export function WorkspacesPage() {
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-700">
-              All Organizations{data ? ` (${data.total})` : ''}
+              {p.workspacesAllOrgs}{data ? ` (${data.total})` : ''}
             </span>
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or slug"
+              placeholder={p.workspacesSearch}
               className="w-56 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
             <select
@@ -347,10 +343,10 @@ export function WorkspacesPage() {
               onChange={(e) => setStateFilter(e.target.value as 'all' | 'active' | 'suspended' | 'archived')}
               className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
-              <option value="all">All states</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="archived">Archived</option>
+              <option value="all">{p.workspacesAllStates}</option>
+              <option value="active">{p.workspacesStateActive}</option>
+              <option value="suspended">{p.workspacesStateSuspended}</option>
+              <option value="archived">{p.workspacesStateArchived}</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -375,19 +371,19 @@ export function WorkspacesPage() {
         </div>
 
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">Loading workspaces…</div>
+          <div className="py-12 text-center text-sm text-gray-400">{p.workspacesLoading}</div>
         ) : !data?.items.length ? (
-          <div className="py-12 text-center text-sm text-gray-500">No organizations found.</div>
+          <div className="py-12 text-center text-sm text-gray-500">{p.workspacesNoOrgs}</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-5 py-3">Organization</th>
-                <th className="px-4 py-3">Plan</th>
-                <th className="px-4 py-3">Members</th>
-                <th className="px-4 py-3">State</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-5 py-3">{p.workspacesColOrg}</th>
+                <th className="px-4 py-3">{p.workspacesColPlan}</th>
+                <th className="px-4 py-3">{p.workspacesColMembers}</th>
+                <th className="px-4 py-3">{p.workspacesColState}</th>
+                <th className="px-4 py-3">{p.workspacesColCreated}</th>
+                <th className="px-4 py-3 text-right">{p.workspacesColActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -415,13 +411,13 @@ export function WorkspacesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-500">
-                      {new Date(org.created_at).toLocaleDateString()}
+                      {new Date(org.created_at).toLocaleDateString(locale)}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setExpandedOrgId(expandedOrgId === org.id ? null : org.id)}
-                          title="View users"
+                          title={p.workspacesViewUsers}
                           className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         >
                           <Users className="h-4 w-4" />
@@ -431,7 +427,7 @@ export function WorkspacesPage() {
                             {org.lifecycle_state === 'active' ? (
                               <button
                                 onClick={() => openDialog('suspend', org)}
-                                title="Suspend workspace"
+                                title={p.workspacesSuspendHint}
                                 className="rounded p-1.5 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
                               >
                                 <Ban className="h-4 w-4" />
@@ -439,7 +435,7 @@ export function WorkspacesPage() {
                             ) : (
                               <button
                                 onClick={() => openDialog('restore', org)}
-                                title="Restore workspace"
+                                title={p.workspacesRestoreHint}
                                 className="rounded p-1.5 text-gray-400 hover:bg-green-50 hover:text-green-600"
                               >
                                 <RefreshCw className="h-4 w-4" />
@@ -447,7 +443,7 @@ export function WorkspacesPage() {
                             )}
                             <button
                               onClick={() => openDialog('archive', org)}
-                              title="Archive workspace (irreversible)"
+                              title={p.workspacesArchiveHint}
                               className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
                             >
                               <Archive className="h-4 w-4" />
@@ -461,25 +457,25 @@ export function WorkspacesPage() {
                     <tr key={`${org.id}-users`}>
                       <td colSpan={6} className="bg-gray-50 px-8 py-4">
                         {usersLoading ? (
-                          <p className="text-xs text-gray-400">Loading users…</p>
+                          <p className="text-xs text-gray-400">{p.workspacesLoadingUsers}</p>
                         ) : !expandedUsers?.items.length ? (
-                          <p className="text-xs text-gray-500">No users in this workspace.</p>
+                          <p className="text-xs text-gray-500">{p.workspacesNoUsers}</p>
                         ) : (
                           <div className="space-y-1">
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                              Users ({expandedUsers.total})
+                              {p.workspacesUsers.replace('{{total}}', String(expandedUsers.total))}
                             </p>
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <span className="text-[11px] text-gray-500">Audit timeline window</span>
+                              <span className="text-[11px] text-gray-500">{p.workspacesAuditWindow}</span>
                               <select
                                 value={auditWindow}
                                 onChange={(e) => setAuditWindow(e.target.value as AuditWindow)}
                                 className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                               >
-                                <option value="24h">Last 24h</option>
-                                <option value="7d">Last 7 days</option>
-                                <option value="30d">Last 30 days</option>
-                                <option value="all">All time</option>
+                                <option value="24h">{p.workspacesLast24h}</option>
+                                <option value="7d">{p.workspacesLast7d}</option>
+                                <option value="30d">{p.workspacesLast30d}</option>
+                                <option value="all">{p.workspacesAllTime}</option>
                               </select>
                             </div>
                             {userFeedback && (
@@ -500,24 +496,22 @@ export function WorkspacesPage() {
                                 className="flex items-center justify-between rounded border border-gray-100 bg-white px-3 py-2"
                               >
                                 <div>
-                                  <span className="text-sm font-medium text-gray-800">
-                                    {u.full_name}
-                                  </span>
+                                  <span className="text-sm font-medium text-gray-800">{u.full_name}</span>
                                   <span className="ml-2 text-xs text-gray-500">{u.email}</span>
                                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                     {userAuditMap.get(u.id)?.lastPasswordResetAt && (
                                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                                        pwd reset: {formatAuditDate(userAuditMap.get(u.id)?.lastPasswordResetAt ?? null)}
+                                        {p.workspacesPwdResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastPasswordResetAt ?? null)}
                                       </span>
                                     )}
                                     {userAuditMap.get(u.id)?.lastMfaResetAt && (
                                       <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                                        mfa reset: {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
+                                        {p.workspacesMfaResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
                                       </span>
                                     )}
                                     {userAuditMap.get(u.id)?.lastDeactivatedAt && (
                                       <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
-                                        deactivated: {formatAuditDate(userAuditMap.get(u.id)?.lastDeactivatedAt ?? null)}
+                                        {p.workspacesDeactivatedBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastDeactivatedAt ?? null)}
                                       </span>
                                     )}
                                   </div>
@@ -528,7 +522,7 @@ export function WorkspacesPage() {
                                   </span>
                                   {!u.is_active && (
                                     <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
-                                      inactive
+                                      {p.workspacesInactive}
                                     </span>
                                   )}
                                   <button
@@ -538,13 +532,13 @@ export function WorkspacesPage() {
                                       resetPasswordMutation.isPending ||
                                       deactivateUserMutation.isPending
                                     }
-                                    title="Reset MFA / Passkeys"
+                                    title={p.workspacesResetMfa}
                                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                                   >
                                     <KeyRound className="h-3.5 w-3.5" />
                                     {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
-                                      ? 'Resetting...'
-                                      : 'Reset MFA'}
+                                      ? p.workspacesResetting
+                                      : p.workspacesResetMfa}
                                   </button>
                                   <button
                                     onClick={() => handleResetPassword(u)}
@@ -553,13 +547,13 @@ export function WorkspacesPage() {
                                       resetPasswordMutation.isPending ||
                                       deactivateUserMutation.isPending
                                     }
-                                    title="Reset password"
+                                    title={p.workspacesResetPassword}
                                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
                                   >
                                     <Key className="h-3.5 w-3.5" />
                                     {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
-                                      ? 'Resetting...'
-                                      : 'Reset Password'}
+                                      ? p.workspacesResetting
+                                      : p.workspacesResetPassword}
                                   </button>
                                   <button
                                     onClick={() => handleDeactivateUser(u)}
@@ -569,14 +563,14 @@ export function WorkspacesPage() {
                                       resetPasswordMutation.isPending ||
                                       deactivateUserMutation.isPending
                                     }
-                                    title="Deactivate user"
+                                    title={p.workspacesDeactivateUser}
                                     className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
                                   >
                                     <UserX className="h-3.5 w-3.5" />
                                     {deactivateUserMutation.isPending &&
                                     deactivateUserMutation.variables?.userId === u.id
-                                      ? 'Deactivating...'
-                                      : 'Deactivate'}
+                                      ? p.workspacesDeactivating
+                                      : p.workspacesDeactivateUser}
                                   </button>
                                 </div>
                               </div>
@@ -593,7 +587,6 @@ export function WorkspacesPage() {
         )}
       </div>
 
-      {/* Action confirmation dialog */}
       {dialog.action && dialog.org && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -601,29 +594,27 @@ export function WorkspacesPage() {
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <h3 className="text-base font-semibold text-gray-900 mb-1">
-              {dialog.action === 'suspend' && 'Suspend Workspace'}
-              {dialog.action === 'restore' && 'Restore Workspace'}
-              {dialog.action === 'archive' && 'Archive Workspace'}
+              {dialog.action === 'suspend' && p.workspacesSuspendTitle}
+              {dialog.action === 'restore' && p.workspacesRestoreTitle}
+              {dialog.action === 'archive' && p.workspacesArchiveTitle}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
               <span className="font-medium text-gray-800">{dialog.org.name}</span>
               {dialog.action === 'archive' && (
-                <span className="ml-1 text-red-600 font-semibold">
-                  — this action is irreversible.
-                </span>
+                <span className="ml-1 text-red-600 font-semibold">{p.workspacesArchiveWarning}</span>
               )}
             </p>
 
             {dialog.action !== 'restore' && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason <span className="text-red-500">*</span>
+                  {p.workspacesReasonRequired} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={dialog.reason}
                   onChange={(e) => setDialog({ ...dialog, reason: e.target.value })}
                   rows={3}
-                  placeholder="Describe the reason for this action…"
+                  placeholder={p.workspacesReasonPlaceholder}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
               </div>
@@ -632,13 +623,13 @@ export function WorkspacesPage() {
             {dialog.action === 'restore' && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason (optional)
+                  {p.workspacesReasonOptional}
                 </label>
                 <textarea
                   value={dialog.reason}
                   onChange={(e) => setDialog({ ...dialog, reason: e.target.value })}
                   rows={2}
-                  placeholder="Describe the reason for restoring…"
+                  placeholder={p.workspacesRestorePlaceholder}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
               </div>
@@ -646,7 +637,7 @@ export function WorkspacesPage() {
 
             {actionMutation.isError && (
               <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-                {(actionMutation.error as Error)?.message ?? 'Action failed. Please try again.'}
+                {(actionMutation.error as Error)?.message ?? p.workspacesActionFailed}
               </div>
             )}
 
@@ -655,7 +646,7 @@ export function WorkspacesPage() {
                 onClick={closeDialog}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Cancel
+                {t.common.cancel}
               </button>
               <button
                 onClick={handleConfirm}
@@ -673,12 +664,12 @@ export function WorkspacesPage() {
                 )}
               >
                 {actionMutation.isPending
-                  ? 'Processing…'
+                  ? p.workspacesProcessing
                   : dialog.action === 'suspend'
-                    ? 'Suspend'
+                    ? p.workspacesSuspend
                     : dialog.action === 'restore'
-                      ? 'Restore'
-                      : 'Archive'}
+                      ? p.workspacesRestore
+                      : p.workspacesArchive}
               </button>
             </div>
           </div>
@@ -691,12 +682,12 @@ export function WorkspacesPage() {
           onClick={(e) => e.target === e.currentTarget && setPasswordResetResult(null)}
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Temporary Password Generated</h3>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">{p.workspacesTempPwdTitle}</h3>
             <p className="text-sm text-gray-500 mb-3">
               User: <span className="font-medium text-gray-800">{passwordResetResult.email}</span>
             </p>
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-3">
-              Share this password securely. It is shown only once and the user must change it on next login.
+              {p.workspacesTempPwdNote}
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-800 break-all">
               {passwordResetResult.temporaryPassword}
@@ -706,7 +697,7 @@ export function WorkspacesPage() {
                 onClick={() => setPasswordResetResult(null)}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
-                Close
+                {t.common.close}
               </button>
             </div>
           </div>
