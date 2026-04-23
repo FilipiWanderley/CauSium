@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -59,12 +60,50 @@ class DecisionEngineService:
             log.warning("decision_engine.cost_query.failed", error=str(e))
             rows = []
 
-        opportunities = []
+        active_statuses = (
+            OpportunityStatus.OPEN,
+            OpportunityStatus.IN_PROGRESS,
+            OpportunityStatus.VALIDATED,
+        )
+        existing_result = await self.db.execute(
+            select(OptimizationOpportunity)
+            .where(
+                OptimizationOpportunity.org_id == org_id,
+                OptimizationOpportunity.account_id == account_id,
+                OptimizationOpportunity.status.in_(active_statuses),
+            )
+            .order_by(OptimizationOpportunity.created_at.desc())
+        )
+        existing_items = list(existing_result.scalars().all())
+
+        existing_by_key: dict[str, OptimizationOpportunity] = {}
+        duplicate_existing: list[OptimizationOpportunity] = []
+        for item in existing_items:
+            key = _opportunity_dedupe_key(
+                category=item.category,
+                service=item.service,
+                owner_team=item.owner_team,
+                environment=item.environment,
+                region=item.region,
+                resource_id=item.resource_id,
+                account_id=item.account_id,
+            )
+            if key in existing_by_key:
+                duplicate_existing.append(item)
+                continue
+            existing_by_key[key] = item
+
+        now = datetime.now(timezone.utc)
+        opportunities: list[OptimizationOpportunity] = []
+        seen_keys_in_run: set[str] = set()
         for row in rows:
             monthly_cost = float(row.get("monthly_cost", 0))
             service = str(row.get("service", "unknown"))
             env = str(row.get("environment", "unknown"))
             team = str(row.get("owner_team", "untagged"))
+            resource_id = str(row.get("resource_id", ""))
+            resource_name = str(row.get("resource_name", ""))
+            region = str(row.get("region", ""))
 
             # Determine category heuristically
             category = _classify_service(service)
@@ -78,33 +117,82 @@ class DecisionEngineService:
                 environment=env,
             )
 
-            op = OptimizationOpportunity(
-                org_id=org_id,
-                account_id=account_id,
-                title=_generate_title(category, service, team),
-                description=_generate_description(category, service, monthly_cost, estimated_savings),
+            dedupe_key = _opportunity_dedupe_key(
                 category=category,
-                financial_impact_score=score.financial_impact_score,
-                risk_score=score.risk_score,
-                effort_score=score.effort_score,
-                criticality_score=score.criticality_score,
-                composite_score=score.composite_score,
-                estimated_monthly_savings_usd=estimated_savings,
-                estimated_annual_savings_usd=round(estimated_savings * 12, 2),
-                current_monthly_cost_usd=monthly_cost,
-                risk_level=score.risk_level,
-                effort_level=score.effort_level,
-                resource_id=str(row.get("resource_id", "")),
-                resource_name=str(row.get("resource_name", "")),
                 service=service,
-                region=str(row.get("region", "")),
-                environment=env,
                 owner_team=team,
-                score_rationale=score.rationale,
-                playbook=PLAYBOOKS.get(category),
+                environment=env,
+                region=region,
+                resource_id=resource_id,
+                account_id=account_id,
             )
-            self.db.add(op)
+            if dedupe_key in seen_keys_in_run:
+                continue
+            seen_keys_in_run.add(dedupe_key)
+
+            existing = existing_by_key.get(dedupe_key)
+            if existing is not None:
+                existing.title = _generate_title(category, service, team)
+                existing.description = _generate_description(category, service, monthly_cost, estimated_savings)
+                existing.category = category
+                existing.financial_impact_score = score.financial_impact_score
+                existing.risk_score = score.risk_score
+                existing.effort_score = score.effort_score
+                existing.criticality_score = score.criticality_score
+                existing.composite_score = score.composite_score
+                existing.estimated_monthly_savings_usd = estimated_savings
+                existing.estimated_annual_savings_usd = round(estimated_savings * 12, 2)
+                existing.current_monthly_cost_usd = monthly_cost
+                existing.risk_level = score.risk_level
+                existing.effort_level = score.effort_level
+                existing.resource_id = resource_id
+                existing.resource_name = resource_name
+                existing.service = service
+                existing.region = region
+                existing.environment = env
+                existing.owner_team = team
+                existing.score_rationale = score.rationale
+                existing.playbook = PLAYBOOKS.get(category)
+                existing.detected_at = now
+                op = existing
+            else:
+                op = OptimizationOpportunity(
+                    org_id=org_id,
+                    account_id=account_id,
+                    title=_generate_title(category, service, team),
+                    description=_generate_description(category, service, monthly_cost, estimated_savings),
+                    category=category,
+                    financial_impact_score=score.financial_impact_score,
+                    risk_score=score.risk_score,
+                    effort_score=score.effort_score,
+                    criticality_score=score.criticality_score,
+                    composite_score=score.composite_score,
+                    estimated_monthly_savings_usd=estimated_savings,
+                    estimated_annual_savings_usd=round(estimated_savings * 12, 2),
+                    current_monthly_cost_usd=monthly_cost,
+                    risk_level=score.risk_level,
+                    effort_level=score.effort_level,
+                    resource_id=resource_id,
+                    resource_name=resource_name,
+                    service=service,
+                    region=region,
+                    environment=env,
+                    owner_team=team,
+                    score_rationale=score.rationale,
+                    playbook=PLAYBOOKS.get(category),
+                )
+                self.db.add(op)
+                existing_by_key[dedupe_key] = op
             opportunities.append(op)
+
+        for duplicated in duplicate_existing:
+            if duplicated.status != OpportunityStatus.OPEN:
+                continue
+            duplicated.status = OpportunityStatus.DISMISSED
+            duplicated.score_rationale = (
+                (duplicated.score_rationale or "").strip()
+                + "\n\n[system] Auto-dismissed duplicate opportunity."
+            ).strip()
 
         await self.db.flush()
         log.info("decision_engine.generated", org_id=str(org_id), count=len(opportunities))
@@ -314,4 +402,40 @@ def _generate_description(
         f"{service} is currently costing ${monthly_cost:,.2f}/month. "
         f"Analysis indicates a {rate:.0f}% cost reduction opportunity (${estimated_savings:,.2f}/month) "
         f"through {category.value.replace('_', ' ')}."
+    )
+
+
+def _norm_text(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
+def _norm_uuid(value: UUID | None) -> str:
+    return str(value) if value is not None else ""
+
+
+def _norm_resource_id(value: str | None) -> str:
+    return _norm_text(value).rstrip("/")
+
+
+def _opportunity_dedupe_key(
+    *,
+    category: OpportunityCategory,
+    service: str | None,
+    owner_team: str | None,
+    environment: str | None,
+    region: str | None,
+    resource_id: str | None,
+    account_id: UUID | None,
+) -> str:
+    # A stable identity for "same optimization target" across scoring runs.
+    return "|".join(
+        [
+            _norm_uuid(account_id),
+            category.value,
+            _norm_resource_id(resource_id),
+            _norm_text(service),
+            _norm_text(owner_team),
+            _norm_text(environment),
+            _norm_text(region),
+        ]
     )
