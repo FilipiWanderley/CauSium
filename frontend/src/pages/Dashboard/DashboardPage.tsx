@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
+import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb, ChevronDown } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
@@ -314,16 +314,19 @@ export function DashboardPage() {
         </div>
         <label className="text-sm text-gray-600">
           {d.providerScope}
-          <select
-            value={providerFilter}
-            onChange={(e) => setProviderFilterRaw(e.target.value)}
-            className="mt-1 block min-w-44 rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-          >
-            <option value="all">{d.providerAll}</option>
-            <option value="azure">{d.providerAzure}</option>
-            <option value="aws">{d.providerAws}</option>
-            <option value="gcp">{d.providerGcp}</option>
-          </select>
+          <div className="relative mt-1">
+            <select
+              value={providerFilter}
+              onChange={(e) => setProviderFilterRaw(e.target.value)}
+              className="block min-w-44 appearance-none rounded-md border border-gray-300 bg-white px-3 py-2 pr-9 text-sm text-gray-700 shadow-sm transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            >
+              <option value="all">{d.providerAll}</option>
+              <option value="azure">{d.providerAzure}</option>
+              <option value="aws">{d.providerAws}</option>
+              <option value="gcp">{d.providerGcp}</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          </div>
         </label>
       </div>
 
