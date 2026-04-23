@@ -3,6 +3,7 @@ import asyncio
 
 from app.core.logging import configure_logging, get_logger
 from app.core.observability import observe_worker_lifecycle
+from app.workers.anomaly_detection_worker import run_anomaly_detection_worker
 from app.workers.audit_checkpoint_worker import run_audit_checkpoint_worker
 from app.workers.carbon_sync_worker import run_carbon_sync_worker
 from app.workers.export_worker import run_export_worker
@@ -34,6 +35,7 @@ async def main() -> None:
     await asyncio.gather(
         _run_worker("ingestion", run_ingestion_worker),
         _run_worker("scoring", run_scoring_worker),
+        _run_worker("anomaly_detection", run_anomaly_detection_worker),
         _run_worker("audit_checkpoint", run_audit_checkpoint_worker),
         _run_worker("economics_export", run_export_worker),
         _run_worker("keyring_rotation", run_keyring_rotation_worker),
