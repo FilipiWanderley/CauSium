@@ -17,7 +17,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
-    severity_enum = sa.Enum("low", "medium", "high", name="costanomalyseverity")
+    severity_enum = postgresql.ENUM(
+        "low",
+        "medium",
+        "high",
+        name="costanomalyseverity",
+        create_type=False,
+    )
     severity_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(

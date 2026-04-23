@@ -96,6 +96,10 @@ class CostExplanationService:
         return str(plan or "unknown")
 
     def _plan_has_ai(self, plan: str) -> bool:
+        # In local/dev environments we keep AI routes available for demos and
+        # end-to-end validation, while production remains plan-gated.
+        if not self.settings.is_production:
+            return True
         allowed = {p.strip().lower() for p in (self.settings.ai_enabled_plans or "").split(",") if p.strip()}
         if not allowed:
             allowed = {"b", "plan_b", "ai", "enterprise", "pro_ai", "growth_ai"}

@@ -171,6 +171,22 @@ def _is_origin_allowed(origin: str, allowed: list[str]) -> bool:
     return any(a.rstrip("/").lower() == needle for a in allowed)
 
 
+def _is_local_dev_origin(origin: str) -> bool:
+    """Allow localhost/loopback origins in non-production dev environments."""
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(origin)
+    except Exception:
+        return False
+
+    if parsed.scheme not in {"http", "https"}:
+        return False
+
+    host = (parsed.hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"}
+
+
 def _check_origin(request: Request, settings) -> JSONResponse | None:
     """
     Validate the request origin for endpoints in ``_ORIGIN_VALIDATED_PATHS``.
@@ -205,6 +221,8 @@ def _check_origin(request: Request, settings) -> JSONResponse | None:
         return None
 
     if not _is_origin_allowed(origin, settings.cors_origins_list):
+        if not settings.is_production and _is_local_dev_origin(origin):
+            return None
         log.warning(
             "origin_validation.rejected",
             origin=origin,
