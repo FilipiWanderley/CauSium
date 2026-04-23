@@ -189,12 +189,12 @@ def _mock_explain_cost_change(
         summary=summary,
         causes=causes,
         impact=(
-            "Os principais drivers mostram aumentos de custo concentrados em poucos servicos."
+            "Os principais fatores mostram aumentos de custo concentrados em poucos servicos."
             if language == "pt"
             else "Top drivers indicate service-level increases concentrated in a small set of services."
         ),
         recommendation=(
-            "Valide deploys e eventos de escala recentes, depois faca rightsizing e ajuste de autoscaling."
+            "Valide implantacoes e eventos de escala recentes, depois faca dimensionamento adequado e ajuste de autoescalonamento."
             if language == "pt"
             else "Validate recent deploys and scaling events, then right-size or adjust autoscaling policies."
         ),

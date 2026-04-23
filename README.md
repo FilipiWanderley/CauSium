@@ -99,6 +99,7 @@ A primeira capacidade de IA do produto está implementada em produção local: *
 - Cruza dados de custos (`cost_facts`), eventos (`event_facts`) e recomendações (`recommendation_facts`).
 - Retorna plano de ação objetivo para engenharia/FinOps.
 - Respeita idioma da interface (`PT`/`EN`) para conteúdo gerado pela IA.
+- Em `PT`, o texto de recomendação e impacto usa terminologia funcional em português.
 - Controla acesso por plano (`AI_ENABLED_PLANS` + regras default de plano com IA).
 
 **Contrato de API**
