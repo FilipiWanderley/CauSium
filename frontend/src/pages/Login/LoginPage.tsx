@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
 export function LoginPage() {
@@ -13,12 +13,13 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [oidcLoading, setOidcLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const apiBase = useMemo(() => import.meta.env.VITE_API_URL || '', [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oidcError = params.get('oidc_error')
-    if (oidcError) setError(`OIDC falhou: ${oidcError}`)
+    if (oidcError) setError(`SSO sign in failed: ${oidcError}`)
     if (params.get('reset') === 'success') {
       setResetSuccess(true)
       setError('')
@@ -63,16 +64,12 @@ export function LoginPage() {
   }
 
   const handlePasskeyLogin = async () => {
-    if (!email) {
-      setError('Informe seu e-mail para login com passkey')
-      return
-    }
     setError('')
     setPasskeyLoading(true)
     try {
       await loginWithPasskey(email)
     } catch {
-      setError('Falha no login com passkey. Verifique se já cadastrou sua chave.')
+      setError('Passkey sign in failed. Make sure you have registered a passkey for this account.')
     } finally {
       setPasskeyLoading(false)
     }
@@ -157,7 +154,7 @@ export function LoginPage() {
             className="fixed left-8 top-8 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white group"
           >
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Voltar
+            Back
           </a>
 
           <div className="mb-8 w-full text-center">
@@ -168,7 +165,7 @@ export function LoginPage() {
           </div>
 
           <div className="login-glass-card w-full rounded-[20px] p-8">
-            <h2 className="mb-6 text-[19px] font-medium text-white">Sign in to your workspace</h2>
+            <p className="mb-6 text-[13px] text-gray-400">Sign in to continue to your workspace.</p>
 
             {error && (
               <div className="mb-4 rounded-lg border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -210,15 +207,26 @@ export function LoginPage() {
                     Forgot password?
                   </Link>
                 </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="login-glass-input w-full rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all duration-300"
-                  placeholder="••••••••••••"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="login-glass-input w-full rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-gray-500 outline-none transition-all duration-300"
+                    placeholder="••••••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <button
@@ -239,13 +247,19 @@ export function LoginPage() {
             <button
               type="button"
               onClick={handlePasskeyLogin}
-              disabled={passkeyLoading}
-              className="mb-3 flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-white/[0.08] disabled:opacity-60"
+              disabled={!email || passkeyLoading}
+              title={!email ? 'Enter your email first' : undefined}
+              className="mb-3 flex w-full items-center justify-center gap-2.5 rounded-xl border border-violet-500/30 bg-violet-500/[0.06] py-3 text-sm font-medium text-white transition-all duration-300 hover:border-violet-500/50 hover:bg-violet-500/[0.12] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <svg className="h-4 w-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
               {passkeyLoading ? 'Validating passkey...' : 'Sign in with Passkey'}
+              {!passkeyLoading && (
+                <span className="ml-auto rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-300">
+                  Recommended
+                </span>
+              )}
             </button>
 
             <button
@@ -262,6 +276,11 @@ export function LoginPage() {
               </svg>
               {oidcLoading ? 'Redirecting to Microsoft...' : 'Sign in with Microsoft'}
             </button>
+
+            <p className="mt-6 text-center text-[12px] text-gray-600">
+              No account?{' '}
+              <span className="text-gray-500">Contact your workspace administrator.</span>
+            </p>
           </div>
         </div>
       </div>
