@@ -199,6 +199,14 @@ class Settings(BaseSettings):
     # dev and a lower ratio (e.g. 0.1) in high-traffic production.
     otel_sample_ratio: float = 1.0
 
+    # AI / PulseIntel
+    ai_provider: str = "mock"
+    ai_enabled_plans: str = ""
+    ai_model: str = "gpt-4o-mini"
+    ai_timeout_seconds: float = 30.0
+    ai_openai_api_key: str = ""
+    ai_openai_base_url: str = "https://api.openai.com/v1"
+
     # Workers
     ingestion_interval_hours: int = 6
     scoring_interval_hours: int = 1

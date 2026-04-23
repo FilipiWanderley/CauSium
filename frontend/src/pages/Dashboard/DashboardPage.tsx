@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
@@ -9,8 +9,16 @@ import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
 import { changeEventsApi } from '../../api/changeEvents'
+import { intelApi } from '../../api/intel'
 import { useI18n } from '../../contexts/I18nContext'
-import type { ChangeEvent, ChangeEventType, CloudProvider, ReservationEfficiencyAction } from '../../types'
+import type {
+  ChangeEvent,
+  ChangeEventType,
+  CloudProvider,
+  ExplainCostChangeRequest,
+  ExplainCostChangeResponse,
+  ReservationEfficiencyAction,
+} from '../../types'
 import clsx from 'clsx'
 import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
 
@@ -45,6 +53,8 @@ const ACTION_COLOR: Record<ReservationEfficiencyAction, string> = {
 
 const DASHBOARD_PROVIDERS = ['all', 'azure', 'aws', 'gcp'] as const
 type DashboardProviderFilter = (typeof DASHBOARD_PROVIDERS)[number]
+
+const toISODate = (d: Date) => d.toISOString().slice(0, 10)
 
 function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
   const Icon = EVENT_ICON[ev.event_type]
@@ -96,6 +106,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const d = t.dashboard
   const ce = t.changeEvents
+  const [explainOpen, setExplainOpen] = useState(false)
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
   const [providerFilterRaw, setProviderFilterRaw] = usePersistentString(
     'sp.dashboard.providerFilter',
@@ -108,6 +119,19 @@ export function DashboardPage() {
     : 'all'
   const providerParam: CloudProvider | undefined =
     providerFilter === 'all' ? undefined : providerFilter
+
+  const explainWindow = useMemo(() => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    return { start_date: toISODate(start), end_date: toISODate(now) }
+  }, [])
+
+  const explainMutation = useMutation({
+    mutationFn: async (req: ExplainCostChangeRequest) => {
+      const res = await intelApi.explainCostChange(req)
+      return res.data
+    },
+  })
 
   const eventLabels: Record<ChangeEventType, string> = {
     incident: ce.incident,
@@ -198,8 +222,91 @@ export function DashboardPage() {
     do_not_renew: d.resActionDoNotRenew,
   }
 
+  const explainData: ExplainCostChangeResponse | undefined = explainMutation.data
+
   return (
     <div className="space-y-6">
+      {explainOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{d.explainCostTitle}</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {explainWindow.start_date} → {explainWindow.end_date}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-50"
+                onClick={() => setExplainOpen(false)}
+              >
+                {t.common.close}
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {explainMutation.isPending && (
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                  {d.explainCostLoading}
+                </div>
+              )}
+
+              {explainMutation.isError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {d.explainCostError}
+                </div>
+              )}
+
+              {explainData && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm font-medium text-gray-900">{d.explainCostSummary}</p>
+                    <p className="mt-2 text-sm text-gray-700">{explainData.summary}</p>
+                    <div className="mt-3 text-xs text-gray-500">
+                      {d.explainCostConfidence}: {Math.round(explainData.confidence * 100)}%
+                      {explainData.model ? ` · ${explainData.model}` : ''}
+                    </div>
+                  </div>
+
+                  {explainData.causes.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900">{d.explainCostCauses}</p>
+                      <div className="space-y-2">
+                        {explainData.causes.map((c, idx) => (
+                          <div key={idx} className="rounded-lg border border-gray-200 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-sm font-medium text-gray-900">{c.cause}</p>
+                              {c.estimated_impact_usd != null && (
+                                <span className="text-xs font-semibold text-gray-600">
+                                  {fmt(c.estimated_impact_usd)}
+                                </span>
+                              )}
+                            </div>
+                            {c.evidence.length > 0 && (
+                              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700">
+                                {c.evidence.slice(0, 4).map((e, eIdx) => (
+                                  <li key={eIdx}>{e}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-lg border border-gray-200 p-4">
+                    <p className="text-sm font-medium text-gray-900">{d.explainCostRecommendation}</p>
+                    <p className="mt-2 text-sm text-gray-700">{explainData.recommendation}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{d.title}</h1>
@@ -229,6 +336,23 @@ export function DashboardPage() {
           changeLabel={d.vsLastMonth}
           icon={<DollarSign className="h-5 w-5" />}
           variant={(metrics?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
+          action={
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+              onClick={() => {
+                setExplainOpen(true)
+                explainMutation.mutate({
+                  start_date: explainWindow.start_date,
+                  end_date: explainWindow.end_date,
+                  ...(providerParam ? { provider: providerParam } : {}),
+                })
+              }}
+            >
+              <Lightbulb className="h-3.5 w-3.5" />
+              {d.explainCostCta}
+            </button>
+          }
         />
         <MetricCard
           title={d.potentialSavings}

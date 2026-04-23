@@ -18,6 +18,7 @@ from app.domains.economics.router import router as economics_router
 from app.domains.notifications.router import router as notifications_router
 from app.domains.gov.router import router as gov_router
 from app.domains.green.router import router as green_router
+from app.domains.intel.router import router as intel_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -38,6 +39,7 @@ api_router.include_router(economics_router)
 api_router.include_router(notifications_router)
 api_router.include_router(gov_router)
 api_router.include_router(green_router)
+api_router.include_router(intel_router)
 
 if not get_settings().is_production:
     from app.domains.dev.router import router as dev_router

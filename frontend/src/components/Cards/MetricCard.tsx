@@ -9,6 +9,7 @@ interface MetricCardProps {
   changeLabel?: string
   icon?: React.ReactNode
   variant?: 'default' | 'success' | 'warning' | 'danger'
+  action?: React.ReactNode
 }
 
 export function MetricCard({
@@ -19,6 +20,7 @@ export function MetricCard({
   changeLabel,
   icon,
   variant = 'default',
+  action,
 }: MetricCardProps) {
   const isPositiveChange = change !== undefined && change > 0
   const isNegativeChange = change !== undefined && change < 0
@@ -62,6 +64,7 @@ export function MetricCard({
               </span>
             </div>
           )}
+          {action && <div className="mt-3">{action}</div>}
         </div>
         {icon && (
           <div className="rounded-lg bg-gray-50 p-2.5 text-gray-400">{icon}</div>

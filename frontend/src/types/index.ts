@@ -474,3 +474,25 @@ export interface ChangeEvent {
   occurred_at: string
   created_at: string
 }
+
+// PulseIntel
+export interface ExplainCostChangeRequest {
+  start_date: string
+  end_date: string
+  provider?: CloudProvider
+}
+
+export interface ExplainCostCause {
+  cause: string
+  evidence: string[]
+  estimated_impact_usd: number | null
+}
+
+export interface ExplainCostChangeResponse {
+  summary: string
+  causes: ExplainCostCause[]
+  impact: string
+  recommendation: string
+  confidence: number
+  model?: string | null
+}

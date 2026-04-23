@@ -87,6 +87,13 @@ CauSium
 └── StratoMesh       → mTLS interno entre serviços (SPIFFE-based)
 ```
 
+### PulseIntel — Explain Cost Change (IA)
+
+- Endpoint: `POST /api/v1/intel/explain-cost`
+- Entrada: `start_date`, `end_date` (e opcional `provider`)
+- Saída (JSON estruturado): `summary`, `causes[]`, `impact`, `recommendation`, `confidence`
+- Controle por plano: a execução é liberada apenas para workspaces com plano habilitado para IA (ver variáveis de ambiente)
+
 ---
 
 ## 🏗️ Arquitetura do Sistema
