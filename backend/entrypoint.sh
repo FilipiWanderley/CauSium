@@ -1,10 +1,10 @@
 #!/bin/sh
-# entrypoint.sh — runs Alembic migrations then starts the application.
+# entrypoint.sh â€” runs Alembic migrations then starts the application.
 # Used by both the backend and worker services in docker-compose.
 set -e
 
 # Ensure alembic_version uses varchar(128) to accommodate long revision IDs.
-# This is idempotent — CREATE TABLE IF NOT EXISTS + ALTER column if needed.
+# This is idempotent â€” CREATE TABLE IF NOT EXISTS + ALTER column if needed.
 echo "[entrypoint] ensuring alembic_version schema..."
 python - <<'PYEOF'
 import asyncio, os, re
