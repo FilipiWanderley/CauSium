@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
-from app.domains.intel.schemas import ExplainCostCause, ExplainCostChangeOut
+from app.domains.intel.schemas import ExplainCostCause, ExplainCostChangeOut, IntelInsightsOut
 
 
 class LlmService:
@@ -20,6 +20,15 @@ class LlmService:
             return _mock_explain_cost_change(context, language=language)
         if provider == "openai":
             return await self._openai_explain_cost_change(context, language=language)
+        raise ValueError(f"Unsupported AI provider: {provider}")
+
+    async def generate_insights(self, context: dict[str, Any]) -> IntelInsightsOut:
+        provider = (self.settings.ai_provider or "mock").lower()
+        language = _normalize_language(context.get("language"))
+        if provider == "mock":
+            return _mock_generate_insights(context, language=language)
+        if provider == "openai":
+            return await self._openai_generate_insights(context, language=language)
         raise ValueError(f"Unsupported AI provider: {provider}")
 
     async def _openai_explain_cost_change(
@@ -88,6 +97,69 @@ class LlmService:
         content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
         parsed = _parse_llm_json(content)
         out = _coerce_out(parsed, language=language)
+        out.model = self.settings.ai_model
+        return out
+
+    async def _openai_generate_insights(
+        self, context: dict[str, Any], *, language: str
+    ) -> IntelInsightsOut:
+        if not self.settings.ai_openai_api_key:
+            raise ValueError("AI provider is openai, but AI_OPENAI_API_KEY is not set")
+
+        language_instruction = (
+            "Respond in Brazilian Portuguese."
+            if language == "pt"
+            else "Respond in English."
+        )
+        payload = {
+            "model": self.settings.ai_model,
+            "temperature": 0.2,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a FinOps copilot. "
+                        "Given structured workspace signals, return one actionable decision summary. "
+                        "Return only valid JSON matching the required schema. "
+                        f"{language_instruction}"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "task": (
+                                "Generate actionable cloud cost insights and one prioritized recommendation."
+                                if language == "en"
+                                else "Gere insights acionaveis de custo cloud e uma recomendacao priorizada."
+                            ),
+                            "required_json_schema": {
+                                "top_saving_opportunity": "string",
+                                "main_risk": "string",
+                                "cost_trend_summary": "string",
+                                "recommended_action": "string",
+                                "confidence": "number between 0 and 1",
+                            },
+                            "context": context,
+                        },
+                        default=str,
+                    ),
+                },
+            ],
+        }
+
+        headers = {"Authorization": f"Bearer {self.settings.ai_openai_api_key}"}
+        base_url = self.settings.ai_openai_base_url.rstrip("/")
+        url = f"{base_url}/chat/completions"
+
+        async with httpx.AsyncClient(timeout=self.settings.ai_timeout_seconds) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        parsed = _parse_llm_json(content)
+        out = _coerce_insights_out(parsed, language=language)
         out.model = self.settings.ai_model
         return out
 
@@ -199,6 +271,55 @@ def _mock_explain_cost_change(
             else "Validate recent deploys and scaling events, then right-size or adjust autoscaling policies."
         ),
         confidence=0.35,
+        model="mock",
+    )
+
+
+def _coerce_insights_out(payload: dict[str, Any], *, language: str = "en") -> IntelInsightsOut:
+    confidence = payload.get("confidence")
+    try:
+        confidence_f = float(confidence) if confidence is not None else 0.6
+    except Exception:
+        confidence_f = 0.6
+    confidence_f = max(0.0, min(1.0, confidence_f))
+
+    return IntelInsightsOut(
+        top_saving_opportunity=str(payload.get("top_saving_opportunity") or "").strip()
+        or (
+            "No significant saving opportunity identified."
+            if language == "en"
+            else "Nenhuma oportunidade relevante de economia identificada."
+        ),
+        main_risk=str(payload.get("main_risk") or "").strip()
+        or (
+            "No relevant financial risk detected."
+            if language == "en"
+            else "Nenhum risco financeiro relevante detectado."
+        ),
+        cost_trend_summary=str(payload.get("cost_trend_summary") or "").strip()
+        or (
+            "Insufficient data to summarize cost trend."
+            if language == "en"
+            else "Dados insuficientes para resumir tendencia de custos."
+        ),
+        recommended_action=str(payload.get("recommended_action") or "").strip()
+        or (
+            "Review top opportunities and monitor anomaly signals."
+            if language == "en"
+            else "Revise as principais oportunidades e monitore sinais de anomalia."
+        ),
+        confidence=confidence_f,
+    )
+
+
+def _mock_generate_insights(context: dict[str, Any], *, language: str = "en") -> IntelInsightsOut:
+    fallback = context.get("fallback") or {}
+    return IntelInsightsOut(
+        top_saving_opportunity=str(fallback.get("top_saving_opportunity") or ""),
+        main_risk=str(fallback.get("main_risk") or ""),
+        cost_trend_summary=str(fallback.get("cost_trend_summary") or ""),
+        recommended_action=str(fallback.get("recommended_action") or ""),
+        confidence=float(fallback.get("confidence") or 0.6),
         model="mock",
     )
 

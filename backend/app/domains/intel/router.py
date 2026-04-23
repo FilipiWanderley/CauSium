@@ -13,6 +13,7 @@ from app.domains.auth.models import UserRole
 from app.core.dependencies import require_roles
 from app.domains.intel.anomaly_detection_service import CostAnomalyDetectionService
 from app.domains.intel.cost_explanation_service import CostExplanationService
+from app.domains.intel.insights_service import IntelInsightsService
 from app.domains.intel.models import CostAnomaly, CostAnomalySeverity
 from app.domains.intel.schemas import (
     CostAnomalyOut,
@@ -20,6 +21,7 @@ from app.domains.intel.schemas import (
     DetectCostAnomaliesRequest,
     ExplainCostChangeOut,
     ExplainCostChangeRequest,
+    IntelInsightsOut,
 )
 
 router = APIRouter(prefix="/intel", tags=["intel"])
@@ -114,4 +116,20 @@ async def list_cost_anomalies(
         offset=page_params.offset,
     )
     return Page.of([_to_cost_anomaly_out(item) for item in items], total, page_params)
+
+
+@router.get("/insights", response_model=IntelInsightsOut)
+async def get_intel_insights(
+    language: str = Query(default="en"),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> IntelInsightsOut:
+    svc = IntelInsightsService(db)
+    try:
+        return await svc.get_insights(org_id=current_user.org_id, language=language)
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="AI feature not enabled for this workspace plan",
+        )
 

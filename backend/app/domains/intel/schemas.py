@@ -59,3 +59,13 @@ class DetectCostAnomaliesOut(BaseModel):
     detected: int
     created: int
     anomalies: list[CostAnomalyOut] = Field(default_factory=list)
+
+
+class IntelInsightsOut(BaseModel):
+    top_saving_opportunity: str
+    main_risk: str
+    cost_trend_summary: str
+    recommended_action: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    model: str | None = None
+    debug: dict[str, Any] | None = None
