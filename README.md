@@ -29,6 +29,7 @@
 - [Segurança](#-segurança)
 - [Modelo de Dados](#-modelo-de-dados)
 - [APIs](#-apis)
+- [PulseIntel IA](#-pulseintel-ia)
 - [Fluxos Principais](#-fluxos-principais)
 - [Análise de Eficiência de Reservas](#-análise-de-eficiência-de-reservas)
 - [Workers e Processamento](#-workers-e-processamento)
@@ -89,10 +90,70 @@ CauSium
 
 ### PulseIntel — Explain Cost Change (IA)
 
+A primeira capacidade de IA do produto está implementada em produção local: **explicação automática de variação de custo** para apoiar decisão operacional com contexto técnico e financeiro.
+
+**O que faz no software**
+
+- Explica variação de custo do período selecionado comparando janela atual vs janela anterior equivalente.
+- Destaca causas prováveis com evidências e impacto estimado.
+- Cruza dados de custos (`cost_facts`), eventos (`event_facts`) e recomendações (`recommendation_facts`).
+- Retorna plano de ação objetivo para engenharia/FinOps.
+- Controla acesso por plano (`AI_ENABLED_PLANS` + regras default de plano com IA).
+
+**Contrato de API**
+
 - Endpoint: `POST /api/v1/intel/explain-cost`
-- Entrada: `start_date`, `end_date` (e opcional `provider`)
-- Saída (JSON estruturado): `summary`, `causes[]`, `impact`, `recommendation`, `confidence`
-- Controle por plano: a execução é liberada apenas para workspaces com plano habilitado para IA (ver variáveis de ambiente)
+- Entrada: `start_date`, `end_date`, `provider?`
+- Saída: `summary`, `causes[]`, `impact`, `recommendation`, `confidence`, `model?`, `debug?`
+- Erros esperados: `422` (período inválido), `403` (IA não habilitada no plano)
+
+**Arquitetura da feature (backend)**
+
+```mermaid
+flowchart LR
+  UI[Dashboard CTA\nExplain change] --> API[POST /api/v1/intel/explain-cost]
+  API --> GATE{Plano com IA?}
+  GATE -->|Não| DENY[403]
+  GATE -->|Sim| ORCH[CostExplanationService]
+  ORCH --> CH1[ClickHouse\ncost_facts]
+  ORCH --> CH2[ClickHouse\nevent_facts]
+  ORCH --> CH3[ClickHouse\nrecommendation_facts]
+  CH1 --> CTX[Context Builder]
+  CH2 --> CTX
+  CH3 --> CTX
+  CTX --> LLM[LlmService\nprovider: mock/openai]
+  LLM --> OUT[ExplainCostChangeOut]
+  OUT --> UI
+```
+
+**Fluxo de execução da IA**
+
+```mermaid
+sequenceDiagram
+  participant FE as Frontend
+  participant BE as Intel Router
+  participant SVC as CostExplanationService
+  participant CH as ClickHouse
+  participant LLM as LlmService
+
+  FE->>BE: POST /intel/explain-cost {start_date,end_date,provider?}
+  BE->>SVC: validate period + user/org
+  SVC->>SVC: require_ai_feature(plan)
+  SVC->>CH: Query delta + drivers + eventos + recomendações
+  SVC->>LLM: explain_cost_change(contexto estruturado)
+  LLM-->>SVC: JSON estruturado (ou fallback mock)
+  SVC-->>BE: ExplainCostChangeOut
+  BE-->>FE: 200 response
+```
+
+**Configuração operacional (ENV)**
+
+- `AI_PROVIDER=mock|openai`
+- `AI_ENABLED_PLANS=b,enterprise,growth_ai` (ou vazio para defaults)
+- `AI_MODEL=gpt-4o-mini`
+- `AI_TIMEOUT_SECONDS=30`
+- `AI_OPENAI_API_KEY`
+- `AI_OPENAI_BASE_URL=https://api.openai.com/v1`
 
 ---
 
@@ -680,7 +741,7 @@ graph LR
 ### Domínios de API
 
 ```
-/api/v1/  (prefixo real: sem /api/v1, direto na raiz do backend)
+/api/v1/  (prefixo real: /api/v1)
 ├── /auth/*              → Autenticação, passkey, OIDC, MFA TOTP, backup codes, LGPD
 ├── /cloud-accounts/*    → Multi-cloud connectors (Azure, AWS CUR, GCP BigQuery)
 ├── /economics/*         → Dashboard, budget, custos, SKUs, forecast, exportação async
@@ -849,6 +910,59 @@ Erros seguem envelope padronizado:
 ```
 
 Mutações críticas aceitam header `Idempotency-Key: <uuid4>` para garantia de segurança em retentativas com replay do resultado original.
+
+---
+
+## 🤖 PulseIntel IA
+
+### Explain Cost Change — como trabalha no produto
+
+No dashboard, o usuário pode clicar em **Explain change** no card de custo mensal. O frontend abre um modal e chama o endpoint de IA com a janela do mês atual. O backend monta contexto com dados reais de custo/evento/recomendação e retorna uma explicação estruturada para ação imediata.
+
+**Resultado mostrado na UI**
+
+- Resumo executivo da variação.
+- Principais causas ordenadas com evidências.
+- Impacto financeiro resumido.
+- Recomendação prática de próximo passo.
+- Nível de confiança da explicação.
+
+### Arquitetura de integração Frontend + Backend
+
+```mermaid
+flowchart TB
+  subgraph Frontend
+    KPI[Current Month Cost Card]
+    CTA[Botão Explain change]
+    MODAL[Modal de explicação]
+  end
+
+  subgraph Backend
+    R[Router /intel/explain-cost]
+    S[CostExplanationService]
+    L[LlmService]
+  end
+
+  subgraph Data
+    C[(cost_facts)]
+    E[(event_facts)]
+    P[(recommendation_facts)]
+  end
+
+  KPI --> CTA --> R --> S
+  S --> C
+  S --> E
+  S --> P
+  S --> L
+  L --> S --> MODAL
+```
+
+### Limites e comportamento de segurança
+
+- A funcionalidade só responde para workspaces com plano habilitado para IA.
+- Período inválido é bloqueado por validação de contrato (`end_date < start_date`).
+- Se o provider LLM falhar, o serviço retorna fallback `mock` para manter continuidade da UX.
+- O endpoint usa autenticação do usuário atual e escopo do workspace (`org_id`) para isolamento multi-tenant.
 
 ---
 
@@ -1049,9 +1163,9 @@ flowchart LR
 **Configuração via `.env`:**
 ```bash
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=stratopulse-api
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_SAMPLING_RATE=1.0   # 1.0 = 100% em dev; reduzir em prod
+OTEL_SERVICE_NAME=causium-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+OTEL_SAMPLE_RATIO=1.0   # 1.0 = 100% em dev; reduzir em prod
 ```
 
 ### SLO Dashboard — `/metrics/slo`
@@ -1093,12 +1207,11 @@ Serviços iniciados:
 | Serviço | Porta | Descrição |
 |---------|-------|-----------|
 | `backend` | 8000 | FastAPI + entrypoint.sh (auto-migration + uvicorn) |
-| `frontend` | 5173 | Vite dev server |
+| `frontend` | 3000 | nginx dev runtime servindo o build do frontend |
 | `postgres` | 5432 | PostgreSQL 15 |
 | `redis` | 6379 | Redis 7 |
 | `clickhouse` | 8123 | ClickHouse OLAP |
 | `jaeger` | 16686 | Distributed Tracing UI |
-| `otel-collector` | 4317 | OpenTelemetry Collector (gRPC) |
 | `prometheus` | 9090 | Métricas |
 | `grafana` | 3001 | Dashboards + SLO |
 
@@ -1282,7 +1395,7 @@ gantt
 | Segurança | ✅ Completo | PBAC/ABAC, idempotency keys, TLS 1.3 todos os datastores, security headers |
 | PulseEconomics | 🔶 Parcial | Dashboard, costs, SKUs, export async — forecast P90 no roadmap |
 | Alertas e notificações | ✅ Completo | AlertRecord, AlertRule, NotificationPreference, SMTP + Slack, DLQ |
-| PulseIntel | 🔶 Parcial | ProviderRecommendation sync — SCA/ARI Wave 3 |
+| PulseIntel | 🔶 Parcial | Explain Cost Change (IA) + ProviderRecommendation sync — SCA/ARI avançado no Wave 3 |
 | PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
 | PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
 | PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR + Carbon Export (S3), GCP Billing + Carbon Footprint (BigQuery + Workload Identity) |
@@ -1357,9 +1470,9 @@ ENCRYPTION_KEY=<fernet-key-base64>
 MFA_ISSUER=CauSium
 
 # Passkeys / WebAuthn
-WEBAUTHN_RP_ID=localhost
-WEBAUTHN_RP_NAME=CauSium
-WEBAUTHN_ORIGIN=http://localhost:5173
+PASSKEY_RP_ID=localhost
+PASSKEY_RP_NAME=CauSium
+PASSKEY_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
 
 # Azure OIDC (opcional para dev)
 AZURE_TENANT_ID=<tenant-id>
@@ -1378,9 +1491,9 @@ SMTP_FROM=noreply@stratopulse.io
 
 # OpenTelemetry
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=stratopulse-api
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_SAMPLING_RATE=1.0
+OTEL_SERVICE_NAME=causium-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+OTEL_SAMPLE_RATIO=1.0
 
 # Workers
 WORKER_CONCURRENCY=4
