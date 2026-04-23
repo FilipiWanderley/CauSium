@@ -648,6 +648,37 @@ export interface Translations {
     toastInviteRevoked: string
     toastInviteRevokeError: string
   }
+  login: {
+    back: string
+    oidcFailed: string
+    invalidCredentials: string
+    serverError: string
+    networkError: string
+    passkeyFailed: string
+    welcomeBack: string
+    subtitle: string
+    badgeMultiCloud: string
+    badgeRiskAware: string
+    badgeEnterprise: string
+    signInContinue: string
+    emailLabel: string
+    emailPlaceholder: string
+    passwordLabel: string
+    forgotPassword: string
+    passwordPlaceholder: string
+    showPassword: string
+    hidePassword: string
+    signIn: string
+    signingIn: string
+    orContinueWith: string
+    enterEmailFirst: string
+    passkeySignIn: string
+    passkeyValidating: string
+    microsoftSignIn: string
+    microsoftRedirecting: string
+    noAccount: string
+    contactAdmin: string
+  }
   platform: {
     syncTitle: string
     syncSubtitle: string
@@ -1547,5 +1578,36 @@ export const en: Translations = {
     syncErrorMsg: 'Could not trigger sync for this account. Please try again.',
     syncNoAccounts: 'No cloud accounts found.',
     refresh: 'Refresh',
+  },
+  login: {
+    back: 'Back',
+    oidcFailed: 'SSO sign in failed: {{error}}',
+    invalidCredentials: 'Invalid email or password.',
+    serverError: 'Server error. Please try again in a moment.',
+    networkError: 'Could not connect. Check your network and try again.',
+    passkeyFailed: 'Passkey sign in failed. Make sure you have registered a passkey for this account.',
+    welcomeBack: 'Welcome back',
+    subtitle: 'Cloud cost intelligence platform for safer decisions and faster execution.',
+    badgeMultiCloud: 'Multi-Cloud',
+    badgeRiskAware: 'Risk-Aware',
+    badgeEnterprise: 'Enterprise Ready',
+    signInContinue: 'Sign in to continue to your workspace.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'customer.demo@causium.io',
+    passwordLabel: 'Password',
+    forgotPassword: 'Forgot password?',
+    passwordPlaceholder: '••••••••••••',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    signIn: 'Sign in',
+    signingIn: 'Signing in...',
+    orContinueWith: 'or continue with',
+    enterEmailFirst: 'Enter your email first',
+    passkeySignIn: 'Sign in with Passkey',
+    passkeyValidating: 'Validating passkey...',
+    microsoftSignIn: 'Sign in with Microsoft',
+    microsoftRedirecting: 'Redirecting to Microsoft...',
+    noAccount: 'No account?',
+    contactAdmin: 'Contact your workspace administrator.',
   },
 }
