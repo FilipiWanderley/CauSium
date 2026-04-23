@@ -165,11 +165,13 @@ export function DashboardPage() {
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard', providerFilter],
     queryFn: () => ledgerApi.dashboard(providerParam).then((r) => r.data),
+    refetchInterval: 30000,
   })
 
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
     queryFn: () => cloudAccountsApi.list().then((r) => r.data.items),
+    refetchInterval: 30000,
   })
 
   const refreshDashboardMutation = useMutation({
@@ -246,16 +248,19 @@ export function DashboardPage() {
   const { data: summary } = useQuery({
     queryKey: ['opportunities', 'summary'],
     queryFn: () => opportunitiesApi.summary().then((r) => r.data),
+    refetchInterval: 30000,
   })
 
   const { data: recentEvents = [] } = useQuery({
     queryKey: ['change-events', 'dashboard'],
     queryFn: () => changeEventsApi.list({ limit: 50 }).then((r) => r.data.items),
+    refetchInterval: 30000,
   })
 
   const { data: reservationEfficiency } = useQuery({
     queryKey: ['dashboard', 'reservation-efficiency', providerFilter],
     queryFn: () => ledgerApi.reservationEfficiency(30, providerParam).then((r) => r.data),
+    refetchInterval: 30000,
   })
   const {
     data: intelInsights,
@@ -264,6 +269,7 @@ export function DashboardPage() {
   } = useQuery({
     queryKey: ['intel', 'insights', lang],
     queryFn: () => intelApi.insights(lang).then((r) => r.data),
+    refetchInterval: 30000,
   })
 
   const { data: intelAnomaliesPage, isLoading: intelAnomaliesLoading } = useQuery({
@@ -276,6 +282,7 @@ export function DashboardPage() {
           ...(providerParam ? { provider: providerParam } : {}),
         })
         .then((r) => r.data),
+    refetchInterval: 30000,
   })
 
   if (metricsLoading) {

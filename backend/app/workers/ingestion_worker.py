@@ -3,11 +3,16 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import date, timedelta
+import time
 from uuid import UUID
 
+from sqlalchemy import select
+
+from app.core.config import get_settings
 from app.core.database import async_session_factory
 from app.core.email import EmailService
 from app.core.logging import get_logger
+from app.domains.cloud_accounts.models import CloudAccount, ConnectorStatus
 from app.domains.notifications.models import AlertCategory, AlertSeverity
 from app.domains.notifications.service import NotificationsService
 from app.core.redis import get_redis_pool
@@ -18,6 +23,48 @@ log = get_logger(__name__)
 
 QUEUE_KEY = "ingestion:queue"
 LOCK_TTL = 3600  # 1 hour
+SCHEDULED_SYNC_LOCK_PREFIX = "ingestion:scheduled"
+
+
+async def enqueue_periodic_sync_jobs(interval_seconds: int, lookback_days: int) -> int:
+    redis = get_redis_pool()
+    queued = 0
+    bucket = int(time.time() // max(interval_seconds, 1))
+
+    async with async_session_factory() as db:
+        result = await db.execute(
+            select(CloudAccount.id, CloudAccount.org_id).where(
+                CloudAccount.status.in_([ConnectorStatus.ACTIVE, ConnectorStatus.ERROR])
+            )
+        )
+        accounts = result.all()
+
+    for account_id, org_id in accounts:
+        schedule_lock_key = (
+            f"{SCHEDULED_SYNC_LOCK_PREFIX}:{org_id}:{account_id}:{bucket}"
+        )
+        acquired = await redis.set(schedule_lock_key, "1", ex=interval_seconds + 300, nx=True)
+        if not acquired:
+            continue
+
+        payload = json.dumps(
+            {
+                "org_id": str(org_id),
+                "account_id": str(account_id),
+                "lookback_days": lookback_days,
+            }
+        )
+        await redis.lpush(QUEUE_KEY, payload)
+        queued += 1
+
+    if queued > 0:
+        log.info(
+            "ingestion.periodic_jobs_queued",
+            queued=queued,
+            interval_seconds=interval_seconds,
+            lookback_days=lookback_days,
+        )
+    return queued
 
 
 async def process_account(raw_payload: str) -> None:
@@ -182,9 +229,23 @@ async def process_account(raw_payload: str) -> None:
 
 async def run_ingestion_worker() -> None:
     redis = get_redis_pool()
-    log.info("ingestion_worker.started")
+    settings = get_settings()
+    interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
+    lookback_days = max(7, min(int(settings.ingestion_interval_hours * 7), 90))
+    next_periodic_run_at = 0.0
+    log.info(
+        "ingestion_worker.started",
+        periodic_interval_seconds=interval_seconds,
+        periodic_lookback_days=lookback_days,
+    )
+
     while True:
         try:
+            now = time.monotonic()
+            if now >= next_periodic_run_at:
+                await enqueue_periodic_sync_jobs(interval_seconds, lookback_days)
+                next_periodic_run_at = now + interval_seconds
+
             item = await redis.brpop(QUEUE_KEY, timeout=5)
             if item:
                 _, raw_payload = item
