@@ -78,6 +78,22 @@ export interface Translations {
     explainCostCauses: string
     explainCostRecommendation: string
     explainCostConfidence: string
+    insightsTitle: string
+    insightsSubtitle: string
+    insightsTopSaving: string
+    insightsMainRisk: string
+    insightsTrend: string
+    insightsAction: string
+    insightsConfidence: string
+    insightsUnavailable: string
+    anomaliesTitle: string
+    anomaliesSubtitle: string
+    anomaliesNone: string
+    anomalyCriticalOnly: string
+    anomalyShowAll: string
+    anomalySeverityLow: string
+    anomalySeverityMedium: string
+    anomalySeverityHigh: string
     potentialSavings: string
     openOpportunities: string
     activeAccounts: string
@@ -885,6 +901,22 @@ export const en: Translations = {
     explainCostCauses: 'Top causes',
     explainCostRecommendation: 'Recommendation',
     explainCostConfidence: 'Confidence',
+    insightsTitle: 'AI Insights Engine',
+    insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
+    insightsTopSaving: 'Top saving opportunity',
+    insightsMainRisk: 'Main risk',
+    insightsTrend: 'Cost trend',
+    insightsAction: 'Recommended action',
+    insightsConfidence: 'Insight confidence',
+    insightsUnavailable: 'No insights available right now.',
+    anomaliesTitle: 'Cost Anomalies',
+    anomaliesSubtitle: 'Outliers detected against recent baseline',
+    anomaliesNone: 'No anomalies detected in the recent window.',
+    anomalyCriticalOnly: 'High only',
+    anomalyShowAll: 'Show all',
+    anomalySeverityLow: 'Low',
+    anomalySeverityMedium: 'Medium',
+    anomalySeverityHigh: 'High',
     potentialSavings: 'Potential Savings',
     openOpportunities: '{{count}} open opportunities',
     activeAccounts: 'Active Accounts',

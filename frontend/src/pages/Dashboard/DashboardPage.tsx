@@ -15,6 +15,9 @@ import type {
   ChangeEvent,
   ChangeEventType,
   CloudProvider,
+  IntelAnomalySeverity,
+  IntelCostAnomaly,
+  IntelInsightsResponse,
   ExplainCostChangeRequest,
   ExplainCostChangeResponse,
   ReservationEfficiencyAction,
@@ -49,6 +52,12 @@ const ACTION_COLOR: Record<ReservationEfficiencyAction, string> = {
   schedule_stop: 'bg-amber-50 text-amber-700',
   exchange_reservation: 'bg-purple-50 text-purple-700',
   do_not_renew: 'bg-red-50 text-red-700',
+}
+
+const ANOMALY_BADGE_CLASS: Record<IntelAnomalySeverity, string> = {
+  low: 'bg-yellow-50 text-yellow-700',
+  medium: 'bg-orange-50 text-orange-700',
+  high: 'bg-red-50 text-red-700',
 }
 
 const DASHBOARD_PROVIDERS = ['all', 'azure', 'aws', 'gcp'] as const
@@ -108,6 +117,7 @@ export function DashboardPage() {
   const ce = t.changeEvents
   const [explainOpen, setExplainOpen] = useState(false)
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
+  const [anomalyHighOnly, setAnomalyHighOnly] = usePersistentBoolean('sp.dashboard.anomalyHighOnly', false)
   const [providerMenuOpen, setProviderMenuOpen] = useState(false)
   const [providerFilterRaw, setProviderFilterRaw] = usePersistentString(
     'sp.dashboard.providerFilter',
@@ -194,6 +204,26 @@ export function DashboardPage() {
     queryKey: ['dashboard', 'reservation-efficiency', providerFilter],
     queryFn: () => ledgerApi.reservationEfficiency(30, providerParam).then((r) => r.data),
   })
+  const {
+    data: intelInsights,
+    isLoading: intelInsightsLoading,
+    isError: intelInsightsError,
+  } = useQuery({
+    queryKey: ['intel', 'insights', lang],
+    queryFn: () => intelApi.insights(lang).then((r) => r.data),
+  })
+
+  const { data: intelAnomaliesPage, isLoading: intelAnomaliesLoading } = useQuery({
+    queryKey: ['intel', 'cost-anomalies', providerFilter],
+    queryFn: () =>
+      intelApi
+        .listCostAnomalies({
+          page: 1,
+          page_size: 8,
+          ...(providerParam ? { provider: providerParam } : {}),
+        })
+        .then((r) => r.data),
+  })
 
   if (metricsLoading) {
     return (
@@ -230,6 +260,16 @@ export function DashboardPage() {
   }
 
   const explainData: ExplainCostChangeResponse | undefined = explainMutation.data
+  const insightsData: IntelInsightsResponse | undefined = intelInsights
+  const anomalyItems: IntelCostAnomaly[] = intelAnomaliesPage?.items ?? []
+  const visibleAnomalies = anomalyHighOnly
+    ? anomalyItems.filter((item) => item.severity === 'high')
+    : anomalyItems
+  const anomalySeverityLabel: Record<IntelAnomalySeverity, string> = {
+    low: d.anomalySeverityLow,
+    medium: d.anomalySeverityMedium,
+    high: d.anomalySeverityHigh,
+  }
 
   return (
     <div className="space-y-6">
@@ -412,6 +452,111 @@ export function DashboardPage() {
 
       {/* Budget widget — SP-EC01 */}
       <BudgetWidget />
+
+      {/* AI Insights + Cost Anomalies */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">{d.insightsTitle}</h2>
+            <p className="mt-1 text-xs text-gray-500">{d.insightsSubtitle}</p>
+          </div>
+
+          {intelInsightsLoading ? (
+            <div className="flex h-40 items-center justify-center">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            </div>
+          ) : intelInsightsError || !insightsData ? (
+            <div className="flex h-40 items-center justify-center text-sm text-gray-400">
+              {d.insightsUnavailable}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {d.insightsTopSaving}
+                </p>
+                <p className="mt-1 text-sm text-gray-800">{insightsData.top_saving_opportunity}</p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {d.insightsMainRisk}
+                </p>
+                <p className="mt-1 text-sm text-gray-800">{insightsData.main_risk}</p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {d.insightsTrend}
+                </p>
+                <p className="mt-1 text-sm text-gray-800">{insightsData.cost_trend_summary}</p>
+              </div>
+              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                  {d.insightsAction}
+                </p>
+                <p className="mt-1 text-sm text-violet-900">{insightsData.recommended_action}</p>
+                <p className="mt-2 text-xs text-violet-700">
+                  {d.insightsConfidence}: {Math.round(insightsData.confidence * 100)}%
+                  {insightsData.model ? ` · ${insightsData.model}` : ''}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">{d.anomaliesTitle}</h2>
+              <p className="mt-1 text-xs text-gray-500">{d.anomaliesSubtitle}</p>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-brand-600 hover:underline"
+              onClick={() => setAnomalyHighOnly((prev) => !prev)}
+            >
+              {anomalyHighOnly ? d.anomalyShowAll : d.anomalyCriticalOnly}
+            </button>
+          </div>
+
+          {intelAnomaliesLoading ? (
+            <div className="flex h-40 items-center justify-center">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            </div>
+          ) : visibleAnomalies.length > 0 ? (
+            <div className="space-y-2">
+              {visibleAnomalies.slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-gray-900">{item.service}</p>
+                    <span
+                      className={clsx(
+                        'rounded-full px-2 py-0.5 text-xs font-semibold',
+                        ANOMALY_BADGE_CLASS[item.severity],
+                      )}
+                    >
+                      {anomalySeverityLabel[item.severity]}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 uppercase">{item.provider}</p>
+                  <div className="mt-2 text-xs text-gray-600">
+                    z-score {item.z_score.toFixed(2)}
+                    {item.deviation_pct != null
+                      ? ` · +${item.deviation_pct.toFixed(1)}%`
+                      : ''}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {fmt(item.current_cost_usd)} vs {fmt(item.historical_mean_usd)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-40 items-center justify-center text-sm text-gray-400">
+              {d.anomaliesNone}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">        {/* Cost trend + change events overlay */}

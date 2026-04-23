@@ -1,8 +1,21 @@
 import { apiClient } from './client'
-import type { ExplainCostChangeRequest, ExplainCostChangeResponse } from '../types'
+import type {
+  ExplainCostChangeRequest,
+  ExplainCostChangeResponse,
+  IntelCostAnomaly,
+  IntelInsightsResponse,
+  PageResponse,
+} from '../types'
 
 export const intelApi = {
   explainCostChange: (req: ExplainCostChangeRequest) =>
     apiClient.post<ExplainCostChangeResponse>('/intel/explain-cost', req),
+  insights: (language: 'pt' | 'en' = 'en') =>
+    apiClient.get<IntelInsightsResponse>('/intel/insights', { params: { language } }),
+  listCostAnomalies: (params?: {
+    provider?: string
+    severity?: 'low' | 'medium' | 'high'
+    page?: number
+    page_size?: number
+  }) => apiClient.get<PageResponse<IntelCostAnomaly>>('/intel/cost-anomalies', { params }),
 }
-

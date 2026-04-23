@@ -497,3 +497,31 @@ export interface ExplainCostChangeResponse {
   confidence: number
   model?: string | null
 }
+
+export type IntelAnomalySeverity = 'low' | 'medium' | 'high'
+
+export interface IntelCostAnomaly {
+  id: string
+  provider: string
+  service: string
+  observed_date: string
+  current_cost_usd: number
+  historical_mean_usd: number
+  historical_stddev_usd: number
+  z_score: number
+  deviation_pct: number | null
+  severity: IntelAnomalySeverity
+  window_days: number
+  z_threshold: number
+  created_at: string
+}
+
+export interface IntelInsightsResponse {
+  top_saving_opportunity: string
+  main_risk: string
+  cost_trend_summary: string
+  recommended_action: string
+  confidence: number
+  model?: string | null
+  debug?: Record<string, unknown> | null
+}
