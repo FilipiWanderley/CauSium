@@ -108,6 +108,7 @@ export function DashboardPage() {
   const ce = t.changeEvents
   const [explainOpen, setExplainOpen] = useState(false)
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
+  const [providerMenuOpen, setProviderMenuOpen] = useState(false)
   const [providerFilterRaw, setProviderFilterRaw] = usePersistentString(
     'sp.dashboard.providerFilter',
     'all',
@@ -119,6 +120,12 @@ export function DashboardPage() {
     : 'all'
   const providerParam: CloudProvider | undefined =
     providerFilter === 'all' ? undefined : providerFilter
+  const providerLabelMap: Record<DashboardProviderFilter, string> = {
+    all: d.providerAll,
+    azure: d.providerAzure,
+    aws: d.providerAws,
+    gcp: d.providerGcp,
+  }
 
   const explainWindow = useMemo(() => {
     const now = new Date()
@@ -315,17 +322,41 @@ export function DashboardPage() {
         <label className="text-sm text-gray-600">
           {d.providerScope}
           <div className="relative mt-1">
-            <select
-              value={providerFilter}
-              onChange={(e) => setProviderFilterRaw(e.target.value)}
-              className="block min-w-44 appearance-none rounded-md border border-gray-300 bg-white px-3 py-2 pr-9 text-sm text-gray-700 shadow-sm transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            <button
+              type="button"
+              onClick={() => setProviderMenuOpen((prev) => !prev)}
+              className="inline-flex min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
             >
-              <option value="all">{d.providerAll}</option>
-              <option value="azure">{d.providerAzure}</option>
-              <option value="aws">{d.providerAws}</option>
-              <option value="gcp">{d.providerGcp}</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <span>{providerLabelMap[providerFilter]}</span>
+              <ChevronDown
+                className={clsx(
+                  'h-4 w-4 text-gray-400 transition-transform',
+                  providerMenuOpen && 'rotate-180',
+                )}
+              />
+            </button>
+            {providerMenuOpen && (
+              <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+                {DASHBOARD_PROVIDERS.map((providerOption) => (
+                  <button
+                    key={providerOption}
+                    type="button"
+                    onClick={() => {
+                      setProviderFilterRaw(providerOption)
+                      setProviderMenuOpen(false)
+                    }}
+                    className={clsx(
+                      'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
+                      providerOption === providerFilter
+                        ? 'bg-brand-50 text-brand-700'
+                        : 'text-gray-700 hover:bg-gray-50',
+                    )}
+                  >
+                    {providerLabelMap[providerOption]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </label>
       </div>
