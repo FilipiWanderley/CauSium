@@ -966,6 +966,15 @@ flowchart TB
 - Se o provider LLM falhar, o serviço retorna fallback `mock` para manter continuidade da UX.
 - O endpoint usa autenticação do usuário atual e escopo do workspace (`org_id`) para isolamento multi-tenant.
 
+### Explain Recommendation (PulseIntel + Opportunities)
+
+A explicação de recomendação foi adicionada ao fluxo de otimização para transformar cada `OptimizationOpportunity` em plano operacional objetivo.
+
+- Endpoint: `GET /api/v1/opportunities/{opp_id}/explain?language=pt|en`
+- Contexto usado pela IA: metadados da oportunidade + sinais de `usage_observations` (últimas 24h) + eventos recentes de `event_facts`.
+- Fallback automático para `mock` em falha do provider, preservando UX e contrato de resposta.
+- Resposta estruturada: `summary`, `why_now`, `expected_impact`, `risks[]`, `recommended_steps[]`, `confidence`.
+
 ---
 
 ## 🔄 Fluxos Principais
@@ -1079,6 +1088,7 @@ sequenceDiagram
 | `export_worker` | `export:queue` | Processa jobs de exportação async (CSV/Excel); upload para object storage |
 | `keyring_rotation_worker` | Timer (periódico) | Rotaciona chaves Fernet por workspace; re-cifra credenciais transparentemente |
 | `maintenance_worker` | Timer (diário) | Limpeza de registros expirados, tokens revogados, dados de retenção LGPD |
+| `usage_observation_worker` | Timer (`USAGE_OBSERVATION_INTERVAL_MINUTES`) | Consolida métricas de uso em janela móvel (3h) e persiste `usage_observations` para explicações IA e análise operacional |
 
 ### Diagrama de Fluxo dos Workers
 
@@ -1102,6 +1112,7 @@ graph LR
     W6[export_worker]
     W7[keyring_rotation_worker]
     W8[maintenance_worker]
+    W9[usage_observation_worker]
   end
 
   subgraph Storage["Storage"]
@@ -1128,6 +1139,7 @@ graph LR
   W7 -->|Re-encrypt keyrings| PG
   W8 -->|Purge expirados| PG
   W8 -->|Purge tokens| REDIS
+  W9 -->|usage_observations| PG
 ```
 
 ### DLQ — Dead Letter Queue
@@ -1397,11 +1409,11 @@ gantt
 | Segurança | ✅ Completo | PBAC/ABAC, idempotency keys, TLS 1.3 todos os datastores, security headers |
 | PulseEconomics | 🔶 Parcial | Dashboard, costs, SKUs, export async — forecast P90 no roadmap |
 | Alertas e notificações | ✅ Completo | AlertRecord, AlertRule, NotificationPreference, SMTP + Slack, DLQ |
-| PulseIntel | 🔶 Parcial | Explain Cost Change (IA) + ProviderRecommendation sync — SCA/ARI avançado no Wave 3 |
+| PulseIntel | 🔶 Parcial | Explain Cost Change (IA), Explain Recommendation por oportunidade, ProviderRecommendation sync — SCA/ARI avançado no Wave 3 |
 | PulseGov | 🔶 Parcial | UI placeholder — domínio Wave 3 |
 | PulseGreen | 🔶 Parcial | Carbon sync worker e modelo — UI Wave 3 |
 | PulseLink (conectores) | ✅ Completo | Azure (SP + Blob + Carbon), AWS CUR + Carbon Export (S3), GCP Billing + Carbon Footprint (BigQuery + Workload Identity) |
-| Sync / Workers | ✅ Completo | 8 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance |
+| Sync / Workers | ✅ Completo | 9 workers: ingestion, scoring, audit, notification, carbon, export, keyring, maintenance, usage_observation |
 | StratoAudit / Compliance | ✅ Completo | Hash chain SHA-256, HMAC checkpoints, DLQ, audit log UI |
 | Observabilidade | ✅ Completo | OTel tracing, Jaeger, Prometheus, Grafana, SLO endpoint |
 | Infraestrutura prod | ✅ Completo | docker-compose.prod.yml, entrypoint.sh, nginx.prod.conf |
@@ -1470,6 +1482,9 @@ ENCRYPTION_KEY=<fernet-key-base64>
 
 # MFA
 MFA_ISSUER=CauSium
+
+# Workers (PulseIntel)
+USAGE_OBSERVATION_INTERVAL_MINUTES=30
 
 # Passkeys / WebAuthn
 PASSKEY_RP_ID=localhost

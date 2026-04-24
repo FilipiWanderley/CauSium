@@ -218,6 +218,7 @@ class Settings(BaseSettings):
     anomaly_detection_zscore_threshold: float = 2.5
     anomaly_detection_min_history_days: int = 7
     anomaly_detection_min_delta_usd: float = 10.0
+    usage_observation_interval_minutes: int = 30
     audit_checkpoint_interval_minutes: int = 60
     audit_checkpoint_retention_count: int = 200
     report_exports_dir: str = ".data/report-exports"

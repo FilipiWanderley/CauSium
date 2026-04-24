@@ -69,3 +69,14 @@ class IntelInsightsOut(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     model: str | None = None
     debug: dict[str, Any] | None = None
+
+
+class ExplainRecommendationOut(BaseModel):
+    summary: str
+    why_now: str
+    expected_impact: str
+    risks: list[str] = Field(default_factory=list)
+    recommended_steps: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    model: str | None = None
+    debug: dict[str, Any] | None = None

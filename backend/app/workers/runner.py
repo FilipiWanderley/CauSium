@@ -12,6 +12,7 @@ from app.workers.keyring_rotation_worker import run_keyring_rotation_worker
 from app.workers.maintenance_worker import run_maintenance_worker
 from app.workers.notification_worker import run_notification_worker
 from app.workers.scoring_worker import run_scoring_worker
+from app.workers.usage_observation_worker import run_usage_observation_worker
 
 log = get_logger(__name__)
 
@@ -42,6 +43,7 @@ async def main() -> None:
         _run_worker("carbon_sync", run_carbon_sync_worker),
         _run_worker("maintenance", run_maintenance_worker),
         _run_worker("notification", run_notification_worker),
+        _run_worker("usage_observation", run_usage_observation_worker),
     )
 
 

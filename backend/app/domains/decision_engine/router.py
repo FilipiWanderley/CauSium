@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
+from app.domains.decision_engine.explanation_service import OpportunityExplanationService
 from app.domains.decision_engine.models import OpportunityCategory, OpportunityStatus
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
@@ -17,6 +18,7 @@ from app.domains.decision_engine.schemas import (
     OpportunitySummary,
 )
 from app.domains.decision_engine.service import DecisionEngineService
+from app.domains.intel.schemas import ExplainRecommendationOut
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
@@ -87,6 +89,29 @@ async def update_status(
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
     return OpportunityOut.model_validate(op)
+
+
+@router.get("/{opp_id}/explain", response_model=ExplainRecommendationOut)
+async def explain_opportunity(
+    opp_id: UUID,
+    language: str = Query(default="en"),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+):
+    svc = OpportunityExplanationService(db)
+    try:
+        return await svc.explain_opportunity(
+            org_id=current_user.org_id,
+            opportunity_id=opp_id,
+            language=language,
+        )
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="AI feature not enabled for this workspace plan",
+        )
 
 
 @router.post("/generate/{account_id}", response_model=List[OpportunityOut])
