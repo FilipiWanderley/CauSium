@@ -28,9 +28,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface Props {
   opportunity: Opportunity
   onClick?: () => void
+  onExplain?: (opportunityId: string) => void
 }
 
-export function OpportunityCard({ opportunity: op, onClick }: Props) {
+const fmtMoney = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+
+export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) {
   const { t } = useI18n()
   const o = t.opportunities
   const statusLabels: Record<OpportunityStatus, string> = {
@@ -53,6 +57,10 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
   const resourceGroup = parsedResource?.resourceGroup ?? op.resource_name ?? o.unknownResource
   const machineSku = op.sku_name ?? o.unknownResource
   const machineFamily = op.machine_family ?? o.unknownResource
+  const evidence = op.decision_evidence
+  const hasRightsizingEvidence =
+    !!evidence &&
+    (evidence.current_sku || evidence.recommended_sku || evidence.cpu_p95 != null || evidence.memory_p95 != null)
 
   return (
     <div
@@ -111,6 +119,44 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
           </p>
         </div>
       </div>
+
+      {hasRightsizingEvidence && (
+        <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs text-gray-700">
+          <p className="font-semibold text-gray-800">{o.rightsizingEvidenceTitle}</p>
+          <p className="mt-1">
+            {o.currentLabel}: <strong>{evidence?.current_sku ?? machineSku}</strong>
+            {'  '}→{'  '}
+            {o.recommendedLabel}: <strong>{evidence?.recommended_sku ?? o.unknownResource}</strong>
+          </p>
+          <p className="mt-1">
+            CPU p95: <strong>{evidence?.cpu_p95 ?? '-'}%</strong>
+            {'  '}·{'  '}
+            {o.memoryP95Label}: <strong>{evidence?.memory_p95 ?? '-'}%</strong>
+          </p>
+          <p className="mt-1">
+            {o.monthlySavingsLabel}: <strong>{fmtMoney(evidence?.estimated_savings ?? op.estimated_monthly_savings_usd)}</strong>
+            {'  '}·{'  '}
+            {o.savingsPctLabel}: <strong>{evidence?.estimated_savings_pct ?? '-'}%</strong>
+          </p>
+          <p className="mt-1">
+            {o.confidenceLabel}: <strong>{Math.round((evidence?.confidence ?? 0) * 100)}%</strong>
+            {'  '}·{'  '}
+            {o.riskLabel}: <strong>{evidence?.risk_level ?? op.risk_level}</strong>
+          </p>
+          {onExplain && (
+            <button
+              type="button"
+              className="mt-2 rounded-md border border-brand-300 bg-white px-2.5 py-1 font-medium text-brand-700 hover:bg-brand-50"
+              onClick={(event) => {
+                event.stopPropagation()
+                onExplain(op.id)
+              }}
+            >
+              {o.explainWithAI}
+            </button>
+          )}
+        </div>
+      )}
 
       {(op.resource_id || op.resource_name) && (
         <div className="mt-3 border-t border-gray-100 pt-3">

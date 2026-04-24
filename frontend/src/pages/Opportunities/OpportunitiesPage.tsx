@@ -12,12 +12,13 @@ const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
 export function OpportunitiesPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const o = t.opportunities
   const queryClient = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<OpportunityStatus | 'all'>('open')
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [explainOpp, setExplainOpp] = useState<Opportunity | null>(null)
 
   const categories = [
     { value: '', label: o.allCategories },
@@ -59,6 +60,16 @@ export function OpportunitiesPage() {
       setSelectedOpp(null)
     },
   })
+  const explainMutation = useMutation({
+    mutationFn: ({ id, language }: { id: string; language: 'pt' | 'en' }) =>
+      opportunitiesApi.explain(id, language).then((r) => r.data),
+  })
+
+  const openExplain = (op: Opportunity) => {
+    setExplainOpp(op)
+    explainMutation.reset()
+    explainMutation.mutate({ id: op.id, language: lang === 'pt' ? 'pt' : 'en' })
+  }
 
   const selectedParsedResource = parseAzureResourceId(selectedOpp?.resource_id)
   const selectedAzurePortalUrl = buildAzurePortalResourceUrl(selectedOpp?.resource_id)
@@ -67,6 +78,7 @@ export function OpportunitiesPage() {
     selectedParsedResource?.resourceGroup ?? selectedOpp?.resource_name ?? o.unknownResource
   const selectedMachineSku = selectedOpp?.sku_name ?? o.unknownResource
   const selectedMachineFamily = selectedOpp?.machine_family ?? o.unknownResource
+  const selectedEvidence = selectedOpp?.decision_evidence
 
   return (
     <div className="space-y-6">
@@ -132,8 +144,86 @@ export function OpportunitiesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {opportunities.map((op) => (
-            <OpportunityCard key={op.id} opportunity={op} onClick={() => setSelectedOpp(op)} />
+            <OpportunityCard
+              key={op.id}
+              opportunity={op}
+              onClick={() => setSelectedOpp(op)}
+              onExplain={() => openExplain(op)}
+            />
           ))}
+        </div>
+      )}
+
+      {explainOpp && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{o.explainWithAI}</h2>
+                <p className="mt-1 text-sm text-gray-500">{explainOpp.title}</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-50"
+                onClick={() => setExplainOpp(null)}
+              >
+                {t.common.close}
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              {explainMutation.isPending && (
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                  {o.explainLoading}
+                </div>
+              )}
+              {explainMutation.isError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {o.explainError}
+                </div>
+              )}
+              {explainMutation.data && (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-sm font-medium text-gray-900">{o.explainSummary}</p>
+                    <p className="mt-1 text-sm text-gray-700">{explainMutation.data.summary}</p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {o.confidenceLabel}: {Math.round(explainMutation.data.confidence * 100)}%
+                      {explainMutation.data.model ? ` · ${explainMutation.data.model}` : ''}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-4">
+                    <p className="text-sm font-medium text-gray-900">{o.explainWhyNow}</p>
+                    <p className="mt-1 text-sm text-gray-700">{explainMutation.data.why_now}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 p-4">
+                    <p className="text-sm font-medium text-gray-900">{o.explainImpact}</p>
+                    <p className="mt-1 text-sm text-gray-700">{explainMutation.data.expected_impact}</p>
+                  </div>
+                  {explainMutation.data.risks.length > 0 && (
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-sm font-medium text-gray-900">{o.explainRisks}</p>
+                      <ul className="mt-2 list-disc pl-5 text-sm text-gray-700">
+                        {explainMutation.data.risks.map((risk, idx) => (
+                          <li key={`${risk}-${idx}`}>{risk}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {explainMutation.data.recommended_steps.length > 0 && (
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-sm font-medium text-gray-900">{o.explainSteps}</p>
+                      <ol className="mt-2 list-decimal pl-5 text-sm text-gray-700">
+                        {explainMutation.data.recommended_steps.map((step, idx) => (
+                          <li key={`${step}-${idx}`}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -225,6 +315,47 @@ export function OpportunitiesPage() {
               <div className="border-t pt-4 space-y-2">
                 <p className="text-xs text-gray-500">{o.executionOwnershipHint}</p>
               </div>
+
+              {selectedEvidence && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <h4 className="text-sm font-semibold text-gray-800">{o.rightsizingEvidenceTitle}</h4>
+                  <div className="mt-2 space-y-1 text-xs text-gray-700">
+                    <p>
+                      {o.currentLabel}: <strong>{selectedEvidence.current_sku ?? selectedMachineSku}</strong>
+                      {'  '}→{'  '}
+                      {o.recommendedLabel}: <strong>{selectedEvidence.recommended_sku ?? o.unknownResource}</strong>
+                    </p>
+                    <p>
+                      CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
+                      {'  '}·{'  '}
+                      {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
+                    </p>
+                    <p>
+                      {o.monthlySavingsLabel}:{' '}
+                      <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
+                      {'  '}·{'  '}
+                      {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
+                    </p>
+                    <p>
+                      {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
+                      {'  '}·{'  '}
+                      {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
+                    </p>
+                    {selectedEvidence.reason && (
+                      <p>
+                        {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openExplain(selectedOpp)}
+                    className="mt-3 rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50"
+                  >
+                    {o.explainWithAI}
+                  </button>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-3">
                 <button

@@ -40,6 +40,7 @@ class OpportunityOut(BaseModel):
     owner_team: str | None
     score_rationale: str | None
     playbook: str | None
+    decision_evidence: dict | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

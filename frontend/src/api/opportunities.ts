@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Opportunity, OpportunitySummary } from '../types'
+import type { Opportunity, OpportunityExplainResponse, OpportunitySummary } from '../types'
 
 interface ApiPage<T> {
   items: T[]
@@ -21,6 +21,8 @@ export const opportunitiesApi = {
   summary: () => apiClient.get<OpportunitySummary>('/opportunities/summary'),
 
   get: (id: string) => apiClient.get<Opportunity>(`/opportunities/${id}`),
+  explain: (id: string, language: 'pt' | 'en' = 'pt') =>
+    apiClient.get<OpportunityExplainResponse>(`/opportunities/${id}/explain`, { params: { language } }),
 
   updateStatus: (id: string, status: string) =>
     apiClient.patch<Opportunity>(`/opportunities/${id}/status`, { status }),

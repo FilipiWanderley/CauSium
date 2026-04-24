@@ -201,6 +201,23 @@ export interface Translations {
     markApproved: string
     markValidated: string
     markDismissed: string
+    rightsizingEvidenceTitle: string
+    currentLabel: string
+    recommendedLabel: string
+    memoryP95Label: string
+    monthlySavingsLabel: string
+    savingsPctLabel: string
+    confidenceLabel: string
+    riskLabel: string
+    reasonLabel: string
+    explainWithAI: string
+    explainLoading: string
+    explainError: string
+    explainSummary: string
+    explainWhyNow: string
+    explainImpact: string
+    explainRisks: string
+    explainSteps: string
   }
   initiatives: {
     title: string
@@ -1057,6 +1074,23 @@ export const en: Translations = {
     markApproved: 'Mark as approved/executed',
     markValidated: 'Mark as validated',
     markDismissed: 'Mark as dismissed',
+    rightsizingEvidenceTitle: 'Rightsizing Evidence',
+    currentLabel: 'Current',
+    recommendedLabel: 'Recommended',
+    memoryP95Label: 'Memory p95',
+    monthlySavingsLabel: 'Monthly Savings',
+    savingsPctLabel: 'Savings %',
+    confidenceLabel: 'Confidence',
+    riskLabel: 'Risk',
+    reasonLabel: 'Reason',
+    explainWithAI: 'Explain with AI',
+    explainLoading: 'Generating explanation...',
+    explainError: 'Could not generate explanation right now.',
+    explainSummary: 'Summary',
+    explainWhyNow: 'Why now',
+    explainImpact: 'Expected impact',
+    explainRisks: 'Risks',
+    explainSteps: 'Recommended steps',
   },
   initiatives: {
     title: 'Initiatives',

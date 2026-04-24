@@ -11,6 +11,7 @@ from app.domains.decision_engine.models import (
     OptimizationOpportunity,
     OpportunityCategory,
     OpportunityStatus,
+    RiskLevel,
 )
 from app.domains.notifications.models import AlertCategory, AlertSeverity
 from app.domains.notifications.service import NotificationsService
@@ -20,6 +21,8 @@ from app.domains.decision_engine.schemas import (
     OpportunityStatusUpdate,
 )
 from app.domains.decision_engine.scorer import PLAYBOOKS, compute_score
+from app.domains.decision_engine.vm_rightsizing_engine import decide_vm_rightsizing
+from app.domains.intel.models import UsageObservation
 
 log = get_logger(__name__)
 
@@ -111,15 +114,60 @@ class DecisionEngineService:
 
             # Determine category heuristically
             category = _classify_service(service)
-            estimated_savings = _estimate_savings(category, monthly_cost)
-            if estimated_savings < 10:
-                continue
+            score_rationale = ""
+            decision_evidence = None
+            override_risk: RiskLevel | None = None
+            if category == OpportunityCategory.RIGHTSIZING:
+                usage_observations = await self._list_usage_observations(
+                    org_id=org_id,
+                    account_id=account_id,
+                    resource_id=resource_id,
+                )
+                decision = decide_vm_rightsizing(
+                    current_sku=sku_name or None,
+                    current_monthly_cost=monthly_cost,
+                    observations=usage_observations,
+                )
+                if not decision.recommend:
+                    continue
+                decision_evidence = decision.evidence
+                estimated_savings = float(decision.evidence.get("estimated_savings") or 0.0)
+                score_rationale = (
+                    f"{decision.reason} "
+                    f"Confiança: {decision.confidence:.2f}. "
+                    f"Evidência: {decision.evidence}."
+                )
+                if decision.risk_level == "low":
+                    override_risk = RiskLevel.LOW
+                elif decision.risk_level == "medium":
+                    override_risk = RiskLevel.MEDIUM
+                else:
+                    override_risk = RiskLevel.HIGH
+            else:
+                estimated_savings = _estimate_savings(category, monthly_cost)
+                if estimated_savings < 10:
+                    continue
 
             score = compute_score(
                 category=category,
                 monthly_savings_usd=estimated_savings,
                 environment=env,
+                override_risk=override_risk,
             )
+            if not score_rationale:
+                score_rationale = score.rationale
+
+            description = _generate_description(category, service, monthly_cost, estimated_savings)
+            if category == OpportunityCategory.RIGHTSIZING and decision_evidence:
+                description = (
+                    f"VM atual: {decision_evidence.get('current_sku')}. "
+                    f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / memória {decision_evidence.get('memory_p95')}%. "
+                    f"Recomendação: {decision_evidence.get('recommended_sku')}. "
+                    f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
+                    f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
+                    f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                    f"({decision_evidence.get('estimated_savings_pct')}%)."
+                )
 
             dedupe_key = _opportunity_dedupe_key(
                 category=category,
@@ -137,7 +185,7 @@ class DecisionEngineService:
             existing = existing_by_key.get(dedupe_key)
             if existing is not None:
                 existing.title = _generate_title(category, service, team)
-                existing.description = _generate_description(category, service, monthly_cost, estimated_savings)
+                existing.description = description
                 existing.category = category
                 existing.financial_impact_score = score.financial_impact_score
                 existing.risk_score = score.risk_score
@@ -157,7 +205,8 @@ class DecisionEngineService:
                 existing.region = region
                 existing.environment = env
                 existing.owner_team = team
-                existing.score_rationale = score.rationale
+                existing.score_rationale = score_rationale
+                existing.decision_evidence = decision_evidence
                 existing.playbook = PLAYBOOKS.get(category)
                 existing.detected_at = now
                 op = existing
@@ -166,7 +215,7 @@ class DecisionEngineService:
                     org_id=org_id,
                     account_id=account_id,
                     title=_generate_title(category, service, team),
-                    description=_generate_description(category, service, monthly_cost, estimated_savings),
+                    description=description,
                     category=category,
                     financial_impact_score=score.financial_impact_score,
                     risk_score=score.risk_score,
@@ -186,7 +235,8 @@ class DecisionEngineService:
                     region=region,
                     environment=env,
                     owner_team=team,
-                    score_rationale=score.rationale,
+                    score_rationale=score_rationale,
+                    decision_evidence=decision_evidence,
                     playbook=PLAYBOOKS.get(category),
                 )
                 self.db.add(op)
@@ -357,6 +407,34 @@ class DecisionEngineService:
             )
         )
         return result.scalar() or 0
+
+    async def _list_usage_observations(
+        self,
+        *,
+        org_id: UUID,
+        account_id: UUID,
+        resource_id: str,
+    ) -> list[dict]:
+        if not resource_id:
+            return []
+        result = await self.db.execute(
+            select(UsageObservation).where(
+                UsageObservation.org_id == org_id,
+                UsageObservation.account_id == account_id,
+                UsageObservation.resource_id == resource_id,
+            )
+        )
+        rows = list(result.scalars().all())
+        out: list[dict] = []
+        for row in rows:
+            out.append(
+                {
+                    "metric_name": row.metric_name,
+                    "p95_value": row.p95_value,
+                    "window_start": row.window_start,
+                }
+            )
+        return out
 
 
 # ── Heuristics ────────────────────────────────────────────────────────────────

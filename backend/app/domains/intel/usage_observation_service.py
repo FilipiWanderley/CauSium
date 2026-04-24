@@ -18,6 +18,13 @@ log = get_logger(__name__)
 _METRICS = (
     "Percentage CPU",
     "CPUUtilization",
+    # Memory metrics can come from guest/insights depending on provider setup.
+    "Memory Percentage",
+    "MemoryUtilization",
+    "Available Memory Bytes",
+    "Available Memory",
+    "Memory Available Bytes",
+    "AvailableMemoryBytes",
     "Network In Total",
     "Network Out Total",
     "NetworkIn",

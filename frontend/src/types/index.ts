@@ -216,7 +216,35 @@ export interface Opportunity {
   owner_team: string | null
   score_rationale: string | null
   playbook: string | null
+  decision_evidence: OpportunityDecisionEvidence | null
   created_at: string
+}
+
+export interface OpportunityDecisionEvidence {
+  cpu_p95?: number | null
+  memory_p95?: number | null
+  window_days?: number | null
+  history_days?: number | null
+  current_sku?: string | null
+  recommended_sku?: string | null
+  current_monthly_cost?: number | null
+  estimated_monthly_cost?: number | null
+  estimated_savings?: number | null
+  estimated_savings_pct?: number | null
+  confidence?: number | null
+  risk_level?: RiskLevel | null
+  reason?: string | null
+}
+
+export interface OpportunityExplainResponse {
+  summary: string
+  why_now: string
+  expected_impact: string
+  risks: string[]
+  recommended_steps: string[]
+  confidence: number
+  model: string | null
+  debug: Record<string, unknown> | null
 }
 
 export interface OpportunitySummary {
