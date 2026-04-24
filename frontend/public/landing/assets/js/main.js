@@ -21,6 +21,15 @@
                 "hero_stat1_label": "Validated Cost Reduction",
                 "hero_stat2_label": "Time to Safe Execution",
                 "hero_stat2_unit": "Min",
+
+                // Not Another Dashboard
+                "nad_badge": "Differentiation",
+                "nad_title": "Not Another FinOps Dashboard",
+                "nad_desc": "CauSium goes beyond visibility with validation, governance, and immutable decision evidence.",
+                "nad_item_1": "- Dashboards show data — CauSium explains causality",
+                "nad_item_2": "- Recommendations suggest — CauSium validates with experiments",
+                "nad_item_3": "- Scripts execute blindly — CauSium enforces risk-aware governance",
+                "nad_item_4": "- Logs record events — CauSium produces immutable audit evidence",
                 
                 // Ticker
                 "tick_1": "CAUSAL DECISION ENGINE",
@@ -181,6 +190,15 @@
                 "hero_stat1_label": "Redução de Desperdício",
                 "hero_stat2_label": "Tempo para Ação Segura",
                 "hero_stat2_unit": "Min",
+
+                // Not Another Dashboard
+                "nad_badge": "Diferencial",
+                "nad_title": "Não É Apenas Mais Um Dashboard de FinOps",
+                "nad_desc": "O CauSium vai além da visibilidade com validação, governança e evidências imutáveis de decisão.",
+                "nad_item_1": "- Dashboards mostram dados — o CauSium explica causalidade",
+                "nad_item_2": "- Recomendações sugerem — o CauSium valida com experimentos",
+                "nad_item_3": "- Scripts executam às cegas — o CauSium aplica governança orientada a risco",
+                "nad_item_4": "- Logs registram eventos — o CauSium produz evidências imutáveis de auditoria",
                 
                 // Ticker
                 "tick_1": "ATRIBUIÇÃO CAUSAL",
