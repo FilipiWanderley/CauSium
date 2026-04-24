@@ -30,12 +30,14 @@
 - [Modelo de Dados](#-modelo-de-dados)
 - [APIs](#-apis)
 - [PulseIntel IA](#-pulseintel-ia)
+- [Audit Trail de Oportunidades (Nível 1)](#-audit-trail-de-oportunidades-nível-1)
 - [Fluxos Principais](#-fluxos-principais)
 - [Análise de Eficiência de Reservas](#-análise-de-eficiência-de-reservas)
 - [Workers e Processamento](#-workers-e-processamento)
 - [Observabilidade](#-observabilidade)
 - [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
 - [Roadmap de Implementação](#-roadmap-de-implementação)
+- [AKS Node Pool Rightsizing (Nível 2)](#-aks-node-pool-rightsizing-nível-2)
 - [Configuração e Setup](#-configuração-e-setup)
 - [Testes](#-testes)
 - [Métricas de Sucesso](#-métricas-de-sucesso)
@@ -975,6 +977,61 @@ A explicação de recomendação foi adicionada ao fluxo de otimização para tr
 - Fallback automático para `mock` em falha do provider, preservando UX e contrato de resposta.
 - Resposta estruturada: `summary`, `why_now`, `expected_impact`, `risks[]`, `recommended_steps[]`, `confidence`.
 
+## ✅ Audit Trail de Oportunidades (Nível 1)
+
+A trilha de auditoria de mudança de status de oportunidade está implementada e pronta para automação de decisões.
+
+**Endpoint**
+
+- `PATCH /api/v1/opportunities/{opp_id}/status`
+
+**Eventos auditados (`audit_chain`)**
+
+- `opportunity.accepted`
+- `opportunity.ignored`
+- `opportunity.dismissed`
+
+**Mapeamento de ciclo de vida**
+
+- `open -> resolved` gera `opportunity.accepted`
+- `open -> dismissed` gera `opportunity.ignored`
+- `in_progress -> dismissed` gera `opportunity.dismissed`
+
+**Payload estruturado**
+
+```json
+{
+  "opportunity_id": "uuid",
+  "resource_id": "vm-test-01",
+  "recommendation_type": "RIGHTSIZING",
+  "previous_status": "detected",
+  "new_status": "accepted",
+  "estimated_savings_usd": 210,
+  "confidence": 0.77,
+  "risk_level": "low",
+  "decision_evidence": {}
+}
+```
+
+**Fluxo de auditoria de status**
+
+```mermaid
+sequenceDiagram
+  participant UI as Frontend
+  participant API as Opportunities Router
+  participant SVC as DecisionEngineService
+  participant AUD as AuditChainService
+  participant DB as PostgreSQL
+
+  UI->>API: PATCH /opportunities/{id}/status
+  API->>SVC: update_status(org_id, opp_id, req, actor_user_id)
+  SVC->>SVC: mapear transição para accepted/ignored/dismissed
+  SVC->>AUD: append_event(event_type, payload estruturado)
+  AUD->>DB: persistir audit_chain_events (hash encadeado)
+  SVC-->>API: Opportunity atualizada
+  API-->>UI: 200 OK
+```
+
 ---
 
 ## 🔄 Fluxos Principais
@@ -1398,6 +1455,60 @@ gantt
   TopologyMap + Blast Radius     :w4b, 2027-01-20, 4w
   Chaos Drills + Pentest         :w4c, 2027-02-03, 2w
 ```
+
+## 🚀 AKS Node Pool Rightsizing (Nível 2)
+
+Próximo épico de produto com abordagem incremental, sem tentar cobrir todo o universo AKS de uma vez.
+
+**Escopo inicial (primeiro corte)**
+
+1. Coletar métricas de node pool.
+2. Calcular CPU/memória `p95` por node.
+3. Detectar nodes ociosos.
+4. Sugerir redução de `node_count`.
+5. Calcular economia estimada.
+6. Gerar `recommendation` + `decision_evidence`.
+7. Reaproveitar explain IA no endpoint de oportunidades.
+
+**Arquitetura inicial (node_count reduction)**
+
+```mermaid
+flowchart LR
+  subgraph AKS["AKS Cluster"]
+    NP[Node Pools]
+    N[Nodes]
+    NP --> N
+  end
+
+  subgraph Collect["Coleta e Sinais"]
+    M1[Metrics Collector\nCPU/Mem usage]
+    M2[P95 Aggregator\npor node]
+  end
+
+  subgraph Decision["Decision Engine"]
+    D1[Idle Node Detector]
+    D2[Node Count Recommender]
+    D3[Savings Estimator]
+    D4[Decision Evidence Builder]
+  end
+
+  subgraph Product["Produto"]
+    OP[(OptimizationOpportunity)]
+    AI[Explain Recommendation IA]
+    AUD[Audit Chain]
+  end
+
+  N --> M1 --> M2 --> D1 --> D2 --> D3 --> D4
+  D4 --> OP
+  OP --> AI
+  OP --> AUD
+```
+
+**Evolução planejada (depois do primeiro corte)**
+
+- `autoscaler` tuning
+- `spot nodepool` strategy
+- `pod rightsizing`
 
 ### Status Atual por Módulo
 
