@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -80,3 +81,21 @@ class ExplainRecommendationOut(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     model: str | None = None
     debug: dict[str, Any] | None = None
+
+
+class CreateExecutionPlanRequest(BaseModel):
+    opportunity_ids: list[UUID] = Field(min_length=1)
+    mode: Literal["manual_review", "pulselab_handoff"] = "manual_review"
+
+
+class ExecutionPlanOut(BaseModel):
+    execution_plan_id: str
+    status: Literal["review_required", "blocked"]
+    mode: Literal["manual_review", "pulselab_handoff"]
+    total_savings_monthly: float
+    risk_level: Literal["low", "medium", "high"]
+    conflicts: list[str] = Field(default_factory=list)
+    checklist: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    gates_triggered: list[str] = Field(default_factory=list)
+    selected_opportunity_ids: list[str] = Field(default_factory=list)

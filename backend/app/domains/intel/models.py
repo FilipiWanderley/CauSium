@@ -95,3 +95,29 @@ class UsageObservation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
+
+
+class ExecutionPlan(Base):
+    __tablename__ = "execution_plans"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    mode: Mapped[str] = mapped_column(String(32), nullable=False, default="manual_review")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    risk_level: Mapped[str] = mapped_column(String(16), nullable=False)
+    total_savings_monthly: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    selected_opportunity_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    gates_triggered: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    conflicts: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    plan_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )

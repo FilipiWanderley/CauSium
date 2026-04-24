@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,15 +17,18 @@ from app.domains.intel.cost_explanation_service import CostExplanationService
 from app.domains.intel.insights_service import IntelInsightsService
 from app.domains.intel.models import CostAnomaly, CostAnomalySeverity
 from app.domains.intel.schemas import (
+    CreateExecutionPlanRequest,
     CostAnomalyOut,
     DetectCostAnomaliesOut,
     DetectCostAnomaliesRequest,
+    ExecutionPlanOut,
     ExplainCostChangeOut,
     ExplainCostChangeRequest,
     IntelInsightsOut,
 )
 from app.domains.decision_engine.optimization_plan_service import OptimizationPlanService
 from app.domains.decision_engine.schemas import OptimizationPlanOut
+from app.domains.intel.execution_plan_service import ExecutionPlanService
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -149,3 +153,33 @@ async def get_optimization_plan(
         language=(language or "pt").lower(),
         include_ai_summary=include_ai_summary,
     )
+
+
+@router.post("/execution-plan", response_model=ExecutionPlanOut)
+async def create_execution_plan(
+    req: CreateExecutionPlanRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanOut:
+    svc = ExecutionPlanService(db)
+    try:
+        return await svc.prepare_plan(
+            org_id=current_user.org_id,
+            req=req,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.get("/execution-plan/{execution_plan_id}", response_model=ExecutionPlanOut)
+async def get_execution_plan(
+    execution_plan_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanOut:
+    svc = ExecutionPlanService(db)
+    plan = await svc.get_plan(org_id=current_user.org_id, execution_plan_id=execution_plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution plan not found")
+    return plan
