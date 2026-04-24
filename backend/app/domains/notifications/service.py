@@ -416,14 +416,16 @@ class NotificationsService:
         user_id: UUID | None = None,
         extra_metadata: dict | None = None,
         event_type: str,
+        ignore_rules: bool = False,
     ) -> AlertRecord | None:
-        if not await self.should_create_alert(
-            org_id=org_id,
-            category=category,
-            event_type=event_type,
-            severity=severity,
-        ):
-            return None
+        if not ignore_rules:
+            if not await self.should_create_alert(
+                org_id=org_id,
+                category=category,
+                event_type=event_type,
+                severity=severity,
+            ):
+                return None
 
         if source_type and source_id:
             existing = await self._get_alert_by_source(
@@ -446,6 +448,37 @@ class NotificationsService:
             source_id=source_id,
             user_id=user_id,
             extra_metadata=extra_metadata,
+        )
+
+    async def create_realtime_alert(
+        self,
+        *,
+        org_id: UUID,
+        category: AlertCategory,
+        severity: AlertSeverity,
+        title: str,
+        body: str | None = None,
+        action_url: str | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
+        user_id: UUID | None = None,
+        extra_metadata: dict | None = None,
+        event_type: str,
+    ) -> AlertRecord | None:
+        """Create an alert immediately, bypassing per-org notification rules."""
+        return await self.create_if_rule_matches(
+            org_id=org_id,
+            category=category,
+            severity=severity,
+            title=title,
+            body=body,
+            action_url=action_url,
+            source_type=source_type,
+            source_id=source_id,
+            user_id=user_id,
+            extra_metadata=extra_metadata,
+            event_type=event_type,
+            ignore_rules=True,
         )
 
     # ------------------------------------------------------------------
@@ -485,7 +518,7 @@ class NotificationsService:
         await self.db.refresh(event)
 
         mapped_severity = _ACTIVITY_TO_ALERT_SEVERITY[severity]
-        await self.create_if_rule_matches(
+        await self.create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.ACTIVITY,
             severity=mapped_severity,

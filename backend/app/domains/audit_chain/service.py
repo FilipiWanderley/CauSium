@@ -129,7 +129,7 @@ class AuditChainService:
         if any(k in normalized_event for k in ("blocked", "compromised", "critical")):
             severity = AlertSeverity.CRITICAL
 
-        await notif.create_if_rule_matches(
+        await notif.create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.ACTIVITY,
             severity=severity,

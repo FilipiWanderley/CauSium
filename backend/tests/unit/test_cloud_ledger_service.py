@@ -7,6 +7,7 @@ import pytest
 
 from app.domains.cloud_ledger.service import CloudLedgerService
 from app.domains.connectors.base import (
+    CanonicalEventRecord,
     CanonicalRecommendationRecord,
     CanonicalResourceRecord,
     CanonicalUsageRecord,
@@ -255,3 +256,83 @@ async def test_provider_advanced_ingestion_works_for_non_azure_clients(monkeypat
     assert inv == 1
     assert usage == 1
     assert inserted_tables == ["recommendation_facts", "resource_inventory", "usage_facts"]
+
+
+@pytest.mark.asyncio
+async def test_emit_realtime_cloud_event_notifications_for_vm_and_resource_create(monkeypatch):
+    captured_calls: list[dict] = []
+
+    class FakeNotificationsService:
+        def __init__(self, db):
+            self.db = db
+
+        async def create_realtime_alert(self, **kwargs):
+            captured_calls.append(kwargs)
+            return None
+
+    monkeypatch.setattr(
+        "app.domains.notifications.service.NotificationsService",
+        FakeNotificationsService,
+    )
+
+    service = CloudLedgerService(db=None)
+    org_id = uuid4()
+    account_id = uuid4()
+    now = datetime.now(timezone.utc)
+    events = [
+        CanonicalEventRecord(
+            timestamp=now,
+            provider="aws",
+            subscription_id="123",
+            event_type="StartInstances",
+            resource_id="i-abc",
+            resource_name="i-abc",
+            region="us-east-1",
+            severity="informational",
+            description="instance started",
+            caller="user",
+            correlation_id="evt-1",
+            raw_data="{}",
+        ),
+        CanonicalEventRecord(
+            timestamp=now,
+            provider="azure",
+            subscription_id="sub-1",
+            event_type="Microsoft.Compute/virtualMachines/deallocate/action",
+            resource_id="/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1",
+            resource_name="vm-1",
+            region="eastus",
+            severity="warning",
+            description="vm stopped",
+            caller="user",
+            correlation_id="evt-2",
+            raw_data="{}",
+        ),
+        CanonicalEventRecord(
+            timestamp=now,
+            provider="gcp",
+            subscription_id="proj-1",
+            event_type="v1.compute.instances.insert",
+            resource_id="projects/p1/zones/us-central1-a/instances/vm-new",
+            resource_name="vm-new",
+            region="us-central1",
+            severity="informational",
+            description="instance created",
+            caller="user@domain.com",
+            correlation_id="evt-3",
+            raw_data="{}",
+        ),
+    ]
+
+    await service._emit_realtime_cloud_event_notifications(
+        org_id=org_id,
+        account_id=account_id,
+        events=events,
+    )
+
+    assert len(captured_calls) == 3
+    assert {item["event_type"] for item in captured_calls} == {
+        "cloud.vm.started",
+        "cloud.vm.stopped",
+        "cloud.resource.created",
+    }

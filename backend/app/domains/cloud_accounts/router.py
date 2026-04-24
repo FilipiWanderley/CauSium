@@ -65,7 +65,7 @@ async def _run_inline_sync_pipeline(org_id: UUID, account_id: UUID, lookback_day
                 error=str(exc),
             )
 
-        await NotificationsService(db).create_if_rule_matches(
+        await NotificationsService(db).create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.ACTIVITY,
             severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
@@ -237,7 +237,7 @@ async def trigger_sync(
             }
         )
         await redis.lpush("ingestion:queue", payload)
-        await NotificationsService(db).create_if_rule_matches(
+        await NotificationsService(db).create_realtime_alert(
             org_id=current_user.org_id,
             category=AlertCategory.ACTIVITY,
             severity=AlertSeverity.INFO,

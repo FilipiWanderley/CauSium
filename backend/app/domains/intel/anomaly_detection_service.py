@@ -325,7 +325,7 @@ class CostAnomalyDetectionService:
             if anomaly.deviation_pct is not None
             else ""
         )
-        await NotificationsService(self.db).create_if_rule_matches(
+        await NotificationsService(self.db).create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.FINANCIAL,
             severity=alert_severity,

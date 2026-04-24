@@ -131,7 +131,7 @@ async def process_account(raw_payload: str) -> None:
                 costs=result.cost_records,
                 events=result.event_records,
             )
-            await NotificationsService(db).create_if_rule_matches(
+            await NotificationsService(db).create_realtime_alert(
                 org_id=account.org_id,
                 category=AlertCategory.ACTIVITY,
                 severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
@@ -186,7 +186,7 @@ async def process_account(raw_payload: str) -> None:
                     retry_count=attempts,
                 )
                 if job.org_id:
-                    await NotificationsService(db).create_if_rule_matches(
+                    await NotificationsService(db).create_realtime_alert(
                         org_id=job.org_id,
                         category=AlertCategory.SECURITY,
                         severity=AlertSeverity.CRITICAL,

@@ -96,7 +96,7 @@ async def process_carbon_sync(raw_payload: str) -> None:
 
         async with async_session_factory() as db:
             if job.org_id:
-                await NotificationsService(db).create_if_rule_matches(
+                await NotificationsService(db).create_realtime_alert(
                     org_id=job.org_id,
                     category=AlertCategory.GOVERNANCE,
                     severity=AlertSeverity.CRITICAL,

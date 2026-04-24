@@ -399,20 +399,64 @@ class AwsConnectorClient(BaseConnector):
                 if event_time is None:
                     event_time = datetime.now(timezone.utc)
 
+                cloudtrail_payload: dict[str, object] = {}
+                raw_cloudtrail_payload = ev.get("CloudTrailEvent")
+                if isinstance(raw_cloudtrail_payload, str):
+                    try:
+                        decoded_payload = json.loads(raw_cloudtrail_payload)
+                        if isinstance(decoded_payload, dict):
+                            cloudtrail_payload = decoded_payload
+                    except Exception:
+                        cloudtrail_payload = {}
+
+                resources = ev.get("Resources") or []
+                resource_id = ""
+                if resources and isinstance(resources, list):
+                    first_resource = resources[0] or {}
+                    if isinstance(first_resource, dict):
+                        resource_id = str(first_resource.get("ResourceName") or "")
+
+                request_params = cloudtrail_payload.get("requestParameters")
+                if not isinstance(request_params, dict):
+                    request_params = {}
+                if not resource_id:
+                    resource_id = str(
+                        request_params.get("instanceId")
+                        or request_params.get("instanceName")
+                        or request_params.get("resourceName")
+                        or request_params.get("groupName")
+                        or request_params.get("bucketName")
+                        or ""
+                    )
+
+                user_identity = cloudtrail_payload.get("userIdentity")
+                caller = str(ev.get("Username") or "")
+                if not caller and isinstance(user_identity, dict):
+                    caller = str(
+                        user_identity.get("arn")
+                        or user_identity.get("principalId")
+                        or user_identity.get("userName")
+                        or ""
+                    )
+
                 rows.append(
                     CanonicalEventRecord(
                         timestamp=event_time,
                         provider="aws",
                         subscription_id=subscription_id,
                         event_type=str(ev.get("EventName") or "unknown"),
-                        resource_id="",
-                        resource_name=str(ev.get("Username") or ""),
+                        resource_id=resource_id,
+                        resource_name=resource_id,
                         region=str(ev.get("AwsRegion") or "global"),
                         severity="informational",
-                        description=str(ev.get("EventName") or ""),
-                        caller=str(ev.get("Username") or ""),
-                        correlation_id=str(ev.get("EventId") or ""),
-                        raw_data=str(ev),
+                        description=str(ev.get("EventName") or "unknown"),
+                        caller=caller,
+                        correlation_id=str(
+                            ev.get("EventId")
+                            or cloudtrail_payload.get("eventID")
+                            or ""
+                        ),
+                        raw_data=raw_cloudtrail_payload if isinstance(raw_cloudtrail_payload, str) else str(ev),
                     )
                 )
 

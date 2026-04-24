@@ -246,7 +246,7 @@ class DecisionEngineService:
         await self.db.refresh(op)
 
         notif = NotificationsService(self.db)
-        await notif.create_if_rule_matches(
+        await notif.create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.OPTIMIZATION,
             severity=AlertSeverity.CRITICAL,

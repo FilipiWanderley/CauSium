@@ -27,7 +27,7 @@ class RiskBudgetService:
         await self.db.refresh(budget)
 
         notif = NotificationsService(self.db)
-        await notif.create_if_rule_matches(
+        await notif.create_realtime_alert(
             org_id=org_id,
             category=AlertCategory.GOVERNANCE,
             severity=AlertSeverity.CRITICAL,

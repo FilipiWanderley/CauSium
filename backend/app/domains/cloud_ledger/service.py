@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.clickhouse import execute_query, insert_rows
 from app.core.logging import get_logger
 from app.domains.cloud_accounts.service import CloudAccountService
+from app.domains.connectors.base import CanonicalEventRecord
 from app.domains.cloud_ledger.schemas import (
     CostRow,
     CostSummary,
@@ -25,6 +26,39 @@ from app.domains.cloud_ledger.schemas import (
 )
 
 log = get_logger(__name__)
+
+
+def _normalize_provider_event(event_type: str) -> str:
+    return event_type.strip().lower()
+
+
+def _is_vm_start_event(normalized_event_type: str) -> bool:
+    return (
+        normalized_event_type in {"startinstances"}
+        or "virtualmachines/start/action" in normalized_event_type
+        or ".instances.start" in normalized_event_type
+    )
+
+
+def _is_vm_stop_event(normalized_event_type: str) -> bool:
+    return (
+        normalized_event_type in {"stopinstances", "terminateinstances", "rebootinstances"}
+        or "virtualmachines/deallocate/action" in normalized_event_type
+        or "virtualmachines/poweroff/action" in normalized_event_type
+        or "virtualmachines/stop/action" in normalized_event_type
+        or ".instances.stop" in normalized_event_type
+        or ".instances.delete" in normalized_event_type
+    )
+
+
+def _is_resource_create_event(normalized_event_type: str) -> bool:
+    return (
+        normalized_event_type.startswith("create")
+        or normalized_event_type.startswith("runinstances")
+        or normalized_event_type.endswith("/write")
+        or normalized_event_type.endswith(".insert")
+        or normalized_event_type.endswith(".create")
+    )
 
 
 class CloudLedgerService:
@@ -169,6 +203,11 @@ class CloudLedgerService:
                 insert_rows("event_facts", event_rows)
             except Exception as e:
                 log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
+            await self._emit_realtime_cloud_event_notifications(
+                org_id=org_id,
+                account_id=account_id,
+                events=events,
+            )
 
         if blob_checkpoints:
             existing_keys = await self._get_blob_checkpoint_keys(account_id)
@@ -249,6 +288,73 @@ class CloudLedgerService:
             usage_records=usage_count,
             status="ok",
         )
+
+    async def _emit_realtime_cloud_event_notifications(
+        self,
+        *,
+        org_id: UUID,
+        account_id: UUID,
+        events: list[CanonicalEventRecord],
+    ) -> None:
+        from app.domains.notifications.models import AlertCategory, AlertSeverity
+        from app.domains.notifications.service import NotificationsService
+
+        service = NotificationsService(self.db)
+        max_notifications_per_batch = 200
+        emitted = 0
+
+        for event in events:
+            normalized_event_type = _normalize_provider_event(event.event_type or "")
+            if not normalized_event_type:
+                continue
+
+            if _is_vm_start_event(normalized_event_type):
+                normalized_alert_type = "cloud.vm.started"
+                severity = AlertSeverity.INFO
+            elif _is_vm_stop_event(normalized_event_type):
+                normalized_alert_type = "cloud.vm.stopped"
+                severity = AlertSeverity.WARNING
+            elif _is_resource_create_event(normalized_event_type):
+                normalized_alert_type = "cloud.resource.created"
+                severity = AlertSeverity.INFO
+            else:
+                continue
+
+            resource_ref = event.resource_name or event.resource_id or "resource"
+            title = f"{event.provider.upper()}: {normalized_alert_type} - {resource_ref}"
+            body = event.description or f"Detected event {event.event_type}"
+            source_id = event.correlation_id or (
+                f"{event.provider}:{event.event_type}:{event.resource_id}:"
+                f"{getattr(event.timestamp, 'isoformat', lambda: str(event.timestamp))()}"
+            )
+
+            await service.create_realtime_alert(
+                org_id=org_id,
+                category=AlertCategory.ACTIVITY,
+                severity=severity,
+                event_type=normalized_alert_type,
+                title=title,
+                body=body,
+                source_type="cloud_event",
+                source_id=source_id,
+                extra_metadata={
+                    "provider_event_type": event.event_type,
+                    "provider": event.provider,
+                    "resource_id": event.resource_id,
+                    "resource_name": event.resource_name,
+                    "account_id": str(account_id),
+                },
+            )
+
+            emitted += 1
+            if emitted >= max_notifications_per_batch:
+                log.info(
+                    "ledger.cloud_event_notifications.capped",
+                    account_id=str(account_id),
+                    emitted=emitted,
+                    total_events=len(events),
+                )
+                break
 
     async def _ingest_provider_recommendations(
         self,

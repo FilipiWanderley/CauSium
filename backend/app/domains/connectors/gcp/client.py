@@ -271,23 +271,36 @@ class GcpConnectorClient(BaseConnector):
         records: list[CanonicalEventRecord] = []
         for entry in client.list_entries(filter_=query_filter, page_size=200):
             ts = getattr(entry, "timestamp", None) or datetime.now(timezone.utc)
-            event_type = getattr(entry, "resource", None)
-            resource_type = getattr(event_type, "type", "unknown") if event_type else "unknown"
             payload = getattr(entry, "payload", {})
+            if hasattr(payload, "items"):
+                payload_dict = {str(k): v for k, v in payload.items()}
+            else:
+                payload_dict = {}
+            proto = payload_dict.get("protoPayload") or {}
+            if not isinstance(proto, dict):
+                proto = {}
+            event_type = str(
+                proto.get("methodName")
+                or getattr(getattr(entry, "resource", None), "type", "unknown")
+            )
+            resource_name = str(proto.get("resourceName") or "")
+            principal = proto.get("authenticationInfo") or {}
+            if not isinstance(principal, dict):
+                principal = {}
             records.append(
                 CanonicalEventRecord(
                     timestamp=ts,
                     provider="gcp",
                     subscription_id=self.project_id,
-                    event_type=str(resource_type),
-                    resource_id="",
-                    resource_name="",
+                    event_type=event_type,
+                    resource_id=resource_name,
+                    resource_name=resource_name,
                     region="global",
                     severity="informational",
-                    description=str(payload)[:500],
-                    caller="",
+                    description=str(payload_dict)[:500],
+                    caller=str(principal.get("principalEmail") or ""),
                     correlation_id=str(getattr(entry, "insert_id", "")),
-                    raw_data=str(payload),
+                    raw_data=json.dumps(payload_dict, default=str),
                 )
             )
 
