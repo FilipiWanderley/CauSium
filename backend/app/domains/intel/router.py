@@ -23,6 +23,8 @@ from app.domains.intel.schemas import (
     ExplainCostChangeRequest,
     IntelInsightsOut,
 )
+from app.domains.decision_engine.optimization_plan_service import OptimizationPlanService
+from app.domains.decision_engine.schemas import OptimizationPlanOut
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -133,3 +135,17 @@ async def get_intel_insights(
             detail="AI feature not enabled for this workspace plan",
         )
 
+
+@router.get("/optimization-plan", response_model=OptimizationPlanOut)
+async def get_optimization_plan(
+    language: str = Query(default="pt"),
+    include_ai_summary: bool = Query(default=False),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> OptimizationPlanOut:
+    svc = OptimizationPlanService(db)
+    return await svc.build_plan(
+        org_id=current_user.org_id,
+        language=(language or "pt").lower(),
+        include_ai_summary=include_ai_summary,
+    )

@@ -4,6 +4,7 @@ import type {
   ExplainCostChangeResponse,
   IntelCostAnomaly,
   IntelInsightsResponse,
+  OptimizationPlan,
   PageResponse,
 } from '../types'
 
@@ -12,6 +13,8 @@ export const intelApi = {
     apiClient.post<ExplainCostChangeResponse>('/intel/explain-cost', req),
   insights: (language: 'pt' | 'en' = 'en') =>
     apiClient.get<IntelInsightsResponse>('/intel/insights', { params: { language } }),
+  optimizationPlan: (params?: { language?: 'pt' | 'en'; include_ai_summary?: boolean }) =>
+    apiClient.get<OptimizationPlan>('/intel/optimization-plan', { params }),
   listCostAnomalies: (params?: {
     provider?: string
     severity?: 'low' | 'medium' | 'high'

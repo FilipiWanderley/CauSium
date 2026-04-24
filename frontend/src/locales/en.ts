@@ -6,6 +6,7 @@ export interface Translations {
     economicsSkus: string
     economicsReports: string
     opportunities: string
+    optimizationPlan: string
     experiments: string
     notifications: string
     gov: string
@@ -224,6 +225,20 @@ export interface Translations {
     explainImpact: string
     explainRisks: string
     explainSteps: string
+  }
+  optimizationPlan: {
+    title: string
+    subtitle: string
+    error: string
+    adjustedMonthly: string
+    adjustedAnnual: string
+    quickWins: string
+    conflicts: string
+    summary: string
+    conflictHints: string
+    prioritized: string
+    score: string
+    savings: string
   }
   initiatives: {
     title: string
@@ -885,6 +900,7 @@ export const en: Translations = {
     economicsSkus: 'SKUs',
     economicsReports: 'Reports',
     opportunities: 'PulseIntel',
+    optimizationPlan: 'Optimization Plan',
     experiments: 'PulseLab',
     notifications: 'Notifications',
     gov: 'PulseGov',
@@ -1103,6 +1119,20 @@ export const en: Translations = {
     explainImpact: 'Expected impact',
     explainRisks: 'Risks',
     explainSteps: 'Recommended steps',
+  },
+  optimizationPlan: {
+    title: 'Optimization Plan',
+    subtitle: 'Deterministic ranking with quick wins and conflict-aware savings',
+    error: 'Could not load optimization plan.',
+    adjustedMonthly: 'Adjusted Monthly Savings',
+    adjustedAnnual: 'Adjusted Annual Savings',
+    quickWins: 'Quick Wins',
+    conflicts: 'Conflicts',
+    summary: 'Execution Summary',
+    conflictHints: 'Conflict Hints',
+    prioritized: 'Prioritized Recommendations',
+    score: 'Priority score',
+    savings: 'Savings',
   },
   initiatives: {
     title: 'Initiatives',

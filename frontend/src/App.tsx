@@ -19,6 +19,7 @@ import {
   LoginPage,
   MembersPage,
   NotificationsPage,
+  OptimizationPlanPage,
   OpportunitiesPage,
   ResetPasswordPage,
   RiskBudgetsPage,
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="economics/reports" element={lazyRoute(<EconomicsReportsPage />)} />
           <Route path="opportunities" element={lazyRoute(<OpportunitiesPage />)} />
           <Route path="intel" element={lazyRoute(<OpportunitiesPage />)} />
+          <Route path="optimization-plan" element={lazyRoute(<OptimizationPlanPage />)} />
           <Route path="initiatives" element={lazyRoute(<InitiativesPage />)} />
           <Route path="experiments" element={lazyRoute(<ExperimentsPage />)} />
           <Route path="lab" element={lazyRoute(<ExperimentsPage />)} />

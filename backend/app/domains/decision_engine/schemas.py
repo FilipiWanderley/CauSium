@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -118,3 +119,48 @@ class OpportunitySummary(BaseModel):
     resolved: int
     total_potential_savings_usd: float
     top_category: str | None
+
+
+class OptimizationPlanRecommendation(BaseModel):
+    opportunity_id: UUID
+    category: OpportunityCategory
+    title: str
+    resource_id: str | None
+    resource_name: str | None
+    service: str | None
+    environment: str | None
+    owner_team: str | None
+    estimated_monthly_savings_usd: float
+    confidence: float
+    risk_level: RiskLevel
+    effort_level: EffortLevel
+    priority_score: float
+    rank: int
+    why_now: str
+    next_step: str
+    conflict_hints: list[str]
+    conflicting_with_opportunity_ids: list[UUID]
+
+
+class OptimizationPlanGroup(BaseModel):
+    key: str
+    label: str
+    total_items: int
+    total_estimated_monthly_savings_usd: float
+    opportunity_ids: list[UUID]
+
+
+class OptimizationPlanOut(BaseModel):
+    total_recommendations: int
+    total_savings_monthly_raw_usd: float
+    total_savings_monthly_adjusted_usd: float
+    total_savings_annual_adjusted_usd: float
+    confidence_global: float
+    summary: str
+    summary_source: Literal["deterministic", "ai"]
+    ai_summary: str | None = None
+    ai_model: str | None = None
+    quick_wins: list[OptimizationPlanRecommendation]
+    prioritized: list[OptimizationPlanRecommendation]
+    groups: list[OptimizationPlanGroup]
+    conflict_hints: list[str]

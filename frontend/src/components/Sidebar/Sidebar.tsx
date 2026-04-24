@@ -47,6 +47,7 @@ function getCoreNav(nav: Translations['nav']): NavItem[] {
     { to: '/app/economics/skus', icon: Boxes, label: nav.economicsSkus },
     { to: '/app/economics/reports', icon: FileSpreadsheet, label: nav.economicsReports },
     { to: '/app/intel', icon: Lightbulb, label: nav.opportunities },
+    { to: '/app/optimization-plan', icon: ListTodo, label: nav.optimizationPlan },
     { to: '/app/lab', icon: FlaskConical, label: nav.experiments },
     { to: '/app/initiatives', icon: ListTodo, label: nav.initiatives },
     { to: '/app/risk-budgets', icon: ShieldAlert, label: nav.riskBudgets },

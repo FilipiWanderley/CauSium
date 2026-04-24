@@ -282,6 +282,51 @@ export interface OpportunitySummary {
   top_category: string | null
 }
 
+export interface OptimizationPlanRecommendation {
+  opportunity_id: string
+  category: OpportunityCategory
+  title: string
+  resource_id: string | null
+  resource_name: string | null
+  service: string | null
+  environment: string | null
+  owner_team: string | null
+  estimated_monthly_savings_usd: number
+  confidence: number
+  risk_level: RiskLevel
+  effort_level: EffortLevel
+  priority_score: number
+  rank: number
+  why_now: string
+  next_step: string
+  conflict_hints: string[]
+  conflicting_with_opportunity_ids: string[]
+}
+
+export interface OptimizationPlanGroup {
+  key: string
+  label: string
+  total_items: number
+  total_estimated_monthly_savings_usd: number
+  opportunity_ids: string[]
+}
+
+export interface OptimizationPlan {
+  total_recommendations: number
+  total_savings_monthly_raw_usd: number
+  total_savings_monthly_adjusted_usd: number
+  total_savings_annual_adjusted_usd: number
+  confidence_global: number
+  summary: string
+  summary_source: 'deterministic' | 'ai'
+  ai_summary: string | null
+  ai_model: string | null
+  quick_wins: OptimizationPlanRecommendation[]
+  prioritized: OptimizationPlanRecommendation[]
+  groups: OptimizationPlanGroup[]
+  conflict_hints: string[]
+}
+
 // Workflow
 export type InitiativeStatus = 'backlog' | 'planned' | 'in_progress' | 'review' | 'done' | 'cancelled'
 

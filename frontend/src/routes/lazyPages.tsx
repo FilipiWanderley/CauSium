@@ -46,6 +46,9 @@ export const EconomicsReportsPage = lazyWithPreload(() =>
 export const OpportunitiesPage = lazyWithPreload(() =>
   import('../pages/Opportunities/OpportunitiesPage').then((m) => ({ default: m.OpportunitiesPage }))
 )
+export const OptimizationPlanPage = lazyWithPreload(() =>
+  import('../pages/OptimizationPlan/OptimizationPlanPage').then((m) => ({ default: m.OptimizationPlanPage }))
+)
 export const InitiativesPage = lazyWithPreload(() =>
   import('../pages/Initiatives/InitiativesPage').then((m) => ({ default: m.InitiativesPage }))
 )
@@ -100,6 +103,7 @@ const PRELOAD_BY_PATH: Array<[string, () => Promise<unknown>]> = [
   ['/app/economics', DashboardPage.preload],
   ['/app/opportunities', OpportunitiesPage.preload],
   ['/app/intel', OpportunitiesPage.preload],
+  ['/app/optimization-plan', OptimizationPlanPage.preload],
   ['/app/initiatives', InitiativesPage.preload],
   ['/app/experiments', ExperimentsPage.preload],
   ['/app/lab', ExperimentsPage.preload],
