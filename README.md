@@ -1592,18 +1592,21 @@ CauSium/
 ### Rodando os Testes
 
 ```bash
-# Backend — todos os testes
+# Backend — instalar dependências de desenvolvimento (inclui pytest)
 cd backend
-pytest
+poetry install --with dev
+
+# Backend — todos os testes
+python -m pytest
 
 # Apenas testes unitários
-pytest tests/unit/
+python -m pytest tests/unit/
 
 # Apenas testes de integração
-pytest tests/integration/
+python -m pytest tests/integration/
 
 # Com cobertura
-pytest --cov=app --cov-report=html
+python -m pytest --cov=app --cov-report=html
 
 # Frontend — testes de componente
 cd frontend
