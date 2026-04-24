@@ -187,6 +187,20 @@ export interface Translations {
     playbook: string
     createInitiative: string
     dismiss: string
+    statusAll: string
+    statusOpenSuggestion: string
+    statusInProgressReview: string
+    statusResolvedApproved: string
+    statusDismissed: string
+    statusValidated: string
+    currentStatus: string
+    readOnlyNoticeTitle: string
+    readOnlyNoticeDesc: string
+    executionOwnershipHint: string
+    markInReview: string
+    markApproved: string
+    markValidated: string
+    markDismissed: string
   }
   initiatives: {
     title: string
@@ -835,6 +849,8 @@ export interface Translations {
     syncErrorMsg: string
     syncNoAccounts: string
     refresh: string
+    readOnlyBannerTitle: string
+    readOnlyBannerBody: string
   }
 }
 
@@ -1027,6 +1043,20 @@ export const en: Translations = {
     playbook: 'Playbook',
     createInitiative: 'Create Initiative',
     dismiss: 'Dismiss',
+    statusAll: 'All status',
+    statusOpenSuggestion: 'AI suggestion',
+    statusInProgressReview: 'Under client review',
+    statusResolvedApproved: 'Approved and executed by client',
+    statusDismissed: 'Dismissed by client',
+    statusValidated: 'Validated by client',
+    currentStatus: 'Current status',
+    readOnlyNoticeTitle: 'Read-only analysis mode',
+    readOnlyNoticeDesc: 'The platform only reads tenant data and generates recommendations. Execution always happens after explicit client decision.',
+    executionOwnershipHint: 'Execution is external to the platform and owned by the client team.',
+    markInReview: 'Mark as under review',
+    markApproved: 'Mark as approved/executed',
+    markValidated: 'Mark as validated',
+    markDismissed: 'Mark as dismissed',
   },
   initiatives: {
     title: 'Initiatives',
@@ -1644,6 +1674,8 @@ export const en: Translations = {
     syncErrorMsg: 'Could not trigger sync for this account. Please try again.',
     syncNoAccounts: 'No cloud accounts found.',
     refresh: 'Refresh',
+    readOnlyBannerTitle: 'Read-only platform mode',
+    readOnlyBannerBody: 'CauSium only reads tenant data and suggests actions. Nothing is executed automatically.',
   },
   login: {
     back: 'Back',

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import type { Opportunity } from '../../types'
+import type { Opportunity, OpportunityStatus } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
 
@@ -33,6 +33,20 @@ interface Props {
 export function OpportunityCard({ opportunity: op, onClick }: Props) {
   const { t } = useI18n()
   const o = t.opportunities
+  const statusLabels: Record<OpportunityStatus, string> = {
+    open: o.statusOpenSuggestion,
+    in_progress: o.statusInProgressReview,
+    resolved: o.statusResolvedApproved,
+    dismissed: o.statusDismissed,
+    validated: o.statusValidated,
+  }
+  const statusColors: Record<OpportunityStatus, string> = {
+    open: 'bg-sky-100 text-sky-700',
+    in_progress: 'bg-amber-100 text-amber-700',
+    resolved: 'bg-emerald-100 text-emerald-700',
+    dismissed: 'bg-gray-100 text-gray-700',
+    validated: 'bg-blue-100 text-blue-700',
+  }
   const parsedResource = parseAzureResourceId(op.resource_id)
   const azurePortalUrl = buildAzurePortalResourceUrl(op.resource_id)
   const machineName = parsedResource?.resourceName ?? o.unknownResource
@@ -50,6 +64,9 @@ export function OpportunityCard({ opportunity: op, onClick }: Props) {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
               {CATEGORY_LABELS[op.category] || op.category}
+            </span>
+            <span className={clsx('rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[op.status])}>
+              {statusLabels[op.status]}
             </span>
             {op.environment && (
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">

@@ -16,6 +16,7 @@ export function OpportunitiesPage() {
   const o = t.opportunities
   const queryClient = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState<OpportunityStatus | 'all'>('open')
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
   const categories = [
@@ -26,6 +27,13 @@ export function OpportunitiesPage() {
     { value: 'storage_optimization', label: o.storage },
     { value: 'network_optimization', label: o.network },
   ]
+  const statusLabels: Record<OpportunityStatus, string> = {
+    open: o.statusOpenSuggestion,
+    in_progress: o.statusInProgressReview,
+    resolved: o.statusResolvedApproved,
+    dismissed: o.statusDismissed,
+    validated: o.statusValidated,
+  }
 
   const { data: summary } = useQuery({
     queryKey: ['opportunities', 'summary'],
@@ -33,10 +41,13 @@ export function OpportunitiesPage() {
   })
 
   const { data: opportunities, isLoading } = useQuery({
-    queryKey: ['opportunities', selectedCategory],
+    queryKey: ['opportunities', selectedCategory, selectedStatus],
     queryFn: () =>
       opportunitiesApi
-        .list({ category: selectedCategory || undefined, status: 'open' })
+        .list({
+          category: selectedCategory || undefined,
+          status: selectedStatus === 'all' ? undefined : selectedStatus,
+        })
         .then((r) => r.data.items),
   })
 
@@ -66,6 +77,11 @@ export function OpportunitiesPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-semibold text-amber-900">{o.readOnlyNoticeTitle}</p>
+        <p className="mt-1 text-sm text-amber-800">{o.readOnlyNoticeDesc}</p>
+      </div>
+
       {summary && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricCard title={o.open} value={summary.open} />
@@ -79,7 +95,7 @@ export function OpportunitiesPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Filter className="h-4 w-4 text-gray-400" />
         <select
           value={selectedCategory}
@@ -89,6 +105,18 @@ export function OpportunitiesPage() {
           {categories.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
+        </select>
+        <select
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value as OpportunityStatus | 'all')}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none"
+        >
+          <option value="all">{o.statusAll}</option>
+          <option value="open">{o.statusOpenSuggestion}</option>
+          <option value="in_progress">{o.statusInProgressReview}</option>
+          <option value="resolved">{o.statusResolvedApproved}</option>
+          <option value="dismissed">{o.statusDismissed}</option>
+          <option value="validated">{o.statusValidated}</option>
         </select>
       </div>
 
@@ -123,6 +151,9 @@ export function OpportunitiesPage() {
               <div>
                 <h3 className="text-lg font-bold text-gray-900">{selectedOpp.title}</h3>
                 <p className="mt-2 text-sm text-gray-600">{selectedOpp.description}</p>
+                <div className="mt-3 inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                  {o.currentStatus}: {statusLabels[selectedOpp.status]}
+                </div>
               </div>
 
               {(selectedOpp.resource_id || selectedOpp.resource_name) && (
@@ -191,18 +222,34 @@ export function OpportunitiesPage() {
                 </div>
               )}
 
-              <div className="border-t pt-4 flex gap-3">
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-xs text-gray-500">{o.executionOwnershipHint}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'in_progress' })}
-                  className="flex-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                 >
-                  {o.createInitiative}
+                  {o.markInReview}
+                </button>
+                <button
+                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'resolved' })}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                >
+                  {o.markApproved}
+                </button>
+                <button
+                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'validated' })}
+                  className="rounded-lg border border-blue-300 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
+                >
+                  {o.markValidated}
                 </button>
                 <button
                   onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'dismissed' })}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
                 >
-                  {o.dismiss}
+                  {o.markDismissed}
                 </button>
               </div>
             </div>

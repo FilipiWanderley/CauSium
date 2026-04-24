@@ -20,12 +20,17 @@ async def main():
         user=user, password=password,
         host=host, port=int(port or 5432), database=database,
     )
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS alembic_version (
-            version_num VARCHAR(128) NOT NULL,
-            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-        )
-    """)
+    try:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS alembic_version (
+                version_num VARCHAR(128) NOT NULL,
+                CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+            )
+        """)
+    except asyncpg.PostgresError as exc:
+        # Avoid startup crash when backend and worker run this block concurrently.
+        if getattr(exc, "sqlstate", None) != "23505":
+            raise
     await conn.execute("""
         ALTER TABLE alembic_version
             ALTER COLUMN version_num TYPE VARCHAR(128)

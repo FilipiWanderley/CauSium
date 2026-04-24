@@ -8,7 +8,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Support both launch modes:
+        # - project root cwd -> .env
+        # - backend cwd      -> ../.env
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -118,7 +121,7 @@ class Settings(BaseSettings):
     encryption_key: str = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
 
     # SP-A04: Origin / Referer validation on auth state-mutation endpoints.
     # Provides defense-in-depth against CSRF for clients that bypass SameSite=Strict.

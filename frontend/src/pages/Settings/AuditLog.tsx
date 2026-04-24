@@ -22,6 +22,8 @@ const EVENT_TYPE_OPTIONS = [
   'auth.user.updated',
   'auth.user.deleted',
   'invite.created',
+  'opportunity.recommendation.generated',
+  'opportunity.decision.recorded',
 ]
 
 export function AuditLog() {
@@ -61,6 +63,13 @@ export function AuditLog() {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Auditoria de Ações Sensíveis</h2>
         <span className="text-xs text-gray-400">{total} evento{total !== 1 ? 's' : ''} encontrado{total !== 1 ? 's' : ''}</span>
+      </div>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <p className="text-xs font-semibold text-blue-900">Governança de decisões</p>
+        <p className="mt-1 text-xs text-blue-800">
+          A IA só gera recomendação. Toda aprovação, descarte ou validação operacional deve ser decisão explícita do cliente e auditável.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
