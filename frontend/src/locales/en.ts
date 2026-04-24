@@ -166,6 +166,7 @@ export interface Translations {
     totalSavings: string
     allCategories: string
     rightsizing: string
+    aksAutoscalerRecommendation: string
     idleResources: string
     reservedInstances: string
     storage: string
@@ -1044,6 +1045,7 @@ export const en: Translations = {
     totalSavings: 'Total Potential Savings',
     allCategories: 'All categories',
     rightsizing: 'Rightsizing',
+    aksAutoscalerRecommendation: 'AKS Autoscaler',
     idleResources: 'Idle Resources',
     reservedInstances: 'Reserved Instances',
     storage: 'Storage',

@@ -43,6 +43,7 @@ CATEGORY_RISK = {
     OpportunityCategory.IDLE_RESOURCES: RiskLevel.LOW,
     OpportunityCategory.RIGHTSIZING: RiskLevel.MEDIUM,
     OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: RiskLevel.MEDIUM,
+    OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION: RiskLevel.MEDIUM,
     OpportunityCategory.STORAGE_OPTIMIZATION: RiskLevel.LOW,
     OpportunityCategory.NETWORK_OPTIMIZATION: RiskLevel.MEDIUM,
     OpportunityCategory.RESERVED_INSTANCES: RiskLevel.LOW,
@@ -54,6 +55,7 @@ CATEGORY_EFFORT = {
     OpportunityCategory.IDLE_RESOURCES: EffortLevel.LOW,
     OpportunityCategory.RIGHTSIZING: EffortLevel.MEDIUM,
     OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: EffortLevel.MEDIUM,
+    OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION: EffortLevel.MEDIUM,
     OpportunityCategory.STORAGE_OPTIMIZATION: EffortLevel.LOW,
     OpportunityCategory.NETWORK_OPTIMIZATION: EffortLevel.MEDIUM,
     OpportunityCategory.RESERVED_INSTANCES: EffortLevel.LOW,
@@ -156,6 +158,13 @@ PLAYBOOKS: dict[OpportunityCategory, str] = {
         "3. Propose reducing node count by 1 in maintenance window.\n"
         "4. Monitor pod scheduling and saturation after change.\n"
         "5. Track realized savings and rollback if saturation increases."
+    ),
+    OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION: (
+        "1. Confirm node pool autoscaler is disabled and history >= 7 days.\n"
+        "2. Validate security blockers: system pool, kube-system, critical workloads.\n"
+        "3. Apply conservative autoscaler bounds (min/max) in maintenance window.\n"
+        "4. Monitor scaling events, pod pending time, and saturation for 72h.\n"
+        "5. Record realized savings and tune min/max if needed."
     ),
     OpportunityCategory.RESERVED_INSTANCES: (
         "1. Analyze usage trend for last 90 days.\n"

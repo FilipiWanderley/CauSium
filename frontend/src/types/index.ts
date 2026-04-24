@@ -178,6 +178,7 @@ export interface PageResponse<T> {
 export type OpportunityCategory =
   | 'rightsizing'
   | 'aks_nodepool_rightsizing'
+  | 'aks_autoscaler_recommendation'
   | 'idle_resources'
   | 'reserved_instances'
   | 'storage_optimization'
@@ -240,8 +241,13 @@ export interface OpportunityDecisionEvidence {
   autoscaler_enabled?: boolean | null
   autoscaler_min_count?: number | null
   autoscaler_max_count?: number | null
+  autoscaler_action?: string | null
+  recommended_min_count?: number | null
+  recommended_max_count?: number | null
   has_kube_system_workloads?: boolean | null
   has_critical_workloads?: boolean | null
+  variability_score?: number | null
+  blocked_by?: string[] | null
   requested_pressure?: boolean | null
   cpu_p95_stddev?: number | null
   memory_p95_stddev?: number | null

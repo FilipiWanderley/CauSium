@@ -23,6 +23,7 @@ export function OpportunitiesPage() {
   const categories = [
     { value: '', label: o.allCategories },
     { value: 'rightsizing', label: o.rightsizing },
+    { value: 'aks_autoscaler_recommendation', label: o.aksAutoscalerRecommendation },
     { value: 'idle_resources', label: o.idleResources },
     { value: 'reserved_instances', label: o.reservedInstances },
     { value: 'storage_optimization', label: o.storage },
@@ -79,6 +80,7 @@ export function OpportunitiesPage() {
   const selectedMachineSku = selectedOpp?.sku_name ?? o.unknownResource
   const selectedMachineFamily = selectedOpp?.machine_family ?? o.unknownResource
   const selectedEvidence = selectedOpp?.decision_evidence
+  const selectedIsAksAutoscaler = selectedOpp?.category === 'aks_autoscaler_recommendation'
   const selectedIsAksEvidence =
     selectedEvidence?.resource_type === 'aks_node_pool' ||
     !!selectedEvidence?.node_pool ||
@@ -362,11 +364,23 @@ export function OpportunitiesPage() {
                         {'  '}·{'  '}
                         {o.nodePoolLabel}: <strong>{selectedEvidence.node_pool ?? o.unknownResource}</strong>
                       </p>
-                      <p>
-                        {o.nodesLabel}: <strong>{selectedEvidence.current_node_count ?? '-'}</strong>
-                        {'  '}→{'  '}
-                        {o.recommendedLabel}: <strong>{selectedEvidence.recommended_node_count ?? '-'}</strong>
-                      </p>
+                      {!selectedIsAksAutoscaler && (
+                        <p>
+                          {o.nodesLabel}: <strong>{selectedEvidence.current_node_count ?? '-'}</strong>
+                          {'  '}→{'  '}
+                          {o.recommendedLabel}: <strong>{selectedEvidence.recommended_node_count ?? '-'}</strong>
+                        </p>
+                      )}
+                      {selectedIsAksAutoscaler && (
+                        <p>
+                          {o.currentLabel}: <strong>{selectedEvidence.current_node_count ?? '-'} nodes fixos</strong>
+                          {'  '}·{'  '}
+                          {o.recommendedLabel}:{' '}
+                          <strong>
+                            min={selectedEvidence.recommended_min_count ?? '-'}, max={selectedEvidence.recommended_max_count ?? '-'}
+                          </strong>
+                        </p>
+                      )}
                       <p>
                         {o.skuLabel}: <strong>{selectedEvidence.node_sku ?? selectedMachineSku}</strong>
                       </p>
@@ -386,6 +400,11 @@ export function OpportunitiesPage() {
                         {'  '}·{'  '}
                         {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
                       </p>
+                      {selectedIsAksAutoscaler && (
+                        <p>
+                          Variability: <strong>{selectedEvidence.variability_score ?? '-'}</strong>
+                        </p>
+                      )}
                       {selectedEvidence.reason && (
                         <p>
                           {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>

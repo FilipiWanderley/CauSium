@@ -168,6 +168,7 @@ export const pt: Translations = {
     totalSavings: 'Total de Economia Potencial',
     allCategories: 'Todas as categorias',
     rightsizing: 'Redimensionamento',
+    aksAutoscalerRecommendation: 'Autoscaler AKS',
     idleResources: 'Recursos Ociosos',
     reservedInstances: 'Instâncias Reservadas',
     storage: 'Armazenamento',

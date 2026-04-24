@@ -18,6 +18,7 @@ const EFFORT_COLORS = {
 const CATEGORY_LABELS: Record<string, string> = {
   rightsizing: 'Rightsizing',
   aks_nodepool_rightsizing: 'AKS Node Pool Rightsizing',
+  aks_autoscaler_recommendation: 'AKS Autoscaler Recommendation',
   idle_resources: 'Idle Resources',
   reserved_instances: 'Reserved Instances',
   storage_optimization: 'Storage',
@@ -59,12 +60,15 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
   const machineSku = op.sku_name ?? o.unknownResource
   const machineFamily = op.machine_family ?? o.unknownResource
   const evidence = op.decision_evidence
+  const isAksAutoscalerRecommendation = op.category === 'aks_autoscaler_recommendation'
   const hasAksNodePoolEvidence =
     !!evidence &&
     (evidence.resource_type === 'aks_node_pool' ||
       evidence.node_pool ||
       evidence.current_node_count != null ||
-      evidence.recommended_node_count != null)
+      evidence.recommended_node_count != null ||
+      evidence.recommended_min_count != null ||
+      evidence.recommended_max_count != null)
   const hasRightsizingEvidence =
     !hasAksNodePoolEvidence &&
     !!evidence &&
@@ -174,11 +178,20 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
             {'  '}·{'  '}
             {o.nodePoolLabel}: <strong>{evidence?.node_pool ?? o.unknownResource}</strong>
           </p>
-          <p className="mt-1">
-            {o.nodesLabel}: <strong>{evidence?.current_node_count ?? '-'}</strong>
-            {'  '}→{'  '}
-            {o.recommendedLabel}: <strong>{evidence?.recommended_node_count ?? '-'}</strong>
-          </p>
+          {!isAksAutoscalerRecommendation && (
+            <p className="mt-1">
+              {o.nodesLabel}: <strong>{evidence?.current_node_count ?? '-'}</strong>
+              {'  '}→{'  '}
+              {o.recommendedLabel}: <strong>{evidence?.recommended_node_count ?? '-'}</strong>
+            </p>
+          )}
+          {isAksAutoscalerRecommendation && (
+            <p className="mt-1">
+              {o.currentLabel}: <strong>{evidence?.current_node_count ?? '-'} nodes fixos</strong>
+              {'  '}·{'  '}
+              {o.recommendedLabel}: <strong>min={evidence?.recommended_min_count ?? '-'}, max={evidence?.recommended_max_count ?? '-'}</strong>
+            </p>
+          )}
           <p className="mt-1">
             {o.skuLabel}: <strong>{evidence?.node_sku ?? machineSku}</strong>
           </p>
@@ -197,6 +210,11 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
             {'  '}·{'  '}
             {o.riskLabel}: <strong>{evidence?.risk_level ?? op.risk_level}</strong>
           </p>
+          {isAksAutoscalerRecommendation && (
+            <p className="mt-1">
+              Variability: <strong>{evidence?.variability_score ?? '-'}</strong>
+            </p>
+          )}
           {onExplain && (
             <button
               type="button"

@@ -23,6 +23,9 @@ from app.domains.decision_engine.schemas import (
     OpportunityStatusUpdate,
 )
 from app.domains.decision_engine.scorer import PLAYBOOKS, compute_score
+from app.domains.decision_engine.aks_autoscaler_recommendation_engine import (
+    decide_aks_autoscaler_recommendation,
+)
 from app.domains.decision_engine.aks_nodepool_rightsizing_engine import (
     decide_aks_nodepool_rightsizing,
 )
@@ -293,7 +296,6 @@ class DecisionEngineService:
             opportunities.append(op)
 
         for candidate in aks_candidates:
-            category = OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING
             service = "Azure Kubernetes Service"
             env = candidate.environment or "unknown"
             team = candidate.owner_team or "untagged"
@@ -306,6 +308,8 @@ class DecisionEngineService:
             resource_name = f"{candidate.cluster_name}/{candidate.node_pool_name}"
             sku_name = candidate.node_sku or ""
             machine_family = _infer_machine_family(sku_name, resource_name, service)
+
+            category = OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING
             decision = decide_aks_nodepool_rightsizing(
                 cluster_name=candidate.cluster_name,
                 node_pool=candidate.node_pool_name,
@@ -433,6 +437,130 @@ class DecisionEngineService:
                 self.db.add(op)
                 existing_by_key[dedupe_key] = op
             opportunities.append(op)
+
+            autoscaler_category = OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION
+            autoscaler_decision = decide_aks_autoscaler_recommendation(
+                cluster_name=candidate.cluster_name,
+                node_pool=candidate.node_pool_name,
+                node_sku=candidate.node_sku,
+                current_node_count=candidate.node_count,
+                current_monthly_cost=monthly_cost,
+                cpu_p95=candidate.cpu_p95,
+                memory_p95=candidate.memory_p95,
+                history_days=candidate.history_days,
+                autoscaler_enabled=candidate.autoscaler_enabled,
+                autoscaler_min_count=candidate.autoscaler_min_count,
+                autoscaler_max_count=candidate.autoscaler_max_count,
+                is_system_pool=candidate.is_system_pool,
+                has_kube_system_workloads=candidate.has_kube_system_workloads,
+                has_critical_workloads=candidate.has_critical_workloads,
+                cpu_p95_stddev=candidate.cpu_p95_stddev,
+                memory_p95_stddev=candidate.memory_p95_stddev,
+            )
+            if not autoscaler_decision.recommend:
+                continue
+            autoscaler_evidence = autoscaler_decision.evidence
+            autoscaler_savings = float(autoscaler_evidence.get("estimated_savings") or 0.0)
+            autoscaler_score_rationale = (
+                f"{autoscaler_decision.reason} "
+                f"Confiança: {autoscaler_decision.confidence:.2f}. "
+                f"Evidência: {autoscaler_decision.evidence}."
+            )
+            if autoscaler_decision.risk_level == "low":
+                autoscaler_override_risk = RiskLevel.LOW
+            elif autoscaler_decision.risk_level == "medium":
+                autoscaler_override_risk = RiskLevel.MEDIUM
+            else:
+                autoscaler_override_risk = RiskLevel.HIGH
+            autoscaler_score = compute_score(
+                category=autoscaler_category,
+                monthly_savings_usd=autoscaler_savings,
+                environment=env,
+                override_risk=autoscaler_override_risk,
+            )
+            autoscaler_description = (
+                f"AKS {autoscaler_evidence.get('cluster_name')}, node pool {autoscaler_evidence.get('node_pool')}. "
+                f"Autoscaler: desativado. Atual: {autoscaler_evidence.get('current_node_count')} nodes fixos. "
+                f"Recomendado: min={autoscaler_evidence.get('recommended_min_count')}, "
+                f"max={autoscaler_evidence.get('recommended_max_count')}. "
+                f"Uso p95: CPU {autoscaler_evidence.get('cpu_p95')}% / "
+                f"memória {autoscaler_evidence.get('memory_p95')}%. "
+                f"Economia conservadora estimada: ${autoscaler_evidence.get('estimated_savings')}/mês "
+                f"({autoscaler_evidence.get('estimated_savings_pct')}%)."
+            )
+            autoscaler_dedupe_key = _opportunity_dedupe_key(
+                category=autoscaler_category,
+                service=service,
+                owner_team=team,
+                environment=env,
+                region=region,
+                resource_id=resource_id,
+                account_id=account_id,
+            )
+            if autoscaler_dedupe_key in seen_keys_in_run:
+                continue
+            seen_keys_in_run.add(autoscaler_dedupe_key)
+
+            autoscaler_existing = existing_by_key.get(autoscaler_dedupe_key)
+            if autoscaler_existing is not None:
+                autoscaler_existing.title = _generate_title(autoscaler_category, service, team)
+                autoscaler_existing.description = autoscaler_description
+                autoscaler_existing.category = autoscaler_category
+                autoscaler_existing.financial_impact_score = autoscaler_score.financial_impact_score
+                autoscaler_existing.risk_score = autoscaler_score.risk_score
+                autoscaler_existing.effort_score = autoscaler_score.effort_score
+                autoscaler_existing.criticality_score = autoscaler_score.criticality_score
+                autoscaler_existing.composite_score = autoscaler_score.composite_score
+                autoscaler_existing.estimated_monthly_savings_usd = autoscaler_savings
+                autoscaler_existing.estimated_annual_savings_usd = round(autoscaler_savings * 12, 2)
+                autoscaler_existing.current_monthly_cost_usd = monthly_cost
+                autoscaler_existing.risk_level = autoscaler_score.risk_level
+                autoscaler_existing.effort_level = autoscaler_score.effort_level
+                autoscaler_existing.resource_id = resource_id
+                autoscaler_existing.resource_name = resource_name
+                autoscaler_existing.sku_name = sku_name or None
+                autoscaler_existing.machine_family = machine_family
+                autoscaler_existing.service = service
+                autoscaler_existing.region = region
+                autoscaler_existing.environment = env
+                autoscaler_existing.owner_team = team
+                autoscaler_existing.score_rationale = autoscaler_score_rationale
+                autoscaler_existing.decision_evidence = autoscaler_evidence
+                autoscaler_existing.playbook = PLAYBOOKS.get(autoscaler_category)
+                autoscaler_existing.detected_at = now
+                autoscaler_op = autoscaler_existing
+            else:
+                autoscaler_op = OptimizationOpportunity(
+                    org_id=org_id,
+                    account_id=account_id,
+                    title=_generate_title(autoscaler_category, service, team),
+                    description=autoscaler_description,
+                    category=autoscaler_category,
+                    financial_impact_score=autoscaler_score.financial_impact_score,
+                    risk_score=autoscaler_score.risk_score,
+                    effort_score=autoscaler_score.effort_score,
+                    criticality_score=autoscaler_score.criticality_score,
+                    composite_score=autoscaler_score.composite_score,
+                    estimated_monthly_savings_usd=autoscaler_savings,
+                    estimated_annual_savings_usd=round(autoscaler_savings * 12, 2),
+                    current_monthly_cost_usd=monthly_cost,
+                    risk_level=autoscaler_score.risk_level,
+                    effort_level=autoscaler_score.effort_level,
+                    resource_id=resource_id,
+                    resource_name=resource_name,
+                    sku_name=sku_name or None,
+                    machine_family=machine_family,
+                    service=service,
+                    region=region,
+                    environment=env,
+                    owner_team=team,
+                    score_rationale=autoscaler_score_rationale,
+                    decision_evidence=autoscaler_evidence,
+                    playbook=PLAYBOOKS.get(autoscaler_category),
+                )
+                self.db.add(autoscaler_op)
+                existing_by_key[autoscaler_dedupe_key] = autoscaler_op
+            opportunities.append(autoscaler_op)
 
         for duplicated in duplicate_existing:
             if duplicated.status != OpportunityStatus.OPEN:
@@ -962,6 +1090,7 @@ def _estimate_savings(category: OpportunityCategory, monthly_cost: float) -> flo
         OpportunityCategory.IDLE_RESOURCES: 0.80,
         OpportunityCategory.RIGHTSIZING: 0.30,
         OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: 0.20,
+        OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION: 0.18,
         OpportunityCategory.STORAGE_OPTIMIZATION: 0.40,
         OpportunityCategory.NETWORK_OPTIMIZATION: 0.25,
         OpportunityCategory.RESERVED_INSTANCES: 0.35,
@@ -976,6 +1105,7 @@ def _generate_title(category: OpportunityCategory, service: str, team: str) -> s
         OpportunityCategory.IDLE_RESOURCES: f"Idle {service} resources in team {team}",
         OpportunityCategory.RIGHTSIZING: f"Rightsize {service} for team {team}",
         OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: f"Rightsize AKS node pool for team {team}",
+        OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION: f"Enable AKS autoscaler for team {team}",
         OpportunityCategory.STORAGE_OPTIMIZATION: f"Optimize {service} storage tier",
         OpportunityCategory.NETWORK_OPTIMIZATION: f"Reduce {service} network costs",
         OpportunityCategory.RESERVED_INSTANCES: f"Purchase Reserved Instances for {service}",

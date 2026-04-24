@@ -40,8 +40,13 @@ class OpportunityDecisionEvidence(BaseModel):
     autoscaler_enabled: bool | None = None
     autoscaler_min_count: int | None = None
     autoscaler_max_count: int | None = None
+    autoscaler_action: str | None = None
+    recommended_min_count: int | None = None
+    recommended_max_count: int | None = None
     has_kube_system_workloads: bool | None = None
     has_critical_workloads: bool | None = None
+    variability_score: float | None = None
+    blocked_by: list[str] | None = None
     requested_pressure: bool | None = None
     cpu_p95_stddev: float | None = None
     memory_p95_stddev: float | None = None
