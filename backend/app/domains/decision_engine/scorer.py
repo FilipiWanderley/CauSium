@@ -42,6 +42,7 @@ EFFORT_SCORES = {
 CATEGORY_RISK = {
     OpportunityCategory.IDLE_RESOURCES: RiskLevel.LOW,
     OpportunityCategory.RIGHTSIZING: RiskLevel.MEDIUM,
+    OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: RiskLevel.MEDIUM,
     OpportunityCategory.STORAGE_OPTIMIZATION: RiskLevel.LOW,
     OpportunityCategory.NETWORK_OPTIMIZATION: RiskLevel.MEDIUM,
     OpportunityCategory.RESERVED_INSTANCES: RiskLevel.LOW,
@@ -52,6 +53,7 @@ CATEGORY_RISK = {
 CATEGORY_EFFORT = {
     OpportunityCategory.IDLE_RESOURCES: EffortLevel.LOW,
     OpportunityCategory.RIGHTSIZING: EffortLevel.MEDIUM,
+    OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: EffortLevel.MEDIUM,
     OpportunityCategory.STORAGE_OPTIMIZATION: EffortLevel.LOW,
     OpportunityCategory.NETWORK_OPTIMIZATION: EffortLevel.MEDIUM,
     OpportunityCategory.RESERVED_INSTANCES: EffortLevel.LOW,
@@ -147,6 +149,13 @@ PLAYBOOKS: dict[OpportunityCategory, str] = {
         "4. Schedule resize in maintenance window.\n"
         "5. Validate application health metrics post-resize.\n"
         "6. Record realized savings in initiative."
+    ),
+    OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: (
+        "1. Confirm node pool CPU/memory p95 in last 14 days.\n"
+        "2. Validate autoscaler constraints (min/max) before action.\n"
+        "3. Propose reducing node count by 1 in maintenance window.\n"
+        "4. Monitor pod scheduling and saturation after change.\n"
+        "5. Track realized savings and rollback if saturation increases."
     ),
     OpportunityCategory.RESERVED_INSTANCES: (
         "1. Analyze usage trend for last 90 days.\n"

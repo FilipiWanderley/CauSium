@@ -177,6 +177,7 @@ export interface PageResponse<T> {
 // Opportunities
 export type OpportunityCategory =
   | 'rightsizing'
+  | 'aks_nodepool_rightsizing'
   | 'idle_resources'
   | 'reserved_instances'
   | 'storage_optimization'
@@ -221,10 +222,29 @@ export interface Opportunity {
 }
 
 export interface OpportunityDecisionEvidence {
+  resource_type?: string | null
+  cluster_name?: string | null
+  node_pool?: string | null
+  current_node_count?: number | null
+  recommended_node_count?: number | null
+  node_sku?: string | null
   cpu_p95?: number | null
   memory_p95?: number | null
   window_days?: number | null
   history_days?: number | null
+  allocated_cpu?: number | null
+  allocated_memory?: number | null
+  requested_cpu?: number | null
+  requested_memory?: number | null
+  is_system_pool?: boolean | null
+  autoscaler_enabled?: boolean | null
+  autoscaler_min_count?: number | null
+  autoscaler_max_count?: number | null
+  has_kube_system_workloads?: boolean | null
+  has_critical_workloads?: boolean | null
+  requested_pressure?: boolean | null
+  cpu_p95_stddev?: number | null
+  memory_p95_stddev?: number | null
   current_sku?: string | null
   recommended_sku?: string | null
   current_monthly_cost?: number | null

@@ -54,6 +54,7 @@ class SyncRecord(Base):
 
 class OpportunityCategory(str, enum.Enum):
     RIGHTSIZING = "rightsizing"
+    AKS_NODEPOOL_RIGHTSIZING = "aks_nodepool_rightsizing"
     IDLE_RESOURCES = "idle_resources"
     RESERVED_INSTANCES = "reserved_instances"
     STORAGE_OPTIMIZATION = "storage_optimization"

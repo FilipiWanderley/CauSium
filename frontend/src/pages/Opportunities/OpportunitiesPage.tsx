@@ -79,6 +79,10 @@ export function OpportunitiesPage() {
   const selectedMachineSku = selectedOpp?.sku_name ?? o.unknownResource
   const selectedMachineFamily = selectedOpp?.machine_family ?? o.unknownResource
   const selectedEvidence = selectedOpp?.decision_evidence
+  const selectedIsAksEvidence =
+    selectedEvidence?.resource_type === 'aks_node_pool' ||
+    !!selectedEvidence?.node_pool ||
+    selectedEvidence?.current_node_count != null
 
   return (
     <div className="space-y-6">
@@ -318,35 +322,77 @@ export function OpportunitiesPage() {
 
               {selectedEvidence && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                  <h4 className="text-sm font-semibold text-gray-800">{o.rightsizingEvidenceTitle}</h4>
-                  <div className="mt-2 space-y-1 text-xs text-gray-700">
-                    <p>
-                      {o.currentLabel}: <strong>{selectedEvidence.current_sku ?? selectedMachineSku}</strong>
-                      {'  '}→{'  '}
-                      {o.recommendedLabel}: <strong>{selectedEvidence.recommended_sku ?? o.unknownResource}</strong>
-                    </p>
-                    <p>
-                      CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
-                      {'  '}·{'  '}
-                      {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
-                    </p>
-                    <p>
-                      {o.monthlySavingsLabel}:{' '}
-                      <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
-                      {'  '}·{'  '}
-                      {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
-                    </p>
-                    <p>
-                      {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
-                      {'  '}·{'  '}
-                      {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
-                    </p>
-                    {selectedEvidence.reason && (
+                  <h4 className="text-sm font-semibold text-gray-800">
+                    {selectedIsAksEvidence ? o.aksEvidenceTitle : o.rightsizingEvidenceTitle}
+                  </h4>
+                  {!selectedIsAksEvidence && (
+                    <div className="mt-2 space-y-1 text-xs text-gray-700">
                       <p>
-                        {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
+                        {o.currentLabel}: <strong>{selectedEvidence.current_sku ?? selectedMachineSku}</strong>
+                        {'  '}→{'  '}
+                        {o.recommendedLabel}: <strong>{selectedEvidence.recommended_sku ?? o.unknownResource}</strong>
                       </p>
-                    )}
-                  </div>
+                      <p>
+                        CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
+                        {'  '}·{'  '}
+                        {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
+                      </p>
+                      <p>
+                        {o.monthlySavingsLabel}:{' '}
+                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
+                        {'  '}·{'  '}
+                        {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
+                      </p>
+                      <p>
+                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
+                        {'  '}·{'  '}
+                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
+                      </p>
+                      {selectedEvidence.reason && (
+                        <p>
+                          {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {selectedIsAksEvidence && (
+                    <div className="mt-2 space-y-1 text-xs text-gray-700">
+                      <p>
+                        {o.clusterLabel}: <strong>{selectedEvidence.cluster_name ?? o.unknownResource}</strong>
+                        {'  '}·{'  '}
+                        {o.nodePoolLabel}: <strong>{selectedEvidence.node_pool ?? o.unknownResource}</strong>
+                      </p>
+                      <p>
+                        {o.nodesLabel}: <strong>{selectedEvidence.current_node_count ?? '-'}</strong>
+                        {'  '}→{'  '}
+                        {o.recommendedLabel}: <strong>{selectedEvidence.recommended_node_count ?? '-'}</strong>
+                      </p>
+                      <p>
+                        {o.skuLabel}: <strong>{selectedEvidence.node_sku ?? selectedMachineSku}</strong>
+                      </p>
+                      <p>
+                        CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
+                        {'  '}·{'  '}
+                        {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
+                      </p>
+                      <p>
+                        {o.monthlySavingsLabel}:{' '}
+                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
+                        {'  '}·{'  '}
+                        {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
+                      </p>
+                      <p>
+                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
+                        {'  '}·{'  '}
+                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
+                      </p>
+                      {selectedEvidence.reason && (
+                        <p>
+                          {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => openExplain(selectedOpp)}

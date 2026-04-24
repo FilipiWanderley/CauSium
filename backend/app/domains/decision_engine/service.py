@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
 from uuid import UUID
@@ -22,10 +23,41 @@ from app.domains.decision_engine.schemas import (
     OpportunityStatusUpdate,
 )
 from app.domains.decision_engine.scorer import PLAYBOOKS, compute_score
+from app.domains.decision_engine.aks_nodepool_rightsizing_engine import (
+    decide_aks_nodepool_rightsizing,
+)
 from app.domains.decision_engine.vm_rightsizing_engine import decide_vm_rightsizing
 from app.domains.intel.models import UsageObservation
 
 log = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class AksNodePoolCandidate:
+    cluster_id: str
+    cluster_name: str
+    node_pool_name: str
+    node_count: int
+    node_sku: str | None
+    region: str
+    cpu_p95: float
+    memory_p95: float
+    monthly_cost: float
+    history_days: int
+    owner_team: str
+    environment: str
+    allocated_cpu: float | None
+    allocated_memory: float | None
+    requested_cpu: float | None
+    requested_memory: float | None
+    is_system_pool: bool
+    autoscaler_enabled: bool
+    autoscaler_min_count: int | None
+    autoscaler_max_count: int | None
+    has_kube_system_workloads: bool
+    has_critical_workloads: bool
+    cpu_p95_stddev: float | None
+    memory_p95_stddev: float | None
 
 
 class DecisionEngineService:
@@ -65,6 +97,7 @@ class DecisionEngineService:
         except Exception as e:
             log.warning("decision_engine.cost_query.failed", error=str(e))
             rows = []
+        aks_candidates = await self.get_aks_nodepool_candidates(org_id=org_id, account_id=account_id)
 
         active_statuses = (
             OpportunityStatus.OPEN,
@@ -144,6 +177,9 @@ class DecisionEngineService:
                     override_risk = RiskLevel.MEDIUM
                 else:
                     override_risk = RiskLevel.HIGH
+            elif category == OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING:
+                # AKS node pools are handled by a dedicated candidate query to avoid fallback parsing.
+                continue
             else:
                 estimated_savings = _estimate_savings(category, monthly_cost)
                 if estimated_savings < 10:
@@ -169,7 +205,161 @@ class DecisionEngineService:
                     f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
                     f"({decision_evidence.get('estimated_savings_pct')}%)."
                 )
+            elif category == OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING and decision_evidence:
+                description = (
+                    f"AKS {decision_evidence.get('cluster_name')}, node pool {decision_evidence.get('node_pool')}. "
+                    f"Nodes: {decision_evidence.get('current_node_count')} -> "
+                    f"{decision_evidence.get('recommended_node_count')}. "
+                    f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / "
+                    f"memória {decision_evidence.get('memory_p95')}%. "
+                    f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
+                    f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
+                    f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                    f"({decision_evidence.get('estimated_savings_pct')}%)."
+                )
 
+            dedupe_key = _opportunity_dedupe_key(
+                category=category,
+                service=service,
+                owner_team=team,
+                environment=env,
+                region=region,
+                resource_id=resource_id,
+                account_id=account_id,
+            )
+            if dedupe_key in seen_keys_in_run:
+                continue
+            seen_keys_in_run.add(dedupe_key)
+
+            existing = existing_by_key.get(dedupe_key)
+            if existing is not None:
+                existing.title = _generate_title(category, service, team)
+                existing.description = description
+                existing.category = category
+                existing.financial_impact_score = score.financial_impact_score
+                existing.risk_score = score.risk_score
+                existing.effort_score = score.effort_score
+                existing.criticality_score = score.criticality_score
+                existing.composite_score = score.composite_score
+                existing.estimated_monthly_savings_usd = estimated_savings
+                existing.estimated_annual_savings_usd = round(estimated_savings * 12, 2)
+                existing.current_monthly_cost_usd = monthly_cost
+                existing.risk_level = score.risk_level
+                existing.effort_level = score.effort_level
+                existing.resource_id = resource_id
+                existing.resource_name = resource_name
+                existing.sku_name = sku_name or None
+                existing.machine_family = machine_family
+                existing.service = service
+                existing.region = region
+                existing.environment = env
+                existing.owner_team = team
+                existing.score_rationale = score_rationale
+                existing.decision_evidence = decision_evidence
+                existing.playbook = PLAYBOOKS.get(category)
+                existing.detected_at = now
+                op = existing
+            else:
+                op = OptimizationOpportunity(
+                    org_id=org_id,
+                    account_id=account_id,
+                    title=_generate_title(category, service, team),
+                    description=description,
+                    category=category,
+                    financial_impact_score=score.financial_impact_score,
+                    risk_score=score.risk_score,
+                    effort_score=score.effort_score,
+                    criticality_score=score.criticality_score,
+                    composite_score=score.composite_score,
+                    estimated_monthly_savings_usd=estimated_savings,
+                    estimated_annual_savings_usd=round(estimated_savings * 12, 2),
+                    current_monthly_cost_usd=monthly_cost,
+                    risk_level=score.risk_level,
+                    effort_level=score.effort_level,
+                    resource_id=resource_id,
+                    resource_name=resource_name,
+                    sku_name=sku_name or None,
+                    machine_family=machine_family,
+                    service=service,
+                    region=region,
+                    environment=env,
+                    owner_team=team,
+                    score_rationale=score_rationale,
+                    decision_evidence=decision_evidence,
+                    playbook=PLAYBOOKS.get(category),
+                )
+                self.db.add(op)
+                existing_by_key[dedupe_key] = op
+            opportunities.append(op)
+
+        for candidate in aks_candidates:
+            category = OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING
+            service = "Azure Kubernetes Service"
+            env = candidate.environment or "unknown"
+            team = candidate.owner_team or "untagged"
+            region = candidate.region or ""
+            monthly_cost = float(candidate.monthly_cost)
+            resource_id = _build_aks_nodepool_resource_id(
+                cluster_id=candidate.cluster_id,
+                node_pool_name=candidate.node_pool_name,
+            )
+            resource_name = f"{candidate.cluster_name}/{candidate.node_pool_name}"
+            sku_name = candidate.node_sku or ""
+            machine_family = _infer_machine_family(sku_name, resource_name, service)
+            decision = decide_aks_nodepool_rightsizing(
+                cluster_name=candidate.cluster_name,
+                node_pool=candidate.node_pool_name,
+                node_sku=candidate.node_sku,
+                current_node_count=candidate.node_count,
+                current_monthly_cost=monthly_cost,
+                cpu_p95=candidate.cpu_p95,
+                memory_p95=candidate.memory_p95,
+                history_days=candidate.history_days,
+                allocated_cpu=candidate.allocated_cpu,
+                allocated_memory=candidate.allocated_memory,
+                requested_cpu=candidate.requested_cpu,
+                requested_memory=candidate.requested_memory,
+                is_system_pool=candidate.is_system_pool,
+                autoscaler_enabled=candidate.autoscaler_enabled,
+                autoscaler_min_count=candidate.autoscaler_min_count,
+                autoscaler_max_count=candidate.autoscaler_max_count,
+                has_kube_system_workloads=candidate.has_kube_system_workloads,
+                has_critical_workloads=candidate.has_critical_workloads,
+                cpu_p95_stddev=candidate.cpu_p95_stddev,
+                memory_p95_stddev=candidate.memory_p95_stddev,
+            )
+            if not decision.recommend:
+                continue
+            decision_evidence = decision.evidence
+            estimated_savings = float(decision.evidence.get("estimated_savings") or 0.0)
+            score_rationale = (
+                f"{decision.reason} "
+                f"Confiança: {decision.confidence:.2f}. "
+                f"Evidência: {decision.evidence}."
+            )
+            if decision.risk_level == "low":
+                override_risk = RiskLevel.LOW
+            elif decision.risk_level == "medium":
+                override_risk = RiskLevel.MEDIUM
+            else:
+                override_risk = RiskLevel.HIGH
+            score = compute_score(
+                category=category,
+                monthly_savings_usd=estimated_savings,
+                environment=env,
+                override_risk=override_risk,
+            )
+            description = (
+                f"AKS {decision_evidence.get('cluster_name')}, node pool {decision_evidence.get('node_pool')}. "
+                f"Nodes: {decision_evidence.get('current_node_count')} -> "
+                f"{decision_evidence.get('recommended_node_count')}. "
+                f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / "
+                f"memória {decision_evidence.get('memory_p95')}%. "
+                f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
+                f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
+                f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                f"({decision_evidence.get('estimated_savings_pct')}%)."
+            )
             dedupe_key = _opportunity_dedupe_key(
                 category=category,
                 service=service,
@@ -488,11 +678,252 @@ class DecisionEngineService:
             )
         return out
 
+    async def get_aks_nodepool_candidates(
+        self,
+        *,
+        org_id: UUID,
+        account_id: UUID,
+    ) -> list[AksNodePoolCandidate]:
+        from app.core.clickhouse import execute_query
+
+        try:
+            rows = execute_query(
+                """
+                /* AKS_NODEPOOL_CANDIDATES */
+                WITH
+                    cost_by_pool AS (
+                        SELECT
+                            replaceRegexpOne(
+                                resource_id,
+                                '(?i)/agentPools/[^/]+$',
+                                ''
+                            ) AS cluster_id,
+                            extract(resource_id, '(?i)/managedClusters/([^/]+)') AS cluster_name,
+                            extract(resource_id, '(?i)/agentPools/([^/]+)') AS node_pool_name,
+                            argMax(sku_name, date) AS node_sku,
+                            argMax(region, date) AS region,
+                            argMax(environment, date) AS environment,
+                            argMax(owner_team, date) AS owner_team,
+                            argMax(tags, date) AS tags,
+                            sum(cost_usd) AS monthly_cost
+                        FROM cost_facts
+                        WHERE org_id = {org_id:String}
+                          AND account_id = {account_id:String}
+                          AND date >= today() - 30
+                          AND lowerUTF8(provider) = 'azure'
+                          AND (
+                              positionCaseInsensitiveUTF8(service, 'aks') > 0
+                              OR positionCaseInsensitiveUTF8(service, 'kubernetes') > 0
+                          )
+                          AND match(resource_id, '(?i).*/managedClusters/[^/]+/agentPools/[^/]+$')
+                        GROUP BY cluster_id, cluster_name, node_pool_name
+                        HAVING monthly_cost > 0
+                    ),
+                    usage_by_pool AS (
+                        SELECT
+                            replaceRegexpOne(
+                                resource_id,
+                                '(?i)/agentPools/[^/]+$',
+                                ''
+                            ) AS cluster_id,
+                            extract(resource_id, '(?i)/managedClusters/([^/]+)') AS cluster_name,
+                            extract(resource_id, '(?i)/agentPools/([^/]+)') AS node_pool_name,
+                            quantileTDigestIf(
+                                0.95
+                            )(
+                                metric_value,
+                                positionCaseInsensitiveUTF8(metric_name, 'cpu') > 0
+                            ) AS cpu_p95,
+                            stddevPopIf(
+                                metric_value,
+                                positionCaseInsensitiveUTF8(metric_name, 'cpu') > 0
+                            ) AS cpu_p95_stddev,
+                            quantileTDigestIf(
+                                0.95
+                            )(
+                                metric_value,
+                                positionCaseInsensitiveUTF8(metric_name, 'memory') > 0
+                            ) AS memory_p95,
+                            stddevPopIf(
+                                metric_value,
+                                positionCaseInsensitiveUTF8(metric_name, 'memory') > 0
+                            ) AS memory_p95_stddev,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) IN ('node count', 'nodecount')
+                            ) AS node_count,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) = 'allocated cpu'
+                            ) AS allocated_cpu,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) = 'allocated memory'
+                            ) AS allocated_memory,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) = 'requested cpu'
+                            ) AS requested_cpu,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) = 'requested memory'
+                            ) AS requested_memory,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) IN ('critical workloads', 'critical_workloads')
+                            ) AS critical_workloads,
+                            maxIf(
+                                metric_value,
+                                lowerUTF8(metric_name) IN ('kube-system pods', 'kube_system_pods')
+                            ) AS kube_system_pods,
+                            uniqExactIf(
+                                date,
+                                positionCaseInsensitiveUTF8(metric_name, 'cpu') > 0
+                            ) AS cpu_days,
+                            uniqExactIf(
+                                date,
+                                positionCaseInsensitiveUTF8(metric_name, 'memory') > 0
+                            ) AS memory_days
+                        FROM usage_facts
+                        WHERE org_id = {org_id:String}
+                          AND account_id = {account_id:String}
+                          AND date >= today() - 30
+                          AND lowerUTF8(provider) = 'azure'
+                          AND match(resource_id, '(?i).*/managedClusters/[^/]+/agentPools/[^/]+$')
+                        GROUP BY cluster_id, cluster_name, node_pool_name
+                    )
+                SELECT
+                    c.cluster_id AS cluster_id,
+                    c.cluster_name AS cluster_name,
+                    c.node_pool_name AS node_pool_name,
+                    toInt32(round(u.node_count, 0)) AS node_count,
+                    c.node_sku AS node_sku,
+                    c.region AS region,
+                    round(u.cpu_p95, 2) AS cpu_p95,
+                    round(u.memory_p95, 2) AS memory_p95,
+                    round(c.monthly_cost, 2) AS monthly_cost,
+                    toInt32(least(u.cpu_days, u.memory_days)) AS history_days,
+                    c.owner_team AS owner_team,
+                    c.environment AS environment,
+                    c.tags AS tags,
+                    round(u.allocated_cpu, 2) AS allocated_cpu,
+                    round(u.allocated_memory, 2) AS allocated_memory,
+                    round(u.requested_cpu, 2) AS requested_cpu,
+                    round(u.requested_memory, 2) AS requested_memory,
+                    round(u.cpu_p95_stddev, 2) AS cpu_p95_stddev,
+                    round(u.memory_p95_stddev, 2) AS memory_p95_stddev,
+                    toInt32(round(u.critical_workloads, 0)) AS critical_workloads,
+                    toInt32(round(u.kube_system_pods, 0)) AS kube_system_pods
+                FROM cost_by_pool c
+                INNER JOIN usage_by_pool u
+                    ON c.cluster_id = u.cluster_id
+                   AND c.cluster_name = u.cluster_name
+                   AND c.node_pool_name = u.node_pool_name
+                WHERE u.node_count > 0
+                  AND isFinite(u.cpu_p95)
+                  AND isFinite(u.memory_p95)
+                ORDER BY c.monthly_cost DESC
+                LIMIT 200
+                """,
+                {"org_id": str(org_id), "account_id": str(account_id)},
+            )
+        except Exception as e:
+            log.warning("decision_engine.aks_candidates_query.failed", error=str(e))
+            return []
+
+        out: list[AksNodePoolCandidate] = []
+        for row in rows:
+            cluster_id = str(row.get("cluster_id") or "").strip()
+            cluster_name = str(row.get("cluster_name") or "").strip()
+            node_pool_name = str(row.get("node_pool_name") or "").strip()
+            node_count = _coerce_int(row.get("node_count")) or 0
+            cpu_p95 = _coerce_float(row.get("cpu_p95"))
+            memory_p95 = _coerce_float(row.get("memory_p95"))
+            monthly_cost = _coerce_float(row.get("monthly_cost")) or 0.0
+            history_days = _coerce_int(row.get("history_days")) or 0
+            tags = _to_str_dict(row.get("tags"))
+            node_pool_lower = node_pool_name.lower()
+            mode_label = _first_non_empty(
+                tags,
+                [
+                    "kubernetes.azure.com/mode",
+                    "aks_nodepool_mode",
+                    "nodepool_mode",
+                ],
+            )
+            is_system_pool = "system" in node_pool_lower or mode_label.lower() == "system"
+            row_is_system = row.get("is_system_pool")
+            if isinstance(row_is_system, bool):
+                is_system_pool = row_is_system
+            autoscaler_enabled = _parse_bool(
+                _first_non_empty(
+                    tags,
+                    [
+                        "cluster_autoscaler_enabled",
+                        "autoscaler_enabled",
+                        "k8s_autoscaler_enabled",
+                    ],
+                )
+            )
+            if isinstance(row.get("autoscaler_enabled"), bool):
+                autoscaler_enabled = bool(row.get("autoscaler_enabled"))
+            autoscaler_min_count = _parse_int(
+                _first_non_empty(tags, ["autoscaler_min_count", "min_count", "nodepool_min_count"])
+            )
+            autoscaler_min_count = autoscaler_min_count or _coerce_int(row.get("autoscaler_min_count"))
+            autoscaler_max_count = _parse_int(
+                _first_non_empty(tags, ["autoscaler_max_count", "max_count", "nodepool_max_count"])
+            )
+            autoscaler_max_count = autoscaler_max_count or _coerce_int(row.get("autoscaler_max_count"))
+            has_critical_workloads = (_coerce_int(row.get("critical_workloads")) or 0) > 0
+            has_kube_system_workloads = (_coerce_int(row.get("kube_system_pods")) or 0) > 0
+            if isinstance(row.get("has_critical_workloads"), bool):
+                has_critical_workloads = bool(row.get("has_critical_workloads"))
+            if isinstance(row.get("has_kube_system_workloads"), bool):
+                has_kube_system_workloads = bool(row.get("has_kube_system_workloads"))
+            if not cluster_id or not cluster_name or not node_pool_name:
+                continue
+            if node_count <= 0:
+                continue
+            if cpu_p95 is None or memory_p95 is None:
+                continue
+            out.append(
+                AksNodePoolCandidate(
+                    cluster_id=cluster_id,
+                    cluster_name=cluster_name,
+                    node_pool_name=node_pool_name,
+                    node_count=node_count,
+                    node_sku=(str(row.get("node_sku") or "").strip() or None),
+                    region=str(row.get("region") or "").strip(),
+                    cpu_p95=cpu_p95,
+                    memory_p95=memory_p95,
+                    monthly_cost=monthly_cost,
+                    history_days=history_days,
+                    owner_team=str(row.get("owner_team") or "untagged").strip() or "untagged",
+                    environment=str(row.get("environment") or "unknown").strip() or "unknown",
+                    allocated_cpu=_coerce_float(row.get("allocated_cpu")),
+                    allocated_memory=_coerce_float(row.get("allocated_memory")),
+                    requested_cpu=_coerce_float(row.get("requested_cpu")),
+                    requested_memory=_coerce_float(row.get("requested_memory")),
+                    is_system_pool=is_system_pool,
+                    autoscaler_enabled=autoscaler_enabled,
+                    autoscaler_min_count=autoscaler_min_count,
+                    autoscaler_max_count=autoscaler_max_count,
+                    has_kube_system_workloads=has_kube_system_workloads,
+                    has_critical_workloads=has_critical_workloads,
+                    cpu_p95_stddev=_coerce_float(row.get("cpu_p95_stddev")),
+                    memory_p95_stddev=_coerce_float(row.get("memory_p95_stddev")),
+                )
+            )
+        return out
+
 
 # ── Heuristics ────────────────────────────────────────────────────────────────
 
 def _classify_service(service: str) -> OpportunityCategory:
     s = service.lower()
+    if any(k in s for k in ("kubernetes", "aks")):
+        return OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING
     if any(k in s for k in ("virtual machine", "compute")):
         return OpportunityCategory.RIGHTSIZING
     if any(k in s for k in ("storage", "blob", "disk")):
@@ -503,8 +934,6 @@ def _classify_service(service: str) -> OpportunityCategory:
         return OpportunityCategory.RIGHTSIZING
     if any(k in s for k in ("function", "app service")):
         return OpportunityCategory.IDLE_RESOURCES
-    if any(k in s for k in ("kubernetes", "aks")):
-        return OpportunityCategory.RIGHTSIZING
     return OpportunityCategory.IDLE_RESOURCES
 
 
@@ -532,6 +961,7 @@ def _estimate_savings(category: OpportunityCategory, monthly_cost: float) -> flo
     rates = {
         OpportunityCategory.IDLE_RESOURCES: 0.80,
         OpportunityCategory.RIGHTSIZING: 0.30,
+        OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: 0.20,
         OpportunityCategory.STORAGE_OPTIMIZATION: 0.40,
         OpportunityCategory.NETWORK_OPTIMIZATION: 0.25,
         OpportunityCategory.RESERVED_INSTANCES: 0.35,
@@ -545,6 +975,7 @@ def _generate_title(category: OpportunityCategory, service: str, team: str) -> s
     titles = {
         OpportunityCategory.IDLE_RESOURCES: f"Idle {service} resources in team {team}",
         OpportunityCategory.RIGHTSIZING: f"Rightsize {service} for team {team}",
+        OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING: f"Rightsize AKS node pool for team {team}",
         OpportunityCategory.STORAGE_OPTIMIZATION: f"Optimize {service} storage tier",
         OpportunityCategory.NETWORK_OPTIMIZATION: f"Reduce {service} network costs",
         OpportunityCategory.RESERVED_INSTANCES: f"Purchase Reserved Instances for {service}",
@@ -597,6 +1028,68 @@ def _infer_machine_family(sku_name: str | None, resource_name: str | None, servi
         if token:
             return token
     return None
+
+
+def _coerce_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except Exception:
+        return None
+
+
+def _coerce_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _to_str_dict(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, str] = {}
+    for k, v in value.items():
+        key = str(k or "").strip()
+        if not key:
+            continue
+        out[key] = str(v or "").strip()
+    return out
+
+
+def _first_non_empty(tags: dict[str, str], keys: list[str]) -> str:
+    lowered = {k.lower(): v for k, v in tags.items()}
+    for key in keys:
+        value = lowered.get(key.lower(), "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _parse_bool(value: str | None) -> bool:
+    normalized = (value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "y", "enabled", "on"}
+
+
+def _parse_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return int(float(text))
+    except Exception:
+        return None
+
+
+def _build_aks_nodepool_resource_id(*, cluster_id: str, node_pool_name: str) -> str:
+    normalized_cluster_id = (cluster_id or "").strip().lower().rstrip("/")
+    normalized_pool = (node_pool_name or "").strip().lower()
+    return f"aks:{normalized_cluster_id}:{normalized_pool}"
 
 
 def _norm_text(value: str | None) -> str:

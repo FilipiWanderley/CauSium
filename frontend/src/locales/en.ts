@@ -210,6 +210,11 @@ export interface Translations {
     confidenceLabel: string
     riskLabel: string
     reasonLabel: string
+    aksEvidenceTitle: string
+    clusterLabel: string
+    nodePoolLabel: string
+    nodesLabel: string
+    skuLabel: string
     explainWithAI: string
     explainLoading: string
     explainError: string
@@ -1083,6 +1088,11 @@ export const en: Translations = {
     confidenceLabel: 'Confidence',
     riskLabel: 'Risk',
     reasonLabel: 'Reason',
+    aksEvidenceTitle: 'AKS Node Pool Evidence',
+    clusterLabel: 'Cluster',
+    nodePoolLabel: 'Node Pool',
+    nodesLabel: 'Nodes',
+    skuLabel: 'SKU',
     explainWithAI: 'Explain with AI',
     explainLoading: 'Generating explanation...',
     explainError: 'Could not generate explanation right now.',

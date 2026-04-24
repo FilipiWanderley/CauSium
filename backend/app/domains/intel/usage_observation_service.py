@@ -33,6 +33,13 @@ _METRICS = (
     "Disk Write Bytes",
     "DiskReadBytes",
     "DiskWriteBytes",
+    # AKS/Kubernetes node-pool capacity signals (Sprint 2 data integration).
+    "Node Count",
+    "NodeCount",
+    "Allocated CPU",
+    "Allocated Memory",
+    "Requested CPU",
+    "Requested Memory",
 )
 
 

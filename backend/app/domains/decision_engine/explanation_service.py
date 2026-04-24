@@ -71,6 +71,7 @@ class OpportunityExplanationService:
                 "region": opportunity.region,
                 "environment": opportunity.environment,
                 "owner_team": opportunity.owner_team,
+                "decision_evidence": opportunity.decision_evidence or {},
             },
             "usage_observations": usage,
             "events": events,

@@ -51,7 +51,47 @@ Arquivos:
 - Ambiente ativo: apenas `causium_push-*`.
 - Containers `stratopulse-*`: removidos.
 - Volumes `stratopulse_*`: removidos (apos backup final).
+Sobre commit + push
 
+Sim, faz isso agora — mas com padrão de produto (não só código).
+
+Mensagem de commit recomendada
+feat(decision-engine): add audit trail for opportunity status transitions
+
+- track accept/ignore/dismiss actions in audit_chain
+- include structured payload (savings, confidence, risk, decision_evidence)
+- map lifecycle events to audit types (accepted, ignored, dismissed)
+- pass actor_user_id from authenticated context
+- add integration tests for audit events
+🚀 Próximo épico (já pode começar)
+EPIC: AKS Node Pool Rightsizing
+Primeiro escopo (não complica ainda)
+1. coletar métricas de node pool
+2. calcular cpu/memória p95 por node
+3. detectar nodes ociosos
+4. sugerir redução de node count
+5. calcular economia
+6. gerar recommendation + decision_evidence
+7. explain IA (reaproveita tudo)
+🧭 Dica importante (pra não errar agora)
+
+Não tente fazer tudo de AKS de uma vez.
+
+Comece com:
+
+node_count reduction
+
+Depois evolui para:
+
+autoscaler
+spot nodepool
+pod rightsizing
+🧠 Resumo direto
+Nível 1: COMPLETO ✅
+Produto já entrega valor real
+
+Próximo passo:
+AKS optimization (Nível 2)
 ## Testes (pytest) apos migracao
 
 - O `pytest` ja esta declarado no codigo em `backend/pyproject.toml` no grupo de dependencias `dev`.
