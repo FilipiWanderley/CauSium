@@ -1458,57 +1458,178 @@ gantt
 
 ## 🚀 AKS Node Pool Rightsizing (Nível 2)
 
-Próximo épico de produto com abordagem incremental, sem tentar cobrir todo o universo AKS de uma vez.
+Evolução natural do rightsizing de VM aplicada a AKS/Kubernetes.
 
-**Escopo inicial (primeiro corte)**
+**Objetivo do épico**
 
-1. Coletar métricas de node pool.
-2. Calcular CPU/memória `p95` por node.
-3. Detectar nodes ociosos.
-4. Sugerir redução de `node_count`.
-5. Calcular economia estimada.
-6. Gerar `recommendation` + `decision_evidence`.
-7. Reaproveitar explain IA no endpoint de oportunidades.
+Identificar node pools AKS com capacidade sobrando e recomendar redução segura de nodes ou SKU, com economia estimada, risco, confiança, evidência e explicação por IA.
+
+**Regra de início do Nível 2**
+
+- Primeira entrega é somente recomendação (sem automação).
+- O sistema deve sugerir: `reduza este node pool de 5 para 4 nodes e economize X`.
+- Não implementar nesta fase: alteração automática de node pool, autoscaler, spot nodepool ou pod rightsizing.
+
+**Escopo Sprint 1 (sem automação)**
+
+1. Criar schema de evidência AKS.
+2. Criar engine `aks_nodepool_rightsizing_engine.py`.
+3. Adicionar regras de bloqueio.
+4. Calcular economia reduzindo apenas 1 node.
+5. Persistir `OptimizationOpportunity` com `decision_evidence`.
+6. Reaproveitar endpoint de explain IA existente.
+7. Adicionar testes unitários da engine.
+
+**Coleta de dados AKS (3 camadas)**
+
+- Camadas: `cluster`, `node_pool`, `nodes`.
+- Métricas-alvo completas:
+  - `cluster_id`, `node_pool_name`, `node_count`, `node_sku`, `region`
+  - `cpu_p95`, `memory_p95`
+  - `allocated_cpu`, `allocated_memory`
+  - `requested_cpu`, `requested_memory`
+  - `monthly_cost`
+- Foco inicial obrigatório:
+  - `cpu_p95`, `memory_p95`
+  - `node_count` atual
+  - `node_sku`
+  - custo mensal estimado
+
+**Nova evidência AKS (`decision_evidence`)**
+
+```json
+{
+  "resource_type": "aks_node_pool",
+  "cluster_name": "prod-aks",
+  "node_pool": "systempool",
+  "current_node_count": 5,
+  "recommended_node_count": 3,
+  "node_sku": "Standard_D4s_v5",
+  "cpu_p95": 32,
+  "memory_p95": 48,
+  "current_monthly_cost": 1050,
+  "estimated_monthly_cost": 630,
+  "estimated_savings": 420,
+  "estimated_savings_pct": 40,
+  "confidence": 0.78,
+  "risk_level": "medium",
+  "reason": "Node pool com baixa utilização sustentada por 14 dias"
+}
+```
+
+**Engine nova (primeira versão)**
+
+- Arquivo: `aks_nodepool_rightsizing_engine.py`
+- Entrada: uso (`cpu_p95`, `memory_p95`) + `node_count` + custo por node + janela histórica.
+- Saída: `recommended_node_count`, economia estimada, risco, confiança e `decision_evidence`.
+- Regra inicial simples:
+  - se `cpu_p95 < 45` e `memory_p95 < 60` e `node_count > 2`, recomendar reduzir `1` node.
+- Regras conservadoras de bloqueio:
+  - `node_count <= 2` -> bloqueia
+  - `cpu_p95 > 60` -> bloqueia
+  - `memory_p95 > 70` -> bloqueia
+  - histórico `< 7 dias` -> bloqueia
+  - economia `<= 0` -> bloqueia
+
+**Integração no DecisionEngine**
+
+```text
+DecisionEngineService
+  ├── VM_RIGHTSIZING
+  └── AKS_NODEPOOL_RIGHTSIZING
+```
+
+- Novo tipo de recomendação: `AKS_NODEPOOL_RIGHTSIZING`.
+- Persistir oportunidade AKS com `decision_evidence` do node pool.
+
+**Reuso da IA (sem nova IA)**
+
+- Mesmo endpoint de explain deve aceitar `decision_evidence` de AKS.
+- Exemplo de resposta esperada:
+  - "O node pool apps-prod está com CPU p95 de 32% e memória p95 de 48% nos últimos 14 dias. A redução de 5 para 4 nodes economiza aproximadamente R$ X/mês com risco médio."
+
+**Frontend (OpportunityCard)**
+
+- Quando `resource_type = aks_node_pool`, renderizar:
+  - `cluster_name`
+  - `node_pool`
+  - `current_node_count -> recommended_node_count`
+  - `node_sku`
+  - `cpu_p95`, `memory_p95`
+  - economia mensal e economia %
+  - confiança e risco
+  - ação `Explicar com IA`
 
 **Arquitetura inicial (node_count reduction)**
 
 ```mermaid
 flowchart LR
   subgraph AKS["AKS Cluster"]
+    C[Cluster]
     NP[Node Pools]
     N[Nodes]
-    NP --> N
+    C --> NP --> N
   end
 
   subgraph Collect["Coleta e Sinais"]
-    M1[Metrics Collector\nCPU/Mem usage]
-    M2[P95 Aggregator\npor node]
+    M1[Metrics Collector\ncluster/nodepool/node]
+    M2[P95 Aggregator\nCPU/Mem por node pool]
+    M3[Cost Estimator\ncusto mensal por SKU]
   end
 
   subgraph Decision["Decision Engine"]
-    D1[Idle Node Detector]
-    D2[Node Count Recommender]
-    D3[Savings Estimator]
+    D0[AKS Nodepool Rightsizing Engine]
+    D1[Blocking Rules\nsafety gates]
+    D2[Recommend -1 node]
+    D3[Savings + Risk + Confidence]
     D4[Decision Evidence Builder]
   end
 
   subgraph Product["Produto"]
+    DE[DecisionEngineService\nAKS_NODEPOOL_RIGHTSIZING]
     OP[(OptimizationOpportunity)]
     AI[Explain Recommendation IA]
     AUD[Audit Chain]
   end
 
-  N --> M1 --> M2 --> D1 --> D2 --> D3 --> D4
-  D4 --> OP
+  N --> M1 --> M2 --> D0
+  NP --> M3 --> D0
+  D0 --> D1 --> D2 --> D3 --> D4
+  D4 --> DE --> OP
   OP --> AI
   OP --> AUD
 ```
 
-**Evolução planejada (depois do primeiro corte)**
+**Sprint 2 (integração com dados reais)**
 
-- `autoscaler` tuning
-- `spot nodepool` strategy
-- `pod rightsizing`
+1. Coletar métricas AKS/nodepool reais.
+2. Agregar `cpu_p95`/`memory_p95` por node pool.
+3. Cruzar custo com SKU do node.
+4. Validar geração via API.
+5. Mostrar no frontend.
+
+**Sprint 3 (refinamento)**
+
+1. Diferenciar `system node pool` e `user node pool`.
+2. Bloquear `systempool` crítico.
+3. Considerar `min_count`/`max_count` do autoscaler.
+4. Considerar pods críticos.
+5. Melhorar score de risco e confiança.
+
+**Critério para validar início correto do Nível 2**
+
+```text
+AKS prod
+Node pool apps
+Atual: 5 nodes
+Recomendado: 4 nodes
+CPU p95: 32%
+Memória p95: 48%
+Economia: R$ 420/mês
+Risco: médio
+Confiança: 78%
+[Explicar com IA]
+```
 
 ### Status Atual por Módulo
 
