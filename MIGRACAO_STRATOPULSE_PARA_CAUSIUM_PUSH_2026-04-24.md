@@ -51,3 +51,12 @@ Arquivos:
 - Ambiente ativo: apenas `causium_push-*`.
 - Containers `stratopulse-*`: removidos.
 - Volumes `stratopulse_*`: removidos (apos backup final).
+
+## Testes (pytest) apos migracao
+
+- O `pytest` ja esta declarado no codigo em `backend/pyproject.toml` no grupo de dependencias `dev`.
+- Para instalar no ambiente local:
+  - `cd backend`
+  - `poetry install --with dev`
+- Para executar os testes:
+  - `python -m pytest`
