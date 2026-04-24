@@ -85,7 +85,12 @@ async def update_status(
     current_user=Depends(get_current_user),
 ):
     service = DecisionEngineService(db)
-    op = await service.update_status(current_user.org_id, opp_id, req)
+    op = await service.update_status(
+        current_user.org_id,
+        opp_id,
+        req,
+        actor_user_id=current_user.id,
+    )
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
     return OpportunityOut.model_validate(op)

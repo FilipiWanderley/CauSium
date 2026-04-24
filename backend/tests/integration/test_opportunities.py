@@ -82,3 +82,74 @@ async def test_opportunity_summary(client, auth_headers):
     summary = resp.json()
     assert "total" in summary
     assert "total_potential_savings_usd" in summary
+
+
+@pytest.mark.asyncio
+async def test_update_opportunity_status_writes_audit_events(client, auth_headers):
+    async def _create(title: str) -> str:
+        resp = await client.post(
+            "/api/v1/opportunities",
+            json={
+                "title": title,
+                "description": "desc",
+                "category": "rightsizing",
+                "estimated_monthly_savings_usd": 210.0,
+                "current_monthly_cost_usd": 420.0,
+                "resource_name": "vm-test-01",
+                "environment": "prod",
+                "owner_team": "finops",
+            },
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()["id"]
+
+    # accepted: resolved
+    accepted_id = await _create("Accepted flow")
+    accepted_resp = await client.patch(
+        f"/api/v1/opportunities/{accepted_id}/status",
+        json={"status": "resolved"},
+        headers=auth_headers,
+    )
+    assert accepted_resp.status_code == 200, accepted_resp.text
+
+    # ignored: open -> dismissed
+    ignored_id = await _create("Ignored flow")
+    ignored_resp = await client.patch(
+        f"/api/v1/opportunities/{ignored_id}/status",
+        json={"status": "dismissed"},
+        headers=auth_headers,
+    )
+    assert ignored_resp.status_code == 200, ignored_resp.text
+
+    # dismissed: in_progress -> dismissed
+    dismissed_id = await _create("Dismissed flow")
+    to_progress = await client.patch(
+        f"/api/v1/opportunities/{dismissed_id}/status",
+        json={"status": "in_progress"},
+        headers=auth_headers,
+    )
+    assert to_progress.status_code == 200, to_progress.text
+    dismissed_resp = await client.patch(
+        f"/api/v1/opportunities/{dismissed_id}/status",
+        json={"status": "dismissed"},
+        headers=auth_headers,
+    )
+    assert dismissed_resp.status_code == 200, dismissed_resp.text
+
+    events_resp = await client.get(
+        "/api/v1/audit-chain/events?event_prefix=opportunity.",
+        headers=auth_headers,
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    events = events_resp.json()["items"]
+    event_types = {e["event_type"] for e in events}
+
+    assert "opportunity.accepted" in event_types
+    assert "opportunity.ignored" in event_types
+    assert "opportunity.dismissed" in event_types
+
+    accepted_event = next(e for e in events if e["event_type"] == "opportunity.accepted")
+    assert accepted_event["payload"]["new_status"] == "accepted"
+    assert accepted_event["payload"]["previous_status"] == "detected"
+    assert accepted_event["payload"]["recommendation_type"] == "RIGHTSIZING"

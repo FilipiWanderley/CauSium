@@ -15,6 +15,7 @@ from app.domains.decision_engine.models import (
 )
 from app.domains.notifications.models import AlertCategory, AlertSeverity
 from app.domains.notifications.service import NotificationsService
+from app.domains.audit_chain.service import AuditChainService
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
     OpportunitySummary,
@@ -353,15 +354,66 @@ class DecisionEngineService:
         return result.scalar_one_or_none()
 
     async def update_status(
-        self, org_id: UUID, opp_id: UUID, req: OpportunityStatusUpdate
+        self,
+        org_id: UUID,
+        opp_id: UUID,
+        req: OpportunityStatusUpdate,
+        *,
+        actor_user_id: UUID | None = None,
     ) -> OptimizationOpportunity | None:
         op = await self.get_opportunity(org_id, opp_id)
         if not op:
             return None
+        previous_status = op.status
         op.status = req.status
+        await self._append_status_audit_event(
+            org_id=org_id,
+            actor_user_id=actor_user_id,
+            opportunity=op,
+            previous_status=previous_status,
+            new_status=req.status,
+        )
         await self.db.flush()
         await self.db.refresh(op)
         return op
+
+    async def _append_status_audit_event(
+        self,
+        *,
+        org_id: UUID,
+        actor_user_id: UUID | None,
+        opportunity: OptimizationOpportunity,
+        previous_status: OpportunityStatus,
+        new_status: OpportunityStatus,
+    ) -> None:
+        event_type, mapped_new_status = _map_status_to_audit_event(
+            previous_status=previous_status,
+            new_status=new_status,
+        )
+        if not event_type:
+            return
+
+        evidence = opportunity.decision_evidence or {}
+        payload = {
+            "opportunity_id": str(opportunity.id),
+            "resource_id": opportunity.resource_name or opportunity.resource_id,
+            "recommendation_type": opportunity.category.value.upper(),
+            "previous_status": _status_alias(previous_status),
+            "new_status": mapped_new_status,
+            "estimated_savings_usd": float(opportunity.estimated_monthly_savings_usd or 0.0),
+            "confidence": evidence.get("confidence"),
+            "risk_level": evidence.get("risk_level") or opportunity.risk_level.value,
+            "decision_evidence": evidence,
+        }
+        audit = AuditChainService(self.db)
+        await audit.append_event(
+            org_id=org_id,
+            actor_user_id=actor_user_id,
+            event_type=event_type,
+            entity_type="optimization_opportunity",
+            entity_id=str(opportunity.id),
+            payload=payload,
+        )
 
     async def get_summary(self, org_id: UUID) -> OpportunitySummary:
         result = await self.db.execute(
@@ -454,6 +506,26 @@ def _classify_service(service: str) -> OpportunityCategory:
     if any(k in s for k in ("kubernetes", "aks")):
         return OpportunityCategory.RIGHTSIZING
     return OpportunityCategory.IDLE_RESOURCES
+
+
+def _status_alias(status: OpportunityStatus) -> str:
+    if status == OpportunityStatus.OPEN:
+        return "detected"
+    return status.value
+
+
+def _map_status_to_audit_event(
+    *,
+    previous_status: OpportunityStatus,
+    new_status: OpportunityStatus,
+) -> tuple[str | None, str | None]:
+    if new_status == OpportunityStatus.RESOLVED:
+        return "opportunity.accepted", "accepted"
+    if new_status == OpportunityStatus.DISMISSED:
+        if previous_status == OpportunityStatus.OPEN:
+            return "opportunity.ignored", "ignored"
+        return "opportunity.dismissed", "dismissed"
+    return None, None
 
 
 def _estimate_savings(category: OpportunityCategory, monthly_cost: float) -> float:
