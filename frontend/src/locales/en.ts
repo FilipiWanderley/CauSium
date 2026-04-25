@@ -1396,7 +1396,7 @@ export const en: Translations = {
     colCompliance: 'Compliance',
     errorUnowned: 'Failed to load unowned costs data.',
     errorCompliance: 'Failed to load compliance data.',
-    noCompliance: 'No compliance data available.',
+    noCompliance: 'Waiting for compliance data. Trigger an inventory sync to populate this view.',
     colCategory: 'Category',
     colImpact: 'Impact',
     colResource: 'Resource',

@@ -455,7 +455,7 @@ export const pt: Translations = {
     colCompliance: 'Conformidade',
     errorUnowned: 'Falha ao carregar dados de recursos sem responsável.',
     errorCompliance: 'Falha ao carregar dados de conformidade.',
-    noCompliance: 'Nenhum dado de conformidade disponível.',
+    noCompliance: 'Aguardando dados de conformidade. Dispare uma sincronização de inventário para popular esta visão.',
     colCategory: 'Categoria',
     colImpact: 'Impacto',
     colResource: 'Recurso',
