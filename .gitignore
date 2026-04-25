@@ -34,3 +34,7 @@ docker-compose.override.yml
 
 # Alembic
 backend/alembic/versions/*.pyc
+
+# Local release/deploy artifacts
+LOGIN_DASHBOARD_LOCAL.txt
+_db_migration_backup/
