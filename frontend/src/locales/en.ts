@@ -1590,7 +1590,7 @@ export const en: Translations = {
     topServices: 'Top Services',
     topTeams: 'Top Teams',
     loading: 'Loading...',
-    noData: 'No data available.',
+    noData: 'Select a time range and click Generate Report to view financial indicators.',
     errorEnqueue: 'Failed to enqueue the export job.',
     asyncNote: 'Exports are generated asynchronously on the backend and downloaded when ready.',
     queued: 'Export queued. Waiting for worker pickup.',
