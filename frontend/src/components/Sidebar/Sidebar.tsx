@@ -176,7 +176,7 @@ export function Sidebar() {
       </div>
 
       <div className="px-5 py-4 border-t border-gray-700 text-xs text-gray-400">
-        V0.1.0 . CAUSIUM MVP
+        v0.1.0
       </div>
     </aside>
   )

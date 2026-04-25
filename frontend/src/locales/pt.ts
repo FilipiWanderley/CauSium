@@ -924,7 +924,7 @@ export const pt: Translations = {
     badgeEnterprise: 'Pronto para Enterprise',
     signInContinue: 'Entre para continuar no seu workspace.',
     emailLabel: 'E-mail',
-    emailPlaceholder: 'cliente.demo@causium.io',
+    emailPlaceholder: 'cliente@causium.io',
     passwordLabel: 'Senha',
     forgotPassword: 'Esqueceu a senha?',
     passwordPlaceholder: '••••••••••••',
