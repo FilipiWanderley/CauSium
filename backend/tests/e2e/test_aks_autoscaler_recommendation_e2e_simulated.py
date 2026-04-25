@@ -102,8 +102,16 @@ async def test_e2e_aks_rightsizing_and_autoscaler_can_coexist_without_same_categ
     assert any(op.category == OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION for op in out)
 
     autoscaler = next(op for op in out if op.category == OpportunityCategory.AKS_AUTOSCALER_RECOMMENDATION)
+    rightsizing = next(op for op in out if op.category == OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING)
     assert autoscaler.decision_evidence is not None
+    assert rightsizing.decision_evidence is not None
     assert autoscaler.decision_evidence["autoscaler_enabled"] is False
     assert autoscaler.decision_evidence["recommended_min_count"] == 2
     assert autoscaler.decision_evidence["recommended_max_count"] == 6
     assert 15.0 <= float(autoscaler.decision_evidence["estimated_savings_pct"]) <= 25.0
+    assert autoscaler.decision_evidence["recommended_strategy"] == "autoscaler"
+    assert autoscaler.decision_evidence["alternative_strategy"] == "nodepool_rightsizing"
+    assert autoscaler.decision_evidence["confidence_boosted"] is True
+    assert rightsizing.decision_evidence["recommended_strategy"] == "autoscaler"
+    assert rightsizing.decision_evidence["confidence_boosted"] is False
+    assert float(autoscaler.decision_evidence["confidence"]) > float(rightsizing.decision_evidence["confidence"])

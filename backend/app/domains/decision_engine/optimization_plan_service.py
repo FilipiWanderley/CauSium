@@ -14,6 +14,7 @@ from app.domains.decision_engine.models import (
     OptimizationOpportunity,
     RiskLevel,
 )
+from app.domains.decision_engine.confidence_calibration_service import ConfidenceCalibrationService
 from app.domains.decision_engine.schemas import (
     OptimizationPlanGroup,
     OptimizationPlanOut,
@@ -48,6 +49,9 @@ _CATEGORY_LABELS = {
 class _ScoreBreakdown:
     normalized_savings: float
     confidence: float
+    base_confidence: float
+    confidence_adjustment: float
+    historical_accuracy: float | None
     risk_score: float
     effort_score: float
     priority_score: float
@@ -86,9 +90,17 @@ class OptimizationPlanService:
             )
 
         max_savings = max(float(op.estimated_monthly_savings_usd or 0.0) for op in opportunities) or 1.0
+        category_calibration = await ConfidenceCalibrationService(self.db).get_category_snapshots(
+            org_id=org_id,
+            categories={op.category for op in opportunities},
+        )
         recommendations: list[OptimizationPlanRecommendation] = []
         for op in opportunities:
-            score = self._compute_priority_score(op=op, max_savings=max_savings)
+            score = self._compute_priority_score(
+                op=op,
+                max_savings=max_savings,
+                category_calibration=category_calibration,
+            )
             confidence = score.confidence
             why_now = self._build_why_now(op=op, score=score)
             next_step = self._build_next_step(op=op)
@@ -104,6 +116,13 @@ class OptimizationPlanService:
                     owner_team=op.owner_team,
                     estimated_monthly_savings_usd=round(float(op.estimated_monthly_savings_usd or 0.0), 2),
                     confidence=round(confidence, 4),
+                    base_confidence=round(score.base_confidence, 4),
+                    confidence_adjustment=round(score.confidence_adjustment, 4),
+                    historical_accuracy=(
+                        round(score.historical_accuracy, 4)
+                        if score.historical_accuracy is not None
+                        else None
+                    ),
                     risk_level=op.risk_level,
                     effort_level=op.effort_level,
                     priority_score=round(score.priority_score, 4),
@@ -184,10 +203,19 @@ class OptimizationPlanService:
         )
         return list(result.scalars().all())
 
-    def _compute_priority_score(self, *, op: OptimizationOpportunity, max_savings: float) -> _ScoreBreakdown:
+    def _compute_priority_score(
+        self,
+        *,
+        op: OptimizationOpportunity,
+        max_savings: float,
+        category_calibration,
+    ) -> _ScoreBreakdown:
         savings = float(op.estimated_monthly_savings_usd or 0.0)
         normalized_savings = max(0.0, min(1.0, savings / max_savings))
-        confidence = _extract_confidence(op)
+        base_confidence = _extract_confidence(op)
+        snapshot = category_calibration.get(op.category)
+        confidence_adjustment = float(snapshot.confidence_adjustment) if snapshot else 0.0
+        confidence = max(0.0, min(1.0, base_confidence + confidence_adjustment))
         risk_score = _RISK_SCORE.get(op.risk_level, 0.6)
         effort_score = _EFFORT_SCORE.get(op.effort_level, 0.6)
         priority_score = (
@@ -199,17 +227,27 @@ class OptimizationPlanService:
         return _ScoreBreakdown(
             normalized_savings=normalized_savings,
             confidence=confidence,
+            base_confidence=base_confidence,
+            confidence_adjustment=confidence_adjustment,
+            historical_accuracy=(float(snapshot.historical_accuracy) if snapshot else None),
             risk_score=risk_score,
             effort_score=effort_score,
             priority_score=priority_score,
         )
 
     def _build_why_now(self, *, op: OptimizationOpportunity, score: _ScoreBreakdown) -> str:
+        calibration = (
+            f", base_confidence={score.base_confidence:.2f}, "
+            f"adjustment={score.confidence_adjustment:.2f}, "
+            f"historical_accuracy={score.historical_accuracy:.2f}"
+            if score.historical_accuracy is not None
+            else ""
+        )
         return (
             f"Savings norm={score.normalized_savings:.2f}, "
             f"confidence={score.confidence:.2f}, "
             f"risk_score={score.risk_score:.2f}, "
-            f"effort_score={score.effort_score:.2f}."
+            f"effort_score={score.effort_score:.2f}{calibration}."
         )
 
     def _build_next_step(self, *, op: OptimizationOpportunity) -> str:

@@ -122,3 +122,6 @@ async def test_e2e_aks_nodepool_rightsizing_with_normalized_candidates(monkeypat
     assert op.decision_evidence["estimated_savings"] > 0
     assert op.decision_evidence["estimated_savings_pct"] > 0
     assert op.decision_evidence["confidence"] > 0
+    assert op.decision_evidence["recommended_strategy"] == "nodepool_rightsizing"
+    assert op.decision_evidence["alternative_strategy"] is None
+    assert op.decision_evidence["confidence_boosted"] is False

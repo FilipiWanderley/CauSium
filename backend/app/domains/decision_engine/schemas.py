@@ -132,6 +132,9 @@ class OptimizationPlanRecommendation(BaseModel):
     owner_team: str | None
     estimated_monthly_savings_usd: float
     confidence: float
+    base_confidence: float | None = None
+    confidence_adjustment: float | None = None
+    historical_accuracy: float | None = None
     risk_level: RiskLevel
     effort_level: EffortLevel
     priority_score: float

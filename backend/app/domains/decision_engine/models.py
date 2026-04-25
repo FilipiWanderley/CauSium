@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -151,3 +151,28 @@ class OptimizationOpportunity(Base):
 # Ensure SQLAlchemy resolves "Initiative" relationship in worker contexts
 # where decision engine models may load before workflow models.
 from app.domains.workflow import models as _workflow_models  # noqa: E402,F401
+
+
+class ConfidenceCalibration(Base):
+    __tablename__ = "confidence_calibrations"
+    __table_args__ = (
+        UniqueConstraint(
+            "org_id",
+            "dimension_type",
+            "dimension_key",
+            name="uq_confidence_calibrations_org_dimension",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    dimension_type: Mapped[str] = mapped_column(String(32), nullable=False, default="category")
+    dimension_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    total_executions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cumulative_accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    historical_accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    confidence_adjustment: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

@@ -21,15 +21,23 @@ from app.domains.intel.schemas import (
     CostAnomalyOut,
     DetectCostAnomaliesOut,
     DetectCostAnomaliesRequest,
+    ExecutionPlanExecutionStatusOut,
     ExecutionPlanListItemOut,
+    ExecutionPlanHandoffIn,
     ExecutionPlanOut,
+    ExecutionPlanScheduleIn,
+    ExecutionPlanStatusUpdateIn,
     ExplainCostChangeOut,
     ExplainCostChangeRequest,
     IntelInsightsOut,
 )
 from app.domains.decision_engine.optimization_plan_service import OptimizationPlanService
 from app.domains.decision_engine.schemas import OptimizationPlanOut
-from app.domains.intel.execution_plan_service import ExecutionPlanService
+from app.domains.intel.execution_plan_service import (
+    ExecutionPlanNotFoundError,
+    ExecutionPlanService,
+    InvalidExecutionPlanTransitionError,
+)
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -209,3 +217,90 @@ async def get_execution_plan(
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution plan not found")
     return plan
+
+
+@router.patch("/execution-plan/{execution_plan_id}/status", response_model=ExecutionPlanOut)
+async def update_execution_plan_status(
+    execution_plan_id: UUID,
+    req: ExecutionPlanStatusUpdateIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanOut:
+    svc = ExecutionPlanService(db)
+    try:
+        return await svc.update_plan_status(
+            org_id=current_user.org_id,
+            execution_plan_id=execution_plan_id,
+            new_status=req.status,
+            actor_user_id=current_user.id,
+            comment=req.comment,
+        )
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidExecutionPlanTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.patch("/execution-plan/{execution_plan_id}/schedule", response_model=ExecutionPlanOut)
+async def schedule_execution_plan(
+    execution_plan_id: UUID,
+    req: ExecutionPlanScheduleIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanOut:
+    svc = ExecutionPlanService(db)
+    try:
+        return await svc.schedule_plan(
+            org_id=current_user.org_id,
+            execution_plan_id=execution_plan_id,
+            actor_user_id=current_user.id,
+            scheduled_for=req.scheduled_for,
+            maintenance_window=req.maintenance_window,
+            comment=req.comment,
+        )
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidExecutionPlanTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.post("/execution-plan/{execution_plan_id}/handoff", response_model=ExecutionPlanOut)
+async def create_execution_plan_handoff(
+    execution_plan_id: UUID,
+    req: ExecutionPlanHandoffIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanOut:
+    svc = ExecutionPlanService(db)
+    try:
+        return await svc.create_pulselab_handoff(
+            org_id=current_user.org_id,
+            execution_plan_id=execution_plan_id,
+            actor_user_id=current_user.id,
+            target_environment=req.target_environment,
+            target_criticality=req.target_criticality,
+            comment=req.comment,
+        )
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidExecutionPlanTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.get("/execution-plan/{execution_plan_id}/execution-status", response_model=ExecutionPlanExecutionStatusOut)
+async def get_execution_plan_execution_status(
+    execution_plan_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+) -> ExecutionPlanExecutionStatusOut:
+    svc = ExecutionPlanService(db)
+    try:
+        return await svc.get_execution_status(
+            org_id=current_user.org_id,
+            execution_plan_id=execution_plan_id,
+            actor_user_id=current_user.id,
+        )
+    except ExecutionPlanNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except InvalidExecutionPlanTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

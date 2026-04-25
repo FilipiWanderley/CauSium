@@ -90,7 +90,7 @@ class CreateExecutionPlanRequest(BaseModel):
 
 class ExecutionPlanOut(BaseModel):
     execution_plan_id: str
-    status: Literal["review_required", "blocked"]
+    status: Literal["review_required", "blocked", "approved", "rejected", "scheduled"]
     mode: Literal["manual_review", "pulselab_handoff"]
     total_savings_monthly: float
     risk_level: Literal["low", "medium", "high"]
@@ -99,6 +99,14 @@ class ExecutionPlanOut(BaseModel):
     steps: list[str] = Field(default_factory=list)
     gates_triggered: list[str] = Field(default_factory=list)
     selected_opportunity_ids: list[str] = Field(default_factory=list)
+    scheduled_for: datetime | None = None
+    maintenance_window: str | None = None
+    pulselab_experiment_id: str | None = None
+    handoff_checklist: list[str] = Field(default_factory=list)
+    experiment_status: Literal["running", "completed", "failed"] | None = None
+    experiment_result: dict[str, Any] | None = None
+    actual_savings: float | None = None
+    execution_outcome: Literal["success", "partial", "failed"] | None = None
 
 
 class ExecutionPlanListItemOut(BaseModel):
@@ -108,4 +116,35 @@ class ExecutionPlanListItemOut(BaseModel):
     total_savings_monthly: float
     gates_triggered: list[str] = Field(default_factory=list)
     selected_opportunity_ids: list[str] = Field(default_factory=list)
+    pulselab_experiment_id: str | None = None
+    experiment_status: Literal["running", "completed", "failed"] | None = None
+    execution_outcome: Literal["success", "partial", "failed"] | None = None
+    actual_savings: float | None = None
     created_at: datetime
+
+
+class ExecutionPlanStatusUpdateIn(BaseModel):
+    status: Literal["approved", "rejected"]
+    comment: str | None = None
+
+
+class ExecutionPlanScheduleIn(BaseModel):
+    scheduled_for: datetime
+    maintenance_window: str = Field(min_length=1, max_length=120)
+    comment: str | None = None
+
+
+class ExecutionPlanHandoffIn(BaseModel):
+    comment: str | None = None
+    target_environment: str = Field(default="production", min_length=2, max_length=50)
+    target_criticality: str = Field(default="medium", min_length=2, max_length=50)
+
+
+class ExecutionPlanExecutionStatusOut(BaseModel):
+    execution_plan_id: str
+    experiment_id: str
+    status: Literal["running", "completed", "failed"]
+    actual_savings: float
+    expected_savings: float
+    delta: float
+    outcome: Literal["success", "partial", "failed"]
