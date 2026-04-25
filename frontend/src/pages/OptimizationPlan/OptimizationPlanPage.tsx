@@ -278,22 +278,23 @@ export function OptimizationPlanPage() {
               </label>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 disabled={!canApprove || statusMutation.isPending}
                 onClick={() => statusMutation.mutate('approved')}
-                className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {statusMutation.isPending
                   ? t.optimizationPlan.updatingStatus
                   : t.optimizationPlan.approvePlan}
               </button>
+              <span className="hidden h-5 border-l border-gray-200 sm:block" />
               <button
                 type="button"
                 disabled={!canReject || statusMutation.isPending}
                 onClick={() => statusMutation.mutate('rejected')}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {statusMutation.isPending ? t.optimizationPlan.updatingStatus : t.optimizationPlan.rejectPlan}
               </button>
@@ -306,7 +307,7 @@ export function OptimizationPlanPage() {
                   maintenanceWindow.trim().length === 0
                 }
                 onClick={() => scheduleMutation.mutate()}
-                className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {scheduleMutation.isPending
                   ? t.optimizationPlan.updatingStatus
@@ -321,7 +322,7 @@ export function OptimizationPlanPage() {
                   targetCriticality.trim().length === 0
                 }
                 onClick={() => handoffMutation.mutate()}
-                className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {handoffMutation.isPending
                   ? t.optimizationPlan.updatingStatus
