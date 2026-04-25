@@ -34,7 +34,6 @@ type NavItem = {
   to: string
   icon: React.ComponentType<{ className?: string }>
   label: string
-  soon?: boolean
   end?: boolean
   badge?: number
 }
@@ -63,8 +62,7 @@ const NAV_LINK_CLASS = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm f
 const ACTIVE_CLASS = 'bg-brand-600 text-white'
 const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
 
-function SideNavLink({ to, icon: Icon, label, soon, badge }: NavItem) {
-  const { t } = useI18n()
+function SideNavLink({ to, icon: Icon, label, badge }: NavItem) {
   return (
     <NavLink
       to={to}
@@ -81,11 +79,6 @@ function SideNavLink({ to, icon: Icon, label, soon, badge }: NavItem) {
       {typeof badge === 'number' && badge > 0 && (
         <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
           {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-      {soon && (
-        <span className="rounded bg-gray-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
-          {t.nav.soon}
         </span>
       )}
     </NavLink>

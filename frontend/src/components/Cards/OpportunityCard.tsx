@@ -121,6 +121,11 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
           <span className={clsx('rounded px-2 py-0.5 text-xs font-medium', EFFORT_COLORS[op.effort_level])}>
             {op.effort_level} effort
           </span>
+          {evidence?.confidence != null && (
+            <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+              {Math.round(evidence.confidence * 100)}% conf
+            </span>
+          )}
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold text-green-600">
