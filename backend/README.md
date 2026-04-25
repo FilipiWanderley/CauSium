@@ -1,18 +1,37 @@
 # CauSium Backend
 
-Resumo técnico das últimas entregas:
+Status técnico consolidado (até Sprint 12):
 
-- Ingestão em tempo real de notificações para eventos cloud críticos (VM start/stop e criação de recurso).
-- Nova tabela PostgreSQL `usage_observations` com agregações operacionais de uso.
-- Novo `usage_observation_worker` (intervalo configurável) para consolidar sinais de `usage_facts`.
-- Novo endpoint IA: `GET /api/v1/opportunities/{opp_id}/explain`.
-- Migração Alembic adicionada: `0032_usage_observations.py`.
-- Audit trail de status de oportunidade no `PATCH /api/v1/opportunities/{opp_id}/status`.
-- Eventos no `audit_chain`: `opportunity.accepted`, `opportunity.ignored`, `opportunity.dismissed`.
-- Payload estruturado de auditoria com `estimated_savings_usd`, `confidence`, `risk_level` e `decision_evidence`.
-- Mapeamento de transições: `open->resolved` (accepted), `open->dismissed` (ignored), `in_progress->dismissed` (dismissed).
-- Teste de integração cobrindo os três eventos de auditoria.
+- Produto em modo **SAFE DSS**: recomenda, prioriza, planeja, agenda e faz handoff controlado.
+- Não existe execução automática de mutações cloud em Azure/AWS/GCP/AKS.
+- `ExecutionPlan` persiste plano/status/aprovação/agendamento/handoff sem aplicar mudança real em provider.
+- `PulseLab handoff` cria experimento e vínculo de controle, sem executar alteração de infraestrutura.
+- Sprint 12 adiciona Adaptive Decision Engine para estratégia AKS (`recommended_strategy`, `alternative_strategy`, `confidence_boosted`) sem executor cloud.
 
-## Próximo épico
+## Segurança e Guardrails
 
-`AKS Node Pool Rightsizing (Nível 2)` com implementação incremental começando por `node_count reduction`, seguido de `autoscaler`, `spot nodepool` e `pod rightsizing`.
+- CI bloqueia assinaturas de mutação cloud em `backend/app` via:
+  - `scripts/cloud_mutation_guardrail.py`
+  - `.security/cloud_mutation_guardrail_allowlist.txt`
+- Padrões monitorados: `begin_create_or_update`, `create_or_update`, `run_instances`, `stop_instances`, `delete_resource`, `delete_`, `.patch(`, `resize`, `scale`, `setIamPolicy`.
+- Exceções só via allowlist com justificativa explícita.
+- Checklist de revisão em PR exige confirmação de:
+  - não mutação cloud,
+  - não uso de APIs `create/update/delete/patch/scale`,
+  - manutenção de credenciais read-only,
+  - feature flag + aprovação explícita em caso de exceção.
+
+## Onboarding Read-Only
+
+Referência oficial: `docs/security/cloud-read-only-onboarding.md`
+
+- Azure: `Reader` + `Cost Management Reader`
+- AWS: `ReadOnlyAccess` + leitura de Billing/CUR
+- GCP: `Viewer` + `Billing Viewer`
+- AKS/Kubernetes: apenas `get/list/watch`
+
+## Execução local do guardrail
+
+```bash
+python scripts/cloud_mutation_guardrail.py --target backend/app --allowlist .security/cloud_mutation_guardrail_allowlist.txt
+```

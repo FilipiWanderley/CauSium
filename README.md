@@ -22,6 +22,7 @@
 ## Índice
 
 - [Visão Geral](#-visão-geral)
+- [Status Sprint 12 (SAFE DSS)](#-status-sprint-12-safe-dss)
 - [Por que CauSium?](#-por-que-causium)
 - [Módulos do Produto](#-módulos-do-produto)
 - [Arquitetura do Sistema](#-arquitetura-do-sistema)
@@ -56,6 +57,36 @@ O diferencial competitivo está em três camadas:
 | **Paridade** | Tudo que um FinOps enterprise maduro oferece | PulseEconomics, PulseGov, PulseGreen, alertas, multi-tenant |
 | **Inteligência** | Atribuição causal, otimização multiobjetivo, ranking adaptativo | SCA, ARI, simulador |
 | **Execução** | Experimentos canário com guardrails, rollback e evidência imutável | PulseLab, StratoAudit |
+
+---
+
+## ✅ Status Sprint 12 (SAFE DSS)
+
+Até o Sprint 12, o produto opera como **Decision Support System (DSS)**:
+
+- Recomenda, prioriza, planeja, agenda e cria handoff controlado.
+- **Não** executa mutação automática em infraestrutura cloud (Azure/AWS/GCP/AKS).
+- Fluxos de `execution plan` persistem plano/status e tracking, sem aplicar mudanças reais.
+- `PulseLab handoff` cria experimento/artefato de controle, sem execução cloud automática.
+
+### Guardrails de segurança adicionados
+
+- CI com bloqueio de padrões mutativos em `backend/app`:
+  - `begin_create_or_update`, `create_or_update`, `run_instances`, `stop_instances`, `delete_resource`, `delete_`, `.patch(`, `resize`, `scale`, `setIamPolicy`.
+- Allowlist auditável com justificativa por exceção:
+  - `.security/cloud_mutation_guardrail_allowlist.txt`
+- Script versionado do guardrail:
+  - `scripts/cloud_mutation_guardrail.py`
+- Onboarding de credenciais cloud em modo somente leitura:
+  - `docs/security/cloud-read-only-onboarding.md`
+- PR template com checklist de cloud safety:
+  - `.github/pull_request_template.md`
+
+### Validação local do guardrail
+
+```bash
+python scripts/cloud_mutation_guardrail.py --target backend/app --allowlist .security/cloud_mutation_guardrail_allowlist.txt
+```
 
 ---
 
