@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -21,6 +21,7 @@ from app.domains.intel.schemas import (
     CostAnomalyOut,
     DetectCostAnomaliesOut,
     DetectCostAnomaliesRequest,
+    ExecutionPlanListItemOut,
     ExecutionPlanOut,
     ExplainCostChangeOut,
     ExplainCostChangeRequest,
@@ -170,6 +171,31 @@ async def create_execution_plan(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.get("/execution-plan", response_model=Page[ExecutionPlanListItemOut])
+async def list_execution_plans(
+    status_filter: str | None = Query(default=None, alias="status"),
+    risk_level: str | None = Query(default=None),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    page_params: PageParams = Depends(PageParams),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> Page[ExecutionPlanListItemOut]:
+    if created_from and created_to and created_to < created_from:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid period")
+    svc = ExecutionPlanService(db)
+    items, total = await svc.list_plans(
+        org_id=current_user.org_id,
+        status=status_filter,
+        risk_level=risk_level,
+        created_from=created_from,
+        created_to=created_to,
+        limit=page_params.limit,
+        offset=page_params.offset,
+    )
+    return Page.of(items, total, page_params)
 
 
 @router.get("/execution-plan/{execution_plan_id}", response_model=ExecutionPlanOut)

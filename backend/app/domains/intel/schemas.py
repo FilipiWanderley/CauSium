@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 from typing import Any
 from uuid import UUID
@@ -99,3 +99,13 @@ class ExecutionPlanOut(BaseModel):
     steps: list[str] = Field(default_factory=list)
     gates_triggered: list[str] = Field(default_factory=list)
     selected_opportunity_ids: list[str] = Field(default_factory=list)
+
+
+class ExecutionPlanListItemOut(BaseModel):
+    execution_plan_id: str
+    status: str
+    risk_level: str
+    total_savings_monthly: float
+    gates_triggered: list[str] = Field(default_factory=list)
+    selected_opportunity_ids: list[str] = Field(default_factory=list)
+    created_at: datetime

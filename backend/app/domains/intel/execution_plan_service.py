@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.audit_chain.service import AuditChainService
@@ -13,7 +14,11 @@ from app.domains.decision_engine.models import (
     RiskLevel,
 )
 from app.domains.intel.models import ExecutionPlan
-from app.domains.intel.schemas import CreateExecutionPlanRequest, ExecutionPlanOut
+from app.domains.intel.schemas import (
+    CreateExecutionPlanRequest,
+    ExecutionPlanListItemOut,
+    ExecutionPlanOut,
+)
 
 _CATEGORY_CHECKLISTS: dict[OpportunityCategory, list[str]] = {
     OpportunityCategory.RIGHTSIZING: [
@@ -107,6 +112,52 @@ class ExecutionPlanService:
         if not row:
             return None
         return ExecutionPlanOut.model_validate(row.plan_payload)
+
+    async def list_plans(
+        self,
+        *,
+        org_id: UUID,
+        status: str | None = None,
+        risk_level: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[ExecutionPlanListItemOut], int]:
+        filters = [ExecutionPlan.org_id == org_id]
+        if status:
+            filters.append(ExecutionPlan.status == status)
+        if risk_level:
+            filters.append(ExecutionPlan.risk_level == risk_level)
+        if created_from:
+            filters.append(ExecutionPlan.created_at >= created_from)
+        if created_to:
+            filters.append(ExecutionPlan.created_at <= created_to)
+
+        count_result = await self.db.execute(select(func.count()).select_from(ExecutionPlan).where(*filters))
+        total = int(count_result.scalar_one() or 0)
+
+        result = await self.db.execute(
+            select(ExecutionPlan)
+            .where(*filters)
+            .order_by(ExecutionPlan.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = list(result.scalars().all())
+        items = [
+            ExecutionPlanListItemOut(
+                execution_plan_id=str(row.id),
+                status=row.status,
+                risk_level=row.risk_level,
+                total_savings_monthly=float(row.total_savings_monthly or 0.0),
+                gates_triggered=list(row.gates_triggered or []),
+                selected_opportunity_ids=list(row.selected_opportunity_ids or []),
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+        return items, total
 
     async def _fetch_selected(self, *, org_id: UUID, ids: list[UUID]) -> list[OptimizationOpportunity]:
         result = await self.db.execute(

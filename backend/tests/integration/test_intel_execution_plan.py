@@ -203,3 +203,110 @@ async def test_create_execution_plan_emits_audit_event(client, auth_headers):
     assert payload["risk_level"] == created["risk_level"]
     assert payload["status"] == created["status"]
     assert payload["total_savings_monthly"] == created["total_savings_monthly"]
+
+
+@pytest.mark.asyncio
+async def test_list_execution_plans_with_status_and_risk_filters(client, auth_headers):
+    low = await _create_opportunity(
+        client,
+        auth_headers,
+        {
+            "title": "History list low risk",
+            "description": "List endpoint should include this plan.",
+            "category": "rightsizing",
+            "estimated_monthly_savings_usd": 240.0,
+            "risk_level": "low",
+            "effort_level": "low",
+        },
+    )
+    medium = await _create_opportunity(
+        client,
+        auth_headers,
+        {
+            "title": "History list medium risk",
+            "description": "List endpoint should filter by risk level.",
+            "category": "storage_optimization",
+            "estimated_monthly_savings_usd": 330.0,
+            "risk_level": "medium",
+            "effort_level": "medium",
+        },
+    )
+    blocked = await _create_opportunity(
+        client,
+        auth_headers,
+        {
+            "title": "History list blocked status",
+            "description": "Non-positive savings should block.",
+            "category": "idle_resources",
+            "estimated_monthly_savings_usd": 0.0,
+            "risk_level": "low",
+            "effort_level": "low",
+        },
+    )
+
+    for opp_id in [low["id"], medium["id"], blocked["id"]]:
+        resp = await client.post(
+            "/api/v1/intel/execution-plan",
+            json={"opportunity_ids": [opp_id], "mode": "manual_review"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+    blocked_resp = await client.get("/api/v1/intel/execution-plan?status=blocked", headers=auth_headers)
+    assert blocked_resp.status_code == 200, blocked_resp.text
+    blocked_data = blocked_resp.json()
+    assert blocked_data["total"] >= 1
+    assert all(item["status"] == "blocked" for item in blocked_data["items"])
+
+    medium_resp = await client.get("/api/v1/intel/execution-plan?risk_level=medium", headers=auth_headers)
+    assert medium_resp.status_code == 200, medium_resp.text
+    medium_data = medium_resp.json()
+    assert medium_data["total"] >= 1
+    assert all(item["risk_level"] == "medium" for item in medium_data["items"])
+
+
+@pytest.mark.asyncio
+async def test_list_execution_plans_supports_pagination_and_created_to_filter(client, auth_headers):
+    for idx in range(2):
+        opp = await _create_opportunity(
+            client,
+            auth_headers,
+            {
+                "title": f"History pagination {idx}",
+                "description": "Create plans for queue pagination.",
+                "category": "rightsizing",
+                "estimated_monthly_savings_usd": 110.0 + idx,
+                "risk_level": "low",
+                "effort_level": "low",
+            },
+        )
+        create_resp = await client.post(
+            "/api/v1/intel/execution-plan",
+            json={"opportunity_ids": [opp["id"]], "mode": "manual_review"},
+            headers=auth_headers,
+        )
+        assert create_resp.status_code == 200, create_resp.text
+
+    page1_resp = await client.get("/api/v1/intel/execution-plan?page=1&page_size=1", headers=auth_headers)
+    assert page1_resp.status_code == 200, page1_resp.text
+    page1 = page1_resp.json()
+    assert page1["page"] == 1
+    assert page1["page_size"] == 1
+    assert page1["total"] >= 2
+    assert len(page1["items"]) == 1
+    assert page1["has_next"] is True
+
+    page2_resp = await client.get("/api/v1/intel/execution-plan?page=2&page_size=1", headers=auth_headers)
+    assert page2_resp.status_code == 200, page2_resp.text
+    page2 = page2_resp.json()
+    assert page2["page"] == 2
+    assert len(page2["items"]) == 1
+    assert page2["items"][0]["execution_plan_id"] != page1["items"][0]["execution_plan_id"]
+
+    old_window_resp = await client.get(
+        "/api/v1/intel/execution-plan?created_to=2000-01-01T00:00:00Z",
+        headers=auth_headers,
+    )
+    assert old_window_resp.status_code == 200, old_window_resp.text
+    old_window = old_window_resp.json()
+    assert old_window["total"] == 0
