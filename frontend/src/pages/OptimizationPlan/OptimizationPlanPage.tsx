@@ -172,17 +172,17 @@ export function OptimizationPlanPage() {
   )
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-gray-400">{t.common.loading}</div>
+    return <div className="p-6 text-sm text-gray-500">{t.common.loading}</div>
   }
   if (isError || !data) {
-    return <div className="p-6 text-sm text-red-400">{t.optimizationPlan.error}</div>
+    return <div className="p-6 text-sm text-red-600">{t.optimizationPlan.error}</div>
   }
 
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">{t.optimizationPlan.title}</h1>
-        <p className="text-sm text-gray-400">{t.optimizationPlan.subtitle}</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t.optimizationPlan.title}</h1>
+        <p className="text-sm text-gray-500">{t.optimizationPlan.subtitle}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -204,11 +204,11 @@ export function OptimizationPlanPage() {
         />
       </div>
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <div className="text-sm font-medium text-gray-200">{t.optimizationPlan.governanceTitle}</div>
-            <p className="mt-1 text-xs text-gray-400">{t.optimizationPlan.governanceSubtitle}</p>
+            <div className="text-sm font-medium text-gray-900">{t.optimizationPlan.governanceTitle}</div>
+            <p className="mt-1 text-xs text-gray-500">{t.optimizationPlan.governanceSubtitle}</p>
           </div>
           {latestExecutionPlan ? (
             <span className={statusBadgeClassName(latestExecutionPlan.status)}>
@@ -218,62 +218,62 @@ export function OptimizationPlanPage() {
         </div>
 
         {!latestExecutionPlan ? (
-          <p className="mt-3 text-sm text-gray-400">{t.optimizationPlan.noExecutionPlan}</p>
+          <p className="mt-3 text-sm text-gray-500">{t.optimizationPlan.noExecutionPlan}</p>
         ) : (
           <div className="mt-4 space-y-4">
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-500">
               {t.optimizationPlan.latestPlanId}: {latestExecutionPlan.execution_plan_id}
             </div>
 
             <label className="block">
-              <div className="mb-1 text-xs text-gray-300">{t.optimizationPlan.reviewComment}</div>
+              <div className="mb-1 text-xs text-gray-700">{t.optimizationPlan.reviewComment}</div>
               <textarea
                 value={reviewComment}
                 onChange={(event) => setReviewComment(event.target.value)}
                 placeholder={t.optimizationPlan.reviewCommentPlaceholder}
-                className="h-24 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none focus:border-brand-500"
+                className="h-24 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-500"
               />
             </label>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="block">
-                <div className="mb-1 text-xs text-gray-300">{t.optimizationPlan.scheduledFor}</div>
+                <div className="mb-1 text-xs text-gray-700">{t.optimizationPlan.scheduledFor}</div>
                 <input
                   type="datetime-local"
                   value={scheduledFor}
                   onChange={(event) => setScheduledFor(event.target.value)}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none focus:border-brand-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-500"
                 />
               </label>
               <label className="block">
-                <div className="mb-1 text-xs text-gray-300">{t.optimizationPlan.maintenanceWindow}</div>
+                <div className="mb-1 text-xs text-gray-700">{t.optimizationPlan.maintenanceWindow}</div>
                 <input
                   type="text"
                   value={maintenanceWindow}
                   onChange={(event) => setMaintenanceWindow(event.target.value)}
                   placeholder={t.optimizationPlan.maintenanceWindowPlaceholder}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none focus:border-brand-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-500"
                 />
               </label>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="block">
-                <div className="mb-1 text-xs text-gray-300">{t.optimizationPlan.targetEnvironment}</div>
+                <div className="mb-1 text-xs text-gray-700">{t.optimizationPlan.targetEnvironment}</div>
                 <input
                   type="text"
                   value={targetEnvironment}
                   onChange={(event) => setTargetEnvironment(event.target.value)}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none focus:border-brand-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-500"
                 />
               </label>
               <label className="block">
-                <div className="mb-1 text-xs text-gray-300">{t.optimizationPlan.targetCriticality}</div>
+                <div className="mb-1 text-xs text-gray-700">{t.optimizationPlan.targetCriticality}</div>
                 <input
                   type="text"
                   value={targetCriticality}
                   onChange={(event) => setTargetCriticality(event.target.value)}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none focus:border-brand-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-brand-500"
                 />
               </label>
             </div>
@@ -330,36 +330,36 @@ export function OptimizationPlanPage() {
             </div>
 
             {latestExecutionPlan.pulselab_experiment_id ? (
-              <div className="text-xs text-violet-300">
+              <div className="text-xs text-violet-700">
                 {t.optimizationPlan.handoffExperimentId}: {latestExecutionPlan.pulselab_experiment_id}
               </div>
             ) : null}
 
             {executionStatus ? (
-              <div className="rounded-lg border border-violet-900/50 bg-violet-900/10 p-3">
-                <div className="text-xs font-medium uppercase tracking-wide text-violet-300">
+              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-violet-700">
                   {t.optimizationPlan.executionTrackingTitle}
                 </div>
-                <div className="mt-1 text-xs text-gray-400">{t.optimizationPlan.executionTrackingSubtitle}</div>
+                <div className="mt-1 text-xs text-gray-500">{t.optimizationPlan.executionTrackingSubtitle}</div>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-700">
                     {t.optimizationPlan.experimentStatusLabel}:{' '}
                     {executionStatusLabel(executionStatus.status, t)}
                   </div>
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-700">
                     {t.optimizationPlan.executionOutcomeLabel}:{' '}
                     {executionOutcomeLabel(executionStatus.outcome, t)}
                   </div>
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-700">
                     {t.optimizationPlan.expectedSavingsLabel}:{' '}
                     {currency.format(executionStatus.expected_savings)}
                   </div>
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-700">
                     {t.optimizationPlan.actualSavingsLabel}: {currency.format(executionStatus.actual_savings)}
                   </div>
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-700">
                     {t.optimizationPlan.deltaSavingsLabel}:{' '}
-                    <span className={executionStatus.delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                    <span className={executionStatus.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
                       {currency.format(executionStatus.delta)}
                     </span>
                   </div>
@@ -367,22 +367,22 @@ export function OptimizationPlanPage() {
               </div>
             ) : null}
 
-            {statusMessage ? <div className="text-xs text-gray-300">{statusMessage}</div> : null}
+            {statusMessage ? <div className="text-xs text-gray-700">{statusMessage}</div> : null}
 
             <div>
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
                 {t.optimizationPlan.timeline}
               </div>
               <ul className="space-y-2 text-sm">
                 {timelineItems.map((item) => (
-                  <li key={item.key} className="flex items-center gap-2 text-gray-300">
+                  <li key={item.key} className="flex items-center gap-2 text-gray-700">
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
                         item.current
-                          ? 'bg-brand-400'
+                          ? 'bg-brand-500'
                           : item.active
-                            ? 'bg-emerald-400'
-                            : 'bg-gray-600'
+                            ? 'bg-emerald-500'
+                            : 'bg-gray-300'
                       }`}
                     />
                     <span>{item.label}</span>
@@ -394,15 +394,15 @@ export function OptimizationPlanPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-        <div className="text-sm font-medium text-gray-200">{t.optimizationPlan.summary}</div>
-        <p className="mt-2 text-sm text-gray-300">{data.summary}</p>
+      <section className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="text-sm font-medium text-gray-900">{t.optimizationPlan.summary}</div>
+        <p className="mt-2 text-sm text-gray-700">{data.summary}</p>
       </section>
 
       {data.conflict_hints.length > 0 && (
-        <section className="rounded-xl border border-amber-700/60 bg-amber-900/10 p-4">
-          <div className="text-sm font-medium text-amber-300">{t.optimizationPlan.conflictHints}</div>
-          <ul className="mt-2 space-y-1 text-sm text-amber-100">
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="text-sm font-medium text-amber-700">{t.optimizationPlan.conflictHints}</div>
+          <ul className="mt-2 space-y-1 text-sm text-amber-800">
             {data.conflict_hints.map((hint) => (
               <li key={hint}>- {hint}</li>
             ))}
@@ -410,22 +410,22 @@ export function OptimizationPlanPage() {
         </section>
       )}
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900">
-        <div className="border-b border-gray-800 px-4 py-3 text-sm font-medium text-gray-200">
+      <section className="rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-4 py-3 text-sm font-medium text-gray-900">
           {t.optimizationPlan.prioritized}
         </div>
-        <div className="divide-y divide-gray-800">
+        <div className="divide-y divide-gray-100">
           {data.prioritized.map((item) => (
             <article key={item.opportunity_id} className="space-y-1 px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-medium text-white">
+                <div className="text-sm font-medium text-gray-900">
                   #{item.rank} {item.title}
                 </div>
-                <div className="text-xs text-gray-300">
+                <div className="text-xs text-gray-600">
                   {t.optimizationPlan.score}: {item.priority_score.toFixed(3)}
                 </div>
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500">
                 {t.optimizationPlan.savings}: {currency.format(item.estimated_monthly_savings_usd)} / {t.common.monthly}
               </div>
               <div className="text-xs text-gray-500">{item.why_now}</div>
@@ -439,9 +439,9 @@ export function OptimizationPlanPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-      <div className="text-xs uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-white">{value}</div>
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="mt-1 text-xl font-semibold text-gray-900">{value}</div>
     </div>
   )
 }
@@ -457,18 +457,18 @@ function statusLabel(status: ExecutionPlanStatus, t: ReturnType<typeof useI18n>[
 
 function statusBadgeClassName(status: ExecutionPlanStatus): string {
   if (status === 'approved') {
-    return 'inline-flex rounded-full bg-emerald-900/50 px-2.5 py-1 text-xs font-medium text-emerald-300'
+    return 'inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700'
   }
   if (status === 'rejected') {
-    return 'inline-flex rounded-full bg-rose-900/50 px-2.5 py-1 text-xs font-medium text-rose-300'
+    return 'inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700'
   }
   if (status === 'blocked') {
-    return 'inline-flex rounded-full bg-amber-900/50 px-2.5 py-1 text-xs font-medium text-amber-300'
+    return 'inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700'
   }
   if (status === 'scheduled') {
-    return 'inline-flex rounded-full bg-indigo-900/50 px-2.5 py-1 text-xs font-medium text-indigo-300'
+    return 'inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-700'
   }
-  return 'inline-flex rounded-full bg-sky-900/50 px-2.5 py-1 text-xs font-medium text-sky-300'
+  return 'inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-700'
 }
 
 function executionStatusLabel(
