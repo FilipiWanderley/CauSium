@@ -1283,7 +1283,7 @@ export const en: Translations = {
     errorRateDesc: 'Max allowed error rate after a deploy',
     changeFrequency: 'Change Frequency',
     changeFrequencyDesc: 'Max number of changes per period',
-    noData: 'No data yet',
+    noData: 'No violations detected. Configure a budget and trigger a deployment to visualize risk data.',
     exceeded: 'Budget exceeded',
     deactivate: 'Deactivate',
     activate: 'Activate',

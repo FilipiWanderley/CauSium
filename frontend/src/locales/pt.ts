@@ -342,7 +342,7 @@ export const pt: Translations = {
     errorRateDesc: 'Taxa de erros máxima após um deploy',
     changeFrequency: 'Frequência de Mudanças',
     changeFrequencyDesc: 'Número máximo de mudanças por período',
-    noData: 'Sem dados ainda',
+    noData: 'Nenhuma violação registrada. Configure um orçamento e acione um deploy para visualizar dados de risco.',
     exceeded: 'Orçamento excedido',
     deactivate: 'Desativar',
     activate: 'Ativar',
