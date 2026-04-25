@@ -1,5 +1,11 @@
 import { apiClient } from './client'
 import type {
+  ExecutionPlan,
+  ExecutionPlanExecutionStatus,
+  ExecutionPlanHandoffIn,
+  ExecutionPlanListItem,
+  ExecutionPlanScheduleIn,
+  ExecutionPlanStatusUpdateIn,
   ExplainCostChangeRequest,
   ExplainCostChangeResponse,
   IntelCostAnomaly,
@@ -21,4 +27,18 @@ export const intelApi = {
     page?: number
     page_size?: number
   }) => apiClient.get<PageResponse<IntelCostAnomaly>>('/intel/cost-anomalies', { params }),
+  listExecutionPlans: (params?: {
+    status?: string
+    risk_level?: string
+    page?: number
+    page_size?: number
+  }) => apiClient.get<PageResponse<ExecutionPlanListItem>>('/intel/execution-plan', { params }),
+  updateExecutionPlanStatus: (executionPlanId: string, payload: ExecutionPlanStatusUpdateIn) =>
+    apiClient.patch<ExecutionPlan>(`/intel/execution-plan/${executionPlanId}/status`, payload),
+  scheduleExecutionPlan: (executionPlanId: string, payload: ExecutionPlanScheduleIn) =>
+    apiClient.patch<ExecutionPlan>(`/intel/execution-plan/${executionPlanId}/schedule`, payload),
+  createExecutionPlanHandoff: (executionPlanId: string, payload: ExecutionPlanHandoffIn) =>
+    apiClient.post<ExecutionPlan>(`/intel/execution-plan/${executionPlanId}/handoff`, payload),
+  getExecutionPlanExecutionStatus: (executionPlanId: string) =>
+    apiClient.get<ExecutionPlanExecutionStatus>(`/intel/execution-plan/${executionPlanId}/execution-status`),
 }

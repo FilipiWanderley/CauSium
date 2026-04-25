@@ -239,6 +239,55 @@ export interface Translations {
     prioritized: string
     score: string
     savings: string
+    governanceTitle: string
+    governanceSubtitle: string
+    noExecutionPlan: string
+    latestPlanId: string
+    reviewComment: string
+    reviewCommentPlaceholder: string
+    approvePlan: string
+    rejectPlan: string
+    schedulePlan: string
+    scheduledFor: string
+    maintenanceWindow: string
+    maintenanceWindowPlaceholder: string
+    targetEnvironment: string
+    targetCriticality: string
+    sendToPulseLab: string
+    handoffSuccess: string
+    handoffError: string
+    handoffExperimentId: string
+    executionTrackingTitle: string
+    executionTrackingSubtitle: string
+    experimentStatusLabel: string
+    executionOutcomeLabel: string
+    expectedSavingsLabel: string
+    actualSavingsLabel: string
+    deltaSavingsLabel: string
+    executionStatusRunning: string
+    executionStatusCompleted: string
+    executionStatusFailed: string
+    executionOutcomeSuccess: string
+    executionOutcomePartial: string
+    executionOutcomeFailed: string
+    updatingStatus: string
+    statusUpdateError: string
+    statusUpdateSuccessApproved: string
+    statusUpdateSuccessRejected: string
+    scheduleUpdateSuccess: string
+    scheduleUpdateError: string
+    timeline: string
+    timelineReviewRequired: string
+    timelineBlocked: string
+    timelineApproved: string
+    timelineScheduled: string
+    timelineRejected: string
+    statusReviewRequired: string
+    statusBlocked: string
+    statusApproved: string
+    statusScheduled: string
+    statusRejected: string
+    statusUnknown: string
   }
   initiatives: {
     title: string
@@ -1133,6 +1182,55 @@ export const en: Translations = {
     prioritized: 'Prioritized Recommendations',
     score: 'Priority score',
     savings: 'Savings',
+    governanceTitle: 'Execution Governance',
+    governanceSubtitle: 'Approval workflow for execution plans with audit trail',
+    noExecutionPlan: 'No execution plan available yet. Create one to enable approval workflow.',
+    latestPlanId: 'Execution plan',
+    reviewComment: 'Review comment',
+    reviewCommentPlaceholder: 'Add a context comment for approval or rejection.',
+    approvePlan: 'Approve Plan',
+    rejectPlan: 'Reject Plan',
+    schedulePlan: 'Schedule Plan',
+    scheduledFor: 'Scheduled For',
+    maintenanceWindow: 'Maintenance Window',
+    maintenanceWindowPlaceholder: 'e.g. night_window_02_04_utc',
+    targetEnvironment: 'Target Environment',
+    targetCriticality: 'Target Criticality',
+    sendToPulseLab: 'Send to PulseLab',
+    handoffSuccess: 'PulseLab handoff created. Experiment ID:',
+    handoffError: 'Could not create PulseLab handoff.',
+    handoffExperimentId: 'PulseLab Experiment',
+    executionTrackingTitle: 'Execution Tracking',
+    executionTrackingSubtitle: 'Synchronized with PulseLab status and real savings results.',
+    experimentStatusLabel: 'Experiment Status',
+    executionOutcomeLabel: 'Execution Outcome',
+    expectedSavingsLabel: 'Expected Savings',
+    actualSavingsLabel: 'Actual Savings',
+    deltaSavingsLabel: 'Delta',
+    executionStatusRunning: 'Running',
+    executionStatusCompleted: 'Completed',
+    executionStatusFailed: 'Failed',
+    executionOutcomeSuccess: 'Success',
+    executionOutcomePartial: 'Partial',
+    executionOutcomeFailed: 'Failed',
+    updatingStatus: 'Updating...',
+    statusUpdateError: 'Could not update execution plan status.',
+    statusUpdateSuccessApproved: 'Execution plan approved successfully.',
+    statusUpdateSuccessRejected: 'Execution plan rejected successfully.',
+    scheduleUpdateSuccess: 'Execution plan scheduled successfully.',
+    scheduleUpdateError: 'Could not schedule execution plan.',
+    timeline: 'Timeline',
+    timelineReviewRequired: 'Review Required',
+    timelineBlocked: 'Blocked',
+    timelineApproved: 'Approved',
+    timelineScheduled: 'Scheduled',
+    timelineRejected: 'Rejected',
+    statusReviewRequired: 'Review Required',
+    statusBlocked: 'Blocked',
+    statusApproved: 'Approved',
+    statusScheduled: 'Scheduled',
+    statusRejected: 'Rejected',
+    statusUnknown: 'Unknown',
   },
   initiatives: {
     title: 'Initiatives',

@@ -327,6 +327,79 @@ export interface OptimizationPlan {
   conflict_hints: string[]
 }
 
+export type ExecutionPlanStatus =
+  | 'review_required'
+  | 'blocked'
+  | 'approved'
+  | 'rejected'
+  | 'scheduled'
+  | 'in_execution'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export interface ExecutionPlanListItem {
+  execution_plan_id: string
+  status: ExecutionPlanStatus
+  risk_level: RiskLevel
+  total_savings_monthly: number
+  gates_triggered: string[]
+  selected_opportunity_ids: string[]
+  pulselab_experiment_id?: string | null
+  experiment_status?: 'running' | 'completed' | 'failed' | null
+  execution_outcome?: 'success' | 'partial' | 'failed' | null
+  actual_savings?: number | null
+  created_at: string
+}
+
+export interface ExecutionPlan {
+  execution_plan_id: string
+  status: ExecutionPlanStatus
+  mode: 'manual_review' | 'pulselab_handoff'
+  total_savings_monthly: number
+  risk_level: RiskLevel
+  conflicts: string[]
+  checklist: string[]
+  steps: string[]
+  gates_triggered: string[]
+  selected_opportunity_ids: string[]
+  scheduled_for?: string | null
+  maintenance_window?: string | null
+  pulselab_experiment_id?: string | null
+  handoff_checklist?: string[]
+  experiment_status?: 'running' | 'completed' | 'failed' | null
+  experiment_result?: Record<string, unknown> | null
+  actual_savings?: number | null
+  execution_outcome?: 'success' | 'partial' | 'failed' | null
+}
+
+export interface ExecutionPlanStatusUpdateIn {
+  status: 'approved' | 'rejected'
+  comment?: string
+}
+
+export interface ExecutionPlanScheduleIn {
+  scheduled_for: string
+  maintenance_window: string
+  comment?: string
+}
+
+export interface ExecutionPlanHandoffIn {
+  comment?: string
+  target_environment?: string
+  target_criticality?: string
+}
+
+export interface ExecutionPlanExecutionStatus {
+  execution_plan_id: string
+  experiment_id: string
+  status: 'running' | 'completed' | 'failed'
+  actual_savings: number
+  expected_savings: number
+  delta: number
+  outcome: 'success' | 'partial' | 'failed'
+}
+
 // Workflow
 export type InitiativeStatus = 'backlog' | 'planned' | 'in_progress' | 'review' | 'done' | 'cancelled'
 
