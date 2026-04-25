@@ -20,3 +20,9 @@ If exception requested, fill all fields:
 - [ ] Frontend build/typecheck pass
 - [ ] CI security job passes
 - [ ] Relevant benchmark/latency evidence attached (when performance-related)
+
+## Cloud Safety Checklist
+- [ ] Nao adiciona mutacao cloud
+- [ ] Nao chama APIs `create/update/delete/patch/scale`
+- [ ] Mantem credenciais read-only
+- [ ] Se houver excecao, exige feature flag + aprovacao explicita

@@ -7,6 +7,22 @@ on:
     branches: [main]
 
 jobs:
+  cloud-mutation-guardrail:
+    name: Cloud Mutation Guardrail
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Block cloud mutative patterns in backend/app
+        run: |
+          python scripts/cloud_mutation_guardrail.py \
+            --target backend/app \
+            --allowlist .security/cloud_mutation_guardrail_allowlist.txt
+
   security:
     name: Security Gates (SAST + SCA + Secrets)
     runs-on: ubuntu-latest
