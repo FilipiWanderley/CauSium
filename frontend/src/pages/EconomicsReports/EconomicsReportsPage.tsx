@@ -170,7 +170,17 @@ export function EconomicsReportsPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <MetricCard title={er.currentMonth} value={money.format(dashboardQuery.data?.current_month_cost ?? 0)} />
         <MetricCard title={er.previousMonth} value={money.format(dashboardQuery.data?.previous_month_cost ?? 0)} />
-        <MetricCard title={er.momChange} value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`} />
+        <MetricCard
+          title={er.momChange}
+          value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`}
+          valueClassName={
+            (dashboardQuery.data?.mom_change_pct ?? 0) > 0
+              ? 'text-red-600'
+              : (dashboardQuery.data?.mom_change_pct ?? 0) < 0
+                ? 'text-green-600'
+                : undefined
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -181,11 +191,19 @@ export function EconomicsReportsPage() {
   )
 }
 
-function MetricCard({ title, value }: { title: string; value: string }) {
+function MetricCard({
+  title,
+  value,
+  valueClassName,
+}: {
+  title: string
+  value: string
+  valueClassName?: string
+}) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="text-xs uppercase tracking-wide text-gray-500">{title}</div>
-      <div className="mt-1 text-xl font-semibold text-gray-900">{value}</div>
+      <div className={`mt-1 text-xl font-semibold ${valueClassName ?? 'text-gray-900'}`}>{value}</div>
     </div>
   )
 }
@@ -217,6 +235,12 @@ function BreakdownCard({
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-gray-800">{row.service}</div>
                 <div className="text-xs text-gray-500">{money.format(row.cost_usd)}</div>
+                <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+                  <div
+                    className="h-1.5 rounded-full bg-blue-500"
+                    style={{ width: `${Math.max(0, Math.min(100, row.percentage))}%` }}
+                  />
+                </div>
               </div>
               <div className="text-sm font-semibold text-gray-700">{row.percentage.toFixed(1)}%</div>
             </div>
