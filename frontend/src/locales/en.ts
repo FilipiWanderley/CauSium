@@ -310,6 +310,7 @@ export interface Translations {
   experiments: {
     title: string
     subtitle: string
+    summaryWithData: string
     newExperiment: string
     titleLabel: string
     hypothesis: string
@@ -1253,6 +1254,7 @@ export const en: Translations = {
   experiments: {
     title: 'Experiments',
     subtitle: 'Optimization experiments pipeline',
+    summaryWithData: '{{count}} experiments · ${{savings}} realized',
     newExperiment: 'New Experiment',
     titleLabel: 'Experiment title *',
     hypothesis: 'Hypothesis (optional)',

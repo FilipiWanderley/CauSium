@@ -160,7 +160,9 @@ export function ExperimentsPage() {
             <h1 className="text-xl font-bold text-gray-900">{e.title}</h1>
             <p className="text-sm text-gray-500">
               {summary
-                ? `${summary.total} experiments · $${(summary.total_actual_savings_usd ?? 0).toLocaleString()} realized`
+                ? e.summaryWithData
+                  .replace('{{count}}', String(summary.total))
+                  .replace('{{savings}}', (summary.total_actual_savings_usd ?? 0).toLocaleString())
                 : e.subtitle}
             </p>
           </div>
@@ -228,7 +230,7 @@ export function ExperimentsPage() {
                 <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
                   {col.label}
                 </span>
-                <span className="ml-auto text-xs text-gray-400">
+                <span className="ml-auto rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">
                   {byStatus[col.key]?.length ?? 0}
                 </span>
               </div>

@@ -312,6 +312,7 @@ export const pt: Translations = {
   experiments: {
     title: 'Experimentos',
     subtitle: 'Pipeline de experimentos de otimização',
+    summaryWithData: '{{count}} experimentos · ${{savings}} realizados',
     newExperiment: 'Novo Experimento',
     titleLabel: 'Título do experimento *',
     hypothesis: 'Hipótese (opcional)',

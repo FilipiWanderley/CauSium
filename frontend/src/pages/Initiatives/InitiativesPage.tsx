@@ -153,6 +153,13 @@ function InitiativeCard({
 }) {
   const { t } = useI18n()
   const i = t.initiatives
+  const statusLabel: Partial<Record<InitiativeStatus, string>> = {
+    backlog: i.backlog,
+    planned: i.planned,
+    in_progress: i.inProgress,
+    review: i.review,
+    done: i.done,
+  }
   return (
     <div className="rounded-lg border border-white bg-white p-3 shadow-sm">
       <div className="flex items-start gap-2">
@@ -172,7 +179,7 @@ function InitiativeCard({
           onClick={() => onAdvance(initiative.id, nextStatus)}
           className="mt-2 w-full rounded bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
         >
-          {i.moveTo.replace('{{status}}', nextStatus.replace('_', ' '))}
+          {i.moveTo.replace('{{status}}', statusLabel[nextStatus] ?? nextStatus.replace('_', ' '))}
         </button>
       )}
     </div>
