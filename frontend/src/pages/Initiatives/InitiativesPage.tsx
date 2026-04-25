@@ -87,12 +87,18 @@ export function InitiativesPage() {
               placeholder={i.titlePlaceholder}
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
-            <input
-              type="date"
-              value={newSla}
-              onChange={(e) => setNewSla(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="initiative-sla-date" className="text-xs font-medium text-gray-600">
+                {i.sla.replace('{{date}}', '').trim()}
+              </label>
+              <input
+                id="initiative-sla-date"
+                type="date"
+                value={newSla}
+                onChange={(e) => setNewSla(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
             <button
               onClick={() => createMutation.mutate({ title: newTitle, sla_date: newSla || undefined })}
               disabled={!newTitle}
