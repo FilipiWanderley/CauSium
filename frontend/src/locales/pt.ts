@@ -126,6 +126,8 @@ export const pt: Translations = {
     viewAll: 'Ver todas →',
     noChangeEvents: 'Nenhum evento de mudança registrado ainda.',
     noAccounts: 'Nenhuma conta conectada ainda.',
+    connectFirstAccountCta: 'Conectar Conta',
+    connectFirstAccountMessage: 'Conecte sua primeira conta cloud para começar a ver seus custos.',
     changeEventsOverlaid: '{{count}} evento{{s}} de mudança sobreposto{{s}}',
     reservationsTitle: 'Prioridades de Reserva',
     reservationsViewAll: 'Abrir custos →',

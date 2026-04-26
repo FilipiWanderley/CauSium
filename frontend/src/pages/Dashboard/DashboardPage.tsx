@@ -500,6 +500,21 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {accounts?.length === 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-700">{d.connectFirstAccountMessage}</p>
+            <button
+              type="button"
+              onClick={() => navigate('/app/settings/platform')}
+              className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              {d.connectFirstAccountCta}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard

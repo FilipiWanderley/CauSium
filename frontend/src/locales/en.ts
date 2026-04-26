@@ -124,6 +124,8 @@ export interface Translations {
     viewAll: string
     noChangeEvents: string
     noAccounts: string
+    connectFirstAccountCta: string
+    connectFirstAccountMessage: string
     changeEventsOverlaid: string
     reservationsTitle: string
     reservationsViewAll: string
@@ -1100,6 +1102,8 @@ export const en: Translations = {
     viewAll: 'View all →',
     noChangeEvents: 'No change events logged yet.',
     noAccounts: 'No accounts connected yet.',
+    connectFirstAccountCta: 'Connect Account',
+    connectFirstAccountMessage: 'Connect your first cloud account to start seeing your costs.',
     changeEventsOverlaid: '{{count}} change event{{s}} overlaid',
     reservationsTitle: 'Reservation Priorities',
     reservationsViewAll: 'Open costs →',
