@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis_pool
 from app.core.schemas import PageParams
-from app.domains.admin.models import DlqMessage, DlqStatus
+from app.domains.admin.models import DlqMessage, DlqStatus, SupportAccessSession, SupportAccessStatus
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.auth.models import Organization, User, WorkspaceLifecycleState
 
 
 class PlatformAdminService:
+    MAX_SUPPORT_ACCESS_MINUTES = 60
+
     def __init__(self, db: AsyncSession, actor_user_id: UUID) -> None:
         self.db = db
         self.actor_user_id = actor_user_id
@@ -162,3 +164,135 @@ class PlatformAdminService:
         await self.db.flush()
         await self.db.refresh(msg)
         return msg
+
+    async def create_support_access_session(
+        self,
+        *,
+        target_org_id: UUID,
+        reason: str,
+        duration_minutes: int,
+    ) -> SupportAccessSession:
+        cleaned_reason = reason.strip()
+        if not cleaned_reason:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Reason is required.")
+        if duration_minutes < 1 or duration_minutes > self.MAX_SUPPORT_ACCESS_MINUTES:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"duration_minutes must be between 1 and {self.MAX_SUPPORT_ACCESS_MINUTES}.",
+            )
+
+        await self.get_org(target_org_id)
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=duration_minutes)
+        session = SupportAccessSession(
+            actor_user_id=self.actor_user_id,
+            target_org_id=target_org_id,
+            reason=cleaned_reason,
+            status=SupportAccessStatus.ACTIVE,
+            expires_at=expires_at,
+        )
+        self.db.add(session)
+        await self.db.flush()
+        await self.db.refresh(session)
+
+        await self._audit(
+            org_id=target_org_id,
+            event_type="support_access.started",
+            payload={
+                "support_access_session_id": str(session.id),
+                "actor_user_id": str(self.actor_user_id),
+                "target_org_id": str(target_org_id),
+                "reason": cleaned_reason,
+                "duration_minutes": duration_minutes,
+                "expires_at": session.expires_at.isoformat(),
+            },
+        )
+        return session
+
+    async def list_active_support_access_sessions(self) -> list[SupportAccessSession]:
+        await self._expire_stale_support_sessions()
+        result = await self.db.execute(
+            select(SupportAccessSession)
+            .where(SupportAccessSession.status == SupportAccessStatus.ACTIVE)
+            .order_by(SupportAccessSession.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def end_support_access_session(self, session_id: UUID, *, reason: str) -> SupportAccessSession:
+        cleaned_reason = reason.strip()
+        if not cleaned_reason:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Reason is required.")
+
+        session = await self._get_support_session(session_id)
+        if not session:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Support access session not found.")
+
+        if session.status == SupportAccessStatus.ENDED:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Support access session already ended.")
+
+        now = datetime.now(timezone.utc)
+        if session.status == SupportAccessStatus.EXPIRED or session.expires_at <= now:
+            session.status = SupportAccessStatus.EXPIRED
+            session.ended_at = session.ended_at or now
+            await self.db.flush()
+            raise HTTPException(status.HTTP_409_CONFLICT, "Support access session already expired.")
+
+        session.status = SupportAccessStatus.ENDED
+        session.ended_at = now
+        await self.db.flush()
+        await self.db.refresh(session)
+
+        await self._audit(
+            org_id=session.target_org_id,
+            event_type="support_access.ended",
+            payload={
+                "support_access_session_id": str(session.id),
+                "actor_user_id": str(self.actor_user_id),
+                "target_org_id": str(session.target_org_id),
+                "reason": cleaned_reason,
+                "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+            },
+        )
+        return session
+
+    async def resolve_active_support_access_session(
+        self,
+        session_id: UUID,
+    ) -> SupportAccessSession:
+        session = await self._get_support_session(session_id)
+        if not session:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Support access session not found.")
+        if session.actor_user_id != self.actor_user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Support access session belongs to another actor.")
+
+        now = datetime.now(timezone.utc)
+        if session.status != SupportAccessStatus.ACTIVE or session.expires_at <= now:
+            if session.status == SupportAccessStatus.ACTIVE and session.expires_at <= now:
+                session.status = SupportAccessStatus.EXPIRED
+                session.ended_at = session.ended_at or now
+                await self.db.flush()
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Support access session is not active.")
+        return session
+
+    async def _get_support_session(self, session_id: UUID) -> SupportAccessSession | None:
+        result = await self.db.execute(
+            select(SupportAccessSession).where(SupportAccessSession.id == session_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _expire_stale_support_sessions(self) -> None:
+        now = datetime.now(timezone.utc)
+        result = await self.db.execute(
+            select(SupportAccessSession).where(
+                and_(
+                    SupportAccessSession.status == SupportAccessStatus.ACTIVE,
+                    SupportAccessSession.expires_at <= now,
+                )
+            )
+        )
+        stale_sessions = list(result.scalars().all())
+        for session in stale_sessions:
+            session.status = SupportAccessStatus.EXPIRED
+            session.ended_at = session.ended_at or now
+        if stale_sessions:
+            await self.db.flush()

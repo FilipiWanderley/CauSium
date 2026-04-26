@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.domains.admin.models import DlqStatus
+from app.domains.admin.models import DlqStatus, SupportAccessStatus
 from app.domains.auth.models import UserRole, WorkspaceLifecycleState
 
 
@@ -113,3 +113,26 @@ class SloOverviewOut(BaseModel):
     workers: list[SloWorkerOut]
     worker_lifecycle: list[SloWorkerLifecycleOut]
     alerts: list[SloAlertOut]
+
+
+class SupportAccessCreateIn(BaseModel):
+    target_org_id: UUID
+    reason: str
+    duration_minutes: int = 60
+
+
+class SupportAccessEndIn(BaseModel):
+    reason: str
+
+
+class SupportAccessSessionOut(BaseModel):
+    id: UUID
+    actor_user_id: UUID
+    target_org_id: UUID
+    reason: str
+    status: SupportAccessStatus
+    expires_at: datetime
+    created_at: datetime
+    ended_at: datetime | None
+
+    model_config = {"from_attributes": True}

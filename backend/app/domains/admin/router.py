@@ -16,6 +16,9 @@ from app.domains.admin.schemas import (
     AdminUserItem,
     DlqMessageOut,
     DlqRequeueResponse,
+    SupportAccessCreateIn,
+    SupportAccessEndIn,
+    SupportAccessSessionOut,
     SloOverviewOut,
 )
 from app.domains.auth.models import WorkspaceLifecycleState
@@ -138,3 +141,43 @@ async def get_slo_overview(
     _ = current_user
     snapshot = build_sli_slo_snapshot(error_budget_pct=1.0, api_p95_ms_target=500.0)
     return SloOverviewOut(**snapshot)
+
+
+@router.post("/support-access", response_model=SupportAccessSessionOut, status_code=201)
+async def create_support_access(
+    req: SupportAccessCreateIn,
+    current_user=Depends(require_platform_admin),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> SupportAccessSessionOut:
+    service = PlatformAdminService(db, current_user.id)
+    session = await service.create_support_access_session(
+        target_org_id=req.target_org_id,
+        reason=req.reason,
+        duration_minutes=req.duration_minutes,
+    )
+    await db.commit()
+    return SupportAccessSessionOut.model_validate(session)
+
+
+@router.get("/support-access/active", response_model=list[SupportAccessSessionOut])
+async def list_active_support_access(
+    current_user=Depends(require_platform_admin),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> list[SupportAccessSessionOut]:
+    service = PlatformAdminService(db, current_user.id)
+    sessions = await service.list_active_support_access_sessions()
+    await db.commit()
+    return [SupportAccessSessionOut.model_validate(item) for item in sessions]
+
+
+@router.post("/support-access/{session_id}/end", response_model=SupportAccessSessionOut)
+async def end_support_access(
+    session_id: UUID,
+    req: SupportAccessEndIn,
+    current_user=Depends(require_platform_admin),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> SupportAccessSessionOut:
+    service = PlatformAdminService(db, current_user.id)
+    session = await service.end_support_access_session(session_id, reason=req.reason)
+    await db.commit()
+    return SupportAccessSessionOut.model_validate(session)

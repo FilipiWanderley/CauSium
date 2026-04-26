@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
@@ -125,3 +126,55 @@ async def get_session_context(
         geo_velocity_high=x_geo_velocity_high,
         device_trusted=x_device_trusted,
     )
+
+
+@dataclass(slots=True)
+class SupportAccessContext:
+    actor_user_id: UUID
+    effective_org_id: UUID
+    support_access_session_id: UUID | None
+
+
+async def get_support_access_context(
+    request: Request,
+    current_user=Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    x_support_access_session_id: Annotated[UUID | None, Header(alias="X-Support-Access-Session-Id")] = None,
+) -> SupportAccessContext:
+    from app.domains.auth.models import UserRole
+    from app.domains.admin.service import PlatformAdminService
+
+    actor_user_id = current_user.id
+    effective_org_id = current_user.org_id
+    support_access_session_id: UUID | None = None
+
+    if x_support_access_session_id is not None:
+        if current_user.role != UserRole.PLATFORM_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only platform_admin can use support access sessions.",
+            )
+        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Support access is read-only in this MVP.",
+            )
+        service = PlatformAdminService(db, actor_user_id)
+        session = await service.resolve_active_support_access_session(x_support_access_session_id)
+        effective_org_id = session.target_org_id
+        support_access_session_id = session.id
+
+    request.state.actor_user_id = str(actor_user_id)
+    request.state.effective_org_id = str(effective_org_id)
+    request.state.support_access_session_id = str(support_access_session_id) if support_access_session_id else None
+    return SupportAccessContext(
+        actor_user_id=actor_user_id,
+        effective_org_id=effective_org_id,
+        support_access_session_id=support_access_session_id,
+    )
+
+
+async def get_effective_org_id(
+    ctx: Annotated[SupportAccessContext, Depends(get_support_access_context)],
+) -> UUID:
+    return ctx.effective_org_id

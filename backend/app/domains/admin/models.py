@@ -16,6 +16,12 @@ class DlqStatus(str, enum.Enum):
     RESOLVED = "resolved"
 
 
+class SupportAccessStatus(str, enum.Enum):
+    ACTIVE = "active"
+    ENDED = "ended"
+    EXPIRED = "expired"
+
+
 class DlqMessage(Base):
     __tablename__ = "dlq_messages"
 
@@ -35,3 +41,21 @@ class DlqMessage(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class SupportAccessSession(Base):
+    __tablename__ = "support_access_sessions"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    actor_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[SupportAccessStatus] = mapped_column(
+        Enum(SupportAccessStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=SupportAccessStatus.ACTIVE,
+        index=True,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

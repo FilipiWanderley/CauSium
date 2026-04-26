@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import SupportAccessContext, get_current_user, get_support_access_context
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
 from app.domains.audit_chain.schemas import (
@@ -23,18 +23,26 @@ from app.domains.audit_chain.service import AuditChainService
 router = APIRouter(prefix="/audit-chain", tags=["audit-chain"])
 
 
-def _resolve_scope_org_id(current_user, org_id: UUID | None) -> UUID:
+def _resolve_scope_org_id(current_user, support_ctx: SupportAccessContext, org_id: UUID | None) -> UUID:
     """Resolve effective org scope for audit operations.
 
     - Regular users/admins are always scoped to their own workspace.
     - platform_admin may optionally provide ``org_id`` to inspect another workspace.
     """
     if org_id is None:
-        return current_user.org_id
+        return support_ctx.effective_org_id
     if current_user.role != UserRole.PLATFORM_ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only platform_admin can query audit scope for another workspace",
+        )
+    if (
+        support_ctx.support_access_session_id is not None
+        and org_id != support_ctx.effective_org_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="org_id must match active support access target during support session.",
         )
     return org_id
 
@@ -50,8 +58,9 @@ async def list_audit_events(
     page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     events, total = await svc.list_events(
         effective_org_id,
@@ -74,8 +83,9 @@ async def list_auth_audit_events(
     page_params: PageParams = Depends(PageParams),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     events, total = await svc.list_events(
         effective_org_id,
@@ -100,8 +110,9 @@ async def export_audit_events_jsonl(
     offset: int = Query(default=0, ge=0),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     content = await svc.export_events_jsonl(
         effective_org_id,
@@ -125,8 +136,9 @@ async def verify_audit_chain(
     org_id: Optional[UUID] = Query(default=None),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     return await svc.verify_chain(effective_org_id)
 
@@ -136,8 +148,9 @@ async def create_audit_checkpoint(
     org_id: Optional[UUID] = Query(default=None),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     checkpoint = await svc.create_checkpoint(effective_org_id, current_user.id)
     return AuditCheckpointOut.model_validate(checkpoint)
@@ -150,8 +163,9 @@ async def list_audit_checkpoints(
     offset: int = Query(default=0, ge=0),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     checkpoints = await svc.list_checkpoints(effective_org_id, limit=limit, offset=offset)
     return [AuditCheckpointOut.model_validate(c) for c in checkpoints]
@@ -163,8 +177,9 @@ async def verify_audit_checkpoint(
     org_id: Optional[UUID] = Query(default=None),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     return await svc.verify_checkpoint(effective_org_id, checkpoint_id)
 
@@ -175,8 +190,9 @@ async def cleanup_audit_checkpoints(
     keep_last: int = Query(default=200, ge=1, le=5000),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
+    support_ctx: SupportAccessContext = Depends(get_support_access_context),
 ):
-    effective_org_id = _resolve_scope_org_id(current_user, org_id)
+    effective_org_id = _resolve_scope_org_id(current_user, support_ctx, org_id)
     svc = AuditChainService(db)
     deleted, kept = await svc.cleanup_checkpoints(effective_org_id, keep_last=keep_last)
     await db.commit()
