@@ -247,6 +247,8 @@ export interface Translations {
     governanceTitle: string
     governanceSubtitle: string
     noExecutionPlan: string
+    generateExecutionPlan: string
+    generateExecutionPlanSoon: string
     latestPlanId: string
     reviewComment: string
     reviewCommentPlaceholder: string
@@ -1225,6 +1227,8 @@ export const en: Translations = {
     governanceTitle: 'Execution Governance',
     governanceSubtitle: 'Approval workflow for execution plans with audit trail',
     noExecutionPlan: 'No execution plan available yet. Create one to enable approval workflow.',
+    generateExecutionPlan: 'Generate Execution Plan',
+    generateExecutionPlanSoon: 'Coming soon',
     latestPlanId: 'Execution plan',
     reviewComment: 'Review comment',
     reviewCommentPlaceholder: 'Add a context comment for approval or rejection.',

@@ -249,6 +249,8 @@ export const pt: Translations = {
     governanceTitle: 'Governança de Execução',
     governanceSubtitle: 'Fluxo de aprovação com trilha de auditoria do plano de execução',
     noExecutionPlan: 'Nenhum execution plan disponível ainda. Crie um plano para habilitar aprovação.',
+    generateExecutionPlan: 'Gerar Execution Plan',
+    generateExecutionPlanSoon: 'Em breve disponível',
     latestPlanId: 'Execution plan',
     reviewComment: 'Comentário de revisão',
     reviewCommentPlaceholder: 'Adicione contexto para aprovação ou rejeição.',

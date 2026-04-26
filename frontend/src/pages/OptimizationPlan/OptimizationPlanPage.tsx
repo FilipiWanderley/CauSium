@@ -218,7 +218,17 @@ export function OptimizationPlanPage() {
         </div>
 
         {!latestExecutionPlan ? (
-          <p className="mt-3 text-sm text-gray-500">{t.optimizationPlan.noExecutionPlan}</p>
+          <div className="mt-3">
+            <p className="text-sm text-gray-500">{t.optimizationPlan.noExecutionPlan}</p>
+            <button
+              type="button"
+              onClick={() => console.log('generate execution plan')}
+              className="mt-3 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              {t.optimizationPlan.generateExecutionPlan}
+            </button>
+            <p className="mt-1 text-xs text-gray-400">{t.optimizationPlan.generateExecutionPlanSoon}</p>
+          </div>
         ) : (
           <div className="mt-4 space-y-4">
             <div className="text-xs text-gray-500">
