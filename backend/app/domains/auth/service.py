@@ -100,6 +100,11 @@ class AuthService:
             raise PermissionError(f"Role '{actor.role.value}' cannot delete a user with role '{target.role.value}'")
         if not target.is_active:
             raise ValueError("User is already inactive")
+        original_email = target.email
+        salt = get_settings().secret_key
+        digest = hashlib.sha256(f"{original_email}|{target.id}|{salt}".encode("utf-8")).hexdigest()
+        target.email = f"deleted_{digest[:40]}@deleted.invalid"
+        target.full_name = "Deleted User"
         target.is_active = False
         target.passkey_enabled = False
         await self.audit_chain.append_event(
@@ -109,7 +114,7 @@ class AuthService:
             entity_type="user",
             entity_id=str(target.id),
             payload={
-                "target_email": target.email,
+                "target_email": original_email,
                 "actor_role": actor.role.value,
                 "reason": reason,
             },
