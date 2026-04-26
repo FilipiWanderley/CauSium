@@ -33,6 +33,7 @@ from app.core.security import (
     verify_password,
 )
 from app.domains.audit_chain.service import AuditChainService
+from app.domains.auth.anonymization import anonymize_user_identity
 from app.domains.auth.models import AuthChallenge, Organization, PasskeyCredential, User, UserRole
 from app.domains.auth.schemas import RegisterRequest, UserCreate
 from app.domains.auth.schemas import UserUpdate
@@ -101,12 +102,10 @@ class AuthService:
         if not target.is_active:
             raise ValueError("User is already inactive")
         original_email = target.email
-        salt = get_settings().secret_key
-        digest = hashlib.sha256(f"{original_email}|{target.id}|{salt}".encode("utf-8")).hexdigest()
-        target.email = f"deleted_{digest[:40]}@deleted.invalid"
-        target.full_name = "Deleted User"
+        anonymize_user_identity(target, secret_key=get_settings().secret_key)
         target.is_active = False
         target.passkey_enabled = False
+        target.deleted_at = datetime.now(timezone.utc)
         await self.audit_chain.append_event(
             org_id=target.org_id,
             actor_user_id=actor.id,
@@ -479,15 +478,14 @@ class AuthService:
             raise PermissionError("Insufficient permission to purge this user's data")
 
         # Anonimizar dados pessoais
-        anon_id = str(target.id)[:8]
-        target.email = f"deleted_{anon_id}@deleted.invalid"
-        target.full_name = "[Deleted]"
+        anonymize_user_identity(target, secret_key=get_settings().secret_key)
         target.hashed_password = get_password_hash(secrets.token_urlsafe(32))
         target.totp_secret_encrypted = None
         target.totp_enabled = False
         target.totp_verified_at = None
         target.passkey_enabled = False
         target.is_active = False
+        target.deleted_at = datetime.now(timezone.utc)
 
         # Remover credenciais relacionadas
         await self.db.execute(sa_delete(PasskeyCredential).where(PasskeyCredential.user_id == target.id))
