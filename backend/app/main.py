@@ -1,7 +1,8 @@
 from __future__ import annotations
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
@@ -60,12 +61,28 @@ install_middlewares(app)
 app.include_router(api_router)
 
 
+def _is_production_runtime() -> bool:
+    app_env = os.getenv("APP_ENV", settings.app_env).strip().lower()
+    environment = os.getenv("ENVIRONMENT", "").strip().lower()
+    return app_env == "production" or environment == "production"
+
+
+def _require_internal_monitoring_key(
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+) -> None:
+    if not _is_production_runtime():
+        return
+    expected_key = os.getenv("INTERNAL_MONITORING_KEY", "").strip()
+    if not expected_key or x_internal_key != expected_key:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
 
 
-@app.get("/health/detailed")
+@app.get("/health/detailed", dependencies=[Depends(_require_internal_monitoring_key)])
 async def health_detailed():
     import time
 
@@ -102,7 +119,7 @@ async def health_detailed():
     return {"status": status, "checks": checks}
 
 
-@app.get("/metrics", response_class=PlainTextResponse)
+@app.get("/metrics", response_class=PlainTextResponse, dependencies=[Depends(_require_internal_monitoring_key)])
 async def metrics() -> str:
     return render_metrics_prometheus()
 

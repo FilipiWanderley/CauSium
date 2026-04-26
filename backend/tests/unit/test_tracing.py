@@ -106,6 +106,72 @@ async def test_metrics_endpoint_still_works_after_tracing_setup():
 
 
 @pytest.mark.asyncio
+async def test_metrics_requires_internal_key_in_production(monkeypatch):
+    """In production, /metrics must require X-Internal-Key matching env secret."""
+    from app.main import app
+    from httpx import AsyncClient, ASGITransport
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("INTERNAL_MONITORING_KEY", "top-secret-key")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        missing = await client.get("/metrics")
+        wrong = await client.get("/metrics", headers={"X-Internal-Key": "wrong-key"})
+        ok = await client.get("/metrics", headers={"X-Internal-Key": "top-secret-key"})
+
+    assert missing.status_code == 403
+    assert wrong.status_code == 403
+    assert ok.status_code == 200
+    assert "api_requests_total" in ok.text
+
+
+@pytest.mark.asyncio
+async def test_metrics_blocked_if_monitoring_key_missing_in_production(monkeypatch):
+    """If INTERNAL_MONITORING_KEY is absent in production, /metrics stays forbidden."""
+    from app.main import app
+    from httpx import AsyncClient, ASGITransport
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("INTERNAL_MONITORING_KEY", raising=False)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/metrics")
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_health_detailed_requires_internal_key_via_environment_flag(monkeypatch):
+    """ENVIRONMENT=production must protect /health/detailed the same as APP_ENV."""
+    from app.main import app
+    from httpx import AsyncClient, ASGITransport
+
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("INTERNAL_MONITORING_KEY", "top-secret-key")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/health/detailed")
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_health_remains_public_in_production(monkeypatch):
+    """Basic /health endpoint must remain public even in production."""
+    from app.main import app
+    from httpx import AsyncClient, ASGITransport
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("INTERNAL_MONITORING_KEY", "top-secret-key")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/health")
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_x_trace_id_header_present_in_response():
     """Every API response must carry an X-Trace-ID header."""
     from app.main import app
