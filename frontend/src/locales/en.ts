@@ -195,6 +195,9 @@ export interface Translations {
     statusResolvedApproved: string
     statusDismissed: string
     statusValidated: string
+    summaryOpportunities: string
+    summaryPerMonth: string
+    summaryHighRisk: string
     currentStatus: string
     readOnlyNoticeTitle: string
     readOnlyNoticeDesc: string
@@ -1041,7 +1044,7 @@ export const en: Translations = {
     refreshData: 'Refresh data',
     refreshingData: 'Refreshing...',
     adjustBudget: 'Adjust budget',
-    queueIngestion: 'Queue ingestion',
+    queueIngestion: 'Sync Data',
     queueingIngestion: 'Queueing...',
     refreshSuccess: 'Dashboard data refreshed.',
     ingestQueuedSuccess: 'Ingestion queued for {{count}} account(s).',
@@ -1168,6 +1171,9 @@ export const en: Translations = {
     statusResolvedApproved: 'Approved and executed by client',
     statusDismissed: 'Dismissed by client',
     statusValidated: 'Validated by client',
+    summaryOpportunities: '{{count}} opportunities',
+    summaryPerMonth: '{{amount}}/mo',
+    summaryHighRisk: '{{count}} high risk',
     currentStatus: 'Current status',
     readOnlyNoticeTitle: 'Read-only analysis mode',
     readOnlyNoticeDesc: 'The platform only reads tenant data and generates recommendations. Execution always happens after explicit client decision.',

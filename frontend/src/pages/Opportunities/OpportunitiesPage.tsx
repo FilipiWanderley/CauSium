@@ -141,14 +141,20 @@ export function OpportunitiesPage() {
       {opportunities && opportunities.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-            {opportunities.length} opportunities
+            {o.summaryOpportunities.replace('{{count}}', String(opportunities.length))}
           </span>
           <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-            {fmt(opportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0))}/mo
+            {o.summaryPerMonth.replace(
+              '{{amount}}',
+              fmt(opportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0))
+            )}
           </span>
           {opportunities.some((op) => op.risk_level === 'high') && (
             <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
-              {opportunities.filter((op) => op.risk_level === 'high').length} high risk
+              {o.summaryHighRisk.replace(
+                '{{count}}',
+                String(opportunities.filter((op) => op.risk_level === 'high').length)
+              )}
             </span>
           )}
         </div>
