@@ -20,6 +20,15 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [forceLoginPrompt, setForceLoginPrompt] = useState(false)
   const apiBase = useMemo(() => import.meta.env.VITE_API_URL || '', [])
+  const passkeyLoginEnabled = useMemo(
+    () => String(import.meta.env.VITE_AUTH_PASSKEY_LOGIN_ENABLED || '').toLowerCase() === 'true',
+    []
+  )
+  const microsoftLoginEnabled = useMemo(
+    () => String(import.meta.env.VITE_AUTH_MICROSOFT_LOGIN_ENABLED || '').toLowerCase() === 'true',
+    []
+  )
+  const hasAlternativeLogin = passkeyLoginEnabled || microsoftLoginEnabled
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -283,43 +292,48 @@ export function LoginPage() {
               </button>
             </form>
 
-            <div className="relative my-6 flex items-center">
-              <div className="flex-grow border-t border-white/10" />
-              <span className="mx-4 flex-shrink-0 text-[13px] text-gray-400">{lg.orContinueWith}</span>
-              <div className="flex-grow border-t border-white/10" />
-            </div>
+            {hasAlternativeLogin && (
+              <div className="relative my-6 flex items-center">
+                <div className="flex-grow border-t border-white/10" />
+                <span className="mx-4 flex-shrink-0 text-[13px] text-gray-400">{lg.orContinueWith}</span>
+                <div className="flex-grow border-t border-white/10" />
+              </div>
+            )}
 
-            <button
-              type="button"
-              onClick={handlePasskeyLogin}
-              disabled={!email || passkeyLoading}
-              title={!email ? lg.enterEmailFirst : undefined}
-              className="relative mb-3 flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-violet-500/40 bg-violet-500/[0.08] py-3 text-sm font-medium text-white transition-all duration-150 hover:border-violet-400/70 hover:bg-violet-500/25 hover:shadow-[0_0_16px_rgba(139,92,246,0.2)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <svg className="h-4 w-4 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              {passkeyLoading ? lg.passkeyValidating : lg.passkeySignIn}
-            </button>
+            {passkeyLoginEnabled && (
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={!email || passkeyLoading}
+                title={!email ? lg.enterEmailFirst : undefined}
+                className="relative mb-3 flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-violet-500/40 bg-violet-500/[0.08] py-3 text-sm font-medium text-white transition-all duration-150 hover:border-violet-400/70 hover:bg-violet-500/25 hover:shadow-[0_0_16px_rgba(139,92,246,0.2)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <svg className="h-4 w-4 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                {passkeyLoading ? lg.passkeyValidating : lg.passkeySignIn}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={handleMicrosoftLogin}
-              disabled={oidcLoading}
-              className="flex w-full cursor-pointer items-center justify-center gap-4 rounded-xl border border-white/20 bg-white/[0.07] py-3 text-sm font-medium text-white transition-all duration-150 hover:border-white/40 hover:bg-white/20 hover:shadow-[0_0_12px_rgba(255,255,255,0.06)] active:scale-[0.99] disabled:opacity-60"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 0H0V10H10V0Z" fill="#F25022" />
-                <path d="M21 0H11V10H21V0Z" fill="#7FBA00" />
-                <path d="M10 11H0V21H10V11Z" fill="#00A4EF" />
-                <path d="M21 11H11V21H21V11Z" fill="#FFB900" />
-              </svg>
-              {oidcLoading ? lg.microsoftRedirecting : lg.microsoftSignIn}
-            </button>
+            {microsoftLoginEnabled && (
+              <button
+                type="button"
+                onClick={handleMicrosoftLogin}
+                disabled={oidcLoading}
+                className="flex w-full cursor-pointer items-center justify-center gap-4 rounded-xl border border-white/20 bg-white/[0.07] py-3 text-sm font-medium text-white transition-all duration-150 hover:border-white/40 hover:bg-white/20 hover:shadow-[0_0_12px_rgba(255,255,255,0.06)] active:scale-[0.99] disabled:opacity-60"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 0H0V10H10V0Z" fill="#F25022" />
+                  <path d="M21 0H11V10H21V0Z" fill="#7FBA00" />
+                  <path d="M10 11H0V21H10V11Z" fill="#00A4EF" />
+                  <path d="M21 11H11V21H21V11Z" fill="#FFB900" />
+                </svg>
+                {oidcLoading ? lg.microsoftRedirecting : lg.microsoftSignIn}
+              </button>
+            )}
 
             <p className="mt-6 text-center text-[12px] text-gray-600">
-              {lg.noAccount}{' '}
-              <span className="text-gray-500">{lg.contactAdmin}</span>
+              <span className="text-gray-500">{lg.firstAccessHint}</span>
             </p>
           </div>
         </div>

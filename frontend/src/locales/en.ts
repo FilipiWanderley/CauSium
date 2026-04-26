@@ -811,6 +811,7 @@ export interface Translations {
     passkeyValidating: string
     microsoftSignIn: string
     microsoftRedirecting: string
+    firstAccessHint: string
     noAccount: string
     contactAdmin: string
   }
@@ -1881,6 +1882,7 @@ export const en: Translations = {
     passkeyValidating: 'Validating passkey...',
     microsoftSignIn: 'Sign in with Microsoft',
     microsoftRedirecting: 'Redirecting to Microsoft...',
+    firstAccessHint: 'First access? Use the invite link sent to your email.',
     noAccount: 'No account?',
     contactAdmin: 'Contact your workspace administrator.',
   },

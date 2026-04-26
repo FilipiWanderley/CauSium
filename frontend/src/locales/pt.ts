@@ -939,6 +939,7 @@ export const pt: Translations = {
     passkeyValidating: 'Validando passkey...',
     microsoftSignIn: 'Entrar com Microsoft',
     microsoftRedirecting: 'Redirecionando para Microsoft...',
+    firstAccessHint: 'Primeiro acesso? Use o link de convite enviado para seu email.',
     noAccount: 'Sem conta?',
     contactAdmin: 'Fale com o administrador do seu workspace.',
   },

@@ -31,6 +31,9 @@ describe('LoginPage', () => {
   beforeEach(() => {
     loginMock.mockReset()
     loginWithPasskeyMock.mockReset()
+    vi.unstubAllEnvs()
+    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'false')
+    vi.stubEnv('VITE_AUTH_MICROSOFT_LOGIN_ENABLED', 'false')
   })
 
   it('renders sign-in form', async () => {
@@ -93,6 +96,7 @@ describe('LoginPage', () => {
   })
 
   it('calls loginWithPasskey with email when passkey button is clicked', async () => {
+    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'true')
     loginWithPasskeyMock.mockResolvedValue(undefined)
     await renderPage()
 
@@ -107,6 +111,7 @@ describe('LoginPage', () => {
   })
 
   it('shows error when passkey is clicked without email', async () => {
+    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'true')
     await renderPage()
     fireEvent.click(screen.getByRole('button', { name: /sign in with passkey/i }))
     expect(await screen.findByText(/informe seu e-mail/i)).toBeInTheDocument()
