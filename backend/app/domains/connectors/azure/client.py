@@ -70,6 +70,7 @@ class AzureConnectorClient(BaseConnector):
         self.cost_export_format = cost_export_format
         self._credential = None
         self._last_blob_checkpoints: list[dict[str, str]] = []
+        self._last_scope_warnings: list[str] = []
 
     @classmethod
     def from_account(cls, account, creds) -> "AzureConnectorClient":
@@ -119,6 +120,7 @@ class AzureConnectorClient(BaseConnector):
         The check is best-effort: if the ARM API is unreachable we log a warning
         and continue rather than blocking account creation.
         """
+        self._last_scope_warnings = []
         try:
             from azure.mgmt.authorization import AuthorizationManagementClient
 
@@ -140,6 +142,7 @@ class AzureConnectorClient(BaseConnector):
                 CONTRIBUTOR_ID,
                 READER_ID,
             }
+            elevated_role_ids = {OWNER_ID, CONTRIBUTOR_ID}
 
             has_permission = any(
                 a.role_definition_id and a.role_definition_id.split("/")[-1] in allowed_role_ids
@@ -152,6 +155,24 @@ class AzureConnectorClient(BaseConnector):
                     f"on subscription '{subscription_id}'. "
                     "Grant the role before adding this account."
                 )
+
+            matched_role_ids = {
+                a.role_definition_id.split("/")[-1]
+                for a in assignments
+                if a.role_definition_id
+            }
+            if matched_role_ids & elevated_role_ids:
+                warning_msg = (
+                    "Detected elevated Azure role assignment (Owner/Contributor). "
+                    "For least privilege in CauSium read-only mode, prefer Reader + "
+                    "Cost Management Reader."
+                )
+                self._last_scope_warnings = [warning_msg]
+                log.warning(
+                    "azure.scope_validation.excessive_permissions",
+                    subscription_id=subscription_id,
+                    recommendation="Reader + Cost Management Reader",
+                )
             log.info("azure.scope_validation.ok", subscription_id=subscription_id)
         except PermissionError:
             raise
@@ -161,6 +182,9 @@ class AzureConnectorClient(BaseConnector):
                 subscription_id=subscription_id,
                 reason=str(exc),
             )
+
+    def get_last_scope_warnings(self) -> list[str]:
+        return list(self._last_scope_warnings)
 
     async def validate_storage_access(self) -> None:
         """Validate data-plane access to the configured Blob container."""

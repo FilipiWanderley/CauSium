@@ -410,6 +410,19 @@ class CloudAccountService:
             client = get_connector_for_account(account, creds)
             await client.validate_connection()
             status = ConnectorStatus.ACTIVE
+            if account.provider == CloudProvider.AZURE and creds is not None:
+                # Best-effort role review for health output; never block connectivity.
+                try:
+                    await client.validate_cost_management_scope(creds.subscription_id)
+                except Exception as exc:
+                    log.warning(
+                        "connector.health_check.azure_scope_validation_skipped",
+                        account_id=str(account.id),
+                        error=str(exc),
+                    )
+                warnings = getattr(client, "get_last_scope_warnings", lambda: [])()
+                if warnings:
+                    message = " ".join(warnings)[:500]
         except Exception as e:
             message = str(e)[:500]
             log.warning("connector.health_check.failed", account_id=str(account.id), error=str(e))

@@ -78,6 +78,56 @@ async def test_health_check_uses_mock(client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_azure_health_check_returns_warning_for_excessive_permissions(client, auth_headers):
+    warning_msg = (
+        "Detected elevated Azure role assignment (Owner/Contributor). "
+        "For least privilege in CauSium read-only mode, prefer Reader + "
+        "Cost Management Reader."
+    )
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+    ):
+        create_resp = await client.post(
+            "/api/v1/cloud-accounts",
+            json={
+                "provider": "azure",
+                "external_id": "sub-warning-test",
+                "display_name": "Warning Test Sub",
+                "tenant_id": "tenant-warning",
+                "azure_credentials": {
+                    "tenant_id": "tenant-warning",
+                    "client_id": "client-warning",
+                    "client_secret": "secret-warning",
+                    "subscription_id": "sub-warning-test",
+                    "storage_account_url": "https://example.blob.core.windows.net",
+                    "cost_export_container": "exports",
+                    "cost_export_prefix": "daily/",
+                },
+            },
+            headers=auth_headers,
+        )
+    assert create_resp.status_code == 201, create_resp.text
+    account_id = create_resp.json()["id"]
+
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.get_last_scope_warnings", return_value=[warning_msg]),
+    ):
+        health_resp = await client.post(
+            f"/api/v1/cloud-accounts/{account_id}/health-check",
+            headers=auth_headers,
+        )
+
+    assert health_resp.status_code == 200, health_resp.text
+    health = health_resp.json()
+    assert health["status"] == "active"
+    assert "Reader + Cost Management Reader" in (health.get("message") or "")
+
+
+@pytest.mark.asyncio
 async def test_sync_status_returns_operational_fields(client, auth_headers, db):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
