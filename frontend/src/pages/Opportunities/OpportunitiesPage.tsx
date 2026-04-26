@@ -95,9 +95,9 @@ export function OpportunitiesPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-semibold text-amber-900">{o.readOnlyNoticeTitle}</p>
-        <p className="mt-1 text-sm text-amber-800">{o.readOnlyNoticeDesc}</p>
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <p className="text-sm font-semibold text-blue-800">{o.readOnlyNoticeTitle}</p>
+        <p className="mt-1 text-sm text-blue-800">{o.readOnlyNoticeDesc}</p>
       </div>
 
       {summary && (
