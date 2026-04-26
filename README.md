@@ -1,4 +1,4 @@
-﻿# CauSium
+# CauSium
 
 Plataforma de inteligência de eficiência cloud orientada a decisão segura (SAFE DSS).
 
@@ -207,3 +207,156 @@ Prioridades planejadas:
 - Estrutura de billing/pricing.
 - Refinamentos de onboarding.
 - Evolução de LGPD BASIC READY para LGPD FULL.
+
+---
+
+## 🚀 Roadmap — Próximas Sprints (Execution -> Intelligence)
+
+O CauSium evolui de um sistema de recomendação (SAFE DSS) para uma plataforma completa de execução governada e inteligência de custos.
+
+---
+
+### 🟡 Sprint 13 — Assisted Execution (Execução Assistida)
+
+Primeiro passo para execução real, mantendo controle humano total.
+
+- Execução manual de ações diretamente pela interface (ex: resize de VM, ajustes de nodepool).
+- Botão "Apply" real, integrado ao Execution Plan.
+- Confirmação explícita antes de qualquer mudança (double confirmation).
+- Execução limitada a ações seguras e bem definidas.
+- Logs completos de execução (auditáveis).
+- Feature flag para habilitação controlada (por plano/workspace).
+
+Regra principal:
+> Nenhuma ação é executada automaticamente. Toda execução é iniciada pelo usuário.
+
+---
+
+### 🟡 Sprint 14 — Policy Engine (Governança de Execução)
+
+Camada de governança que define o que pode ou não ser executado.
+
+- Regras configuráveis por workspace (policies).
+- Bloqueio automático de ações de alto risco.
+- Restrições por ambiente (produção, staging, dev).
+- Limites configuráveis (ex: máximo de redução de recursos).
+- Allow/Deny por tipo de recurso ou categoria de otimização.
+- Validação obrigatória de policy antes de qualquer execução.
+
+Exemplo:
+> "Não reduzir CPU de workloads críticos em produção"
+
+---
+
+### 🟡 Sprint 15 — Safety & Rollback (Segurança de Execução)
+
+Garantia de que nenhuma execução compromete o ambiente do cliente.
+
+- Snapshot/checkpoint antes de aplicar mudanças.
+- Rollback automático em caso de falha.
+- Monitoramento pós-execução.
+- Timeout e cancelamento de execuções.
+- Mecanismo de fallback para restaurar estado anterior.
+
+Exemplo:
+> "Se a performance degradar após o resize, reverter automaticamente"
+
+---
+
+### 🟡 Sprint 16 — Controlled Automation (Automação Controlada)
+
+Introdução de automação com limites e governança.
+
+- Auto-apply para ações de baixo risco.
+- Execução programada (ex: janelas de manutenção).
+- Aprovação automática baseada em policy.
+- Limites de execução por workspace.
+- Execuções restritas a horários seguros.
+
+Neste estágio:
+> O sistema pode executar automaticamente, mas sempre dentro de regras definidas.
+
+---
+
+## 🏆 Roadmap Premium — Diferenciação do Produto
+
+Após a base de execução, o foco evolui para inteligência e valor estratégico.
+
+---
+
+### 🟣 Sprint 17 — Cost Intelligence (Nível Executivo)
+
+Transformar dados técnicos em insights estratégicos.
+
+- Forecast de custos (previsão futura).
+- Projeção de economia baseada em ações.
+- Análise de tendências de gasto.
+- Identificação automática de desperdício.
+
+Exemplo:
+> "Seu custo tende a crescer 18% no próximo mês"
+
+---
+
+### 🟣 Sprint 18 — What-if Simulation (Simulação de Cenários)
+
+Capacidade de simular impacto antes de executar mudanças.
+
+- Simulação de cenários de otimização.
+- Comparação de alternativas.
+- Previsão de economia antes da execução.
+
+Exemplo:
+> "Aplicando essa mudança, você economiza $12k/ano"
+
+---
+
+### 🟣 Sprint 19 — Unit Economics (Visão de Negócio)
+
+Levar FinOps para o nível de negócio.
+
+- Custo por produto.
+- Custo por cliente.
+- Custo por feature.
+- Análise de margem por serviço.
+
+Exemplo:
+> "Esta feature custa $0.23 por usuário ativo"
+
+---
+
+### 🟣 Sprint 20 — FinOps Governance Enterprise
+
+Governança para organizações complexas.
+
+- Orçamento por equipe/squad.
+- Ownership de recursos (accountability).
+- Chargeback e showback.
+- Controle distribuído de custos.
+
+---
+
+### 🟣 Sprint 21 — AI Copilot (Assistente Inteligente)
+
+IA como copiloto de decisões de FinOps.
+
+- Recomendações acionáveis em linguagem natural.
+- "Top 3 ações para hoje".
+- Identificação automática de oportunidades.
+- Insights prontos para execução.
+
+---
+
+### 🟣 Sprint 22 — Autonomous FinOps (Opcional)
+
+Automação avançada com supervisão.
+
+- Execução automática baseada em policy.
+- Decisão assistida por IA.
+- Limites rígidos de segurança.
+- Rollback automático integrado.
+
+Nota:
+> Esta etapa é opcional e depende do nível de maturidade do produto e dos clientes.
+
+---
