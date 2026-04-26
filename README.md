@@ -1,41 +1,132 @@
 # CauSium
 
-Plataforma de inteligência de eficiência cloud orientada a decisão segura (SAFE DSS).
+---
+
+> **Stop wasting money on cloud.**
+>
+> **CauSium turns cloud cost data into safe, governed optimization decisions.**
+>
+> **FinOps Intelligence & Governed Execution Platform**
+>
+> Plataforma de inteligência de eficiência cloud orientada a decisão segura (SAFE DSS).
+
+- 💰 Reduce cloud costs safely
+- ⚙️ Governed execution (no risky automation)
+- 🔐 Enterprise-grade safety (SAFE DSS)
+- 🤖 AI-powered insights
+
+---
+
+## 🎯 Why CauSium
+
+Dashboards tradicionais ajudam a visualizar custos, mas não fecham o ciclo de decisão e execução.
+Ferramentas de automação pura aceleram mudanças, porém podem aumentar risco operacional quando faltam governança e trilha de decisão.
+
+O CauSium resolve esse gap combinando inteligência de custo, priorização orientada a impacto e execução governada, com controle humano e segurança.
+
+---
+
+## ✅ What You Get
+
+- Identify waste automatically.
+- Prioritize opportunities by impact and risk.
+- Approve and schedule execution with governance.
+- Track real savings with operational traceability.
+- Learn and improve decisions over time.
+
+---
+
+## 📊 Product Preview
+
+![Dashboard](./docs/images/dashboard.png)
+![Opportunities](./docs/images/opportunities.png)
+![Optimization Plan](./docs/images/plan.png)
+
+> Preview placeholders: substitua as imagens conforme os assets oficiais do produto forem versionados.
+
+---
+
+## 🚀 How CauSium Is Different
+
+- **Dashboards**: mostram dados, mas não governam execução.
+- **Automation tools**: executam rápido, porém com risco quando não há controle robusto.
+- **CauSium**: conecta visibilidade, inteligência e execução controlada com segurança enterprise.
+
+---
+
+```text
+Detect -> Analyze -> Recommend -> Approve -> Execute -> Measure -> Learn
+```
+
+---
 
 ## Status Geral (Sprint 12 SAFE DSS)
 
 O produto está em **Sprint 12** como **Decision Support System (DSS)**.
 
-- **DONE**: recomenda, prioriza, planeja, aprova, agenda, faz handoff e mede resultado.
-- **DONE**: trilha de auditoria e governança para decisões.
-- **DONE**: execução acompanhada por status e evidências.
-- **PARTIAL**: capacidades avançadas adaptativas em evolução.
+- **✅ DONE**: recomenda, prioriza, planeja, aprova, agenda, faz handoff e mede resultado.
+- **✅ DONE**: trilha de auditoria e governança para decisões.
+- **✅ DONE**: execução acompanhada por status e evidências.
+- **⚠️ PARTIAL**: capacidades avançadas adaptativas em evolução.
 - **NÃO IMPLEMENTADO**: mutação cloud automática (Azure/AWS/GCP/AKS) em produção.
+
+---
+
+## ✨ Visão de Produto
+
+### 💰 Cost Visibility
+Visibilidade de custos e sinais operacionais com suporte a análise de oportunidades e anomalias.
+
+### ⚙️ Optimization Engine
+Motor de priorização e planejamento orientado a execução controlada, com trilha de decisão e status de execução.
+
+### 🔐 Security Layer
+Governança de acesso, trilha auditável, guardrails de execução e proteção de endpoints sensíveis em produção.
+
+---
+
+## 🧱 Arquitetura Visual (Resumo)
+
+```text
+User
+  ↓
+Frontend (React)
+  ↓
+Backend (FastAPI)
+  ↓
+Decision Engine
+  ↓
+Workers → Cloud Providers
+```
+
+---
 
 ## Matriz de Módulos
 
 | Module | Status | Notes |
-|---|---|---|
-| VM rightsizing | DONE | Geração e priorização de oportunidades com evidência e confiança. |
-| AKS nodepool rightsizing | PARTIAL | Categoria e pipeline presentes; cobertura funcional ainda evoluindo. |
-| AKS autoscaler recommendation | PARTIAL | Categoria/modelagem presentes; maturidade operacional em evolução. |
-| Optimization Plan | PARTIAL | Geração e priorização implementadas; execução cloud automática não existe. |
-| Execution Plans | PARTIAL | Criação, status, aprovação/scheduling/handoff e tracking implementados no DSS. |
-| Approval/Scheduling/Handoff/Execution tracking | DONE | Fluxos e auditoria de transição implementados. |
-| Confidence Calibration / Adaptive Decision Engine (Sprint 12) | PARTIAL | Base de calibração e ajustes existentes, evolução contínua. |
-| Cost Anomaly Detection | PARTIAL | Serviço + worker + endpoints; exposição e operação em amadurecimento. |
-| Platform Admin (/admin) | DONE | Gestão cross-workspace, lifecycle, suporte auditado, DLQ. |
-| LGPD BASIC READY | DONE | Consentimento, anonimização, retenção e auditoria administrativa sem PII. |
-| Semi-automação cloud opt-in (Sprint 13) | ROADMAP | Próxima etapa, com guardrails. |
-| Policy Engine / guardrails avançados | ROADMAP | Expansão de políticas de execução segura. |
-| Rollback / execution safety avançado | ROADMAP | Mecanismos adicionais de proteção e reversão. |
-| DB/storage optimizations | ROADMAP | Melhorias de performance e custo operacional. |
-| Key Vault hardening | ROADMAP | Endurecimento de gestão de segredos em produção. |
-| Production hardening | ROADMAP | Reforço operacional e de segurança para escala. |
-| Observability expansion | ROADMAP | Ampliação de SLI/SLO, métricas e tracing. |
-| Billing/Pricing | ROADMAP | Estrutura comercial e cobrança. |
-| Onboarding refinements | ROADMAP | UX e fluxos de ativação aprimorados. |
-| LGPD FULL | ROADMAP | Evolução para cobertura regulatória ampliada. |
+|:---|:---:|:---|
+| VM rightsizing | ✅ DONE | Geração e priorização de oportunidades com evidência e confiança. |
+| AKS nodepool rightsizing | ⚠️ PARTIAL | Categoria e pipeline presentes; cobertura funcional ainda evoluindo. |
+| AKS autoscaler recommendation | ⚠️ PARTIAL | Categoria/modelagem presentes; maturidade operacional em evolução. |
+| Optimization Plan | ⚠️ PARTIAL | Geração e priorização implementadas; execução cloud automática não existe. |
+| Execution Plans | ⚠️ PARTIAL | Criação, status, aprovação/scheduling/handoff e tracking implementados no DSS. |
+| Approval/Scheduling/Handoff/Execution tracking | ✅ DONE | Fluxos e auditoria de transição implementados. |
+| Confidence Calibration / Adaptive Decision Engine (Sprint 12) | ⚠️ PARTIAL | Base de calibração e ajustes existentes, evolução contínua. |
+| Cost Anomaly Detection | ⚠️ PARTIAL | Serviço + worker + endpoints; exposição e operação em amadurecimento. |
+| Platform Admin (/admin) | ✅ DONE | Gestão cross-workspace, lifecycle, suporte auditado, DLQ. |
+| LGPD BASIC READY | ✅ DONE | Consentimento, anonimização, retenção e auditoria administrativa sem PII. |
+| Semi-automação cloud opt-in (Sprint 13) | 🧭 ROADMAP | Próxima etapa, com guardrails. |
+| Policy Engine / guardrails avançados | 🧭 ROADMAP | Expansão de políticas de execução segura. |
+| Rollback / execution safety avançado | 🧭 ROADMAP | Mecanismos adicionais de proteção e reversão. |
+| DB/storage optimizations | 🧭 ROADMAP | Melhorias de performance e custo operacional. |
+| Key Vault hardening | 🧭 ROADMAP | Endurecimento de gestão de segredos em produção. |
+| Production hardening | 🧭 ROADMAP | Reforço operacional e de segurança para escala. |
+| Observability expansion | 🧭 ROADMAP | Ampliação de SLI/SLO, métricas e tracing. |
+| Billing/Pricing | 🧭 ROADMAP | Estrutura comercial e cobrança. |
+| Onboarding refinements | 🧭 ROADMAP | UX e fluxos de ativação aprimorados. |
+| LGPD FULL | 🧭 ROADMAP | Evolução para cobertura regulatória ampliada. |
+
+---
 
 ## Workspace Lifecycle (Estado Real)
 
@@ -52,6 +143,8 @@ Transições principais:
 - `SUSPENDED -> ARCHIVED`
 
 > `INACTIVE` e `PURGED` **não** são estados reais do lifecycle de workspace no código atual.
+
+---
 
 ## Migrações (Atualizado)
 
@@ -72,6 +165,8 @@ Resumo das migrações `0030` a `0039`:
 - `0038_support_access_sessions.py` - sessões de suporte administrativo.
 - `0039_user_deleted_at_retention.py` - `deleted_at` para retenção/anonimização LGPD.
 
+---
+
 ## LGPD
 
 Status atual: **LGPD BASIC READY**.
@@ -90,6 +185,8 @@ LGPD FULL (roadmap):
 - Catálogo ampliado de bases legais por domínio.
 - Automação de prazos por tipo de dado.
 - Relatórios de conformidade e rotinas operacionais avançadas.
+
+---
 
 ## Platform Admin
 
@@ -112,9 +209,20 @@ Regras de support access (MVP atual):
 - duração máxima: **60 min**.
 - eventos auditados (`support_access.started`, `support_access.ended`).
 
+---
+
 ## Segurança
 
 Controles relevantes do estado atual:
+
+### 🔐 Security Layer
+Proteções em runtime, guardrails de pipeline e auditoria contínua para operação enterprise.
+
+### 🛡️ Cloud Safety Guardrails
+Execução orientada a modo read-only e bloqueios explícitos para cenários de risco em produção.
+
+### 📜 Compliance & Access Audit
+Rastreabilidade de sessões administrativas, ações sensíveis e proteção de dados.
 
 - Cloud onboarding e operação em modo **read-only**.
 - CI com guardrail de mutação cloud (`scripts/cloud_mutation_guardrail.py`).
@@ -124,14 +232,21 @@ Controles relevantes do estado atual:
 - Credenciais cloud criptografadas (escopo por workspace/keyring).
 - Sessões de support access auditadas.
 
+---
+
 ## Decision Engine e Execução SAFE DSS
 
 Estado funcional até Sprint 12:
+
+### ⚙️ Optimization Engine
+Pipeline de decisão e execução assistida com foco em governança, rastreabilidade e segurança operacional.
 
 - **DONE**: geração/priorização de oportunidades e trilha auditável.
 - **PARTIAL**: trilhas AKS (nodepool/autoscaler) em evolução.
 - **PARTIAL**: optimization/execution plans com aprovação, scheduling, handoff e tracking no DSS.
 - **NÃO IMPLEMENTADO**: aplicação automática de mutações cloud.
+
+---
 
 ## Anomaly Detection
 
@@ -140,6 +255,8 @@ Implementado no backend com status **PARTIAL**:
 - `anomaly_detection_worker` em execução no runner.
 - serviço de anomalia de custo (`CostAnomalyDetectionService`).
 - endpoints de detecção/listagem de anomalias.
+
+---
 
 ## Workers
 
@@ -155,6 +272,8 @@ Runner atual contempla **10 workers**:
 8. `maintenance`
 9. `notification`
 10. `usage_observation`
+
+---
 
 ## Stack Tecnológica (Atualizada)
 
@@ -177,6 +296,8 @@ Observação:
 
 - `pyotp` não é listado como dependência ativa no estado atual do código.
 
+---
+
 ## API (Resumo)
 
 Principais grupos:
@@ -192,6 +313,8 @@ Admin (`/api/v1/admin/*`) inclui:
 - org lifecycle suspend/restore/archive
 - support access sessions
 - DLQ list/requeue
+
+---
 
 ## Roadmap Sprint 13+
 
