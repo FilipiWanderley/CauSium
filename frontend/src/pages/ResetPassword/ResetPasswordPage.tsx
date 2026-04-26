@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Cloud, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../../api/auth'
+import { useI18n } from '../../contexts/I18nContext'
 
 export function ResetPasswordPage() {
+  const { t } = useI18n()
+  const rp = t.resetPassword
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tokenFromUrl = searchParams.get('token') ?? ''
@@ -20,11 +23,11 @@ export function ResetPasswordPage() {
     setError('')
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(rp.errorPasswordsMismatch)
       return
     }
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(rp.errorPasswordTooShort)
       return
     }
 
@@ -35,7 +38,7 @@ export function ResetPasswordPage() {
     } catch (err: unknown) {
       const detail =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setError(detail ?? 'Failed to reset password. The link may be expired or invalid.')
+      setError(detail ?? rp.errorInvalidOrExpiredLink)
     } finally {
       setLoading(false)
     }
@@ -53,8 +56,8 @@ export function ResetPasswordPage() {
 
         <div className="rounded-2xl bg-white p-8 shadow-2xl">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Set new password</h2>
-            <p className="text-sm text-gray-500 mt-1">Choose a strong password for your account.</p>
+            <h2 className="text-xl font-semibold text-gray-900">{rp.title}</h2>
+            <p className="mt-1 text-sm text-gray-500">{rp.subtitle}</p>
           </div>
 
           {error && (
@@ -66,20 +69,20 @@ export function ResetPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!tokenFromUrl && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reset token</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{rp.tokenLabel}</label>
                 <input
                   type="text"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   required
-                  placeholder="Paste your reset token here"
+                  placeholder={rp.tokenPlaceholder}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{rp.newPasswordLabel}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -88,7 +91,7 @@ export function ResetPasswordPage() {
                   required
                   autoComplete="new-password"
                   minLength={8}
-                  placeholder="Min. 8 characters"
+                  placeholder={rp.newPasswordPlaceholder}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 pr-10"
                 />
                 <button
@@ -102,16 +105,14 @@ export function ResetPasswordPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm password
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{rp.confirmPasswordLabel}</label>
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                placeholder="Repeat your new password"
+                placeholder={rp.confirmPasswordPlaceholder}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
@@ -121,7 +122,7 @@ export function ResetPasswordPage() {
               disabled={loading || !token.trim()}
               className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60 transition-colors"
             >
-              {loading ? 'Updating password…' : 'Update password'}
+              {loading ? rp.submitting : rp.submit}
             </button>
           </form>
 
@@ -131,7 +132,7 @@ export function ResetPasswordPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to sign in
+            {rp.backToSignIn}
             </Link>
           </div>
         </div>

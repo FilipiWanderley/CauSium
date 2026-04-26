@@ -815,6 +815,34 @@ export interface Translations {
     noAccount: string
     contactAdmin: string
   }
+  forgotPassword: {
+    backToSignIn: string
+    title: string
+    subtitle: string
+    emailLabel: string
+    emailPlaceholder: string
+    submit: string
+    submitting: string
+    genericError: string
+    successTitle: string
+    successMessage: string
+  }
+  resetPassword: {
+    title: string
+    subtitle: string
+    tokenLabel: string
+    tokenPlaceholder: string
+    newPasswordLabel: string
+    newPasswordPlaceholder: string
+    confirmPasswordLabel: string
+    confirmPasswordPlaceholder: string
+    submit: string
+    submitting: string
+    errorPasswordsMismatch: string
+    errorPasswordTooShort: string
+    errorInvalidOrExpiredLink: string
+    backToSignIn: string
+  }
   platform: {
     syncTitle: string
     syncSubtitle: string
@@ -1885,5 +1913,33 @@ export const en: Translations = {
     firstAccessHint: 'First access? Use the invite link sent to your email.',
     noAccount: 'No account?',
     contactAdmin: 'Contact your workspace administrator.',
+  },
+  forgotPassword: {
+    backToSignIn: 'Back to sign in',
+    title: 'Reset your password',
+    subtitle: "Enter your email and we'll send you reset instructions.",
+    emailLabel: 'Email',
+    emailPlaceholder: 'you@company.com',
+    submit: 'Send reset instructions',
+    submitting: 'Sending…',
+    genericError: 'Something went wrong. Please try again.',
+    successTitle: 'Check your instructions',
+    successMessage: 'If {{email}} is registered, you will receive password reset instructions.',
+  },
+  resetPassword: {
+    title: 'Set new password',
+    subtitle: 'Choose a strong password for your account.',
+    tokenLabel: 'Reset token',
+    tokenPlaceholder: 'Paste your reset token here',
+    newPasswordLabel: 'New password',
+    newPasswordPlaceholder: 'Min. 8 characters',
+    confirmPasswordLabel: 'Confirm password',
+    confirmPasswordPlaceholder: 'Repeat your new password',
+    submit: 'Update password',
+    submitting: 'Updating password…',
+    errorPasswordsMismatch: 'Passwords do not match.',
+    errorPasswordTooShort: 'Password must be at least 8 characters.',
+    errorInvalidOrExpiredLink: 'Failed to reset password. The link may be expired or invalid.',
+    backToSignIn: 'Back to sign in',
   },
 }
