@@ -1,5 +1,7 @@
 """SP-U05: Admin member deactivation integration tests."""
 
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import update
 
@@ -58,6 +60,38 @@ async def test_admin_can_deactivate_engineer(client):
         json={"email": member["email"], "password": "memberpassword123"},
     )
     assert login_resp.status_code == 401
+
+    events_resp = await client.get(
+        "/api/v1/audit-chain/events?event_type=auth.user.deactivated",
+        headers=ctx["headers"],
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    events = events_resp.json()["items"]
+    matching = [e for e in events if e["entity_id"] == member["user_id"]]
+    assert len(matching) == 1
+    payload = matching[0]["payload"]
+    assert payload["target_user_id"] == member["user_id"]
+    assert "target_email" not in payload
+
+
+@pytest.mark.asyncio
+async def test_deactivate_sets_deleted_at_when_missing(client, db):
+    from uuid import UUID
+
+    ctx = await _register(client, "u05-delat")
+    member = await _create_member(client, ctx["headers"], "viewer", "u05-delat")
+
+    deactivate_resp = await client.patch(
+        f"/api/v1/auth/users/{member['user_id']}/deactivate",
+        json={"reason": "Retention eligible"},
+        headers=ctx["headers"],
+    )
+    assert deactivate_resp.status_code == 200, deactivate_resp.text
+
+    target = await db.get(User, UUID(member["user_id"]))
+    assert target is not None
+    assert target.deleted_at is not None
+    assert target.deleted_at <= datetime.now(timezone.utc)
 
 
 @pytest.mark.asyncio

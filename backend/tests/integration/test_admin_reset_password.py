@@ -86,6 +86,18 @@ async def test_admin_resets_engineer_password(client):
     assert data["user"]["id"] == member["user_id"]
     assert data["user"]["must_change_password"] is True
 
+    events_resp = await client.get(
+        "/api/v1/audit-chain/events?event_type=auth.password.admin_reset",
+        headers=ctx["headers"],
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    events = events_resp.json()["items"]
+    matching = [e for e in events if e["entity_id"] == member["user_id"]]
+    assert len(matching) == 1
+    payload = matching[0]["payload"]
+    assert payload["target_user_id"] == member["user_id"]
+    assert "target_email" not in payload
+
 
 @pytest.mark.asyncio
 async def test_reset_sets_must_change_password(client):

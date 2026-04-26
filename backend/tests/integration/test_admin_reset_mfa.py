@@ -94,6 +94,18 @@ async def test_admin_resets_mfa_and_revokes_passkeys(client, db):
     assert body["user"]["id"] == member["user_id"]
     assert body["user"]["passkey_enabled"] is False
 
+    events_resp = await client.get(
+        "/api/v1/audit-chain/events?event_type=auth.mfa.admin_reset",
+        headers=ctx["headers"],
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    events = events_resp.json()["items"]
+    matching = [e for e in events if e["entity_id"] == member["user_id"]]
+    assert len(matching) == 1
+    payload = matching[0]["payload"]
+    assert payload["target_user_id"] == member["user_id"]
+    assert "target_email" not in payload
+
 
 @pytest.mark.asyncio
 async def test_admin_cannot_reset_mfa_of_another_admin(client):

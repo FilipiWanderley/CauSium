@@ -64,3 +64,15 @@ async def test_admin_delete_user_anonymizes_email(client, db):
     result = await db.execute(select(User).where(User.id == member["user_id"]))
     deleted_user = result.scalar_one()
     assert deleted_user.email != member["email"]
+
+    events_resp = await client.get(
+        "/api/v1/audit-chain/events?event_type=auth.user.deleted",
+        headers=ctx["headers"],
+    )
+    assert events_resp.status_code == 200, events_resp.text
+    events = events_resp.json()["items"]
+    matching = [e for e in events if e["entity_id"] == member["user_id"]]
+    assert len(matching) == 1
+    event_payload = matching[0]["payload"]
+    assert event_payload["target_user_id"] == member["user_id"]
+    assert "target_email" not in event_payload

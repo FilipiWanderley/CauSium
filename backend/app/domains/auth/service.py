@@ -101,7 +101,6 @@ class AuthService:
             raise PermissionError(f"Role '{actor.role.value}' cannot delete a user with role '{target.role.value}'")
         if not target.is_active:
             raise ValueError("User is already inactive")
-        original_email = target.email
         anonymize_user_identity(target, secret_key=get_settings().secret_key)
         target.is_active = False
         target.passkey_enabled = False
@@ -113,7 +112,7 @@ class AuthService:
             entity_type="user",
             entity_id=str(target.id),
             payload={
-                "target_email": original_email,
+                "target_user_id": str(target.id),
                 "actor_role": actor.role.value,
                 "reason": reason,
             },
@@ -627,7 +626,7 @@ class AuthService:
             entity_type="user",
             entity_id=str(target.id),
             payload={
-                "target_email": target.email,
+                "target_user_id": str(target.id),
                 "actor_role": actor.role.value,
                 "target_role": target.role.value,
             },
@@ -691,7 +690,7 @@ class AuthService:
             entity_type="user",
             entity_id=str(target.id),
             payload={
-                "target_email": target.email,
+                "target_user_id": str(target.id),
                 "actor_role": actor.role.value,
                 "target_role": target.role.value,
                 "revoked_passkeys": revoked_count,
@@ -734,6 +733,8 @@ class AuthService:
 
         target.is_active = False
         target.passkey_enabled = False
+        if target.deleted_at is None:
+            target.deleted_at = datetime.now(timezone.utc)
 
         await self.audit_chain.append_event(
             org_id=target.org_id,
@@ -742,7 +743,7 @@ class AuthService:
             entity_type="user",
             entity_id=str(target.id),
             payload={
-                "target_email": target.email,
+                "target_user_id": str(target.id),
                 "actor_role": actor.role.value,
                 "target_role": target.role.value,
                 "reason": reason,
