@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 
+from app.core.config import get_settings
 from app.domains.connectors.azure.client import AzureConnectorClient
+from app.domains.connectors.azure.mock import AzureMockClient
 
 
 def test_parse_blob_cost_csv_normalizes_and_filters_rows() -> None:
@@ -136,3 +139,31 @@ async def test_fetch_costs_passes_checkpoint_keys_to_blob_fetch(monkeypatch) -> 
     keys = {"exports/cost-1.csv::etag-1"}
     await client.fetch_costs("sub-003", date(2026, 4, 1), date(2026, 4, 30), checkpoint_keys=keys)
     assert observed["keys"] == keys
+
+
+def test_from_account_uses_mock_in_development_without_credentials(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("AZURE_TENANT_ID", raising=False)
+    monkeypatch.delenv("AZURE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("AZURE_CLIENT_SECRET", raising=False)
+    get_settings.cache_clear()
+    try:
+        connector = AzureConnectorClient.from_account(SimpleNamespace(id="acc-dev"), creds=None)
+    finally:
+        get_settings.cache_clear()
+    assert isinstance(connector, AzureMockClient)
+
+
+def test_from_account_rejects_mock_fallback_in_production_without_credentials(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("AZURE_TENANT_ID", raising=False)
+    monkeypatch.delenv("AZURE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("AZURE_CLIENT_SECRET", raising=False)
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="Azure credentials are required in production"):
+            AzureConnectorClient.from_account(SimpleNamespace(id="acc-prod"), creds=None)
+    finally:
+        get_settings.cache_clear()

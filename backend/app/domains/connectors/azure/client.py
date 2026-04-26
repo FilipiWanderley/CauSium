@@ -2,6 +2,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 
 from datetime import date, datetime, timedelta, timezone
 
@@ -90,6 +91,14 @@ class AzureConnectorClient(BaseConnector):
                 tenant_id=settings.azure_tenant_id,
                 client_id=settings.azure_client_id,
                 client_secret=settings.azure_client_secret,
+            )
+        app_env = os.getenv("APP_ENV", settings.app_env).strip().lower()
+        environment = os.getenv("ENVIRONMENT", "").strip().lower()
+        is_production = app_env == "production" or environment == "production"
+        if is_production:
+            raise ValueError(
+                "Azure credentials are required in production. "
+                "Refusing to fallback to AzureMockClient when APP_ENV/ENVIRONMENT is production."
             )
         log.warning("azure.connector.no_credentials — falling back to mock", account_id=str(account.id))
         return AzureMockClient()  # type: ignore[return-value]
