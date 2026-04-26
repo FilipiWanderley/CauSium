@@ -76,8 +76,6 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-      jaeger:
-        condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
@@ -111,8 +109,6 @@ services:
       redis:
         condition: service_healthy
       clickhouse:
-        condition: service_healthy
-      jaeger:
         condition: service_healthy
     command: python -m app.workers.runner
     healthcheck:

@@ -1,11 +1,11 @@
 #!/bin/sh
-# entrypoint.sh â€” runs Alembic migrations then starts the application.
-# Used by both the backend and worker services in docker-compose.
+# Runs Alembic migrations before starting the target process.
+# Used by backend/worker containers.
 set -e
 
 # Ensure alembic_version uses varchar(128) to accommodate long revision IDs.
 # This is idempotent â€” CREATE TABLE IF NOT EXISTS + ALTER column if needed.
-echo "[entrypoint] ensuring alembic_version schema..."
+echo "[entrypoint] Preparing database migration state..."
 python - <<'PYEOF'
 import asyncio, os, re
 import asyncpg
@@ -40,8 +40,9 @@ async def main():
 asyncio.run(main())
 PYEOF
 
-echo "[entrypoint] running alembic upgrade head..."
+echo "[entrypoint] Running migrations: alembic upgrade head"
 alembic upgrade head
-echo "[entrypoint] migrations applied."
+echo "[entrypoint] Migrations applied successfully."
 
+echo "[entrypoint] Starting process: $*"
 exec "$@"
