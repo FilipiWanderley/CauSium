@@ -11,15 +11,21 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0038"
 down_revision: Union[str, None] = "0037"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+support_status = postgresql.ENUM(
+    "active", "ended", "expired",
+    name="supportaccessstatus",
+    create_type=False,
+)
+
 
 def upgrade() -> None:
-    support_status = sa.Enum("active", "ended", "expired", name="supportaccessstatus")
     support_status.create(op.get_bind(), checkfirst=True)
 
     op.create_table(

@@ -76,6 +76,8 @@ class OptimizationPlanService:
                 total_savings_monthly_raw_usd=0.0,
                 total_savings_monthly_adjusted_usd=0.0,
                 total_savings_annual_adjusted_usd=0.0,
+                total_savings_monthly=0.0,
+                total_savings_annual=0.0,
                 confidence_global=0.0,
                 summary=(
                     "Nenhuma oportunidade aberta para montar plano de otimização."
@@ -183,6 +185,8 @@ class OptimizationPlanService:
             total_savings_monthly_raw_usd=total_raw,
             total_savings_monthly_adjusted_usd=total_adjusted,
             total_savings_annual_adjusted_usd=round(total_adjusted * 12, 2),
+            total_savings_monthly=total_adjusted,
+            total_savings_annual=round(total_adjusted * 12, 2),
             confidence_global=confidence_global,
             summary=summary,
             summary_source=summary_source,

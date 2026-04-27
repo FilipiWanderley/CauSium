@@ -1,3 +1,4 @@
+import ssl
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -14,16 +15,13 @@ def create_engine():
     settings = get_settings()
     connect_args: dict = {}
     if settings.db_ssl_enabled or settings.is_production:
-        from app.core.tls import maybe_ssl_context
-
-        ssl_ctx = maybe_ssl_context(
-            enabled=True,
-            verify=settings.db_ssl_verify,
-            ca_file=settings.db_ssl_ca_file or None,
-            min_version=settings.db_ssl_min_version,
-        )
-        if ssl_ctx:
-            connect_args["ssl"] = ssl_ctx
+        ssl_ctx = ssl.create_default_context()
+        if settings.db_ssl_ca_file:
+            ssl_ctx.load_verify_locations(cafile=settings.db_ssl_ca_file)
+        if not settings.db_ssl_verify:
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ssl_ctx
     return create_async_engine(
         settings.database_url,
         echo=not settings.is_production,

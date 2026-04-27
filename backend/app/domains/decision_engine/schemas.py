@@ -158,6 +158,8 @@ class OptimizationPlanOut(BaseModel):
     total_savings_monthly_raw_usd: float
     total_savings_monthly_adjusted_usd: float
     total_savings_annual_adjusted_usd: float
+    total_savings_monthly: float
+    total_savings_annual: float
     confidence_global: float
     summary: str
     summary_source: Literal["deterministic", "ai"]

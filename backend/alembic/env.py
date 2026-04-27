@@ -50,24 +50,54 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection):
     import sqlalchemy as sa
+    from alembic.ddl.impl import DefaultImpl
+    from sqlalchemy import Column, MetaData, PrimaryKeyConstraint, Table
+
+    # alembic 1.14+ hardcodes version_num as String(32); revision IDs in this
+    # project exceed that limit, so we override the hook to use String(128).
+    def _wide_version_table_impl(self, *, version_table, version_table_schema, version_table_pk, **kw):
+        vt = Table(
+            version_table,
+            MetaData(),
+            Column("version_num", sa.String(128), nullable=False),
+            schema=version_table_schema,
+        )
+        if version_table_pk:
+            vt.append_constraint(PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc"))
+        return vt
+
+    DefaultImpl.version_table_impl = _wide_version_table_impl
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        version_num_col_type=sa.String(128),
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
+    import ssl as _ssl
+
     settings = get_settings()
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = settings.database_url
+
+    connect_args: dict = {}
+    if settings.db_ssl_enabled or settings.is_production:
+        ssl_ctx = _ssl.create_default_context()
+        if settings.db_ssl_ca_file:
+            ssl_ctx.load_verify_locations(cafile=settings.db_ssl_ca_file)
+        if not settings.db_ssl_verify:
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = _ssl.CERT_NONE
+        connect_args["ssl"] = ssl_ctx
 
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
