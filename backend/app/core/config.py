@@ -332,6 +332,36 @@ class Settings(BaseSettings):
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
 
+        db_url_raw = self.database_url.strip()
+        redis_url_raw = self.redis_url.strip()
+        if not db_url_raw:
+            raise ValueError(
+                "DATABASE_URL is required in production. "
+                "Set Azure App Service Application Setting DATABASE_URL="
+                "postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DB"
+            )
+        if not redis_url_raw:
+            raise ValueError(
+                "REDIS_URL is required in production. "
+                "Set Azure App Service Application Setting REDIS_URL=rediss://HOST:PORT/0"
+            )
+
+        from urllib.parse import urlparse
+
+        db_host = (urlparse(db_url_raw).hostname or "").strip().lower()
+        redis_host = (urlparse(redis_url_raw).hostname or "").strip().lower()
+        local_hosts = {"localhost", "127.0.0.1", "::1"}
+        if db_host in local_hosts:
+            raise ValueError(
+                "DATABASE_URL points to localhost in production. "
+                "Use the managed PostgreSQL host in Azure App Service settings."
+            )
+        if redis_host in local_hosts:
+            raise ValueError(
+                "REDIS_URL points to localhost in production. "
+                "Use the managed Redis host in Azure App Service settings."
+            )
+
         db_url = self.database_url.lower()
         url_has_sslmode = "sslmode=" in db_url
         url_sslmode_secure = any(
