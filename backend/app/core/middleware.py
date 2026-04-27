@@ -315,10 +315,8 @@ def _apply_security_headers(response: Response, *, is_api_path: bool = False) ->
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = settings.permissions_policy
-    response.headers["Content-Security-Policy"] = settings.csp_policy
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Content-Security-Policy"] = settings.effective_csp_policy
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
-    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
 
     # Suppress caching for all /api/* responses — static assets remain cacheable.
@@ -326,7 +324,13 @@ def _apply_security_headers(response: Response, *, is_api_path: bool = False) ->
         response.headers["Cache-Control"] = "no-store"
 
     # --- Production-only headers ---------------------------------------------
+    # COOP + COEP enable full cross-origin isolation (required for SharedArrayBuffer
+    # and Spectre mitigations), but also require every cross-origin sub-resource to
+    # carry a Cross-Origin-Resource-Policy header — which blocks CDN-hosted assets
+    # such as the Swagger UI bundle in non-production environments.
     if settings.is_production:
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
         response.headers["Strict-Transport-Security"] = settings.hsts_header_value
 
 

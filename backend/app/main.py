@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -39,12 +40,18 @@ async def lifespan(app: FastAPI):
 
 settings = get_settings()
 
+_CDN = "https://cdn.jsdelivr.net/npm"
+_SWAGGER_JS = f"{_CDN}/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"
+_SWAGGER_CSS = f"{_CDN}/swagger-ui-dist@5.18.2/swagger-ui.css"
+_REDOC_JS = f"{_CDN}/redoc@2.1.5/bundles/redoc.standalone.js"
+
 app = FastAPI(
     title="CauSium API",
     description="FinOps + Governance + Operations platform for multi-cloud efficiency",
     version="0.1.0",
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+    # Disable built-in docs routes — custom routes below pin CDN asset versions.
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
 )
 
@@ -59,6 +66,25 @@ app.add_middleware(
 install_middlewares(app)
 
 app.include_router(api_router)
+
+
+if not settings.is_production:
+    @app.get("/docs", include_in_schema=False)
+    async def custom_swagger_ui() -> HTMLResponse:
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title="CauSium API",
+            swagger_js_url=_SWAGGER_JS,
+            swagger_css_url=_SWAGGER_CSS,
+        )
+
+    @app.get("/redoc", include_in_schema=False)
+    async def custom_redoc() -> HTMLResponse:
+        return get_redoc_html(
+            openapi_url="/openapi.json",
+            title="CauSium API",
+            redoc_js_url=_REDOC_JS,
+        )
 
 
 def _is_production_runtime() -> bool:

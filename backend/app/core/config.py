@@ -132,6 +132,9 @@ class Settings(BaseSettings):
 
     # Security hardening
     security_headers_enabled: bool = True
+
+    # Production CSP — strict; no external scripts/styles; upgrade-insecure-requests
+    # forces HTTPS for all subresource loads. Can be overridden via CSP_POLICY in .env.
     csp_policy: str = (
         "default-src 'self'; "
         "script-src 'self'; "
@@ -146,6 +149,31 @@ class Settings(BaseSettings):
         "base-uri 'self'; "
         "form-action 'self'; "
         "upgrade-insecure-requests"
+    )
+
+    # Dev/local CSP — allows CDN assets required by Swagger UI.
+    # upgrade-insecure-requests is intentionally absent: on a plain HTTP
+    # dev server it would rewrite http://127.0.0.1/openapi.json to https://
+    # causing Swagger UI to fail fetching the schema.
+    # Can be overridden via CSP_POLICY_DEV in .env.
+    csp_policy_dev: str = (
+        "default-src 'self'; "
+        # 'unsafe-inline' is required for Swagger UI's inline initialisation script
+        # (<script>const ui = SwaggerUIBundle({...})</script>). ReDoc does not need it
+        # because it uses a web component (<redoc spec-url=...>) with no inline code.
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: blob: https://fastapi.tiangolo.com; "
+        "font-src 'self'; "
+        # Allow Swagger UI to fetch /openapi.json from both loopback aliases
+        # a developer might use (127.0.0.1 and localhost are distinct origins).
+        "connect-src 'self' http://127.0.0.1:8000 http://localhost:8000; "
+        "media-src 'none'; "
+        "object-src 'none'; "
+        "frame-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
     )
     permissions_policy: str = (
         "accelerometer=(), "
@@ -238,6 +266,17 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def effective_csp_policy(self) -> str:
+        """Return the CSP suited for the current environment.
+
+        Production uses the strict policy (csp_policy); every other
+        environment uses csp_policy_dev, which allows CDN assets needed by
+        Swagger UI and omits upgrade-insecure-requests so that HTTP dev
+        servers can serve /openapi.json without being upgraded to HTTPS.
+        """
+        return self.csp_policy if self.is_production else self.csp_policy_dev
 
     @property
     def azure_credentials_available(self) -> bool:
