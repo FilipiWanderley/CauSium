@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.database import ensure_sqlite_schema
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import install_middlewares
 from app.core.observability import build_sli_slo_snapshot, render_metrics_prometheus
@@ -21,7 +22,17 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+
+    if not os.getenv("DATABASE_URL", "").strip():
+        log.error(
+            "database_url.missing_env_using_sqlite_fallback",
+            fallback_url=settings.database_url_effective,
+        )
+    if not os.getenv("REDIS_URL", "").strip():
+        log.warning("redis_url.missing_env_disabling_redis")
+
     settings.validate_production_security()
+    await ensure_sqlite_schema()
     setup_tracing(
         service_name=settings.otel_service_name,
         otlp_endpoint=settings.otel_exporter_otlp_endpoint,
@@ -57,7 +68,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

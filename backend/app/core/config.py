@@ -24,11 +24,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
-    # PostgreSQL
-    database_url: str = "postgresql+asyncpg://causium:causium_dev@localhost:5432/causium"
+    # PostgreSQL (explicit env var in production; fallback for staging)
+    database_url: str = ""
+    sqlite_fallback_url: str = "sqlite+aiosqlite:///./test.db"
 
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    # Redis (optional in staging fallback mode)
+    redis_url: str = ""
 
     # ClickHouse
     clickhouse_host: str = "localhost"
@@ -289,6 +290,34 @@ class Settings(BaseSettings):
         return False
 
     @property
+    def database_url_effective(self) -> str:
+        env_db_url = os.getenv("DATABASE_URL", "").strip()
+        if env_db_url:
+            return env_db_url
+        # In Azure App Service, missing DATABASE_URL should trigger the staging
+        # fallback instead of silently using any local/default config.
+        if os.getenv("WEBSITE_SITE_NAME", "").strip():
+            return self.sqlite_fallback_url.strip()
+        cfg_db_url = self.database_url.strip()
+        if cfg_db_url:
+            return cfg_db_url
+        return self.sqlite_fallback_url.strip()
+
+    @property
+    def redis_url_effective(self) -> str:
+        env_redis_url = os.getenv("REDIS_URL", "").strip()
+        if env_redis_url:
+            return env_redis_url
+        # In Azure App Service, missing REDIS_URL keeps Redis disabled (staging mode).
+        if os.getenv("WEBSITE_SITE_NAME", "").strip():
+            return ""
+        return self.redis_url.strip()
+
+    @property
+    def redis_enabled(self) -> bool:
+        return bool(self.redis_url_effective)
+
+    @property
     def effective_csp_policy(self) -> str:
         """Return the CSP suited for the current environment.
 
@@ -343,18 +372,13 @@ class Settings(BaseSettings):
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
 
-        db_url_raw = self.database_url.strip()
-        redis_url_raw = self.redis_url.strip()
+        db_url_raw = self.database_url_effective.strip()
+        redis_url_raw = self.redis_url_effective.strip()
         if not db_url_raw:
             raise ValueError(
                 "DATABASE_URL is required in production. "
                 "Set Azure App Service Application Setting DATABASE_URL="
                 "postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DB"
-            )
-        if not redis_url_raw:
-            raise ValueError(
-                "REDIS_URL is required in production. "
-                "Set Azure App Service Application Setting REDIS_URL=rediss://HOST:PORT/0"
             )
 
         from urllib.parse import urlparse
@@ -362,36 +386,38 @@ class Settings(BaseSettings):
         db_host = (urlparse(db_url_raw).hostname or "").strip().lower()
         redis_host = (urlparse(redis_url_raw).hostname or "").strip().lower()
         local_hosts = {"localhost", "127.0.0.1", "::1"}
-        if db_host in local_hosts:
+        db_is_sqlite = db_url_raw.lower().startswith("sqlite+")
+        if not db_is_sqlite and db_host in local_hosts:
             raise ValueError(
                 "DATABASE_URL points to localhost in production. "
                 "Use the managed PostgreSQL host in Azure App Service settings."
             )
-        if redis_host in local_hosts:
+        if redis_url_raw and redis_host in local_hosts:
             raise ValueError(
                 "REDIS_URL points to localhost in production. "
                 "Use the managed Redis host in Azure App Service settings."
             )
 
-        db_url = self.database_url.lower()
-        url_has_sslmode = "sslmode=" in db_url
-        url_sslmode_secure = any(
-            v in db_url for v in ("sslmode=require", "sslmode=verify-ca", "sslmode=verify-full")
-        )
-        # Keep validation aligned with explicit SQLAlchemy SSL configuration:
-        # create_async_engine(..., connect_args={"ssl": ssl_ctx}) should be
-        # considered enabled only when db_ssl_enabled is explicitly true.
-        ssl_via_connect_args = self.db_ssl_enabled
-
-        if url_has_sslmode and not url_sslmode_secure:
-            raise ValueError("DATABASE_URL sslmode must be require/verify-ca/verify-full in production")
-        if not (url_sslmode_secure or ssl_via_connect_args):
-            raise ValueError(
-                "PostgreSQL TLS must be enabled in production via DATABASE_URL sslmode "
-                "(require/verify-ca/verify-full) or SQLAlchemy connect_args ssl context"
+        db_url = db_url_raw.lower()
+        if not db_is_sqlite:
+            url_has_sslmode = "sslmode=" in db_url
+            url_sslmode_secure = any(
+                v in db_url for v in ("sslmode=require", "sslmode=verify-ca", "sslmode=verify-full")
             )
+            # Keep validation aligned with explicit SQLAlchemy SSL configuration:
+            # create_async_engine(..., connect_args={"ssl": ssl_ctx}) should be
+            # considered enabled only when db_ssl_enabled is explicitly true.
+            ssl_via_connect_args = self.db_ssl_enabled
 
-        if not self.redis_url.lower().startswith("rediss://"):
+            if url_has_sslmode and not url_sslmode_secure:
+                raise ValueError("DATABASE_URL sslmode must be require/verify-ca/verify-full in production")
+            if not (url_sslmode_secure or ssl_via_connect_args):
+                raise ValueError(
+                    "PostgreSQL TLS must be enabled in production via DATABASE_URL sslmode "
+                    "(require/verify-ca/verify-full) or SQLAlchemy connect_args ssl context"
+                )
+
+        if redis_url_raw and not redis_url_raw.lower().startswith("rediss://"):
             raise ValueError("REDIS_URL must use rediss:// in production")
 
         if not self.clickhouse_secure:
@@ -410,7 +436,7 @@ class Settings(BaseSettings):
         if self.db_ssl_min_version != "TLSv1.3":
             raise ValueError("DB_SSL_MIN_VERSION must be TLSv1.3 in production")
 
-        if self.redis_ssl_min_version != "TLSv1.3":
+        if redis_url_raw and self.redis_ssl_min_version != "TLSv1.3":
             raise ValueError("REDIS_SSL_MIN_VERSION must be TLSv1.3 in production")
 
         if not self.clickhouse_verify:

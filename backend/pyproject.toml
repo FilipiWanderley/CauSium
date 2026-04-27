@@ -12,6 +12,7 @@ fastapi = "^0.115.0"
 uvicorn = {version = "^0.30.0", extras = ["standard"]}
 sqlalchemy = {version = "^2.0.0", extras = ["asyncio"]}
 asyncpg = "^0.29.0"
+aiosqlite = "^0.20.0"
 alembic = "^1.13.0"
 pydantic = {version = "^2.8.0", extras = ["email"]}
 pydantic-settings = "^2.4.0"

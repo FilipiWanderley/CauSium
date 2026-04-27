@@ -13,6 +13,16 @@ class Base(DeclarativeBase):
 
 def create_engine():
     settings = get_settings()
+    database_url = settings.database_url_effective
+
+    # SQLite fallback mode (staging): avoid PostgreSQL-specific pool/SSL args.
+    if database_url.startswith("sqlite+aiosqlite://"):
+        return create_async_engine(
+            database_url,
+            echo=not settings.is_production,
+            pool_pre_ping=True,
+        )
+
     connect_args: dict = {}
     if settings.db_ssl_enabled or settings.is_production:
         ssl_ctx = ssl.create_default_context()
@@ -23,7 +33,7 @@ def create_engine():
             ssl_ctx.verify_mode = ssl.CERT_NONE
         connect_args["ssl"] = ssl_ctx
     return create_async_engine(
-        settings.database_url,
+        database_url,
         echo=not settings.is_production,
         pool_pre_ping=True,
         pool_size=10,
@@ -39,6 +49,15 @@ async_session_factory = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
 )
+
+
+async def ensure_sqlite_schema() -> None:
+    settings = get_settings()
+    if not settings.database_url_effective.startswith("sqlite+aiosqlite://"):
+        return
+    # Best-effort table creation for staging fallback when no external DB exists.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
