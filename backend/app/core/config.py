@@ -1,5 +1,6 @@
 from __future__ import annotations
 from functools import lru_cache
+import os
 from typing import List
 
 from pydantic import field_validator
@@ -275,7 +276,17 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        return self.app_env == "production"
+        app_env = self.app_env.strip().lower()
+        env_runtime = os.getenv("ENVIRONMENT", "").strip().lower()
+        azure_site_name = os.getenv("WEBSITE_SITE_NAME", "").strip()
+        if app_env == "production" or env_runtime == "production":
+            return True
+        # On Azure App Service, defaulting to development is unsafe because
+        # localhost datastore fallbacks will fail at runtime. Treat Azure as
+        # production unless explicitly configured otherwise.
+        if azure_site_name and app_env in {"", "development", "dev", "local"}:
+            return True
+        return False
 
     @property
     def effective_csp_policy(self) -> str:
