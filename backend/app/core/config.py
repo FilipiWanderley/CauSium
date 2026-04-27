@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     clickhouse_verify: bool = True
 
     # TLS enforcement for datastores (SP-A07)
-    # PostgreSQL — ssl.SSLContext is injected into asyncpg when enabled or in production.
+    # PostgreSQL — ssl.SSLContext is injected into asyncpg when explicitly enabled.
     db_ssl_enabled: bool = False
     db_ssl_verify: bool = True
     db_ssl_ca_file: str = ""
@@ -101,7 +101,11 @@ class Settings(BaseSettings):
     auth_cookie_secure: bool | None = None
     passkey_rp_id: str = "localhost"
     passkey_rp_name: str = "CauSium"
-    passkey_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
+    passkey_allowed_origins: str = (
+        "http://localhost:5173,"
+        "http://localhost:5174,"
+        "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net"
+    )
 
     # SMTP (SP-AP03)
     smtp_enabled: bool = False
@@ -121,7 +125,13 @@ class Settings(BaseSettings):
     encryption_key: str = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
+    cors_origins: str = (
+        "http://localhost:3000,"
+        "http://localhost:5173,"
+        "http://localhost:5174,"
+        "https://causium-api-2026-*.azurewebsites.net,"
+        "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net"
+    )
 
     # SP-A04: Origin / Referer validation on auth state-mutation endpoints.
     # Provides defense-in-depth against CSRF for clients that bypass SameSite=Strict.
@@ -323,10 +333,22 @@ class Settings(BaseSettings):
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
 
         db_url = self.database_url.lower()
-        if "sslmode=" not in db_url:
-            raise ValueError("DATABASE_URL must include sslmode in production")
-        if not any(v in db_url for v in ("sslmode=require", "sslmode=verify-ca", "sslmode=verify-full")):
+        url_has_sslmode = "sslmode=" in db_url
+        url_sslmode_secure = any(
+            v in db_url for v in ("sslmode=require", "sslmode=verify-ca", "sslmode=verify-full")
+        )
+        # Keep validation aligned with explicit SQLAlchemy SSL configuration:
+        # create_async_engine(..., connect_args={"ssl": ssl_ctx}) should be
+        # considered enabled only when db_ssl_enabled is explicitly true.
+        ssl_via_connect_args = self.db_ssl_enabled
+
+        if url_has_sslmode and not url_sslmode_secure:
             raise ValueError("DATABASE_URL sslmode must be require/verify-ca/verify-full in production")
+        if not (url_sslmode_secure or ssl_via_connect_args):
+            raise ValueError(
+                "PostgreSQL TLS must be enabled in production via DATABASE_URL sslmode "
+                "(require/verify-ca/verify-full) or SQLAlchemy connect_args ssl context"
+            )
 
         if not self.redis_url.lower().startswith("rediss://"):
             raise ValueError("REDIS_URL must use rediss:// in production")
