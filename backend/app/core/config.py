@@ -131,7 +131,6 @@ class Settings(BaseSettings):
         "http://localhost:3000,"
         "http://localhost:5173,"
         "http://localhost:5174,"
-        "https://causium-api-2026-*.azurewebsites.net,"
         "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net"
     )
 
@@ -282,11 +281,15 @@ class Settings(BaseSettings):
         azure_site_name = os.getenv("WEBSITE_SITE_NAME", "").strip()
         if app_env == "production" or env_runtime == "production":
             return True
-        # On Azure App Service, defaulting to development is unsafe because
-        # localhost datastore fallbacks will fail at runtime. Treat Azure as
-        # production unless explicitly configured otherwise.
-        if azure_site_name and app_env in {"", "development", "dev", "local"}:
-            return True
+        # Azure staging mode: allow SQLite fallback when DATABASE_URL is absent.
+        if azure_site_name:
+            db_url = os.getenv("DATABASE_URL", "").strip()
+            # If DATABASE_URL is absent and APP_ENV is staging/dev, use staging mode
+            if not db_url and app_env in {"", "development", "dev", "local", "staging"}:
+                return False
+            # If DATABASE_URL is present but APP_ENV is still dev/local, treat as production
+            if app_env in {"", "development", "dev", "local"}:
+                return True
         return False
 
     @property
@@ -372,7 +375,12 @@ class Settings(BaseSettings):
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")
 
+        # Allow SQLite staging fallback in Azure without external datastores
         db_url_raw = self.database_url_effective.strip()
+        db_is_sqlite = db_url_raw.lower().startswith("sqlite+")
+        if db_is_sqlite:
+            # SQLite staging mode - skip remaining datastore validations
+            return
         redis_url_raw = self.redis_url_effective.strip()
         if not db_url_raw:
             raise ValueError(

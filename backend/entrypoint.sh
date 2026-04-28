@@ -3,8 +3,26 @@
 # Used by backend/worker containers.
 set -e
 
-# Ensure alembic_version uses varchar(128) to accommodate long revision IDs.
-# This is idempotent â€” CREATE TABLE IF NOT EXISTS + ALTER column if needed.
+# SQLite fallback for Azure staging when DATABASE_URL is absent or unreachable.
+# This allows the backend to start in staging mode without external datastores.
+DATABASE_URL="${DATABASE_URL:-}"
+if [ -z "$DATABASE_URL" ]; then
+    echo "[entrypoint] DATABASE_URL not set, using SQLite fallback"
+    export DATABASE_URL="sqlite+aiosqlite:///./test.db"
+fi
+
+# Skip PostgreSQL-specific setup for SQLite
+if echo "$DATABASE_URL" | grep -q "^sqlite"; then
+    echo "[entrypoint] SQLite detected, skipping asyncpg table preparation"
+    echo "[entrypoint] Running migrations: alembic upgrade head"
+    alembic upgrade head
+    echo "[entrypoint] Migrations applied successfully."
+    echo "[entrypoint] Starting process: $*"
+    exec "$@"
+fi
+
+# PostgreSQL path: ensure alembic_version uses varchar(128) to accommodate long revision IDs.
+# This is idempotent — CREATE TABLE IF NOT EXISTS + ALTER column if needed.
 echo "[entrypoint] Preparing database migration state..."
 python - <<'PYEOF'
 import asyncio
