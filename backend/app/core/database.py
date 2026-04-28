@@ -1,10 +1,14 @@
+import logging
 import ssl
 from typing import AsyncGenerator
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -55,9 +59,14 @@ async def ensure_sqlite_schema() -> None:
     settings = get_settings()
     if not settings.database_url_effective.startswith("sqlite+aiosqlite://"):
         return
-    # Best-effort table creation for staging fallback when no external DB exists.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except OperationalError as exc:
+        if "already exists" in str(exc):
+            logger.warning("ensure_sqlite_schema: tables already exist (race), skipping")
+        else:
+            raise
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

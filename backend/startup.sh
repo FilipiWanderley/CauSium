@@ -37,8 +37,18 @@ if echo "$DATABASE_URL" | grep -q "^sqlite"; then
     echo "[startup] SQLite mode — running alembic upgrade head..."
     # allow failure: ensure_sqlite_schema() in lifespan handles table creation
     $PY -m alembic upgrade head || echo "[startup] alembic note: $?"
+    WORKERS=1
+else
+    WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 
 # --- Start server ---
-echo "[startup] Starting uvicorn..."
-exec $PY -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+PORT="${PORT:-8000}"
+echo "[startup] Starting gunicorn (workers=$WORKERS, port=$PORT)..."
+exec $PY -m gunicorn app.main:app \
+    -k uvicorn.workers.UvicornWorker \
+    --bind "0.0.0.0:${PORT}" \
+    --workers "$WORKERS" \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile -
