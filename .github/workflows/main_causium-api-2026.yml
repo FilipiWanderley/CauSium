@@ -20,13 +20,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies with Poetry
+      - name: Verify requirements.txt is present
         working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.in-project true
-          poetry install --no-interaction --no-root --only main
+        run: test -f requirements.txt
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
@@ -34,6 +30,7 @@ jobs:
           name: python-app
           path: |
             backend
+            !backend/.venv/
             !backend/__pycache__/
             !backend/.pytest_cache/
 
