@@ -55,4 +55,4 @@ jobs:
           app-name: 'causium-api-2026'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_900224B33F554AEEBBDAE3170E557EE3 }}
-          package: 'backend'
+          package: '.'
