@@ -34,11 +34,13 @@ DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///./test.db}"
 export DATABASE_URL
 
 if echo "$DATABASE_URL" | grep -q "^sqlite"; then
-    echo "[startup] SQLite mode — running alembic upgrade head..."
-    # allow failure: ensure_sqlite_schema() in lifespan handles table creation
-    $PY -m alembic upgrade head || echo "[startup] alembic note: $?"
+    # SQLite staging: alembic migrations use PostgreSQL-specific types (JSONB etc.)
+    # and would fail. Schema is created entirely by ensure_sqlite_schema() in app lifespan.
+    echo "[startup] SQLite mode — skipping alembic (schema handled by app lifespan)."
     WORKERS=1
 else
+    echo "[startup] PostgreSQL mode — running alembic upgrade head..."
+    $PY -m alembic upgrade head
     WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 

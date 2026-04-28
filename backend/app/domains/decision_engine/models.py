@@ -4,8 +4,9 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UUID, UniqueConstraint, func
+
+from app.core.types import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -21,7 +22,7 @@ class ProviderRecommendationStatus(str, enum.Enum):
 class ProviderRecommendation(Base):
     __tablename__ = "provider_recommendations"
 
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     account_id: Mapped[UUID] = mapped_column(ForeignKey("cloud_accounts.id"), nullable=False)
     provider: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -41,7 +42,7 @@ class ProviderRecommendation(Base):
 class SyncRecord(Base):
     __tablename__ = "sync_records"
 
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     org_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     account_id: Mapped[UUID] = mapped_column(ForeignKey("cloud_accounts.id"), nullable=False)
     sync_type: Mapped[str] = mapped_column(String(32), nullable=False)
