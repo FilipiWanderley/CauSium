@@ -56,4 +56,3 @@ jobs:
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_900224B33F554AEEBBDAE3170E557EE3 }}
           package: 'backend'
-          startup-command: 'bash entrypoint.sh uvicorn app.main:app --host 0.0.0.0 --port 8000'
