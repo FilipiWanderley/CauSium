@@ -5,7 +5,7 @@ import { useI18n } from '../../contexts/I18nContext'
 import type { ExecutionPlanStatus } from '../../types'
 
 export function OptimizationPlanPage() {
-  const { t, language } = useI18n()
+  const { t, lang } = useI18n()
   const queryClient = useQueryClient()
   const [reviewComment, setReviewComment] = useState('')
   const [scheduledFor, setScheduledFor] = useState('')
@@ -15,10 +15,10 @@ export function OptimizationPlanPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['optimization-plan', language],
+    queryKey: ['optimization-plan', lang],
     queryFn: async () => {
       const response = await intelApi.optimizationPlan({
-        language: language === 'pt' ? 'pt' : 'en',
+        language: lang === 'pt' ? 'pt' : 'en',
         include_ai_summary: true,
       })
       return response.data
@@ -163,12 +163,12 @@ export function OptimizationPlanPage() {
 
   const currency = useMemo(
     () =>
-      new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', {
+      new Intl.NumberFormat(lang === 'pt' ? 'pt-BR' : 'en-US', {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0,
       }),
-    [language]
+    [lang]
   )
 
   if (isLoading) {
