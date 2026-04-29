@@ -17,10 +17,23 @@ export const apiClient = axios.create({
   withCredentials: true,
 })
 
+let _isRefreshing = false
+
 apiClient.interceptors.response.use(
   (r) => r,
   async (error) => {
-    if (error.response?.status === 401) {
+    const originalRequest = error.config
+    // Only attempt refresh once, and not for auth endpoints themselves
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh') &&
+      !originalRequest.url?.includes('/auth/login') &&
+      !originalRequest.url?.includes('/auth/me')
+    ) {
+      if (_isRefreshing) return Promise.reject(error)
+      originalRequest._retry = true
+      _isRefreshing = true
       try {
         await axios.post(
           `${BASE_URL}/api/v1/auth/refresh`,
@@ -30,8 +43,10 @@ apiClient.interceptors.response.use(
             headers: { 'Content-Type': 'application/json' },
           }
         )
-        return apiClient.request(error.config)
+        _isRefreshing = false
+        return apiClient.request(originalRequest)
       } catch {
+        _isRefreshing = false
         window.location.href = '/login'
       }
     }
