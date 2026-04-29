@@ -1,11 +1,13 @@
 from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -171,3 +173,29 @@ async def metrics_slo(
         error_budget_pct=error_budget_pct,
         api_p95_ms_target=api_p95_ms,
     )
+
+
+# ---------------------------------------------------------------------------
+# Frontend SPA — serve React build from /home/site/wwwroot/frontend_dist
+# Falls back to index.html for all non-API, non-asset routes (SPA routing).
+# ---------------------------------------------------------------------------
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"
+
+if _FRONTEND_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/favicon.svg", include_in_schema=False)
+    async def favicon():
+        return FileResponse(str(_FRONTEND_DIST / "favicon.svg"))
+
+    @app.get("/landing/{path:path}", include_in_schema=False)
+    async def landing_static(path: str):
+        file = _FRONTEND_DIST / "landing" / path
+        if file.is_file():
+            return FileResponse(str(file))
+        raise HTTPException(status_code=404)
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        index = _FRONTEND_DIST / "index.html"
+        return FileResponse(str(index))

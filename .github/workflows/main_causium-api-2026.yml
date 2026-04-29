@@ -20,6 +20,22 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_URL: ''
+        run: |
+          npm ci
+          npm run build
+          cp -r dist ../backend/frontend_dist
+
       - name: Verify requirements.txt is present
         working-directory: backend
         run: test -f requirements.txt
