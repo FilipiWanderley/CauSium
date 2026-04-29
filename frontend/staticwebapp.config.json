@@ -3,6 +3,7 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
+      "/landing/*",
       "/*.css",
       "/*.js",
       "/*.map",
@@ -22,6 +23,32 @@
       "/manifest.webmanifest"
     ]
   },
+  "routes": [
+    {
+      "route": "/login",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/login/*",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/app/*",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/forgot-password",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/reset-password",
+      "rewrite": "/index.html"
+    },
+    {
+      "route": "/activate",
+      "rewrite": "/index.html"
+    }
+  ],
   "globalHeaders": {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
