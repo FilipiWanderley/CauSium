@@ -25,6 +25,10 @@
   },
   "routes": [
     {
+      "route": "/api/*",
+      "rewrite": "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net/api/*"
+    },
+    {
       "route": "/login",
       "rewrite": "/index.html"
     },
