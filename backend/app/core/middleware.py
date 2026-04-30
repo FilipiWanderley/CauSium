@@ -362,7 +362,7 @@ def install_middlewares(app: FastAPI) -> None:
             _apply_security_headers(
                 response,
                 is_api_path=path.startswith("/api/"),
-                is_landing_path=path.startswith("/landing/"),
+                is_landing_path=path == "/" or path.startswith("/landing/"),
             )
             return response
 
