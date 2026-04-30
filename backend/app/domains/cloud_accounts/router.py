@@ -100,6 +100,10 @@ async def create_account(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await service.audit_create(current_user.org_id, current_user.id, account)
+    # Auto-sync: kick off initial data pull immediately after account creation
+    asyncio.create_task(
+        _run_inline_sync_pipeline(current_user.org_id, account.account_id, lookback_days=90)
+    )
     return CloudAccountOut.model_validate(account)
 
 

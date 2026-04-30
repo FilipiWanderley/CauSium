@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -40,11 +41,36 @@ async def lifespan(app: FastAPI):
         otlp_endpoint=settings.otel_exporter_otlp_endpoint,
         sample_ratio=settings.otel_sample_ratio,
     )
-    # instrument_app must run after setup_tracing so FastAPIInstrumentor
-    # receives a properly configured TracerProvider, not the no-op default.
     instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
+
+    # Daily auto-sync background task — syncs all cloud accounts every 24h
+    async def _daily_sync_all():
+        import asyncio
+        from app.core.database import async_session_factory
+        from app.domains.cloud_accounts.router import _run_inline_sync_pipeline
+        while True:
+            await asyncio.sleep(86400)  # 24 hours
+            try:
+                async with async_session_factory() as db:
+                    from sqlalchemy import select
+                    from app.domains.cloud_accounts.models import CloudAccount
+                    result = await db.execute(select(CloudAccount).where(CloudAccount.status != "archived"))
+                    accounts = result.scalars().all()
+                log.info("daily_sync.starting", accounts=len(accounts))
+                for account in accounts:
+                    try:
+                        await _run_inline_sync_pipeline(account.org_id, account.account_id, lookback_days=1)
+                    except Exception as exc:
+                        log.warning("daily_sync.account_failed", account_id=str(account.account_id), error=str(exc))
+            except Exception as exc:
+                log.warning("daily_sync.failed", error=str(exc))
+
+    sync_task = asyncio.create_task(_daily_sync_all())
+
     yield
+
+    sync_task.cancel()
     from app.core.redis import close_redis
     await close_redis()
     shutdown_tracing()
