@@ -166,27 +166,9 @@ def _extract_request_origin(request: Request) -> str | None:
 
 
 def _is_origin_allowed(origin: str, allowed: list[str]) -> bool:
-    """Allow configured origins (exact or wildcard) and Azure App Service domains."""
-    from fnmatch import fnmatch
-    from urllib.parse import urlparse
-
+    """Case-insensitive exact match against the allowed origins list."""
     needle = origin.rstrip("/").lower()
-
-    # 1) Configured allowlist (supports exact values and patterns such as *.azurewebsites.net)
-    for entry in allowed:
-        pattern = entry.rstrip("/").lower()
-        if needle == pattern or fnmatch(needle, pattern):
-            return True
-
-    # 2) Safety valve for Azure App Service domains used across staging slots/apps
-    try:
-        host = (urlparse(origin).hostname or "").lower()
-    except Exception:
-        host = ""
-    if host.endswith(".azurewebsites.net"):
-        return True
-
-    return False
+    return any(a.rstrip("/").lower() == needle for a in allowed)
 
 
 def _is_local_dev_origin(origin: str) -> bool:
