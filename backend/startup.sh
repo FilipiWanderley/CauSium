@@ -30,8 +30,10 @@ fi
 echo "[startup] Python: $($PY --version)"
 
 # --- Database ---
-DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///./test.db}"
+# Use /home for SQLite so data persists across restarts (Azure App Service persistent storage)
+DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:////home/causium-data/causium.db}"
 export DATABASE_URL
+mkdir -p /home/causium-data
 
 if echo "$DATABASE_URL" | grep -q "^sqlite"; then
     # SQLite staging: alembic migrations use PostgreSQL-specific types (JSONB etc.)
