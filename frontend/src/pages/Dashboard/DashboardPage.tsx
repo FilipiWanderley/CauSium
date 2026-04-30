@@ -165,13 +165,19 @@ export function DashboardPage() {
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard', providerFilter],
     queryFn: () => ledgerApi.dashboard(providerParam).then((r) => r.data),
-    refetchInterval: 30000,
+    refetchInterval: (data) => {
+      const hasPending = (accounts ?? []).some((a) => a.status === 'pending')
+      return hasPending ? 5000 : 30000
+    },
   })
 
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
     queryFn: () => cloudAccountsApi.list().then((r) => r.data.items),
-    refetchInterval: 30000,
+    refetchInterval: (data) => {
+      const hasPending = (data ?? []).some((a) => a.status === 'pending')
+      return hasPending ? 5000 : 30000
+    },
   })
 
   const refreshDashboardMutation = useMutation({

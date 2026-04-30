@@ -1,11 +1,10 @@
 from __future__ import annotations
-import asyncio
 import json
 from datetime import date, timedelta
 from typing import Annotated, List, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,62 +49,87 @@ def _cloud_account_out(account: object) -> CloudAccountOut:
 async def _run_inline_sync_pipeline(org_id: UUID, account_id: UUID, lookback_days: int) -> None:
     from app.domains.cloud_ledger.service import CloudLedgerService
     from app.domains.decision_engine.service import DecisionEngineService
+    from app.domains.cloud_accounts.models import ConnectorStatus
+    from datetime import datetime, timezone
 
-    async with async_session_factory() as db:
-        account_service = CloudAccountService(db)
-        account = await account_service.get_account(org_id, account_id)
-        if not account:
-            log.warning(
-                "cloud_account.inline_sync.account_not_found",
-                org_id=str(org_id),
-                account_id=str(account_id),
+    try:
+        async with async_session_factory() as db:
+            account_service = CloudAccountService(db)
+            account = await account_service.get_account(org_id, account_id)
+            if not account:
+                log.warning(
+                    "cloud_account.inline_sync.account_not_found",
+                    org_id=str(org_id),
+                    account_id=str(account_id),
+                )
+                return
+
+            end = date.today()
+            start = end - timedelta(days=lookback_days)
+            ledger = CloudLedgerService(db)
+            result = await ledger.ingest_account(org_id, account_id, start, end)
+
+            # ingest_account uses flush() internally — commit here to persist status change
+            await db.commit()
+
+            opportunities_generated = 0
+            try:
+                decision_engine = DecisionEngineService(db)
+                opportunities = await decision_engine.generate_opportunities_for_account(org_id, account_id)
+                opportunities_generated = len(opportunities)
+            except Exception as exc:
+                log.warning(
+                    "cloud_account.inline_sync.scoring_failed",
+                    org_id=str(org_id),
+                    account_id=str(account_id),
+                    error=str(exc),
+                )
+
+            await NotificationsService(db).create_realtime_alert(
+                org_id=org_id,
+                category=AlertCategory.ACTIVITY,
+                severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
+                event_type="cloud_account.sync.completed" if result.status == "ok" else "cloud_account.sync.warning",
+                title=f"Sync finished for {account.display_name}",
+                body=(
+                    f"Costs: {result.cost_records}, events: {result.event_records}, inventory: {result.inventory_records}, opportunities: {opportunities_generated}"
+                    if result.status == "ok"
+                    else (result.message or "Sync finished with partial errors.")
+                ),
+                source_type="cloud_account_sync",
+                source_id=f"{account_id}:{lookback_days}:inline",
+                extra_metadata={
+                    "account_id": str(account_id),
+                    "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
+                    "lookback_days": lookback_days,
+                    "mode": "inline",
+                },
             )
-            return
-
-        end = date.today()
-        start = end - timedelta(days=lookback_days)
-        ledger = CloudLedgerService(db)
-        result = await ledger.ingest_account(org_id, account_id, start, end)
-
-        opportunities_generated = 0
-        try:
-            decision_engine = DecisionEngineService(db)
-            opportunities = await decision_engine.generate_opportunities_for_account(org_id, account_id)
-            opportunities_generated = len(opportunities)
-        except Exception as exc:
-            log.warning(
-                "cloud_account.inline_sync.scoring_failed",
-                org_id=str(org_id),
-                account_id=str(account_id),
-                error=str(exc),
-            )
-
-        await NotificationsService(db).create_realtime_alert(
-            org_id=org_id,
-            category=AlertCategory.ACTIVITY,
-            severity=AlertSeverity.INFO if result.status == "ok" else AlertSeverity.WARNING,
-            event_type="cloud_account.sync.completed" if result.status == "ok" else "cloud_account.sync.warning",
-            title=f"Sync finished for {account.display_name}",
-            body=(
-                f"Costs: {result.cost_records}, events: {result.event_records}, inventory: {result.inventory_records}, opportunities: {opportunities_generated}"
-                if result.status == "ok"
-                else (result.message or "Sync finished with partial errors.")
-            ),
-            source_type="cloud_account_sync",
-            source_id=f"{account_id}:{lookback_days}:inline",
-            extra_metadata={
-                "account_id": str(account_id),
-                "provider": account.provider.value if hasattr(account.provider, "value") else str(account.provider),
-                "lookback_days": lookback_days,
-                "mode": "inline",
-            },
+            await db.commit()
+    except Exception as exc:
+        log.exception(
+            "cloud_account.inline_sync.pipeline_failed",
+            org_id=str(org_id),
+            account_id=str(account_id),
+            error=str(exc),
         )
-        await db.commit()
+        # Mark account as ERROR so it doesn't stay stuck in PENDING
+        try:
+            async with async_session_factory() as db:
+                account_service = CloudAccountService(db)
+                account = await account_service.get_account(org_id, account_id)
+                if account and account.status == ConnectorStatus.PENDING:
+                    account.status = ConnectorStatus.ERROR
+                    account.last_sync_at = datetime.now(timezone.utc)
+                    await db.commit()
+        except Exception:
+            log.exception("cloud_account.inline_sync.status_update_failed", account_id=str(account_id))
 
 
 @router.post("", response_model=CloudAccountOut, status_code=status.HTTP_201_CREATED)
 async def create_account(
     req: CloudAccountCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
 ):
@@ -115,10 +139,7 @@ async def create_account(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await service.audit_create(current_user.org_id, current_user.id, account)
-    # Auto-sync: kick off initial data pull immediately after account creation
-    asyncio.create_task(
-        _run_inline_sync_pipeline(current_user.org_id, account.id, lookback_days=90)
-    )
+    background_tasks.add_task(_run_inline_sync_pipeline, current_user.org_id, account.id, 90)
     return _cloud_account_out(account)
 
 
@@ -198,6 +219,7 @@ async def get_health_history(
 async def trigger_sync(
     account_id: UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
@@ -239,9 +261,7 @@ async def trigger_sync(
             )
 
     if sync_mode == "inline":
-        asyncio.create_task(
-            _run_inline_sync_pipeline(current_user.org_id, account_id, lookback_days)
-        )
+        background_tasks.add_task(_run_inline_sync_pipeline, current_user.org_id, account_id, lookback_days)
         out = SyncStatusOut(
             account_id=account_id,
             triggered=True,
