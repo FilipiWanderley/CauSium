@@ -139,10 +139,6 @@ export function SettingsPage() {
             : undefined,
       })
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] })
-      setCloudForm(defaultCloudForm)
-    },
   })
   const validateCloudAccountMutation = useMutation({
     mutationFn: (accountId: string) => cloudAccountsApi.validate(accountId),
@@ -272,11 +268,17 @@ export function SettingsPage() {
         storage: hasStorageScope ? 'ok' : 'idle',
       })
       setValidationMessage(validation.data.message || 'Credencial validada com sucesso.')
+      await queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] })
+      setCloudForm(defaultCloudForm)
     } catch (error) {
+      const responseData = (error as { response?: { status?: number; data?: unknown } })?.response?.data
+      const status = (error as { response?: { status?: number } })?.response?.status
       const detail =
-        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        (typeof responseData === 'string' && responseData.trim()) ||
+        ((responseData as { detail?: string })?.detail?.trim?.() as string | undefined) ||
+        (error as Error)?.message ||
         'Falha ao validar credencial. Revise os dados e permissões.'
-      setValidationMessage(detail)
+      setValidationMessage(status ? `(${status}) ${detail}` : detail)
       setValidationChecks((prev) => ({
         credentials: prev.credentials === 'ok' ? 'ok' : 'error',
         subscription: 'error',

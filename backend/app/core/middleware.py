@@ -362,7 +362,11 @@ def install_middlewares(app: FastAPI) -> None:
             _apply_security_headers(
                 response,
                 is_api_path=path.startswith("/api/"),
-                is_landing_path=path == "/" or path.startswith("/landing/"),
+                is_landing_path=(
+                    path == "/"
+                    or path.startswith("/landing/")
+                    or path in {"/login", "/forgot-password", "/reset-password", "/activate"}
+                ),
             )
             return response
 
@@ -466,7 +470,14 @@ def install_middlewares(app: FastAPI) -> None:
             duration_ms = now_ms() - started_ms
             observe_api_request(method, path, 500, duration_ms)
             log.exception("api.request.failed", duration_ms=round(duration_ms, 2))
-            raise
+            resp = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error", "trace_id": trace_id},
+            )
+            resp.headers["X-Trace-ID"] = trace_id
+            if not resp.headers.get("X-Request-ID"):
+                resp.headers["X-Request-ID"] = trace_id
+            return resp
         finally:
             # After call_next the OTel FastAPI span is active; capture its IDs
             # for correlation between logs and traces.

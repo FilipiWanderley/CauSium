@@ -60,9 +60,9 @@ async def lifespan(app: FastAPI):
                 log.info("daily_sync.starting", accounts=len(accounts))
                 for account in accounts:
                     try:
-                        await _run_inline_sync_pipeline(account.org_id, account.account_id, lookback_days=1)
+                        await _run_inline_sync_pipeline(account.org_id, account.id, lookback_days=1)
                     except Exception as exc:
-                        log.warning("daily_sync.account_failed", account_id=str(account.account_id), error=str(exc))
+                        log.warning("daily_sync.account_failed", account_id=str(account.id), error=str(exc))
             except Exception as exc:
                 log.warning("daily_sync.failed", error=str(exc))
 

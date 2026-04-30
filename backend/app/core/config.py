@@ -197,7 +197,7 @@ class Settings(BaseSettings):
         "font-src 'self'; "
         # Allow Swagger UI to fetch /openapi.json from both loopback aliases
         # a developer might use (127.0.0.1 and localhost are distinct origins).
-        "connect-src 'self' http://127.0.0.1:8000 http://localhost:8000; "
+        "connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https://storage.googleapis.com; "
         "media-src 'none'; "
         "object-src 'none'; "
         "frame-src 'none'; "
@@ -207,16 +207,10 @@ class Settings(BaseSettings):
     )
     permissions_policy: str = (
         "accelerometer=(), "
-        "ambient-light-sensor=(), "
         "autoplay=(), "
-        "battery=(), "
         "camera=(), "
-        "cross-origin-isolated=(), "
         "display-capture=(), "
-        "document-domain=(), "
         "encrypted-media=(), "
-        "execution-while-not-rendered=(), "
-        "execution-while-out-of-viewport=(), "
         "fullscreen=(), "
         "geolocation=(), "
         "gyroscope=(), "
@@ -224,7 +218,6 @@ class Settings(BaseSettings):
         "magnetometer=(), "
         "microphone=(), "
         "midi=(), "
-        "navigation-override=(), "
         "payment=(), "
         "picture-in-picture=(), "
         "publickey-credentials-get=(self), "

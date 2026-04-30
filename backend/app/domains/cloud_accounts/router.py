@@ -31,6 +31,21 @@ from app.core.logging import get_logger
 router = APIRouter(prefix="/cloud-accounts", tags=["cloud-accounts"])
 log = get_logger(__name__)
 
+def _cloud_account_out(account: object) -> CloudAccountOut:
+    from datetime import datetime, timezone
+
+    return CloudAccountOut(
+        id=account.id,
+        org_id=account.org_id,
+        provider=account.provider,
+        external_id=account.external_id,
+        display_name=account.display_name,
+        tenant_id=getattr(account, "tenant_id", None),
+        status=account.status,
+        last_sync_at=getattr(account, "last_sync_at", None),
+        created_at=getattr(account, "created_at", None) or datetime.now(timezone.utc),
+    )
+
 
 async def _run_inline_sync_pipeline(org_id: UUID, account_id: UUID, lookback_days: int) -> None:
     from app.domains.cloud_ledger.service import CloudLedgerService
@@ -102,9 +117,9 @@ async def create_account(
     await service.audit_create(current_user.org_id, current_user.id, account)
     # Auto-sync: kick off initial data pull immediately after account creation
     asyncio.create_task(
-        _run_inline_sync_pipeline(current_user.org_id, account.account_id, lookback_days=90)
+        _run_inline_sync_pipeline(current_user.org_id, account.id, lookback_days=90)
     )
-    return CloudAccountOut.model_validate(account)
+    return _cloud_account_out(account)
 
 
 @router.get("", response_model=Page[CloudAccountOut])
@@ -117,7 +132,7 @@ async def list_accounts(
     accounts, total = await service.list_accounts(
         current_user.org_id, limit=page_params.limit, offset=page_params.offset
     )
-    return Page.of([CloudAccountOut.model_validate(a) for a in accounts], total, page_params)
+    return Page.of([_cloud_account_out(a) for a in accounts], total, page_params)
 
 
 @router.get("/sync-status", response_model=List[ConnectorSyncStatusOut])
@@ -139,7 +154,7 @@ async def get_account(
     account = await service.get_account(current_user.org_id, account_id)
     if not account:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-    return CloudAccountOut.model_validate(account)
+    return _cloud_account_out(account)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

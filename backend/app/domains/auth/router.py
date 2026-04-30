@@ -89,9 +89,21 @@ async def admin_delete_user(
 
 
 def _user_out(user, org_name: str) -> UserOut:
-    data = UserOut.model_validate(user)
-    data.org_name = org_name
-    return data
+    from datetime import datetime, timezone
+
+    return UserOut(
+        id=user.id,
+        org_id=user.org_id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        is_active=user.is_active,
+        passkey_enabled=user.passkey_enabled,
+        totp_enabled=getattr(user, "totp_enabled", False),
+        must_change_password=getattr(user, "must_change_password", False),
+        created_at=user.created_at or datetime.now(timezone.utc),
+        org_name=org_name,
+    )
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
