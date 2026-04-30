@@ -79,8 +79,7 @@ export default function App() {
         </Route>
 
         {/* ── Fallback ─────────────────────────────────────────────── */}
-        <Route path="/" element={<Navigate to="/landing/index.html" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   )

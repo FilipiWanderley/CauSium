@@ -214,6 +214,10 @@ if _FRONTEND_DIST.is_dir():
     async def favicon():
         return FileResponse(str(_FRONTEND_DIST / "favicon.svg"))
 
+    @app.get("/", include_in_schema=False)
+    async def landing_root():
+        return FileResponse(str(_FRONTEND_DIST / "landing" / "index.html"))
+
     @app.get("/landing/{path:path}", include_in_schema=False)
     async def landing_static(path: str):
         file = _FRONTEND_DIST / "landing" / path
