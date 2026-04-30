@@ -44,9 +44,12 @@ async def lifespan(app: FastAPI):
     instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
 
+    # Start the ingestion worker loop inside the app process
+    from app.workers.ingestion_worker import run_ingestion_worker
+    worker_task = asyncio.create_task(run_ingestion_worker())
+
     # Daily auto-sync background task — syncs all cloud accounts every 24h
     async def _daily_sync_all():
-        import asyncio
         from app.core.database import async_session_factory
         from app.domains.cloud_accounts.router import _run_inline_sync_pipeline
         while True:
@@ -70,6 +73,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    worker_task.cancel()
     sync_task.cancel()
     from app.core.redis import close_redis
     await close_redis()

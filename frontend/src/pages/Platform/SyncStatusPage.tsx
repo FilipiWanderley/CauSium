@@ -75,9 +75,11 @@ export function SyncStatusPage() {
   })
 
   const syncMutation = useMutation({
-    mutationFn: (accountId: string) => cloudAccountsApi.sync(accountId),
+    mutationFn: (accountId: string) => cloudAccountsApi.sync(accountId, 90, 'inline'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-sync-status'] })
+      queryClient.invalidateQueries({ queryKey: ['cloud-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 
