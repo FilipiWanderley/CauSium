@@ -162,6 +162,25 @@ class Settings(BaseSettings):
         "upgrade-insecure-requests"
     )
 
+    # Landing page CSP — allows the external CDNs used by the public marketing page.
+    # Applied only to /landing/* routes; the strict production CSP remains in effect
+    # for all /api/* and /app/* paths so the authenticated app is not affected.
+    csp_policy_landing: str = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://code.iconify.design https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+        "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://storage.googleapis.com; "
+        "media-src 'none'; "
+        "object-src 'none'; "
+        "frame-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "upgrade-insecure-requests"
+    )
+
     # Dev/local CSP — allows CDN assets required by Swagger UI.
     # upgrade-insecure-requests is intentionally absent: on a plain HTTP
     # dev server it would rewrite http://127.0.0.1/openapi.json to https://

@@ -275,7 +275,7 @@ async def _check_sliding_window(
     return is_blocked, remaining, reset_at
 
 
-def _apply_security_headers(response: Response, *, is_api_path: bool = False) -> None:
+def _apply_security_headers(response: Response, *, is_api_path: bool = False, is_landing_path: bool = False) -> None:
     """
     Apply OWASP-recommended security headers to every outbound response.
 
@@ -315,7 +315,12 @@ def _apply_security_headers(response: Response, *, is_api_path: bool = False) ->
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = settings.permissions_policy
-    response.headers["Content-Security-Policy"] = settings.effective_csp_policy
+    # Landing page uses external CDNs — apply a relaxed CSP scoped to /landing/*.
+    # All other paths (API, app shell) keep the strict production CSP.
+    if is_landing_path:
+        response.headers["Content-Security-Policy"] = settings.csp_policy_landing
+    else:
+        response.headers["Content-Security-Policy"] = settings.effective_csp_policy
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
 
@@ -354,7 +359,11 @@ def install_middlewares(app: FastAPI) -> None:
 
         if not settings.rate_limit_enabled or not path.startswith("/api/"):
             response = await call_next(request)
-            _apply_security_headers(response, is_api_path=path.startswith("/api/"))
+            _apply_security_headers(
+                response,
+                is_api_path=path.startswith("/api/"),
+                is_landing_path=path.startswith("/landing/"),
+            )
             return response
 
         ip = _extract_real_ip(request, settings.rate_limit_trusted_proxy_header)
