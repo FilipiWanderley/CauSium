@@ -174,10 +174,7 @@ export function DashboardPage() {
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard', providerFilter],
     queryFn: () => ledgerApi.dashboard(providerParam).then((r) => r.data),
-    refetchInterval: () => {
-      const hasPending = (accounts ?? []).some((a) => a.status === 'pending')
-      return hasPending ? 5000 : 30000
-    },
+    refetchInterval: 30000,
   })
 
   const refreshDashboardMutation = useMutation({
