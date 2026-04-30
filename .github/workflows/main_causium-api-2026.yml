@@ -30,15 +30,17 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_API_URL: ''
+          VITE_API_URL: 'https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net'
         run: |
           npm ci
           npm run build
           cp -r dist ../backend/frontend_dist
 
-      - name: Verify requirements.txt is present
+      - name: Install Python dependencies into antenv
         working-directory: backend
-        run: test -f requirements.txt
+        run: |
+          python -m venv antenv
+          antenv/bin/pip install -r requirements.txt -q --disable-pip-version-check
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4

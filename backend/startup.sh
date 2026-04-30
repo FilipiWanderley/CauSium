@@ -1,44 +1,37 @@
 #!/bin/bash
 # Azure App Service startup script for CauSium backend.
-# Creates a venv using Azure's native Python and caches it in /home
-# (persistent across restarts). Rebuilds only when requirements.txt changes.
+# Uses the antenv created by Oryx during build — no venv rebuild needed.
 set -e
-cd /home/site/wwwroot
+
+# Oryx extracts the app to a temp dir and sets PYTHONPATH.
+# The antenv is at <appdir>/antenv — find it relative to this script.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # --- Resolve Python interpreter ---
-# Prefer Oryx-created antenv if present; otherwise build our own.
-if [ -x "/antenv/bin/python" ]; then
+# Oryx antenv is always at <appdir>/antenv after build
+if [ -x "$SCRIPT_DIR/antenv/bin/python" ]; then
+    PY="$SCRIPT_DIR/antenv/bin/python"
+    echo "[startup] Using antenv at $SCRIPT_DIR/antenv"
+elif [ -x "/antenv/bin/python" ]; then
     PY="/antenv/bin/python"
-    echo "[startup] Using Oryx antenv"
+    echo "[startup] Using /antenv"
 else
-    VENV="/home/causium-venv"
-    HASH=$(md5sum requirements.txt 2>/dev/null | cut -c1-8 || echo "none")
-
-    if [ ! -f "$VENV/.hash" ] || [ "$(cat "$VENV/.hash")" != "$HASH" ]; then
-        echo "[startup] Building venv with Azure Python (hash=$HASH)..."
-        python3 -m venv "$VENV" --clear
-        "$VENV/bin/pip" install -r requirements.txt -q --disable-pip-version-check
-        echo "$HASH" > "$VENV/.hash"
-        echo "[startup] Venv ready."
-    else
-        echo "[startup] Venv cache hit (hash=$HASH)."
-    fi
-
-    PY="$VENV/bin/python"
+    # Fallback: use system python and install deps
+    echo "[startup] antenv not found — installing deps with system python..."
+    python3 -m pip install -r requirements.txt -q --disable-pip-version-check
+    PY="python3"
 fi
 
-echo "[startup] Python: $($PY --version)"
+echo "[startup] Python: $($PY --version 2>&1)"
 
 # --- Database ---
-# Use /home for SQLite so data persists across restarts (Azure App Service persistent storage)
 DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:////home/causium-data/causium.db}"
 export DATABASE_URL
 mkdir -p /home/causium-data
 
 if echo "$DATABASE_URL" | grep -q "^sqlite"; then
-    # SQLite staging: alembic migrations use PostgreSQL-specific types (JSONB etc.)
-    # and would fail. Schema is created entirely by ensure_sqlite_schema() in app lifespan.
-    echo "[startup] SQLite mode — skipping alembic (schema handled by app lifespan)."
+    echo "[startup] SQLite mode — skipping alembic."
     WORKERS=1
 else
     echo "[startup] PostgreSQL mode — running alembic upgrade head..."
