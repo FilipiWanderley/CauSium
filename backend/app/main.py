@@ -208,7 +208,12 @@ async def metrics_slo(
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend_dist"
 
 if _FRONTEND_DIST.is_dir():
+    # React app assets (JS/CSS chunks)
     app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
+
+    # Landing page static assets — served with correct MIME types via StaticFiles
+    if (_FRONTEND_DIST / "landing" / "assets").is_dir():
+        app.mount("/landing/assets", StaticFiles(directory=str(_FRONTEND_DIST / "landing" / "assets")), name="landing-assets")
 
     @app.get("/favicon.svg", include_in_schema=False)
     async def favicon():
@@ -216,16 +221,13 @@ if _FRONTEND_DIST.is_dir():
 
     @app.get("/", include_in_schema=False)
     async def landing_root():
-        return FileResponse(str(_FRONTEND_DIST / "landing" / "index.html"))
+        return FileResponse(str(_FRONTEND_DIST / "landing" / "index.html"), media_type="text/html")
 
-    @app.get("/landing/{path:path}", include_in_schema=False)
-    async def landing_static(path: str):
-        file = _FRONTEND_DIST / "landing" / path
-        if file.is_file():
-            return FileResponse(str(file))
-        raise HTTPException(status_code=404)
+    @app.get("/landing/favicon.svg", include_in_schema=False)
+    async def landing_favicon():
+        return FileResponse(str(_FRONTEND_DIST / "landing" / "favicon.svg"))
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
         index = _FRONTEND_DIST / "index.html"
-        return FileResponse(str(index))
+        return FileResponse(str(index), media_type="text/html")
