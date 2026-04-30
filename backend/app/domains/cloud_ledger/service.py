@@ -79,215 +79,227 @@ class CloudLedgerService:
         if not account:
             return IngestResult(account_id=account_id, cost_records=0, event_records=0, status="error", message="Account not found")
 
-        creds = await account_service.get_azure_credentials(account)
-        if account.provider == CloudProvider.AWS:
-            creds = await account_service.get_aws_credentials(account)
-        if account.provider == CloudProvider.GCP:
-            creds = await account_service.get_gcp_credentials(account)
-        client = get_connector_for_account(account, creds)
-
-        checkpoint_keys: set[str] | None = None
-        aws_checkpoint_keys: set[str] | None = None
-        if isinstance(client, AzureConnectorClient):
-            checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
-        if isinstance(client, AwsConnectorClient):
-            aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
-
-        costs = []
-        events = []
-        fetch_errors: list[str] = []
-
         try:
+            creds = await account_service.get_azure_credentials(account)
+            if account.provider == CloudProvider.AWS:
+                creds = await account_service.get_aws_credentials(account)
+            if account.provider == CloudProvider.GCP:
+                creds = await account_service.get_gcp_credentials(account)
+            client = get_connector_for_account(account, creds)
+
+            checkpoint_keys: set[str] | None = None
+            aws_checkpoint_keys: set[str] | None = None
             if isinstance(client, AzureConnectorClient):
-                costs = await client.fetch_costs(
-                    account.external_id,
-                    start,
-                    end,
-                    checkpoint_keys=checkpoint_keys,
-                )
-            elif isinstance(client, AwsConnectorClient):
-                costs = await client.fetch_costs(
-                    account.external_id,
-                    start,
-                    end,
-                    checkpoint_keys=aws_checkpoint_keys,
-                )
-            else:
-                costs = await client.fetch_costs(account.external_id, start, end)
-        except Exception as e:
-            fetch_errors.append(f"costs: {e}")
-            log.warning("ledger.ingest.cost_fetch_failed", account_id=str(account_id), error=str(e))
+                checkpoint_keys = await self._get_blob_checkpoint_keys(account.id)
+            if isinstance(client, AwsConnectorClient):
+                aws_checkpoint_keys = await self._get_aws_cur_checkpoint_keys(account.id)
 
-        try:
-            events = await client.fetch_events(account.external_id, start, end)
-        except Exception as e:
-            fetch_errors.append(f"events: {e}")
-            log.warning("ledger.ingest.event_fetch_failed", account_id=str(account_id), error=str(e))
+            costs = []
+            events = []
+            fetch_errors: list[str] = []
 
-        if not costs and not events and fetch_errors:
-            account.status = ConnectorStatus.ERROR
-            account.last_sync_at = datetime.now(timezone.utc)
-            await self.db.flush()
-            return IngestResult(
-                account_id=account_id,
-                cost_records=0,
-                event_records=0,
-                status="error",
-                message="; ".join(fetch_errors),
-            )
-
-        blob_checkpoints: list[dict[str, str]] = []
-        aws_cur_checkpoints: list[dict[str, str]] = []
-        if isinstance(client, AzureConnectorClient):
-            blob_checkpoints = client.consume_last_blob_checkpoints()
-        if isinstance(client, AwsConnectorClient):
-            aws_cur_checkpoints = client.consume_last_cur_checkpoints()
-
-        # Write costs to ClickHouse
-        cost_rows = [
-            {
-                "date": r.date,
-                "org_id": str(org_id),
-                "account_id": str(account_id),
-                "provider": r.provider,
-                "subscription_id": r.subscription_id,
-                "service": r.service,
-                "resource_id": r.resource_id,
-                "resource_name": r.resource_name,
-                "region": r.region,
-                "environment": r.environment,
-                "owner_team": r.owner_team,
-                "cost_usd": r.cost_usd,
-                "usage_quantity": r.usage_quantity,
-                "usage_unit": r.usage_unit,
-                "currency": r.currency,
-                "tags": r.tags,
-            }
-            for r in costs
-        ]
-        if cost_rows:
             try:
-                insert_rows("cost_facts", cost_rows)
+                if isinstance(client, AzureConnectorClient):
+                    costs = await client.fetch_costs(
+                        account.external_id,
+                        start,
+                        end,
+                        checkpoint_keys=checkpoint_keys,
+                    )
+                elif isinstance(client, AwsConnectorClient):
+                    costs = await client.fetch_costs(
+                        account.external_id,
+                        start,
+                        end,
+                        checkpoint_keys=aws_checkpoint_keys,
+                    )
+                else:
+                    costs = await client.fetch_costs(account.external_id, start, end)
             except Exception as e:
-                log.warning("ledger.clickhouse.cost_insert_failed", error=str(e))
+                fetch_errors.append(f"costs: {e}")
+                log.warning("ledger.ingest.cost_fetch_failed", account_id=str(account_id), error=str(e))
+
+            try:
+                events = await client.fetch_events(account.external_id, start, end)
+            except Exception as e:
+                fetch_errors.append(f"events: {e}")
+                log.warning("ledger.ingest.event_fetch_failed", account_id=str(account_id), error=str(e))
+
+            if not costs and not events and fetch_errors:
+                account.status = ConnectorStatus.ERROR
+                account.last_sync_at = datetime.now(timezone.utc)
+                await self.db.flush()
                 return IngestResult(
                     account_id=account_id,
                     cost_records=0,
                     event_records=0,
                     status="error",
-                    message=f"Cost insert failed: {e}",
+                    message="; ".join(fetch_errors),
                 )
 
-        # Write events
-        event_rows = [
-            {
-                "timestamp": r.timestamp,
-                "org_id": str(org_id),
-                "account_id": str(account_id),
-                "provider": r.provider,
-                "subscription_id": r.subscription_id,
-                "event_type": r.event_type,
-                "resource_id": r.resource_id,
-                "resource_name": r.resource_name,
-                "region": r.region,
-                "severity": r.severity,
-                "description": r.description,
-                "caller": r.caller,
-                "correlation_id": r.correlation_id,
-                "raw_data": r.raw_data,
-            }
-            for r in events
-        ]
-        if event_rows:
-            try:
-                insert_rows("event_facts", event_rows)
-            except Exception as e:
-                log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
-            await self._emit_realtime_cloud_event_notifications(
-                org_id=org_id,
-                account_id=account_id,
-                events=events,
+            blob_checkpoints: list[dict[str, str]] = []
+            aws_cur_checkpoints: list[dict[str, str]] = []
+            if isinstance(client, AzureConnectorClient):
+                blob_checkpoints = client.consume_last_blob_checkpoints()
+            if isinstance(client, AwsConnectorClient):
+                aws_cur_checkpoints = client.consume_last_cur_checkpoints()
+
+            # Write costs to ClickHouse
+            cost_rows = [
+                {
+                    "date": r.date,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": r.provider,
+                    "subscription_id": r.subscription_id,
+                    "service": r.service,
+                    "resource_id": r.resource_id,
+                    "resource_name": r.resource_name,
+                    "region": r.region,
+                    "environment": r.environment,
+                    "owner_team": r.owner_team,
+                    "cost_usd": r.cost_usd,
+                    "usage_quantity": r.usage_quantity,
+                    "usage_unit": r.usage_unit,
+                    "currency": r.currency,
+                    "tags": r.tags,
+                }
+                for r in costs
+            ]
+            if cost_rows:
+                try:
+                    insert_rows("cost_facts", cost_rows)
+                except Exception as e:
+                    log.warning("ledger.clickhouse.cost_insert_failed", error=str(e))
+                    account.status = ConnectorStatus.ERROR
+                    account.last_sync_at = datetime.now(timezone.utc)
+                    await self.db.flush()
+                    return IngestResult(
+                        account_id=account_id,
+                        cost_records=0,
+                        event_records=0,
+                        status="error",
+                        message=f"Cost insert failed: {e}",
+                    )
+
+            # Write events
+            event_rows = [
+                {
+                    "timestamp": r.timestamp,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": r.provider,
+                    "subscription_id": r.subscription_id,
+                    "event_type": r.event_type,
+                    "resource_id": r.resource_id,
+                    "resource_name": r.resource_name,
+                    "region": r.region,
+                    "severity": r.severity,
+                    "description": r.description,
+                    "caller": r.caller,
+                    "correlation_id": r.correlation_id,
+                    "raw_data": r.raw_data,
+                }
+                for r in events
+            ]
+            if event_rows:
+                try:
+                    insert_rows("event_facts", event_rows)
+                except Exception as e:
+                    log.warning("ledger.clickhouse.event_insert_failed", error=str(e))
+                await self._emit_realtime_cloud_event_notifications(
+                    org_id=org_id,
+                    account_id=account_id,
+                    events=events,
+                )
+
+            if blob_checkpoints:
+                existing_keys = await self._get_blob_checkpoint_keys(account_id)
+                for item in blob_checkpoints:
+                    key = item.get("checkpoint_key", "")
+                    if not key or key in existing_keys:
+                        continue
+                    self.db.add(
+                        BlobIngestionCheckpoint(
+                            org_id=org_id,
+                            account_id=account_id,
+                            provider=account.provider,
+                            checkpoint_key=key,
+                            blob_name=item.get("blob_name", ""),
+                            blob_etag=item.get("blob_etag") or None,
+                            records_ingested=len(cost_rows),
+                        )
+                    )
+                    existing_keys.add(key)
+
+            if aws_cur_checkpoints:
+                existing_keys = await self._get_aws_cur_checkpoint_keys(account_id)
+                for item in aws_cur_checkpoints:
+                    key = item.get("checkpoint_key", "")
+                    if not key or key in existing_keys:
+                        continue
+                    self.db.add(
+                        AwsCurIngestionCheckpoint(
+                            org_id=org_id,
+                            account_id=account_id,
+                            provider=account.provider,
+                            checkpoint_key=key,
+                            object_key=item.get("object_key", ""),
+                            object_etag=item.get("object_etag") or None,
+                            records_ingested=len(cost_rows),
+                        )
+                    )
+                    existing_keys.add(key)
+
+            # Provider advanced ingestion: recommendations, inventory, usage metrics
+            recommendation_count = 0
+            inventory_count = 0
+            usage_count = 0
+
+            recommendation_count = await self._ingest_provider_recommendations(
+                client, org_id, account_id, account.external_id
+            )
+            inventory_count = await self._ingest_provider_inventory(
+                client, org_id, account_id, account.external_id
+            )
+            usage_count = await self._ingest_provider_usage_metrics(
+                client, org_id, account_id, account.external_id, start, end
             )
 
-        if blob_checkpoints:
-            existing_keys = await self._get_blob_checkpoint_keys(account_id)
-            for item in blob_checkpoints:
-                key = item.get("checkpoint_key", "")
-                if not key or key in existing_keys:
-                    continue
-                self.db.add(
-                    BlobIngestionCheckpoint(
-                        org_id=org_id,
-                        account_id=account_id,
-                        provider=account.provider,
-                        checkpoint_key=key,
-                        blob_name=item.get("blob_name", ""),
-                        blob_etag=item.get("blob_etag") or None,
-                        records_ingested=len(cost_rows),
-                    )
-                )
-                existing_keys.add(key)
+            account.status = ConnectorStatus.ACTIVE
+            account.last_sync_at = datetime.now(timezone.utc)
+            await self.db.flush()
 
-        if aws_cur_checkpoints:
-            existing_keys = await self._get_aws_cur_checkpoint_keys(account_id)
-            for item in aws_cur_checkpoints:
-                key = item.get("checkpoint_key", "")
-                if not key or key in existing_keys:
-                    continue
-                self.db.add(
-                    AwsCurIngestionCheckpoint(
-                        org_id=org_id,
-                        account_id=account_id,
-                        provider=account.provider,
-                        checkpoint_key=key,
-                        object_key=item.get("object_key", ""),
-                        object_etag=item.get("object_etag") or None,
-                        records_ingested=len(cost_rows),
-                    )
-                )
-                existing_keys.add(key)
-
-        # Provider advanced ingestion: recommendations, inventory, usage metrics
-        recommendation_count = 0
-        inventory_count = 0
-        usage_count = 0
-
-        recommendation_count = await self._ingest_provider_recommendations(
-            client, org_id, account_id, account.external_id
-        )
-        inventory_count = await self._ingest_provider_inventory(
-            client, org_id, account_id, account.external_id
-        )
-        usage_count = await self._ingest_provider_usage_metrics(
-            client, org_id, account_id, account.external_id, start, end
-        )
-
-        # Update last sync
-        account.status = ConnectorStatus.ACTIVE
-        from app.domains.cloud_accounts.models import ConnectorStatus
-
-        account.status = ConnectorStatus.ACTIVE
-        account.last_sync_at = datetime.now(timezone.utc)
-        await self.db.flush()
-
-        log.info(
-            "ledger.ingest.done",
-            account_id=str(account_id),
-            costs=len(costs),
-            events=len(events),
-            recommendations=recommendation_count,
-            inventory=inventory_count,
-            usage=usage_count,
-        )
-        return IngestResult(
-            account_id=account_id,
-            cost_records=len(costs),
-            event_records=len(events),
-            recommendation_records=recommendation_count,
-            inventory_records=inventory_count,
-            usage_records=usage_count,
-            status="ok",
-        )
+            log.info(
+                "ledger.ingest.done",
+                account_id=str(account_id),
+                costs=len(costs),
+                events=len(events),
+                recommendations=recommendation_count,
+                inventory=inventory_count,
+                usage=usage_count,
+            )
+            return IngestResult(
+                account_id=account_id,
+                cost_records=len(costs),
+                event_records=len(events),
+                recommendation_records=recommendation_count,
+                inventory_records=inventory_count,
+                usage_records=usage_count,
+                status="ok",
+            )
+        except Exception as exc:
+            account.status = ConnectorStatus.ERROR
+            account.last_sync_at = datetime.now(timezone.utc)
+            await self.db.flush()
+            log.exception("ledger.ingest.failed", account_id=str(account_id), error=str(exc))
+            return IngestResult(
+                account_id=account_id,
+                cost_records=0,
+                event_records=0,
+                status="error",
+                message=str(exc)[:500],
+            )
 
     async def _emit_realtime_cloud_event_notifications(
         self,

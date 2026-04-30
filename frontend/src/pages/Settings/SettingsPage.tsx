@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation } from 'react-router-dom'
 import { authApi } from '../../api/auth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
+import type { CloudAccount } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import { useI18n } from '../../contexts/I18nContext'
 import { MfaTotpSettings } from './MfaTotpSettings'
@@ -82,6 +83,10 @@ export function SettingsPage() {
     queryKey: ['cloud-accounts-settings'],
     queryFn: () => cloudAccountsApi.list(1, 100).then((r) => r.data.items),
     enabled: isAdmin,
+    refetchInterval: (query) => {
+      const items = (query.state.data as CloudAccount[] | undefined) ?? []
+      return items.some((acc) => acc.status === 'pending') ? 5000 : false
+    },
   })
 
   const revokePasskeyMutation = useMutation({
