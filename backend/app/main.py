@@ -36,6 +36,8 @@ async def lifespan(app: FastAPI):
 
     settings.validate_production_security()
     await ensure_sqlite_schema()
+    from app.core.clickhouse_init import ensure_clickhouse_schema
+    ensure_clickhouse_schema()
     setup_tracing(
         service_name=settings.otel_service_name,
         otlp_endpoint=settings.otel_exporter_otlp_endpoint,
