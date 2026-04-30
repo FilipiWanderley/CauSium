@@ -115,6 +115,17 @@ class SloOverviewOut(BaseModel):
     alerts: list[SloAlertOut]
 
 
+class SeedPlatformAdminIn(BaseModel):
+    email: str
+    full_name: str = "Platform Admin"
+
+
+class SeedPlatformAdminOut(BaseModel):
+    email: str
+    created: bool
+    promoted: bool
+
+
 class SupportAccessCreateIn(BaseModel):
     target_org_id: UUID
     reason: str

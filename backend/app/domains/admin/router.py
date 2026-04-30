@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -16,6 +16,8 @@ from app.domains.admin.schemas import (
     AdminUserItem,
     DlqMessageOut,
     DlqRequeueResponse,
+    SeedPlatformAdminIn,
+    SeedPlatformAdminOut,
     SupportAccessCreateIn,
     SupportAccessEndIn,
     SupportAccessSessionOut,
@@ -26,6 +28,24 @@ from app.domains.admin.service import PlatformAdminService
 from app.domains.workspaces.schemas import WorkspaceOut
 
 router = APIRouter(prefix="/admin", tags=["platform-admin"])
+
+
+@router.post("/seed-platform-admin", response_model=SeedPlatformAdminOut, status_code=200, include_in_schema=False)
+async def seed_platform_admin(
+    req: SeedPlatformAdminIn,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> SeedPlatformAdminOut:
+    """Promote an email to PLATFORM_ADMIN. Protected by X-Internal-Key."""
+    import os
+    from fastapi import HTTPException
+    expected = os.getenv("INTERNAL_MONITORING_KEY", "").strip()
+    if not expected or x_internal_key != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    service = PlatformAdminService(db, actor_user_id=None)  # type: ignore[arg-type]
+    created, promoted = await service.seed_platform_admin(req.email, req.full_name)
+    await db.commit()
+    return SeedPlatformAdminOut(email=req.email, created=created, promoted=promoted)
 
 
 @router.get("/orgs", response_model=Page[AdminOrgListItem])

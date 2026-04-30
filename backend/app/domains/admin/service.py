@@ -11,7 +11,7 @@ from app.core.redis import get_redis_pool
 from app.core.schemas import PageParams
 from app.domains.admin.models import DlqMessage, DlqStatus, SupportAccessSession, SupportAccessStatus
 from app.domains.audit_chain.service import AuditChainService
-from app.domains.auth.models import Organization, User, WorkspaceLifecycleState
+from app.domains.auth.models import Organization, User, UserRole, WorkspaceLifecycleState
 
 
 class PlatformAdminService:
@@ -296,3 +296,36 @@ class PlatformAdminService:
             session.ended_at = session.ended_at or now
         if stale_sessions:
             await self.db.flush()
+
+    async def seed_platform_admin(self, email: str, full_name: str) -> tuple[bool, bool]:
+        """Promote email to PLATFORM_ADMIN, creating the user if needed.
+
+        Returns (created, promoted) — both False if user already had the role.
+        """
+        import uuid
+        from app.core.security import hash_password
+
+        result = await self.db.execute(select(User).where(User.email == email.lower().strip()))
+        user = result.scalar_one_or_none()
+
+        created = False
+        promoted = False
+
+        if user is None:
+            user = User(
+                id=uuid.uuid4(),
+                email=email.lower().strip(),
+                full_name=full_name,
+                hashed_password=hash_password(uuid.uuid4().hex),
+                role=UserRole.PLATFORM_ADMIN,
+                is_active=True,
+            )
+            self.db.add(user)
+            created = True
+            promoted = True
+        elif user.role != UserRole.PLATFORM_ADMIN:
+            user.role = UserRole.PLATFORM_ADMIN
+            promoted = True
+
+        await self.db.flush()
+        return created, promoted
