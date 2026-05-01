@@ -235,5 +235,8 @@ if _FRONTEND_DIST.is_dir():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
+        # Never intercept API routes — let FastAPI return 404/405 naturally.
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
         index = _FRONTEND_DIST / "index.html"
         return FileResponse(str(index), media_type="text/html")
