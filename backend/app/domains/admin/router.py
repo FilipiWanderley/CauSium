@@ -253,6 +253,58 @@ async def admin_seed_tenant(
         raise HTTPException(status_code=500, detail=traceback.format_exc()) from exc
 
 
+@router.get(
+    "/seed-diag",
+    include_in_schema=False,
+    summary="Diagnose seed failure step by step",
+)
+async def admin_seed_diag(
+    org_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    import traceback, random
+    from datetime import date
+    from app.domains.dev.service import DevSeedService
+    from app.domains.dev.schemas import SeedRequest
+    from fastapi.responses import JSONResponse
+
+    steps = {}
+    svc = DevSeedService(db)
+
+    try:
+        steps["is_seeded"] = await svc.is_seeded(org_id)
+    except Exception:
+        return JSONResponse({"step": "is_seeded", "error": traceback.format_exc()})
+
+    try:
+        accounts = await svc._create_mock_accounts(org_id)
+        await db.flush()
+        steps["accounts_created"] = len(accounts)
+    except Exception:
+        return JSONResponse({"step": "_create_mock_accounts", "error": traceback.format_exc()})
+
+    try:
+        rng = random.Random(int.from_bytes(org_id.bytes, "big"))
+        azure_acct, aws_acct, gcp_acct = accounts
+        today = date.today()
+        cost_rows = svc._gen_cost_facts(org_id, azure_acct, aws_acct, gcp_acct, today, 30, rng)
+        steps["cost_rows"] = len(cost_rows)
+    except Exception:
+        return JSONResponse({"step": "_gen_cost_facts", "error": traceback.format_exc()})
+
+    try:
+        svc._insert_table("cost_facts", cost_rows[:5])
+        steps["cost_insert_5_rows"] = "ok"
+    except Exception:
+        return JSONResponse({"step": "_insert_table cost_facts", "error": traceback.format_exc()})
+
+    # Rollback the test accounts
+    await db.rollback()
+    return JSONResponse({"steps": steps, "conclusion": "all steps passed"})
+
+
 @router.delete(
     "/seed-tenant",
     response_model=ClearResult,
