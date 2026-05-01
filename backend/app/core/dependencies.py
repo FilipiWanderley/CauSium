@@ -145,7 +145,7 @@ async def get_support_access_context(
     from app.domains.admin.service import PlatformAdminService
 
     actor_user_id = current_user.id
-    effective_org_id = current_user.org_id
+    effective_org_id = current_user.org_id  # may be None for PLATFORM_ADMIN
     support_access_session_id: UUID | None = None
 
     if x_support_access_session_id is not None:

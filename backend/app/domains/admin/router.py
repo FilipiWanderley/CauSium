@@ -43,7 +43,7 @@ async def seed_platform_admin(
     if not expected or x_internal_key != expected:
         raise HTTPException(status_code=403, detail="Forbidden")
     service = PlatformAdminService(db, actor_user_id=None)  # type: ignore[arg-type]
-    created, promoted = await service.seed_platform_admin(req.email, req.full_name)
+    created, promoted = await service.seed_platform_admin(req.email, req.full_name, req.password)
     await db.commit()
     return SeedPlatformAdminOut(email=req.email, created=created, promoted=promoted)
 

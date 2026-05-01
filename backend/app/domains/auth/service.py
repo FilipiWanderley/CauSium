@@ -157,9 +157,10 @@ class AuthService:
             raise ValueError("Invalid credentials")
         if not user.is_active:
             raise ValueError("Account inactive")
-        org = await self.get_org(user.org_id)
-        if org and org.passwordless_only:
-            raise ValueError("Password login disabled by organization policy (passwordless-only)")
+        if user.org_id is not None:
+            org = await self.get_org(user.org_id)
+            if org and org.passwordless_only:
+                raise ValueError("Password login disabled by organization policy (passwordless-only)")
 
         if user.totp_enabled:
             if not totp_code:
@@ -168,15 +169,17 @@ class AuthService:
                 raise ValueError("Invalid MFA code")
 
         user.last_login = datetime.now(timezone.utc)
-        await self.audit_chain.append_event(
-            org_id=user.org_id,
-            actor_user_id=user.id,
-            event_type="auth.password.login",
-            entity_type="user",
-            entity_id=str(user.id),
-            payload={"email": user.email},
-        )
-        access = create_access_token(str(user.id), {"org_id": str(user.org_id), "role": user.role})
+        if user.org_id is not None:
+            await self.audit_chain.append_event(
+                org_id=user.org_id,
+                actor_user_id=user.id,
+                event_type="auth.password.login",
+                entity_type="user",
+                entity_id=str(user.id),
+                payload={"email": user.email},
+            )
+        org_id_str = str(user.org_id) if user.org_id is not None else ""
+        access = create_access_token(str(user.id), {"org_id": org_id_str, "role": user.role})
         refresh = create_refresh_token(str(user.id))
         return user, access, refresh
 
@@ -369,7 +372,8 @@ class AuthService:
         if issued_at and await is_token_revoked(self.db, user_id, issued_at):
             raise ValueError("Session revoked. Please login again.")
 
-        access = create_access_token(str(user.id), {"org_id": str(user.org_id), "role": user.role})
+        org_id_str = str(user.org_id) if user.org_id is not None else ""
+        access = create_access_token(str(user.id), {"org_id": org_id_str, "role": user.role})
         new_refresh = create_refresh_token(str(user.id))
         return access, new_refresh
 

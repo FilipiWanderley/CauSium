@@ -118,6 +118,7 @@ class SloOverviewOut(BaseModel):
 class SeedPlatformAdminIn(BaseModel):
     email: str
     full_name: str = "Platform Admin"
+    password: str | None = None
 
 
 class SeedPlatformAdminOut(BaseModel):

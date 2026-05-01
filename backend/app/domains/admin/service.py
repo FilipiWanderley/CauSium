@@ -297,7 +297,7 @@ class PlatformAdminService:
         if stale_sessions:
             await self.db.flush()
 
-    async def seed_platform_admin(self, email: str, full_name: str) -> tuple[bool, bool]:
+    async def seed_platform_admin(self, email: str, full_name: str, password: str | None = None) -> tuple[bool, bool]:
         """Promote email to PLATFORM_ADMIN, creating the user if needed.
 
         Returns (created, promoted) — both False if user already had the role.
@@ -312,20 +312,26 @@ class PlatformAdminService:
         promoted = False
 
         if user is None:
+            raw_password = password if password else uuid.uuid4().hex
             user = User(
                 id=uuid.uuid4(),
+                org_id=None,
                 email=email.lower().strip(),
                 full_name=full_name,
-                hashed_password=hash_password(uuid.uuid4().hex),
+                hashed_password=hash_password(raw_password),
                 role=UserRole.PLATFORM_ADMIN,
                 is_active=True,
             )
             self.db.add(user)
             created = True
             promoted = True
-        elif user.role != UserRole.PLATFORM_ADMIN:
-            user.role = UserRole.PLATFORM_ADMIN
-            promoted = True
+        else:
+            if password:
+                from app.core.security import hash_password as hp
+                user.hashed_password = hp(password)
+            if user.role != UserRole.PLATFORM_ADMIN:
+                user.role = UserRole.PLATFORM_ADMIN
+                promoted = True
 
         await self.db.flush()
         return created, promoted
