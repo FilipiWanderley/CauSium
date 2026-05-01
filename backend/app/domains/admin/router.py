@@ -213,7 +213,7 @@ def _check_internal_key(x_internal_key: str | None) -> None:
 
 
 @router.get(
-    "/orgs/{org_id}/seed/status",
+    "/seed-status",
     response_model=SeedStatus,
     include_in_schema=False,
     summary="Check ClickHouse row counts for a tenant",
@@ -229,7 +229,7 @@ async def admin_seed_status(
 
 
 @router.post(
-    "/orgs/{org_id}/seed",
+    "/seed-tenant",
     response_model=SeedResult,
     status_code=201,
     include_in_schema=False,
@@ -251,7 +251,7 @@ async def admin_seed_tenant(
 
 
 @router.delete(
-    "/orgs/{org_id}/seed",
+    "/seed-tenant",
     response_model=ClearResult,
     include_in_schema=False,
     summary="Clear seeded mock data for a tenant",
