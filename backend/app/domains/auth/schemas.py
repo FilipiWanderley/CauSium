@@ -30,7 +30,7 @@ class UserCreate(BaseModel):
 
 class UserOut(BaseModel):
     id: UUID
-    org_id: UUID
+    org_id: UUID | None
     email: str
     full_name: str
     role: UserRole

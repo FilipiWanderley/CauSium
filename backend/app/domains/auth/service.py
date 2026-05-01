@@ -507,7 +507,9 @@ class AuthService:
         )
         await self.db.flush()
 
-    async def get_org_name(self, org_id: UUID) -> str:
+    async def get_org_name(self, org_id: UUID | None) -> str:
+        if org_id is None:
+            return ""
         org = await self.get_org(org_id)
         return org.name if org else ""
 
