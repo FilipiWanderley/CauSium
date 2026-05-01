@@ -25,6 +25,7 @@ from app.domains.admin.schemas import (
 )
 from app.domains.auth.models import WorkspaceLifecycleState
 from app.domains.admin.service import PlatformAdminService
+from app.domains.dev.schemas import SeedRequest, SeedResult, SeedStatus, ClearResult
 from app.domains.workspaces.schemas import WorkspaceOut
 
 router = APIRouter(prefix="/admin", tags=["platform-admin"])
@@ -201,3 +202,65 @@ async def end_support_access(
     session = await service.end_support_access_session(session_id, reason=req.reason)
     await db.commit()
     return SupportAccessSessionOut.model_validate(session)
+
+
+def _check_internal_key(x_internal_key: str | None) -> None:
+    import os
+    from fastapi import HTTPException
+    expected = os.getenv("INTERNAL_MONITORING_KEY", "").strip()
+    if not expected or x_internal_key != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@router.get(
+    "/orgs/{org_id}/seed/status",
+    response_model=SeedStatus,
+    include_in_schema=False,
+    summary="Check ClickHouse row counts for a tenant",
+)
+async def admin_seed_status(
+    org_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> SeedStatus:
+    _check_internal_key(x_internal_key)
+    from app.domains.dev.service import DevSeedService
+    return await DevSeedService(db).status(org_id)
+
+
+@router.post(
+    "/orgs/{org_id}/seed",
+    response_model=SeedResult,
+    status_code=201,
+    include_in_schema=False,
+    summary="Seed mock data for a tenant (works in production)",
+)
+async def admin_seed_tenant(
+    org_id: UUID,
+    req: SeedRequest,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> SeedResult:
+    _check_internal_key(x_internal_key)
+    from app.domains.dev.service import DevSeedService
+    from fastapi import HTTPException
+    try:
+        return await DevSeedService(db).seed(org_id, req)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/orgs/{org_id}/seed",
+    response_model=ClearResult,
+    include_in_schema=False,
+    summary="Clear seeded mock data for a tenant",
+)
+async def admin_clear_seed(
+    org_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+) -> ClearResult:
+    _check_internal_key(x_internal_key)
+    from app.domains.dev.service import DevSeedService
+    return await DevSeedService(db).clear(org_id)
