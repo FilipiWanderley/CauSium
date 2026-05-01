@@ -244,10 +244,13 @@ async def admin_seed_tenant(
     _check_internal_key(x_internal_key)
     from app.domains.dev.service import DevSeedService
     from fastapi import HTTPException
+    import traceback
     try:
         return await DevSeedService(db).seed(org_id, req)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=traceback.format_exc()) from exc
 
 
 @router.delete(
