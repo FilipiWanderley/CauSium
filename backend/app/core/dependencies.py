@@ -165,7 +165,7 @@ async def get_support_access_context(
         support_access_session_id = session.id
 
     request.state.actor_user_id = str(actor_user_id)
-    request.state.effective_org_id = str(effective_org_id)
+    request.state.effective_org_id = str(effective_org_id) if effective_org_id is not None else None
     request.state.support_access_session_id = str(support_access_session_id) if support_access_session_id else None
     return SupportAccessContext(
         actor_user_id=actor_user_id,
