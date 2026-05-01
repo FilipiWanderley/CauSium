@@ -329,6 +329,6 @@ class IntelInsightsService:
             return True
         allowed = {p.strip().lower() for p in (self.settings.ai_enabled_plans or "").split(",") if p.strip()}
         if not allowed:
-            allowed = {"b", "plan_b", "ai", "enterprise", "pro_ai", "growth_ai"}
+            allowed = {"b", "plan_b", "ai", "enterprise", "pro_ai", "growth_ai", "growth"}
         p = (plan or "").strip().lower()
         return p in allowed or p.endswith("_ai") or "ai" in p

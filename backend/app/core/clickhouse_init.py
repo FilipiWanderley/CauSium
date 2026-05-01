@@ -21,7 +21,7 @@ TABLES = [
         usage_quantity Float64,
         usage_unit String,
         currency String,
-        tags String
+        tags Map(String, String)
     ) ENGINE = MergeTree()
     ORDER BY (org_id, account_id, date, service)
     """,
@@ -60,7 +60,8 @@ TABLES = [
         impact String,
         resource_type String,
         sku_name String,
-        sku_tier String
+        sku_tier String,
+        estimated_savings_usd Float64
     ) ENGINE = MergeTree()
     ORDER BY (org_id, account_id, date, category)
     """,
@@ -117,11 +118,27 @@ TABLES = [
 ]
 
 
+MIGRATIONS = [
+    # Add estimated_savings_usd to recommendation_facts if missing
+    "ALTER TABLE recommendation_facts ADD COLUMN IF NOT EXISTS estimated_savings_usd Float64 DEFAULT 0",
+    # Change tags from String to Map(String,String) in cost_facts if still String
+    # ClickHouse does not support ALTER COLUMN type change in-place for MergeTree;
+    # we add a new column and keep the old one for backwards compat with existing data.
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS tags_map Map(String, String) DEFAULT map()",
+    "ALTER TABLE resource_inventory ADD COLUMN IF NOT EXISTS tags_map Map(String, String) DEFAULT map()",
+]
+
+
 def ensure_clickhouse_schema() -> None:
     try:
         from app.core.clickhouse import execute_command
         for ddl in TABLES:
             execute_command(ddl.strip())
+        for migration in MIGRATIONS:
+            try:
+                execute_command(migration.strip())
+            except Exception as exc:
+                log.warning("clickhouse.migration.failed", migration=migration[:80], error=str(exc))
         log.info("clickhouse.schema.ok")
     except Exception as exc:
         log.warning("clickhouse.schema.failed", error=str(exc))

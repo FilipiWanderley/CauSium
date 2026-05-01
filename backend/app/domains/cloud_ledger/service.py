@@ -967,7 +967,7 @@ class CloudLedgerService:
                                 OR positionCaseInsensitiveUTF8(v, 'savings') > 0
                                 OR positionCaseInsensitiveUTF8(v, 'commitment') > 0
                             ),
-                            mapValues(tags)
+                            mapValues(tags_map)
                         ),
                         cost_usd,
                         0
@@ -1255,7 +1255,7 @@ class CloudLedgerService:
                                 OR positionCaseInsensitiveUTF8(v, 'savings') > 0
                                 OR positionCaseInsensitiveUTF8(v, 'commitment') > 0
                             ),
-                            mapValues(tags)
+                            mapValues(tags_map)
                         ),
                         cost_usd,
                         0
@@ -1266,7 +1266,7 @@ class CloudLedgerService:
               AND date >= {{start:Date}}
               AND date <= {{end:Date}}
               {provider_where}
-            GROUP BY service, resource_name, tags
+            GROUP BY service, resource_name, tags_map
             HAVING compute_cost_usd > 0 OR reserved_cost_usd > 0
             LIMIT 10000
         """

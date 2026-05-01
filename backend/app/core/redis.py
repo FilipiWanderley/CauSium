@@ -29,8 +29,8 @@ class DisabledRedis:
     async def incr(self, *args: Any, **kwargs: Any) -> int:
         return 1
 
-    async def eval(self, *args: Any, **kwargs: Any) -> int:
-        return 0
+    async def eval(self, *args: Any, **kwargs: Any) -> list:
+        return [0, 0, 0]
 
     async def lpush(self, *args: Any, **kwargs: Any) -> int:
         return 0
