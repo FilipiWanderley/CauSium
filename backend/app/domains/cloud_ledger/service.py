@@ -163,6 +163,7 @@ class CloudLedgerService:
                     "usage_unit": r.usage_unit,
                     "currency": r.currency,
                     "tags": r.tags,
+                    "tags_map": r.tags if isinstance(r.tags, dict) else {},
                 }
                 for r in costs
             ]
@@ -447,6 +448,7 @@ class CloudLedgerService:
                 "sku_tier": r.sku_tier,
                 "provisioning_state": r.provisioning_state,
                 "tags": r.tags,
+                "tags_map": r.tags if isinstance(r.tags, dict) else {},
             }
             for r in resources
         ]
