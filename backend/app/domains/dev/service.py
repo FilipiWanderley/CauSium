@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import random
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -301,7 +302,7 @@ class DevSeedService:
                         "usage_quantity": qty,
                         "usage_unit":     svc["unit"],
                         "currency":       "USD",
-                        "tags":           {"environment": svc["environment"], "team": svc["team"]},
+                        "tags":           json.dumps({"environment": svc["environment"], "team": svc["team"]}),
                     })
 
         return rows
@@ -504,7 +505,7 @@ class DevSeedService:
                 "sku_name":          sku_name,
                 "sku_tier":          sku_tier,
                 "provisioning_state": "Succeeded",
-                "tags":              {"environment": env, "team": team},
+                "tags":              json.dumps({"environment": env, "team": team}),
             })
 
         return rows
