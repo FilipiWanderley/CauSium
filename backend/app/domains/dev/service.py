@@ -16,6 +16,9 @@ from app.domains.economics.models import FinancialBudgetPeriod, WorkspaceBudget
 from app.domains.risk_budgets.models import BudgetPeriod, BudgetType, RiskBudget
 from app.domains.experiments.models import ExperimentStatus, OptimizationExperiment
 from app.domains.intel.models import CostAnomaly, CostAnomalySeverity
+from app.domains.decision_engine.models import (
+    EffortLevel, OpportunityCategory, OpportunityStatus, OptimizationOpportunity, RiskLevel,
+)
 
 log = get_logger(__name__)
 
@@ -152,6 +155,7 @@ class DevSeedService:
         risk_budgets = await self._create_risk_budgets(org_id)
         experiments  = await self._create_experiments(org_id, rng)
         anomalies    = await self._create_cost_anomalies(org_id, cost_rows, rng)
+        opportunities = await self._create_opportunities(org_id, accounts, rng)
 
         await self.db.commit()
 
@@ -187,6 +191,7 @@ class DevSeedService:
         await self.db.execute(sa_delete(RiskBudget).where(RiskBudget.org_id == org_id))
         await self.db.execute(sa_delete(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id))
         await self.db.execute(sa_delete(CostAnomaly).where(CostAnomaly.org_id == org_id))
+        await self.db.execute(sa_delete(OptimizationOpportunity).where(OptimizationOpportunity.org_id == org_id))
 
         # ClickHouse — delete from every analytical table
         org_str = str(org_id)
@@ -714,3 +719,102 @@ class DevSeedService:
         await self.db.flush()
         log.info("dev_seed.anomalies_created", org_id=str(org_id), count=len(anomalies))
         return anomalies
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — OptimizationOpportunities
+    # ------------------------------------------------------------------
+
+    async def _create_opportunities(
+        self,
+        org_id: UUID,
+        accounts: tuple[CloudAccount, CloudAccount, CloudAccount],
+        rng: random.Random,
+    ) -> list[OptimizationOpportunity]:
+        azure_acct, aws_acct, gcp_acct = accounts
+
+        specs = [
+            (
+                azure_acct.id, "Virtual Machines", "eastus", "production", "platform",
+                OpportunityCategory.RIGHTSIZING,
+                "Right-size Standard_D4s_v3 VMs to Standard_D2s_v3",
+                "Average CPU utilization is below 25% over the last 30 days. Downsizing to D2s_v3 reduces compute cost by ~40% with no performance impact.",
+                320.0, RiskLevel.LOW, EffortLevel.LOW,
+            ),
+            (
+                azure_acct.id, "Azure Kubernetes Service", "eastus", "production", "platform",
+                OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING,
+                "Switch AKS node pool to spot instances for non-prod workloads",
+                "Non-production AKS node pools running on standard VMs can be migrated to spot instances, saving up to 80% on compute.",
+                180.0, RiskLevel.MEDIUM, EffortLevel.MEDIUM,
+            ),
+            (
+                aws_acct.id, "Amazon EC2", "us-east-1", "production", "platform",
+                OpportunityCategory.RESERVED_INSTANCES,
+                "Purchase 1-year reserved instances for steady-state EC2 fleet",
+                "EC2 instances running 24/7 for 90+ days qualify for reserved instance pricing, saving ~35% vs on-demand.",
+                450.0, RiskLevel.LOW, EffortLevel.LOW,
+            ),
+            (
+                aws_acct.id, "Amazon S3", "us-east-1", "production", "data",
+                OpportunityCategory.STORAGE_OPTIMIZATION,
+                "Move S3 objects older than 90 days to Glacier Instant Retrieval",
+                "40% of S3 storage has not been accessed in 90+ days. Lifecycle policy to Glacier saves ~70% on cold storage costs.",
+                220.0, RiskLevel.LOW, EffortLevel.LOW,
+            ),
+            (
+                gcp_acct.id, "Compute Engine", "us-central1", "production", "platform",
+                OpportunityCategory.RESERVED_INSTANCES,
+                "Commit to 1-year CUDs for Compute Engine baseline workloads",
+                "Committed Use Discounts for stable Compute Engine workloads provide 37% savings vs on-demand pricing.",
+                280.0, RiskLevel.LOW, EffortLevel.LOW,
+            ),
+            (
+                gcp_acct.id, "BigQuery", "us-central1", "production", "analytics",
+                OpportunityCategory.ARCHITECTURE_CHANGE,
+                "Add date partitioning to top analytics tables to reduce scanned bytes",
+                "Top 3 BigQuery tables lack partitioning. Adding date partitions reduces bytes scanned by ~60%, cutting on-demand query costs significantly.",
+                120.0, RiskLevel.LOW, EffortLevel.MEDIUM,
+            ),
+            (
+                azure_acct.id, "Azure Functions", "westus2", "development", "backend",
+                OpportunityCategory.IDLE_RESOURCES,
+                "Remove idle Azure Functions running on Premium plan",
+                "3 Azure Functions on Premium plan have zero invocations in the last 30 days. Deleting or moving to Consumption plan eliminates idle costs.",
+                96.0, RiskLevel.LOW, EffortLevel.LOW,
+            ),
+        ]
+
+        opportunities: list[OptimizationOpportunity] = []
+        for account_id, service, region, environment, owner_team, category, title, description, monthly_savings, risk, effort in specs:
+            variance = rng.uniform(0.9, 1.1)
+            monthly = round(monthly_savings * variance, 2)
+            opp = OptimizationOpportunity(
+                org_id=org_id,
+                account_id=account_id,
+                title=title,
+                description=description,
+                category=category,
+                status=OpportunityStatus.OPEN,
+                estimated_monthly_savings_usd=monthly,
+                estimated_annual_savings_usd=round(monthly * 12, 2),
+                current_monthly_cost_usd=round(monthly * rng.uniform(2.5, 4.0), 2),
+                financial_impact_score=round(min(monthly / 10, 100), 1),
+                risk_score=round(rng.uniform(5, 30), 1),
+                effort_score=round(rng.uniform(10, 40), 1),
+                criticality_score=round(rng.uniform(20, 80), 1),
+                composite_score=round(rng.uniform(40, 90), 1),
+                risk_level=risk,
+                effort_level=effort,
+                service=service,
+                region=region,
+                environment=environment,
+                owner_team=owner_team,
+                resource_id=f"/mock/{service.lower().replace(' ', '-')}-01",
+                resource_name=f"mock-{service.lower().replace(' ', '-')}-01",
+            )
+            self.db.add(opp)
+            opportunities.append(opp)
+
+        await self.db.flush()
+        log.info("dev_seed.opportunities_created", org_id=str(org_id), count=len(opportunities))
+        return opportunities
