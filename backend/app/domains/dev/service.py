@@ -418,7 +418,6 @@ class DevSeedService:
                     "metric_value":   value,
                     "metric_unit":    unit,
                     "region":         region,
-                    "environment":    "production",
                 })
 
         return rows
@@ -436,7 +435,6 @@ class DevSeedService:
         rng: random.Random,
     ) -> list[dict[str, Any]]:
         org_str = str(org_id)
-        now = datetime.now(timezone.utc)
 
         recommendations = [
             # (account_str, provider, subscription_id, category, impact, service, description, savings_usd)
@@ -449,22 +447,24 @@ class DevSeedService:
         ]
 
         rows: list[dict[str, Any]] = []
+        today = date.today()
         for account_str, provider, subscription_id, category, impact, service, description, savings in recommendations:
             rows.append({
-                "fetched_at":             now,
+                "date":                   today,
                 "org_id":                 org_str,
                 "account_id":             account_str,
                 "provider":               provider,
                 "subscription_id":        subscription_id,
-                "recommendation_id":      str(uuid4()),
                 "category":               category,
                 "impact":                 impact,
                 "resource_id":            f"/{provider}/mock-{service.lower().replace(' ', '-')}-01",
                 "resource_name":          f"mock-{service.lower().replace(' ', '-')}-01",
-                "resource_group":         "mock-rg-production" if provider == "azure" else "",
                 "service":                service,
                 "short_description":      description,
                 "recommendation_type_id": f"mock-type-{provider}-{rng.randint(100, 999)}",
+                "resource_type":          f"mock/{service.lower().replace(' ', '-')}",
+                "sku_name":               "",
+                "sku_tier":               "",
                 "estimated_savings_usd":  savings,
             })
 
