@@ -12,6 +12,10 @@ from app.core.clickhouse import execute_command, execute_query, insert_rows
 from app.core.logging import get_logger
 from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorStatus
 from app.domains.dev.schemas import ClearResult, SeedRequest, SeedResult, SeedStatus
+from app.domains.economics.models import FinancialBudgetPeriod, WorkspaceBudget
+from app.domains.risk_budgets.models import BudgetPeriod, BudgetType, RiskBudget
+from app.domains.experiments.models import ExperimentStatus, OptimizationExperiment
+from app.domains.intel.models import CostAnomaly, CostAnomalySeverity
 
 log = get_logger(__name__)
 
@@ -130,17 +134,24 @@ class DevSeedService:
         azure_acct, aws_acct, gcp_acct = accounts
         today = date.today()
 
+        # ClickHouse tables
         cost_rows  = self._gen_cost_facts(org_id, azure_acct, aws_acct, gcp_acct, today, req.days, rng)
         event_rows = self._gen_event_facts(org_id, azure_acct, aws_acct, gcp_acct, today, rng)
         usage_rows = self._gen_usage_facts(org_id, azure_acct, aws_acct, gcp_acct, today, req.days, rng)
         rec_rows   = self._gen_recommendation_facts(org_id, azure_acct, aws_acct, gcp_acct, rng)
         inv_rows   = self._gen_resource_inventory(org_id, azure_acct, aws_acct, gcp_acct, rng)
 
-        self._insert_table("cost_facts",          cost_rows)
-        self._insert_table("event_facts",         event_rows)
-        self._insert_table("usage_facts",         usage_rows)
+        self._insert_table("cost_facts",           cost_rows)
+        self._insert_table("event_facts",          event_rows)
+        self._insert_table("usage_facts",          usage_rows)
         self._insert_table("recommendation_facts", rec_rows)
-        self._insert_table("resource_inventory",  inv_rows)
+        self._insert_table("resource_inventory",   inv_rows)
+
+        # PostgreSQL records
+        await self._create_workspace_budget(org_id, cost_rows, req.days)
+        risk_budgets = await self._create_risk_budgets(org_id)
+        experiments  = await self._create_experiments(org_id, rng)
+        anomalies    = await self._create_cost_anomalies(org_id, cost_rows, rng)
 
         await self.db.commit()
 
@@ -165,16 +176,19 @@ class DevSeedService:
         )
 
     async def clear(self, org_id: UUID) -> ClearResult:
-        # Remove mock CloudAccounts from PostgreSQL.
+        # PostgreSQL — remove all seed-generated records
         await self.db.execute(
             sa_delete(CloudAccount).where(
                 CloudAccount.org_id == org_id,
                 CloudAccount.external_id.like(f"{_MOCK_EXTERNAL_ID_PREFIX}%"),
             )
         )
+        await self.db.execute(sa_delete(WorkspaceBudget).where(WorkspaceBudget.org_id == org_id))
+        await self.db.execute(sa_delete(RiskBudget).where(RiskBudget.org_id == org_id))
+        await self.db.execute(sa_delete(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id))
+        await self.db.execute(sa_delete(CostAnomaly).where(CostAnomaly.org_id == org_id))
 
-        # Lightweight delete from every ClickHouse analytical table.
-        # org_id is a Python UUID — no user input, safe to interpolate.
+        # ClickHouse — delete from every analytical table
         org_str = str(org_id)
         for table in (
             "cost_facts",
@@ -509,3 +523,194 @@ class DevSeedService:
             })
 
         return rows
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — WorkspaceBudget
+    # ------------------------------------------------------------------
+
+    async def _create_workspace_budget(
+        self, org_id: UUID, cost_rows: list[dict[str, Any]], days: int
+    ) -> WorkspaceBudget:
+        # Estimate monthly spend from cost_rows to set a realistic budget
+        total_cost = sum(float(r.get("cost_usd") or 0) for r in cost_rows)
+        avg_daily  = total_cost / max(days, 1)
+        monthly_estimate = avg_daily * 30
+
+        # Budget = 110% of average monthly spend (slightly above to show partial consumption)
+        budget_amount = round(monthly_estimate * 1.10, 2)
+
+        budget = WorkspaceBudget(
+            org_id=org_id,
+            amount_usd=budget_amount,
+            period=FinancialBudgetPeriod.MONTHLY,
+            currency="USD",
+            alert_thresholds="[50, 80, 90]",
+        )
+        self.db.add(budget)
+        await self.db.flush()
+        log.info("dev_seed.budget_created", org_id=str(org_id), amount_usd=budget_amount)
+        return budget
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — RiskBudgets
+    # ------------------------------------------------------------------
+
+    async def _create_risk_budgets(self, org_id: UUID) -> list[RiskBudget]:
+        configs = [
+            ("Platform Cost Variance — Production",  "platform",  "production",  BudgetType.COST_VARIANCE,    BudgetPeriod.WEEKLY,   15.0),
+            ("Data Team Cost Variance — Production",  "data",      "production",  BudgetType.COST_VARIANCE,    BudgetPeriod.WEEKLY,   20.0),
+            ("Backend Blast Radius — Staging",        "backend",   "staging",     BudgetType.BLAST_RADIUS,     BudgetPeriod.DAILY,    0.25),
+            ("Platform Change Frequency — Production","platform",  "production",  BudgetType.CHANGE_FREQUENCY, BudgetPeriod.WEEKLY,   10.0),
+            ("Infra Error Rate — Production",         "infra",     "production",  BudgetType.ERROR_RATE,       BudgetPeriod.DAILY,    0.05),
+        ]
+        budgets: list[RiskBudget] = []
+        for name, domain, env, btype, period, limit in configs:
+            rb = RiskBudget(
+                org_id=org_id,
+                name=name,
+                domain=domain,
+                environment=env,
+                budget_type=btype,
+                period=period,
+                limit_value=limit,
+                current_value=round(limit * 0.6, 4),
+                is_active=True,
+            )
+            self.db.add(rb)
+            budgets.append(rb)
+        await self.db.flush()
+        log.info("dev_seed.risk_budgets_created", org_id=str(org_id), count=len(budgets))
+        return budgets
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — OptimizationExperiments
+    # ------------------------------------------------------------------
+
+    async def _create_experiments(
+        self, org_id: UUID, rng: random.Random
+    ) -> list[OptimizationExperiment]:
+        specs = [
+            (
+                "Right-size Standard_D4s_v3 VMs to Standard_D2s_v3",
+                "Downsizing underutilized VMs (avg CPU < 30%) will reduce compute costs by ~40% with no performance impact.",
+                "production", "medium",
+                ExperimentStatus.APPROVED,
+                1200.0, 0.82,
+            ),
+            (
+                "Enable Reserved Instances for Azure SQL Database",
+                "Switching from pay-as-you-go to 1-year reserved capacity for stable workloads saves ~35%.",
+                "production", "low",
+                ExperimentStatus.RUNNING,
+                650.0, 0.91,
+            ),
+            (
+                "Migrate Azure Functions to Consumption plan",
+                "Low-traffic functions on Premium plan can move to Consumption to eliminate idle costs.",
+                "staging", "low",
+                ExperimentStatus.CONCLUDED,
+                180.0, 0.75,
+            ),
+            (
+                "Consolidate S3 storage tiers — move cold data to Glacier",
+                "Objects not accessed in 90+ days represent 40% of S3 spend. Lifecycle policy to Glacier saves ~70% on cold storage.",
+                "production", "medium",
+                ExperimentStatus.HYPOTHESIS,
+                420.0, 0.68,
+            ),
+            (
+                "Reduce BigQuery on-demand scans with partitioned tables",
+                "Adding date partitioning to top 3 analytics tables reduces bytes scanned by ~60%.",
+                "production", "low",
+                ExperimentStatus.DRAFT,
+                310.0, 0.79,
+            ),
+        ]
+
+        now = datetime.now(timezone.utc)
+        experiments: list[OptimizationExperiment] = []
+        for title, hypothesis, env, criticality, status, savings, confidence in specs:
+            exp = OptimizationExperiment(
+                org_id=org_id,
+                title=title,
+                hypothesis=hypothesis,
+                description=hypothesis,
+                target_environment=env,
+                target_criticality=criticality,
+                status=status,
+                simulated_savings_usd=round(savings * rng.uniform(0.9, 1.1), 2),
+                simulated_confidence=round(confidence * rng.uniform(0.95, 1.05), 3),
+                simulation_notes="Simulated via mock seed data.",
+                guardrails={"max_blast_radius": 0.2, "rollback_on_error_rate": 0.05},
+                estimated_risk_score=round(rng.uniform(0.1, 0.4), 2),
+                started_at=now - timedelta(days=rng.randint(5, 20)) if status in (
+                    ExperimentStatus.RUNNING, ExperimentStatus.CONCLUDED
+                ) else None,
+                concluded_at=now - timedelta(days=rng.randint(1, 4)) if status == ExperimentStatus.CONCLUDED else None,
+                actual_savings_usd=round(savings * rng.uniform(0.85, 1.05), 2) if status == ExperimentStatus.CONCLUDED else None,
+            )
+            self.db.add(exp)
+            experiments.append(exp)
+
+        await self.db.flush()
+        log.info("dev_seed.experiments_created", org_id=str(org_id), count=len(experiments))
+        return experiments
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — CostAnomalies
+    # ------------------------------------------------------------------
+
+    async def _create_cost_anomalies(
+        self, org_id: UUID, cost_rows: list[dict[str, Any]], rng: random.Random
+    ) -> list[CostAnomaly]:
+        # Derive realistic mean costs per service from the generated cost_rows
+        service_costs: dict[tuple[str, str], list[float]] = {}
+        for r in cost_rows:
+            key = (r["provider"], r["service"])
+            service_costs.setdefault(key, []).append(float(r["cost_usd"]))
+
+        today = date.today()
+        anomalies: list[CostAnomaly] = []
+
+        # Pick 4 services to have anomalies
+        candidates = list(service_costs.keys())
+        rng.shuffle(candidates)
+        selected = candidates[:4]
+
+        severity_map = [
+            CostAnomalySeverity.HIGH,
+            CostAnomalySeverity.MEDIUM,
+            CostAnomalySeverity.MEDIUM,
+            CostAnomalySeverity.LOW,
+        ]
+
+        for i, (provider, service) in enumerate(selected):
+            costs = service_costs[(provider, service)]
+            mean  = sum(costs) / len(costs)
+            stddev = max(mean * 0.12, 0.01)
+            spike_factor = rng.uniform(1.8, 2.8)
+            current = round(mean * spike_factor, 4)
+            z_score = round((current - mean) / stddev, 2)
+            deviation_pct = round((current - mean) / mean * 100, 1)
+            severity = severity_map[i]
+
+            anomaly = CostAnomaly(
+                org_id=org_id,
+                provider=provider,
+                service=service,
+                observed_date=today - timedelta(days=i),  # distinct dates per anomaly
+                current_cost_usd=current,
+                historical_mean_usd=round(mean, 4),
+                historical_stddev_usd=round(stddev, 4),
+                z_score=z_score,
+                deviation_pct=deviation_pct,
+                severity=severity,
+                window_days=30,
+                z_threshold=2.0,
+            )
+            self.db.add(anomaly)
+            anomalies.append(anomaly)
+
+        await self.db.flush()
+        log.info("dev_seed.anomalies_created", org_id=str(org_id), count=len(anomalies))
+        return anomalies
