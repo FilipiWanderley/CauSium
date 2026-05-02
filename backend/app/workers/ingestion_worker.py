@@ -2,7 +2,7 @@ from __future__ import annotations
 """Ingestion worker — polls Redis queue for account IDs and ingests cost/event data."""
 import asyncio
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import time
 from uuid import UUID
 
@@ -26,20 +26,22 @@ LOCK_TTL = 3600  # 1 hour
 SCHEDULED_SYNC_LOCK_PREFIX = "ingestion:scheduled"
 
 
-async def enqueue_periodic_sync_jobs(interval_seconds: int, lookback_days: int) -> int:
+async def enqueue_periodic_sync_jobs(interval_seconds: int) -> int:
     redis = get_redis_pool()
     queued = 0
     bucket = int(time.time() // max(interval_seconds, 1))
 
     async with async_session_factory() as db:
         result = await db.execute(
-            select(CloudAccount.id, CloudAccount.org_id).where(
+            select(CloudAccount.id, CloudAccount.org_id, CloudAccount.last_sync_at).where(
                 CloudAccount.status.in_([ConnectorStatus.ACTIVE, ConnectorStatus.ERROR])
             )
         )
         accounts = result.all()
 
-    for account_id, org_id in accounts:
+    now_utc = datetime.now(timezone.utc)
+
+    for account_id, org_id, last_sync_at in accounts:
         schedule_lock_key = (
             f"{SCHEDULED_SYNC_LOCK_PREFIX}:{org_id}:{account_id}:{bucket}"
         )
@@ -47,11 +49,22 @@ async def enqueue_periodic_sync_jobs(interval_seconds: int, lookback_days: int) 
         if not acquired:
             continue
 
+        # Smart lookback: use gap since last sync, capped at 90 days.
+        # Never synced → full 90-day backfill.
+        # Synced recently → only pull the delta to avoid redundant data.
+        if last_sync_at is None:
+            smart_lookback = 90
+        else:
+            last_sync_aware = last_sync_at if last_sync_at.tzinfo else last_sync_at.replace(tzinfo=timezone.utc)
+            gap_days = (now_utc - last_sync_aware).days
+            # Add 2-day buffer to cover API propagation delays
+            smart_lookback = max(2, min(gap_days + 2, 90))
+
         payload = json.dumps(
             {
                 "org_id": str(org_id),
                 "account_id": str(account_id),
-                "lookback_days": lookback_days,
+                "lookback_days": smart_lookback,
             }
         )
         await redis.lpush(QUEUE_KEY, payload)
@@ -231,19 +244,18 @@ async def run_ingestion_worker() -> None:
     redis = get_redis_pool()
     settings = get_settings()
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
-    lookback_days = max(7, min(int(settings.ingestion_interval_hours * 7), 90))
     next_periodic_run_at = 0.0
     log.info(
         "ingestion_worker.started",
         periodic_interval_seconds=interval_seconds,
-        periodic_lookback_days=lookback_days,
+        smart_lookback="per_account_last_sync_at",
     )
 
     while True:
         try:
             now = time.monotonic()
             if now >= next_periodic_run_at:
-                await enqueue_periodic_sync_jobs(interval_seconds, lookback_days)
+                await enqueue_periodic_sync_jobs(interval_seconds)
                 next_periodic_run_at = now + interval_seconds
 
             item = await redis.brpop(QUEUE_KEY, timeout=5)

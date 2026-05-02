@@ -46,37 +46,15 @@ async def lifespan(app: FastAPI):
     instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
 
-    # Start the ingestion worker loop inside the app process
+    # Start the ingestion worker loop inside the app process.
+    # This worker handles periodic sync for all active accounts with smart
+    # lookback calculation based on last_sync_at — no separate scheduler needed.
     from app.workers.ingestion_worker import run_ingestion_worker
     worker_task = asyncio.create_task(run_ingestion_worker())
-
-    # Daily auto-sync background task — syncs all cloud accounts every 24h
-    async def _daily_sync_all():
-        from app.core.database import async_session_factory
-        from app.domains.cloud_accounts.router import _run_inline_sync_pipeline
-        while True:
-            await asyncio.sleep(86400)  # 24 hours
-            try:
-                async with async_session_factory() as db:
-                    from sqlalchemy import select
-                    from app.domains.cloud_accounts.models import CloudAccount
-                    result = await db.execute(select(CloudAccount).where(CloudAccount.status != "archived"))
-                    accounts = result.scalars().all()
-                log.info("daily_sync.starting", accounts=len(accounts))
-                for account in accounts:
-                    try:
-                        await _run_inline_sync_pipeline(account.org_id, account.id, lookback_days=1)
-                    except Exception as exc:
-                        log.warning("daily_sync.account_failed", account_id=str(account.id), error=str(exc))
-            except Exception as exc:
-                log.warning("daily_sync.failed", error=str(exc))
-
-    sync_task = asyncio.create_task(_daily_sync_all())
 
     yield
 
     worker_task.cancel()
-    sync_task.cancel()
     from app.core.redis import close_redis
     await close_redis()
     shutdown_tracing()
