@@ -180,18 +180,18 @@ class DevSeedService:
         )
 
     async def clear(self, org_id: UUID) -> ClearResult:
-        # PostgreSQL — remove all seed-generated records
+        # PostgreSQL — delete in FK-safe order (children before parents)
+        await self.db.execute(sa_delete(OptimizationOpportunity).where(OptimizationOpportunity.org_id == org_id))
+        await self.db.execute(sa_delete(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id))
+        await self.db.execute(sa_delete(CostAnomaly).where(CostAnomaly.org_id == org_id))
+        await self.db.execute(sa_delete(WorkspaceBudget).where(WorkspaceBudget.org_id == org_id))
+        await self.db.execute(sa_delete(RiskBudget).where(RiskBudget.org_id == org_id))
         await self.db.execute(
             sa_delete(CloudAccount).where(
                 CloudAccount.org_id == org_id,
                 CloudAccount.external_id.like(f"{_MOCK_EXTERNAL_ID_PREFIX}%"),
             )
         )
-        await self.db.execute(sa_delete(WorkspaceBudget).where(WorkspaceBudget.org_id == org_id))
-        await self.db.execute(sa_delete(RiskBudget).where(RiskBudget.org_id == org_id))
-        await self.db.execute(sa_delete(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id))
-        await self.db.execute(sa_delete(CostAnomaly).where(CostAnomaly.org_id == org_id))
-        await self.db.execute(sa_delete(OptimizationOpportunity).where(OptimizationOpportunity.org_id == org_id))
 
         # ClickHouse — delete from every analytical table
         org_str = str(org_id)
