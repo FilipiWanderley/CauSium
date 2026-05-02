@@ -300,6 +300,14 @@ async def admin_seed_diag(
     except Exception:
         return JSONResponse({"step": "_insert_table cost_facts", "error": traceback.format_exc()})
 
+    try:
+        rng2 = random.Random(int.from_bytes(org_id.bytes, "big"))
+        change_events = await svc._create_change_events(org_id, accounts, rng2)
+        await db.flush()
+        steps["change_events_created"] = len(change_events)
+    except Exception:
+        return JSONResponse({"step": "_create_change_events", "error": traceback.format_exc()})
+
     # Rollback the test accounts
     await db.rollback()
     return JSONResponse({"steps": steps, "conclusion": "all steps passed"})
