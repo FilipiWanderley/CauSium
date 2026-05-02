@@ -19,6 +19,7 @@ from app.domains.intel.models import CostAnomaly, CostAnomalySeverity
 from app.domains.decision_engine.models import (
     EffortLevel, OpportunityCategory, OpportunityStatus, OptimizationOpportunity, RiskLevel,
 )
+from app.domains.change_events.models import ChangeEvent, ChangeEventType
 
 log = get_logger(__name__)
 
@@ -156,6 +157,7 @@ class DevSeedService:
         experiments  = await self._create_experiments(org_id, rng)
         anomalies    = await self._create_cost_anomalies(org_id, cost_rows, rng)
         opportunities = await self._create_opportunities(org_id, accounts, rng)
+        await self._create_change_events(org_id, accounts, rng)
 
         await self.db.commit()
 
@@ -186,6 +188,7 @@ class DevSeedService:
         await self.db.execute(sa_delete(CostAnomaly).where(CostAnomaly.org_id == org_id))
         await self.db.execute(sa_delete(WorkspaceBudget).where(WorkspaceBudget.org_id == org_id))
         await self.db.execute(sa_delete(RiskBudget).where(RiskBudget.org_id == org_id))
+        await self.db.execute(sa_delete(ChangeEvent).where(ChangeEvent.org_id == org_id))
         await self.db.execute(
             sa_delete(CloudAccount).where(
                 CloudAccount.org_id == org_id,
@@ -818,3 +821,53 @@ class DevSeedService:
         await self.db.flush()
         log.info("dev_seed.opportunities_created", org_id=str(org_id), count=len(opportunities))
         return opportunities
+
+    # ------------------------------------------------------------------
+    # PostgreSQL — ChangeEvents
+    # ------------------------------------------------------------------
+
+    async def _create_change_events(
+        self,
+        org_id: UUID,
+        accounts: tuple[CloudAccount, CloudAccount, CloudAccount],
+        rng: random.Random,
+    ) -> list[ChangeEvent]:
+        azure_acct, aws_acct, gcp_acct = accounts
+        now = datetime.now(timezone.utc)
+
+        specs = [
+            (azure_acct.id, ChangeEventType.DEPLOY,        "Virtual Machines",       "production", "platform",  "eastus",      "Deploy v2.4.1 to production VMs",                    -120.0,  0.85,  2),
+            (azure_acct.id, ChangeEventType.CONFIG_CHANGE, "Azure SQL Database",      "production", "data",      "eastus",      "Updated connection pool size from 50 to 100",          None,   None,  5),
+            (azure_acct.id, ChangeEventType.SCALING,       "Azure Kubernetes Service","production", "platform",  "eastus",      "AKS node pool scaled from 3 to 6 nodes",               280.0,  0.92,  8),
+            (aws_acct.id,   ChangeEventType.DEPLOY,        "Amazon EC2",              "production", "platform",  "us-east-1",   "Deploy backend service v1.9.3",                       -80.0,   0.78,  12),
+            (aws_acct.id,   ChangeEventType.INCIDENT,      "Amazon RDS",              "production", "data",      "us-east-1",   "RDS CPU spike — auto-scaling triggered",               450.0,  0.95,  15),
+            (aws_acct.id,   ChangeEventType.CONFIG_CHANGE, "AWS Lambda",              "production", "backend",   "us-east-1",   "Lambda memory increased from 512MB to 1024MB",         60.0,   0.70,  18),
+            (gcp_acct.id,   ChangeEventType.DEPLOY,        "Compute Engine",          "production", "platform",  "us-central1", "Deploy data pipeline v3.1.0",                         -50.0,  0.80,  22),
+            (gcp_acct.id,   ChangeEventType.COST_ANOMALY,  "BigQuery",                "production", "analytics", "us-central1", "Unpartitioned query scanned 2TB — cost spike detected", 380.0, 0.98,  25),
+            (azure_acct.id, ChangeEventType.POLICY_CHANGE, "Storage",                 "production", "data",      "eastus",      "Enabled lifecycle policy for cold storage tiering",   -200.0,  0.88,  30),
+            (gcp_acct.id,   ChangeEventType.SCALING,       "Compute Engine",          "staging",    "platform",  "us-central1", "Staging cluster scaled down for cost savings",        -90.0,   0.75,  35),
+        ]
+
+        events: list[ChangeEvent] = []
+        for account_id, event_type, service, environment, owner_team, region, title, cost_impact, confidence, days_ago in specs:
+            evt = ChangeEvent(
+                org_id=org_id,
+                account_id=account_id,
+                event_type=event_type,
+                service=service,
+                environment=environment,
+                owner_team=owner_team,
+                region=region,
+                title=title,
+                description=title,
+                cost_impact_usd=round(cost_impact * rng.uniform(0.9, 1.1), 2) if cost_impact else None,
+                causal_confidence=round(confidence * rng.uniform(0.95, 1.0), 2) if confidence else None,
+                occurred_at=now - timedelta(days=days_ago, hours=rng.randint(0, 12)),
+            )
+            self.db.add(evt)
+            events.append(evt)
+
+        await self.db.flush()
+        log.info("dev_seed.change_events_created", org_id=str(org_id), count=len(events))
+        return events
+
