@@ -144,6 +144,38 @@ class CloudLedgerService:
             if isinstance(client, AwsConnectorClient):
                 aws_cur_checkpoints = client.consume_last_cur_checkpoints()
 
+            if not costs and not events and not fetch_errors:
+                from app.domains.cloud_accounts.models import ConnectorHealth
+
+                empty_hint = None
+                if isinstance(client, AzureConnectorClient) and not blob_checkpoints:
+                    empty_hint = (
+                        "No Azure Cost export files found. Verify Storage Account URL, container and prefix, "
+                        "and ensure Cost Management Exports has generated files (may take hours after setup)."
+                    )
+                if isinstance(client, AwsConnectorClient) and not aws_cur_checkpoints:
+                    empty_hint = (
+                        "No AWS CUR objects found. Verify CUR bucket/prefix and that the report is being delivered."
+                    )
+                if empty_hint:
+                    account.status = ConnectorStatus.ERROR
+                    account.last_sync_at = datetime.now(timezone.utc)
+                    self.db.add(
+                        ConnectorHealth(
+                            account_id=account_id,
+                            status=ConnectorStatus.ERROR,
+                            message=empty_hint,
+                        )
+                    )
+                    await self.db.flush()
+                    return IngestResult(
+                        account_id=account_id,
+                        cost_records=0,
+                        event_records=0,
+                        status="error",
+                        message=empty_hint,
+                    )
+
             # Write costs to ClickHouse
             cost_rows = [
                 {
