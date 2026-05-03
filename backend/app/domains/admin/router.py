@@ -327,3 +327,78 @@ async def admin_clear_seed(
     _check_internal_key(x_internal_key)
     from app.domains.dev.service import DevSeedService
     return await DevSeedService(db).clear(org_id)
+
+
+@router.post(
+    "/sync-diag",
+    include_in_schema=False,
+    summary="Diagnose sync pipeline for a specific account",
+)
+async def admin_sync_diag(
+    org_id: UUID,
+    account_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    import traceback
+    from datetime import date, timedelta
+    from fastapi.responses import JSONResponse
+    from app.domains.cloud_accounts.service import CloudAccountService
+    from app.domains.cloud_ledger.service import CloudLedgerService
+
+    steps: dict = {}
+
+    # Step 1: get account
+    try:
+        svc = CloudAccountService(db)
+        account = await svc.get_account(org_id, account_id)
+        if not account:
+            return JSONResponse({"step": "get_account", "error": "Account not found"})
+        steps["account"] = {"status": str(account.status), "provider": str(account.provider), "external_id": account.external_id}
+    except Exception:
+        return JSONResponse({"step": "get_account", "error": traceback.format_exc()})
+
+    # Step 2: get credentials
+    try:
+        creds = await svc.get_azure_credentials(account)
+        steps["credentials"] = "found" if creds else "not found"
+    except Exception:
+        return JSONResponse({"step": "get_credentials", "error": traceback.format_exc()})
+
+    # Step 3: build connector
+    try:
+        from app.domains.connectors.factory import get_connector_for_account
+        client = get_connector_for_account(account, creds)
+        steps["connector"] = type(client).__name__
+    except Exception:
+        return JSONResponse({"step": "get_connector", "error": traceback.format_exc()})
+
+    # Step 4: validate connection
+    try:
+        await client.validate_connection()
+        steps["validate_connection"] = "ok"
+    except Exception:
+        return JSONResponse({"step": "validate_connection", "error": traceback.format_exc()})
+
+    # Step 5: fetch costs (last 7 days only for speed)
+    try:
+        end = date.today()
+        start = end - timedelta(days=7)
+        costs = await client.fetch_costs(account.external_id, start, end)
+        steps["fetch_costs_7d"] = len(costs)
+    except Exception:
+        return JSONResponse({"step": "fetch_costs", "error": traceback.format_exc()})
+
+    # Step 6: full ingest (90 days)
+    try:
+        ledger = CloudLedgerService(db)
+        end = date.today()
+        start = end - timedelta(days=90)
+        result = await ledger.ingest_account(org_id, account_id, start, end)
+        await db.commit()
+        steps["ingest"] = {"status": result.status, "cost_records": result.cost_records, "event_records": result.event_records, "message": result.message}
+    except Exception:
+        return JSONResponse({"step": "ingest_account", "error": traceback.format_exc()})
+
+    return JSONResponse({"steps": steps, "conclusion": "all steps passed"})
