@@ -390,11 +390,11 @@ async def admin_sync_diag(
     except Exception:
         return JSONResponse({"step": "fetch_costs", "error": traceback.format_exc()})
 
-    # Step 6: full ingest (90 days)
+    # Step 6: full ingest (30 days)
     try:
         ledger = CloudLedgerService(db)
         end = date.today()
-        start = end - timedelta(days=90)
+        start = end - timedelta(days=30)
         result = await ledger.ingest_account(org_id, account_id, start, end)
         await db.commit()
         steps["ingest"] = {"status": result.status, "cost_records": result.cost_records, "event_records": result.event_records, "message": result.message}

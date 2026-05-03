@@ -128,7 +128,7 @@ async def process_account(raw_payload: str) -> None:
             end = date.today()
             # Business rule: always analyze up to the last 3 months.
             # If the tenant has less historical data, connector returns only what's available.
-            default_lookback_days = 90
+            default_lookback_days = 30
             requested_lookback_days = job.lookback_days if job.lookback_days is not None else default_lookback_days
             lookback_days = max(7, min(requested_lookback_days, 90))
             start = end - timedelta(days=lookback_days)

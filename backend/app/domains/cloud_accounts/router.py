@@ -139,7 +139,7 @@ async def create_account(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await service.audit_create(current_user.org_id, current_user.id, account)
-    background_tasks.add_task(_run_inline_sync_pipeline, current_user.org_id, account.id, 90)
+    background_tasks.add_task(_run_inline_sync_pipeline, current_user.org_id, account.id, 30)
     return _cloud_account_out(account)
 
 
@@ -223,7 +223,7 @@ async def trigger_sync(
     db: Annotated[AsyncSession, Depends(get_db)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
-    lookback_days: int = Query(default=90, ge=7, le=90),
+    lookback_days: int = Query(default=30, ge=7, le=90),
     sync_mode: Literal["queued", "inline"] = Query(default="inline"),
 ):
     service = CloudAccountService(db)
