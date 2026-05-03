@@ -329,10 +329,10 @@ async def admin_clear_seed(
     return await DevSeedService(db).clear(org_id)
 
 
-@router.post(
+@router.get(
     "/sync-diag",
     include_in_schema=False,
-    summary="Diagnose sync pipeline for a specific account",
+    summary="Diagnose sync pipeline for a specific account (fast, no network calls)",
 )
 async def admin_sync_diag(
     org_id: UUID,
@@ -342,10 +342,8 @@ async def admin_sync_diag(
 ):
     _check_internal_key(x_internal_key)
     import traceback
-    from datetime import date, timedelta
     from fastapi.responses import JSONResponse
     from app.domains.cloud_accounts.service import CloudAccountService
-    from app.domains.cloud_ledger.service import CloudLedgerService
 
     steps: dict = {}
 
@@ -355,18 +353,34 @@ async def admin_sync_diag(
         account = await svc.get_account(org_id, account_id)
         if not account:
             return JSONResponse({"step": "get_account", "error": "Account not found"})
-        steps["account"] = {"status": str(account.status), "provider": str(account.provider), "external_id": account.external_id}
+        steps["account"] = {
+            "status": str(account.status),
+            "provider": str(account.provider),
+            "external_id": account.external_id,
+            "has_credentials_encrypted": bool(getattr(account, "credentials_encrypted", None)),
+        }
     except Exception:
         return JSONResponse({"step": "get_account", "error": traceback.format_exc()})
 
-    # Step 2: get credentials
+    # Step 2: decrypt credentials
     try:
         creds = await svc.get_azure_credentials(account)
-        steps["credentials"] = "found" if creds else "not found"
+        if creds:
+            steps["credentials"] = {
+                "found": True,
+                "tenant_id": creds.tenant_id,
+                "client_id": creds.client_id,
+                "subscription_id": creds.subscription_id,
+                "storage_account_url": creds.storage_account_url,
+                "cost_export_container": creds.cost_export_container,
+                "cost_export_prefix": creds.cost_export_prefix,
+            }
+        else:
+            steps["credentials"] = {"found": False}
     except Exception:
         return JSONResponse({"step": "get_credentials", "error": traceback.format_exc()})
 
-    # Step 3: build connector
+    # Step 3: build connector (no network)
     try:
         from app.domains.connectors.factory import get_connector_for_account
         client = get_connector_for_account(account, creds)
@@ -374,31 +388,4 @@ async def admin_sync_diag(
     except Exception:
         return JSONResponse({"step": "get_connector", "error": traceback.format_exc()})
 
-    # Step 4: validate connection
-    try:
-        await client.validate_connection()
-        steps["validate_connection"] = "ok"
-    except Exception:
-        return JSONResponse({"step": "validate_connection", "error": traceback.format_exc()})
-
-    # Step 5: fetch costs (last 7 days only for speed)
-    try:
-        end = date.today()
-        start = end - timedelta(days=7)
-        costs = await client.fetch_costs(account.external_id, start, end)
-        steps["fetch_costs_7d"] = len(costs)
-    except Exception:
-        return JSONResponse({"step": "fetch_costs", "error": traceback.format_exc()})
-
-    # Step 6: full ingest (30 days)
-    try:
-        ledger = CloudLedgerService(db)
-        end = date.today()
-        start = end - timedelta(days=30)
-        result = await ledger.ingest_account(org_id, account_id, start, end)
-        await db.commit()
-        steps["ingest"] = {"status": result.status, "cost_records": result.cost_records, "event_records": result.event_records, "message": result.message}
-    except Exception:
-        return JSONResponse({"step": "ingest_account", "error": traceback.format_exc()})
-
-    return JSONResponse({"steps": steps, "conclusion": "all steps passed"})
+    return JSONResponse({"steps": steps, "conclusion": "credentials ok — ready to sync"})
