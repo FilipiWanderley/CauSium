@@ -389,3 +389,52 @@ async def admin_sync_diag(
         return JSONResponse({"step": "get_connector", "error": traceback.format_exc()})
 
     return JSONResponse({"steps": steps, "conclusion": "credentials ok — ready to sync"})
+
+
+@router.post(
+    "/force-sync",
+    include_in_schema=False,
+    summary="Force synchronous ingest for a specific account (bypasses background task)",
+)
+async def admin_force_sync(
+    org_id: UUID,
+    account_id: UUID,
+    days: int = Query(default=30, ge=7, le=90),
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    import traceback
+    from datetime import date, timedelta
+    from fastapi.responses import JSONResponse
+    from app.domains.cloud_ledger.service import CloudLedgerService
+    from app.domains.decision_engine.service import DecisionEngineService
+
+    end = date.today()
+    start = end - timedelta(days=days)
+
+    try:
+        ledger = CloudLedgerService(db)
+        result = await ledger.ingest_account(org_id, account_id, start, end)
+        await db.commit()
+    except Exception:
+        return JSONResponse({"status": "error", "step": "ingest", "error": traceback.format_exc()}, status_code=500)
+
+    opportunities_generated = 0
+    try:
+        engine = DecisionEngineService(db)
+        opps = await engine.generate_opportunities_for_account(org_id, account_id)
+        opportunities_generated = len(opps)
+        await db.commit()
+    except Exception as exc:
+        pass  # non-fatal
+
+    return JSONResponse({
+        "status": result.status,
+        "message": result.message,
+        "cost_records": result.cost_records,
+        "event_records": result.event_records,
+        "inventory_records": getattr(result, "inventory_records", 0),
+        "opportunities_generated": opportunities_generated,
+        "days": days,
+    })
