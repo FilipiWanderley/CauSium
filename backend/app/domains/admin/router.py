@@ -254,6 +254,147 @@ async def admin_seed_tenant(
 
 
 @router.get(
+    "/tenant-audit",
+    include_in_schema=False,
+    summary="Audit tenant data visibility for a given user email",
+)
+async def admin_tenant_audit(
+    email: str = Query(min_length=5, max_length=255),
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from datetime import datetime, timezone
+
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import select
+
+    from app.core.clickhouse import execute_query
+    from app.domains.auth.models import Organization, User
+    from app.domains.cloud_accounts.models import CloudAccount
+
+    normalized_email = email.lower().strip()
+
+    user_result = await db.execute(select(User).where(User.email == normalized_email))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        return JSONResponse(status_code=404, content={"detail": "User not found", "email": normalized_email})
+
+    org = None
+    if user.org_id is not None:
+        org_result = await db.execute(select(Organization).where(Organization.id == user.org_id))
+        org = org_result.scalar_one_or_none()
+
+    account_rows: list[CloudAccount] = []
+    if user.org_id is not None:
+        accounts_result = await db.execute(select(CloudAccount).where(CloudAccount.org_id == user.org_id))
+        account_rows = list(accounts_result.scalars().all())
+
+    org_id_str = str(user.org_id) if user.org_id else None
+
+    def _ch_count(table: str, *, org_id: str, account_id: str | None = None) -> int:
+        try:
+            if account_id:
+                rows = execute_query(
+                    f"SELECT count() AS cnt FROM {table} WHERE org_id = {{org_id:String}} AND account_id = {{account_id:String}}",
+                    {"org_id": org_id, "account_id": account_id},
+                )
+            else:
+                rows = execute_query(
+                    f"SELECT count() AS cnt FROM {table} WHERE org_id = {{org_id:String}}",
+                    {"org_id": org_id},
+                )
+            return int(rows[0]["cnt"]) if rows else 0
+        except Exception:
+            return -1
+
+    def _ch_max_date(table: str, *, org_id: str, account_id: str | None = None, date_col: str = "date") -> str | None:
+        try:
+            if account_id:
+                rows = execute_query(
+                    f"SELECT max({date_col}) AS mx FROM {table} WHERE org_id = {{org_id:String}} AND account_id = {{account_id:String}}",
+                    {"org_id": org_id, "account_id": account_id},
+                )
+            else:
+                rows = execute_query(
+                    f"SELECT max({date_col}) AS mx FROM {table} WHERE org_id = {{org_id:String}}",
+                    {"org_id": org_id},
+                )
+            if not rows:
+                return None
+            mx = rows[0].get("mx")
+            return str(mx) if mx is not None else None
+        except Exception:
+            return None
+
+    clickhouse = None
+    if org_id_str:
+        clickhouse = {
+            "org": {
+                "cost_facts": {"count": _ch_count("cost_facts", org_id=org_id_str), "max_date": _ch_max_date("cost_facts", org_id=org_id_str)},
+                "event_facts": {"count": _ch_count("event_facts", org_id=org_id_str), "max_timestamp": _ch_max_date("event_facts", org_id=org_id_str, date_col="timestamp")},
+                "usage_facts": {"count": _ch_count("usage_facts", org_id=org_id_str), "max_date": _ch_max_date("usage_facts", org_id=org_id_str)},
+                "recommendation_facts": {"count": _ch_count("recommendation_facts", org_id=org_id_str), "max_date": _ch_max_date("recommendation_facts", org_id=org_id_str)},
+                "resource_inventory": {"count": _ch_count("resource_inventory", org_id=org_id_str), "max_fetched_at": _ch_max_date("resource_inventory", org_id=org_id_str, date_col="fetched_at")},
+            },
+            "accounts": [],
+        }
+
+        for acc in account_rows:
+            acc_id_str = str(acc.id)
+            clickhouse["accounts"].append(
+                {
+                    "account_id": acc_id_str,
+                    "provider": acc.provider.value if hasattr(acc.provider, "value") else str(acc.provider),
+                    "external_id": acc.external_id,
+                    "cost_facts": {"count": _ch_count("cost_facts", org_id=org_id_str, account_id=acc_id_str), "max_date": _ch_max_date("cost_facts", org_id=org_id_str, account_id=acc_id_str)},
+                    "event_facts": {"count": _ch_count("event_facts", org_id=org_id_str, account_id=acc_id_str), "max_timestamp": _ch_max_date("event_facts", org_id=org_id_str, account_id=acc_id_str, date_col="timestamp")},
+                    "usage_facts": {"count": _ch_count("usage_facts", org_id=org_id_str, account_id=acc_id_str), "max_date": _ch_max_date("usage_facts", org_id=org_id_str, account_id=acc_id_str)},
+                    "recommendation_facts": {"count": _ch_count("recommendation_facts", org_id=org_id_str, account_id=acc_id_str), "max_date": _ch_max_date("recommendation_facts", org_id=org_id_str, account_id=acc_id_str)},
+                    "resource_inventory": {"count": _ch_count("resource_inventory", org_id=org_id_str, account_id=acc_id_str), "max_fetched_at": _ch_max_date("resource_inventory", org_id=org_id_str, account_id=acc_id_str, date_col="fetched_at")},
+                }
+            )
+
+    response = {
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role.value if hasattr(user.role, "value") else str(user.role),
+            "is_active": bool(user.is_active),
+            "org_id": org_id_str,
+        },
+        "workspace": (
+            {
+                "id": str(org.id),
+                "name": org.name,
+                "slug": org.slug,
+                "plan": org.plan,
+                "is_active": bool(org.is_active),
+                "lifecycle_state": org.lifecycle_state.value if hasattr(org.lifecycle_state, "value") else str(org.lifecycle_state),
+            }
+            if org
+            else None
+        ),
+        "cloud_accounts": [
+            {
+                "id": str(a.id),
+                "provider": a.provider.value if hasattr(a.provider, "value") else str(a.provider),
+                "external_id": a.external_id,
+                "display_name": a.display_name,
+                "tenant_id": a.tenant_id,
+                "status": a.status.value if hasattr(a.status, "value") else str(a.status),
+                "last_sync_at": a.last_sync_at.isoformat() if a.last_sync_at else None,
+                "created_at": a.created_at.isoformat() if getattr(a, "created_at", None) else None,
+            }
+            for a in account_rows
+        ],
+        "clickhouse": clickhouse,
+    }
+    return JSONResponse(response)
+
+
+@router.get(
     "/seed-diag",
     include_in_schema=False,
     summary="Diagnose seed failure step by step",
