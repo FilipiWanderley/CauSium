@@ -485,10 +485,10 @@ async def admin_subscription_audit(
     from datetime import datetime, timezone
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
-    from sqlalchemy import select
+    from sqlalchemy import desc, select
 
     from app.core.clickhouse import execute_query
-    from app.domains.cloud_accounts.models import CloudAccount
+    from app.domains.cloud_accounts.models import CloudAccount, ConnectorHealth
 
     result = await db.execute(select(CloudAccount).where(CloudAccount.id == account_id))
     account = result.scalar_one_or_none()
@@ -543,13 +543,32 @@ async def admin_subscription_audit(
         )
         samples[sub_id] = rows
 
+    health_row = await db.execute(
+        select(ConnectorHealth)
+        .where(ConnectorHealth.account_id == account_id)
+        .order_by(desc(ConnectorHealth.checked_at))
+        .limit(1)
+    )
+    last_health = health_row.scalar_one_or_none()
+
     return JSONResponse({
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "account_id": account_id_str,
         "org_id": org_id_str,
         "display_name": account.display_name,
         "external_id": account.external_id,
+        "cloud_account_status": str(account.status),
         "last_sync_at": account.last_sync_at.isoformat() if account.last_sync_at else None,
+        "connector_health": (
+            {
+                "checked_at": last_health.checked_at.isoformat() if last_health.checked_at else None,
+                "status": str(last_health.status),
+                "latency_ms": last_health.latency_ms,
+                "message": last_health.message,
+            }
+            if last_health
+            else None
+        ),
         "distinct_subscription_ids": distinct_subscription_ids,
         "subscription_count": len(distinct_subscription_ids),
         "aggregates_by_subscription": agg_rows,
