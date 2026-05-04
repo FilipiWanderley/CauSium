@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import csv
 import io
 import json
@@ -119,7 +120,7 @@ class AzureConnectorClient(BaseConnector):
 
         cred = self._get_credential()
         client = SubscriptionClient(cred)
-        subs = list(client.subscriptions.list())
+        subs = await asyncio.to_thread(lambda: list(client.subscriptions.list()))
         log.info("azure.validate_connection.ok", subscriptions=len(subs))
 
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
@@ -136,7 +137,9 @@ class AzureConnectorClient(BaseConnector):
             cred = self._get_credential()
             auth_client = AuthorizationManagementClient(cred, subscription_id)
             scope = f"/subscriptions/{subscription_id}"
-            assignments = list(auth_client.role_assignments.list_for_scope(scope))
+            assignments = await asyncio.to_thread(
+                lambda: list(auth_client.role_assignments.list_for_scope(scope))
+            )
 
             COST_READER_ID = "72fafb9e-0641-4937-9268-a91bfd8191a3"
             COST_CONTRIBUTOR_ID = "434105ed-43f6-45c7-a02f-909b2ba83430"
@@ -378,7 +381,7 @@ class AzureConnectorClient(BaseConnector):
                 )
 
         try:
-            result = client.query.usage(scope=scope, parameters=_build_query(start, end))
+            result = await asyncio.to_thread(client.query.usage, scope=scope, parameters=_build_query(start, end))
             _append_from_result(result)
         except Exception as exc:
             if "Too many requests" not in str(exc):
@@ -388,7 +391,9 @@ class AzureConnectorClient(BaseConnector):
             while window_start <= end:
                 window_end = min(window_start + timedelta(days=29), end)
                 try:
-                    result = client.query.usage(scope=scope, parameters=_build_query(window_start, window_end))
+                    result = await asyncio.to_thread(
+                        client.query.usage, scope=scope, parameters=_build_query(window_start, window_end)
+                    )
                     _append_from_result(result)
                 except Exception as chunk_exc:
                     log.warning(
@@ -617,10 +622,12 @@ class AzureConnectorClient(BaseConnector):
             f"eventTimestamp ge '{safe_start.isoformat()}T00:00:00Z' "
             f"and eventTimestamp le '{end.isoformat()}T23:59:59Z'"
         )
-        events = list(
-            client.activity_logs.list(
-                filter=filter_str,
-                select="eventTimestamp,operationName,resourceId,resourceGroupName,resourceProviderName,status,caller,correlationId,level,description",
+        events = await asyncio.to_thread(
+            lambda: list(
+                client.activity_logs.list(
+                    filter=filter_str,
+                    select="eventTimestamp,operationName,resourceId,resourceGroupName,resourceProviderName,status,caller,correlationId,level,description",
+                )
             )
         )
 
@@ -713,7 +720,8 @@ class AzureConnectorClient(BaseConnector):
         records: list[CanonicalRecommendationRecord] = []
 
         try:
-            for rec in client.recommendations.list():
+            recs = await asyncio.to_thread(lambda: list(client.recommendations.list()))
+            for rec in recs:
                 rec_id = str(rec.id or "")
 
                 # The Advisor resource ID is structured as:
@@ -890,10 +898,12 @@ class AzureConnectorClient(BaseConnector):
         records: list[CanonicalUsageRecord] = []
 
         try:
-            vms = list(
-                resource_client.resources.list(
-                    filter="resourceType eq 'Microsoft.Compute/virtualMachines'",
-                    top=100,
+            vms = await asyncio.to_thread(
+                lambda: list(
+                    resource_client.resources.list(
+                        filter="resourceType eq 'Microsoft.Compute/virtualMachines'",
+                        top=100,
+                    )
                 )
             )
         except Exception as exc:
@@ -906,12 +916,14 @@ class AzureConnectorClient(BaseConnector):
 
         for vm in vms:
             try:
-                metrics_result = monitor_client.metrics.list(
-                    resource_uri=vm.id,
-                    timespan=timespan,
-                    interval="P1D",
-                    metricnames=METRICS,
-                    aggregation="Average",
+                metrics_result = await asyncio.to_thread(
+                    lambda: monitor_client.metrics.list(
+                        resource_uri=vm.id,
+                        timespan=timespan,
+                        interval="P1D",
+                        metricnames=METRICS,
+                        aggregation="Average",
+                    )
                 )
                 tags = _parse_tags(vm.tags)
                 environment = _infer_environment(tags)
