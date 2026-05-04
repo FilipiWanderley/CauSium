@@ -185,6 +185,72 @@ async def metrics_slo(
     )
 
 
+@app.get("/diagnostic/tenant", dependencies=[Depends(_require_internal_monitoring_key)])
+async def diagnostic_tenant(
+    email: str | None = None,
+    account_id: str | None = None,
+):
+    from sqlalchemy import select
+    from app.domains.auth.models import User
+    from app.domains.cloud_accounts.models import CloudAccount
+    from app.core.database import async_session_factory
+    
+    async with async_session_factory() as session:
+        if email:
+            stmt = select(User.org_id).where(User.email == email)
+            res = await session.execute(stmt)
+            org_id = res.scalar_one_or_none()
+            return {"org_id": org_id}
+        if account_id:
+            from uuid import UUID
+            try:
+                acc_uuid = UUID(account_id)
+            except ValueError:
+                return {"error": "Invalid account_id format"}
+            stmt = select(CloudAccount.org_id).where(CloudAccount.id == acc_uuid)
+            res = await session.execute(stmt)
+            org_id = res.scalar_one_or_none()
+            return {"org_id": org_id}
+    return {"error": "Provide email or account_id"}
+
+
+@app.get("/diagnostic/ingest", dependencies=[Depends(_require_internal_monitoring_key)])
+async def diagnostic_ingest(org_id: str):
+    from app.core.clickhouse import execute_query
+    from app.domains.cloud_accounts.models import CloudAccount
+    from app.core.database import async_session_factory
+    from sqlalchemy import select
+    from uuid import UUID
+    
+    try:
+        org_uuid = UUID(org_id)
+    except ValueError:
+        return {"error": "Invalid org_id format"}
+
+    counts = {}
+    for table in ["cost_facts", "usage_facts", "event_facts"]:
+        try:
+            res = execute_query(f"SELECT count() as cnt FROM {table} WHERE org_id = '{org_id}'")
+            counts[table] = res[0]["cnt"] if res else 0
+        except Exception as e:
+            counts[table] = f"error: {e}"
+
+    account_info = {}
+    async with async_session_factory() as session:
+        stmt = select(CloudAccount).where(CloudAccount.org_id == org_uuid)
+        res = await session.execute(stmt)
+        accounts = res.scalars().all()
+        for acc in accounts:
+            account_info[str(acc.id)] = {
+                "status": acc.status,
+                "last_sync_at": acc.last_sync_at.isoformat() if acc.last_sync_at else None,
+                "external_id": acc.external_id,
+                "display_name": acc.display_name
+            }
+
+    return {"counts": counts, "accounts": account_info}
+
+
 # ---------------------------------------------------------------------------
 # Frontend SPA — serve React build from /home/site/wwwroot/frontend_dist
 # Falls back to index.html for all non-API, non-asset routes (SPA routing).

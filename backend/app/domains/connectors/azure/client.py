@@ -418,7 +418,23 @@ class AzureConnectorClient(BaseConnector):
         checkpoint_keys: set[str] | None = None,
     ) -> tuple[list[CanonicalCostRecord], list[dict[str, str]]]:
         if not self.storage_account_url or not self.cost_export_container:
+            log.info(
+                "azure.blob_ingest.skipped",
+                reason="storage_account_url or cost_export_container not configured",
+                storage_account_url=self.storage_account_url,
+                cost_export_container=self.cost_export_container,
+            )
             return [], []
+
+        log.info(
+            "azure.blob_ingest.start",
+            subscription=subscription_id,
+            storage_account_url=self.storage_account_url,
+            container=self.cost_export_container,
+            prefix=self.cost_export_prefix or "(none)",
+            date_range=f"{start} → {end}",
+            already_checkpointed=len(checkpoint_keys) if checkpoint_keys else 0,
+        )
 
         from azure.storage.blob.aio import BlobServiceClient
 
@@ -426,6 +442,9 @@ class AzureConnectorClient(BaseConnector):
         records: list[CanonicalCostRecord] = []
         consumed_checkpoints: list[dict[str, str]] = []
         seen_checkpoints: set[str] = set()
+        all_blobs_found: list[str] = []
+        skipped_non_csv: list[str] = []
+        skipped_checkpoint: list[str] = []
 
         try:
             blob_service = BlobServiceClient(account_url=self.storage_account_url, credential=cred)
@@ -433,21 +452,52 @@ class AzureConnectorClient(BaseConnector):
 
             async for blob in container.list_blobs(name_starts_with=self.cost_export_prefix or None):
                 blob_name = str(getattr(blob, "name", ""))
+                all_blobs_found.append(blob_name)
+
                 if not blob_name.lower().endswith(".csv"):
+                    skipped_non_csv.append(blob_name)
                     continue
 
                 blob_etag = str(getattr(blob, "etag", "") or "")
                 checkpoint_key = self._build_blob_checkpoint_key(blob_name, blob_etag)
                 if checkpoint_keys and checkpoint_key in checkpoint_keys:
+                    skipped_checkpoint.append(blob_name)
                     continue
                 if checkpoint_key in seen_checkpoints:
+                    skipped_checkpoint.append(blob_name)
                     continue
 
+                log.info(
+                    "azure.blob_ingest.processing",
+                    blob_name=blob_name,
+                    blob_etag=blob_etag,
+                )
                 try:
                     downloader = await container.download_blob(blob_name)
                     payload = await downloader.readall()
                     text = payload.decode("utf-8-sig", errors="replace")
-                    records.extend(self._parse_blob_cost_csv(text, subscription_id, start, end))
+                    parsed = self._parse_blob_cost_csv(text, subscription_id, start, end)
+                    records.extend(parsed)
+                    log.info(
+                        "azure.blob_ingest.parsed",
+                        blob_name=blob_name,
+                        rows_parsed=len(parsed),
+                        total_records_so_far=len(records),
+                        date_range=f"{start} → {end}",
+                    )
+                    if not parsed:
+                        # Show first line of CSV to help diagnose schema mismatch
+                        first_lines = text.splitlines()[:3]
+                        log.warning(
+                            "azure.blob_ingest.parsed_zero_rows",
+                            blob_name=blob_name,
+                            csv_header=first_lines[0] if first_lines else "(empty file)",
+                            csv_sample_row=first_lines[1] if len(first_lines) > 1 else "(no rows)",
+                            expected_date_columns="date | usagedate | usage_date",
+                            expected_cost_columns="pretaxcost | cost | costusd | costinbillingcurrency",
+                            filter_date_range=f"{start} → {end}",
+                            filter_subscription_id=subscription_id,
+                        )
                     consumed_checkpoints.append(
                         {
                             "checkpoint_key": checkpoint_key,
@@ -473,6 +523,38 @@ class AzureConnectorClient(BaseConnector):
                 reason=str(exc),
             )
             return [], []
+
+        log.info(
+            "azure.blob_ingest.summary",
+            subscription=subscription_id,
+            container=self.cost_export_container,
+            prefix=self.cost_export_prefix or "(none)",
+            total_blobs_listed=len(all_blobs_found),
+            csv_blobs_found=len(all_blobs_found) - len(skipped_non_csv),
+            skipped_non_csv=len(skipped_non_csv),
+            skipped_already_checkpointed=len(skipped_checkpoint),
+            blobs_processed=len(consumed_checkpoints),
+            total_records_parsed=len(records),
+        )
+
+        if not all_blobs_found:
+            expected_path = f"{self.storage_account_url}/{self.cost_export_container}/{self.cost_export_prefix or ''}*.csv"
+            log.warning(
+                "azure.blob_ingest.no_blobs_found",
+                subscription=subscription_id,
+                container=self.cost_export_container,
+                prefix_used=self.cost_export_prefix or "(none)",
+                expected_path=expected_path,
+                hint="Check that Cost Management Exports has generated files and the prefix matches the export path.",
+            )
+        elif not records:
+            log.warning(
+                "azure.blob_ingest.no_records_inserted",
+                subscription=subscription_id,
+                blobs_listed=all_blobs_found,
+                blobs_processed=len(consumed_checkpoints),
+                hint="Files were found but produced 0 records — check date range filter and subscription_id filter.",
+            )
 
         return records, consumed_checkpoints
 
