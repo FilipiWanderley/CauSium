@@ -527,9 +527,10 @@ async def admin_subscription_audit(
             " ORDER BY subscription_id",
             {"org_id": org_id_str, "account_id": account_id_str},
         )
+        raw_max = (total_rows[0].get("max_value") if total_rows and isinstance(total_rows[0], dict) else None)
         table_summaries[table] = {
             "row_count": (total_rows[0].get("row_count") if total_rows and isinstance(total_rows[0], dict) else None),
-            "max_value": (total_rows[0].get("max_value") if total_rows and isinstance(total_rows[0], dict) else None),
+            "max_value": str(raw_max) if raw_max is not None else None,
             "distinct_subscription_ids": [r.get("subscription_id") for r in distinct_subs if "subscription_id" in r],
         }
 
@@ -571,7 +572,15 @@ async def admin_subscription_audit(
     )
     last_health = health_row.scalar_one_or_none()
 
-    return JSONResponse({
+    import json
+    from datetime import date as _date, datetime as _datetime
+
+    def _default(obj):
+        if isinstance(obj, (_date, _datetime)):
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+    payload = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "account_id": account_id_str,
         "org_id": org_id_str,
@@ -594,7 +603,8 @@ async def admin_subscription_audit(
         "table_summaries": table_summaries,
         "aggregates_by_subscription": agg_rows,
         "samples_by_subscription": samples,
-    })
+    }
+    return JSONResponse(content=json.loads(json.dumps(payload, default=_default)))
 
 
 @router.get(
