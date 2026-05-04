@@ -251,6 +251,41 @@ async def diagnostic_ingest(org_id: str):
     return {"counts": counts, "accounts": account_info}
 
 
+@app.post("/diagnostic/sync-account", dependencies=[Depends(_require_internal_monitoring_key)])
+async def diagnostic_sync_account(account_id: str, lookback_days: int = 30):
+    from uuid import UUID
+    from datetime import date, timedelta
+    from app.core.database import async_session_factory
+    from app.domains.cloud_accounts.models import CloudAccount
+    from app.domains.cloud_ledger.service import CloudLedgerService
+    from sqlalchemy import select
+
+    try:
+        acc_uuid = UUID(account_id)
+    except ValueError:
+        return {"error": "Invalid account_id format"}
+
+    async with async_session_factory() as db:
+        res = await db.execute(select(CloudAccount).where(CloudAccount.id == acc_uuid))
+        account = res.scalar_one_or_none()
+        if not account:
+            return {"error": "Account not found"}
+
+        end = date.today()
+        start = end - timedelta(days=lookback_days)
+        ledger = CloudLedgerService(db)
+        result = await ledger.ingest_account(account.org_id, acc_uuid, start, end)
+        await db.commit()
+
+    return {
+        "status": result.status,
+        "cost_records": result.cost_records,
+        "event_records": result.event_records,
+        "message": result.message,
+        "date_range": f"{start} → {end}",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Frontend SPA — serve React build from /home/site/wwwroot/frontend_dist
 # Falls back to index.html for all non-API, non-asset routes (SPA routing).
