@@ -251,7 +251,7 @@ async def diagnostic_ingest(org_id: str):
     return {"counts": counts, "accounts": account_info}
 
 
-@app.post("/diagnostic/sync-account", dependencies=[Depends(_require_internal_monitoring_key)])
+@app.get("/diagnostic/sync-account", dependencies=[Depends(_require_internal_monitoring_key)])
 async def diagnostic_sync_account(account_id: str, lookback_days: int = 30):
     from uuid import UUID
     from datetime import date, timedelta
