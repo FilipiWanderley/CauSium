@@ -513,6 +513,26 @@ async def admin_subscription_audit(
     )
     distinct_subscription_ids = [r.get("subscription_id") for r in distinct_rows if "subscription_id" in r]
 
+    table_summaries: dict[str, dict] = {}
+    for table, max_col in [("cost_facts", "date"), ("usage_facts", "date"), ("event_facts", "timestamp")]:
+        total_rows = _run(
+            f"SELECT count() AS row_count, max({max_col}) AS max_value"
+            f" FROM {table}"
+            " WHERE org_id = {org_id:String} AND account_id = {account_id:String}",
+            {"org_id": org_id_str, "account_id": account_id_str},
+        )
+        distinct_subs = _run(
+            f"SELECT DISTINCT subscription_id FROM {table}"
+            " WHERE org_id = {org_id:String} AND account_id = {account_id:String}"
+            " ORDER BY subscription_id",
+            {"org_id": org_id_str, "account_id": account_id_str},
+        )
+        table_summaries[table] = {
+            "row_count": (total_rows[0].get("row_count") if total_rows and isinstance(total_rows[0], dict) else None),
+            "max_value": (total_rows[0].get("max_value") if total_rows and isinstance(total_rows[0], dict) else None),
+            "distinct_subscription_ids": [r.get("subscription_id") for r in distinct_subs if "subscription_id" in r],
+        }
+
     # Aggregates per subscription_id
     agg_rows = _run(
         "SELECT subscription_id,"
@@ -571,6 +591,7 @@ async def admin_subscription_audit(
         ),
         "distinct_subscription_ids": distinct_subscription_ids,
         "subscription_count": len(distinct_subscription_ids),
+        "table_summaries": table_summaries,
         "aggregates_by_subscription": agg_rows,
         "samples_by_subscription": samples,
     })
