@@ -235,6 +235,31 @@ async def diagnostic_ingest(org_id: str):
         except Exception as e:
             counts[table] = f"error: {e}"
 
+    # Check for mock/seed data
+    mock_counts = {}
+    for table in ["cost_facts", "event_facts"]:
+        try:
+            res = execute_query(f"SELECT count() as cnt FROM {table} WHERE org_id LIKE 'mock-%' OR org_id = '00000000-0000-0000-0000-000000000000'")
+            mock_counts[f"{table}_global_mock"] = res[0]["cnt"] if res else 0
+        except Exception as e:
+            mock_counts[f"{table}_global_mock"] = f"error: {e}"
+
+    # Distinct account_ids in cost_facts for this org
+    distinct_accounts_in_data = []
+    try:
+        res = execute_query(f"SELECT DISTINCT account_id FROM cost_facts WHERE org_id = '{org_id}'")
+        distinct_accounts_in_data = [r["account_id"] for r in res]
+    except Exception as e:
+        distinct_accounts_in_data = [f"error: {e}"]
+
+    # Sample rows to detect mock data patterns
+    sample_rows = []
+    try:
+        res = execute_query(f"SELECT account_id, service, cost_usd, date FROM cost_facts WHERE org_id = '{org_id}' ORDER BY date DESC LIMIT 5")
+        sample_rows = res
+    except Exception as e:
+        sample_rows = [{"error": str(e)}]
+
     account_info = {}
     async with async_session_factory() as session:
         stmt = select(CloudAccount).where(CloudAccount.org_id == org_uuid)
@@ -245,10 +270,35 @@ async def diagnostic_ingest(org_id: str):
                 "status": acc.status,
                 "last_sync_at": acc.last_sync_at.isoformat() if acc.last_sync_at else None,
                 "external_id": acc.external_id,
-                "display_name": acc.display_name
+                "display_name": acc.display_name,
             }
 
-    return {"counts": counts, "accounts": account_info}
+    # Cross-check: do account_ids in data match registered accounts?
+    registered_account_ids = set(account_info.keys())
+    data_account_ids = set(str(a) for a in distinct_accounts_in_data if not str(a).startswith("error"))
+    account_id_match = registered_account_ids & data_account_ids
+    account_id_mismatch = data_account_ids - registered_account_ids
+
+    diagnosis = "unknown"
+    if counts.get("cost_facts", 0) == 0:
+        diagnosis = "NO_DATA — ingest has not produced any cost_facts for this org"
+    elif account_id_mismatch:
+        diagnosis = f"FOREIGN_DATA — cost_facts contain account_ids not belonging to this org: {account_id_mismatch}"
+    elif not account_id_match:
+        diagnosis = "ACCOUNT_MISMATCH — data exists but no account_id matches registered accounts"
+    else:
+        diagnosis = f"OK_REAL — cost_facts belong to registered account(s): {account_id_match}"
+
+    return {
+        "counts": counts,
+        "mock_counts": mock_counts,
+        "distinct_account_ids_in_cost_facts": distinct_accounts_in_data,
+        "registered_accounts": account_info,
+        "account_id_match": list(account_id_match),
+        "account_id_mismatch": list(account_id_mismatch),
+        "sample_rows": sample_rows,
+        "diagnosis": diagnosis,
+    }
 
 
 @app.get("/diagnostic/sync-account", dependencies=[Depends(_require_internal_monitoring_key)])
