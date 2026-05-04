@@ -182,6 +182,17 @@ class DevSeedService:
         )
 
     async def clear(self, org_id: UUID) -> ClearResult:
+        # Collect mock account IDs before deleting them so ClickHouse deletes
+        # are scoped to those accounts only — real account data is never touched.
+        mock_accounts_result = await self.db.execute(
+            select(CloudAccount).where(
+                CloudAccount.org_id == org_id,
+                CloudAccount.external_id.like(f"{_MOCK_EXTERNAL_ID_PREFIX}%"),
+            )
+        )
+        mock_accounts = mock_accounts_result.scalars().all()
+        mock_account_ids = [str(a.id) for a in mock_accounts]
+
         # PostgreSQL — delete in FK-safe order (children before parents)
         await self.db.execute(sa_delete(OptimizationOpportunity).where(OptimizationOpportunity.org_id == org_id))
         await self.db.execute(sa_delete(OptimizationExperiment).where(OptimizationExperiment.org_id == org_id))
@@ -196,23 +207,26 @@ class DevSeedService:
             )
         )
 
-        # ClickHouse — delete from every analytical table
-        org_str = str(org_id)
-        for table in (
-            "cost_facts",
-            "event_facts",
-            "usage_facts",
-            "recommendation_facts",
-            "resource_inventory",
-        ):
-            try:
-                execute_command(f"DELETE FROM {table} WHERE org_id = '{org_str}'")
-            except Exception as exc:
-                log.warning("dev_seed.clear.delete_failed", table=table, error=str(exc))
+        # ClickHouse — only delete rows belonging to mock accounts
+        if mock_account_ids:
+            ids_literal = ", ".join(f"'{aid}'" for aid in mock_account_ids)
+            for table in (
+                "cost_facts",
+                "event_facts",
+                "usage_facts",
+                "recommendation_facts",
+                "resource_inventory",
+            ):
+                try:
+                    execute_command(
+                        f"DELETE FROM {table} WHERE org_id = '{org_id}' AND account_id IN ({ids_literal})"
+                    )
+                except Exception as exc:
+                    log.warning("dev_seed.clear.delete_failed", table=table, error=str(exc))
 
         await self.db.commit()
 
-        log.info("dev_seed.cleared", org_id=org_str)
+        log.info("dev_seed.cleared", org_id=str(org_id), mock_accounts=len(mock_account_ids))
         return ClearResult(org_id=org_id, cleared=True)
 
     # ------------------------------------------------------------------

@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_roles
+from app.domains.auth.models import UserRole
 from app.domains.dev.schemas import ClearResult, SeedRequest, SeedResult, SeedStatus
 from app.domains.dev.service import DevSeedService
 
@@ -40,7 +41,7 @@ async def get_seed_status(
 async def seed_tenant_data(
     req: SeedRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(UserRole.ADMIN)),
 ) -> SeedResult:
     try:
         return await DevSeedService(db).seed(current_user.org_id, req)
@@ -60,6 +61,6 @@ async def seed_tenant_data(
 )
 async def clear_tenant_seed_data(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(UserRole.ADMIN)),
 ) -> ClearResult:
     return await DevSeedService(db).clear(current_user.org_id)
