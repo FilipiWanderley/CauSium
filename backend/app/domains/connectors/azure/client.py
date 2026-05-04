@@ -124,6 +124,17 @@ class AzureConnectorClient(BaseConnector):
         subs = await asyncio.to_thread(lambda: list(client.subscriptions.list()))
         log.info("azure.validate_connection.ok", subscriptions=len(subs))
 
+    async def list_accessible_subscriptions(self) -> list[str]:
+        """Return all subscription IDs accessible to the Service Principal."""
+        from azure.mgmt.subscription import SubscriptionClient
+
+        cred = self._get_credential()
+        client = SubscriptionClient(cred)
+        subs = await asyncio.to_thread(lambda: list(client.subscriptions.list()))
+        ids = [s.subscription_id for s in subs if s.subscription_id]
+        log.info("azure.list_accessible_subscriptions", count=len(ids), subscription_ids=ids)
+        return ids
+
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
         """Verify the SP has at minimum Cost Management Reader on the given subscription.
 
@@ -613,8 +624,6 @@ class AzureConnectorClient(BaseConnector):
             or normalized.get("subscription_id")
             or fallback_subscription_id
         )
-        if record_subscription_id and record_subscription_id != fallback_subscription_id:
-            return None
 
         tags_raw = normalized.get("tags", "")
         tags = {}

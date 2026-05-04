@@ -98,14 +98,68 @@ class CloudLedgerService:
             events = []
             fetch_errors: list[str] = []
 
+            # Resolve which Azure subscription IDs to ingest.
+            # Default: only account.external_id (existing behaviour).
+            # When AZURE_MULTI_SUBSCRIPTION_ENABLED=true, expand to all accessible
+            # subscriptions, filtered by AZURE_ALLOWED_SUBSCRIPTION_IDS allowlist if set.
+            azure_subscription_ids: list[str] = [account.external_id]
+            if isinstance(client, AzureConnectorClient):
+                from app.core.config import get_settings as _get_settings
+                _settings = _get_settings()
+                if _settings.azure_multi_subscription_enabled:
+                    try:
+                        accessible = await client.list_accessible_subscriptions()
+                    except Exception as _e:
+                        accessible = []
+                        log.warning(
+                            "ledger.ingest.azure.list_subscriptions_failed",
+                            account_id=str(account_id),
+                            error=str(_e),
+                            fallback=account.external_id,
+                        )
+
+                    allowlist_raw = _settings.azure_allowed_subscription_ids.strip()
+                    allowlist = {s.strip() for s in allowlist_raw.split(",") if s.strip()} if allowlist_raw else set()
+
+                    if allowlist:
+                        selected = [s for s in accessible if s in allowlist]
+                        ignored = [s for s in accessible if s not in allowlist]
+                        # Always include external_id as fallback if nothing matched
+                        if not selected:
+                            selected = [account.external_id]
+                    else:
+                        selected = accessible if accessible else [account.external_id]
+                        ignored = []
+
+                    log.info(
+                        "ledger.ingest.azure.subscription_selection",
+                        account_id=str(account_id),
+                        accessible=accessible,
+                        allowlist=list(allowlist) if allowlist else None,
+                        selected=selected,
+                        ignored=ignored,
+                    )
+                    azure_subscription_ids = selected
+
             try:
                 if isinstance(client, AzureConnectorClient):
-                    costs = await client.fetch_costs(
-                        account.external_id,
-                        start,
-                        end,
-                        checkpoint_keys=checkpoint_keys,
-                    )
+                    for sub_id in azure_subscription_ids:
+                        try:
+                            sub_costs = await client.fetch_costs(
+                                sub_id,
+                                start,
+                                end,
+                                checkpoint_keys=checkpoint_keys,
+                            )
+                            costs.extend(sub_costs)
+                        except Exception as e:
+                            fetch_errors.append(f"costs[{sub_id}]: {e}")
+                            log.warning(
+                                "ledger.ingest.cost_fetch_failed",
+                                account_id=str(account_id),
+                                subscription_id=sub_id,
+                                error=str(e),
+                            )
                 elif isinstance(client, AwsConnectorClient):
                     costs = await client.fetch_costs(
                         account.external_id,
@@ -120,7 +174,21 @@ class CloudLedgerService:
                 log.warning("ledger.ingest.cost_fetch_failed", account_id=str(account_id), error=str(e))
 
             try:
-                events = await client.fetch_events(account.external_id, start, end)
+                if isinstance(client, AzureConnectorClient):
+                    for sub_id in azure_subscription_ids:
+                        try:
+                            sub_events = await client.fetch_events(sub_id, start, end)
+                            events.extend(sub_events)
+                        except Exception as e:
+                            fetch_errors.append(f"events[{sub_id}]: {e}")
+                            log.warning(
+                                "ledger.ingest.event_fetch_failed",
+                                account_id=str(account_id),
+                                subscription_id=sub_id,
+                                error=str(e),
+                            )
+                else:
+                    events = await client.fetch_events(account.external_id, start, end)
             except Exception as e:
                 fetch_errors.append(f"events: {e}")
                 log.warning("ledger.ingest.event_fetch_failed", account_id=str(account_id), error=str(e))

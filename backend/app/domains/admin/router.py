@@ -471,6 +471,93 @@ async def admin_clear_seed(
 
 
 @router.get(
+    "/subscription-audit",
+    include_in_schema=False,
+    summary="Audit which subscriptions appear in ClickHouse for a cloud account",
+)
+async def admin_subscription_audit(
+    account_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+
+    from datetime import datetime, timezone
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import select
+
+    from app.core.clickhouse import execute_query
+    from app.domains.cloud_accounts.models import CloudAccount
+
+    result = await db.execute(select(CloudAccount).where(CloudAccount.id == account_id))
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=404, detail="Cloud account not found")
+
+    account_id_str = str(account_id)
+    org_id_str = str(account.org_id)
+
+    def _run(query: str, params: dict | None = None):
+        try:
+            return execute_query(query, params or {})
+        except Exception as exc:
+            return [{"error": str(exc)}]
+
+    # DISTINCT subscription_ids
+    distinct_rows = _run(
+        "SELECT DISTINCT subscription_id FROM cost_facts"
+        " WHERE org_id = {org_id:String} AND account_id = {account_id:String}"
+        " ORDER BY subscription_id",
+        {"org_id": org_id_str, "account_id": account_id_str},
+    )
+    distinct_subscription_ids = [r.get("subscription_id") for r in distinct_rows if "subscription_id" in r]
+
+    # Aggregates per subscription_id
+    agg_rows = _run(
+        "SELECT subscription_id,"
+        " count() AS row_count,"
+        " max(date) AS max_date,"
+        " round(sum(cost_usd), 4) AS total_cost_usd"
+        " FROM cost_facts"
+        " WHERE org_id = {org_id:String} AND account_id = {account_id:String}"
+        " GROUP BY subscription_id"
+        " ORDER BY total_cost_usd DESC",
+        {"org_id": org_id_str, "account_id": account_id_str},
+    )
+
+    # 5 sample rows per subscription_id
+    samples: dict[str, list] = {}
+    for sub_id in distinct_subscription_ids:
+        if sub_id is None:
+            continue
+        rows = _run(
+            "SELECT subscription_id, service, resource_id, cost_usd, currency, date"
+            " FROM cost_facts"
+            " WHERE org_id = {org_id:String}"
+            "   AND account_id = {account_id:String}"
+            "   AND subscription_id = {sub_id:String}"
+            " ORDER BY date DESC"
+            " LIMIT 5",
+            {"org_id": org_id_str, "account_id": account_id_str, "sub_id": sub_id},
+        )
+        samples[sub_id] = rows
+
+    return JSONResponse({
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "account_id": account_id_str,
+        "org_id": org_id_str,
+        "display_name": account.display_name,
+        "external_id": account.external_id,
+        "last_sync_at": account.last_sync_at.isoformat() if account.last_sync_at else None,
+        "distinct_subscription_ids": distinct_subscription_ids,
+        "subscription_count": len(distinct_subscription_ids),
+        "aggregates_by_subscription": agg_rows,
+        "samples_by_subscription": samples,
+    })
+
+
+@router.get(
     "/sync-diag",
     include_in_schema=False,
     summary="Diagnose sync pipeline for a specific account (fast, no network calls)",

@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     azure_client_id: str = ""
     azure_client_secret: str = ""
     azure_carbon_api_url: str = ""
+    # Multi-subscription ingest. Off by default — enable explicitly in staging/prod.
+    azure_multi_subscription_enabled: bool = False
+    # Optional comma-separated allowlist of subscription IDs to ingest.
+    # When set, only these subscriptions are ingested regardless of SP access.
+    # When empty and multi-subscription is enabled, all accessible subscriptions are ingested.
+    azure_allowed_subscription_ids: str = ""
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_session_token: str = ""
