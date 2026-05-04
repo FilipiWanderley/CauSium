@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import itertools
 import json
 import os
 
@@ -624,9 +625,12 @@ class AzureConnectorClient(BaseConnector):
         )
         events = await asyncio.to_thread(
             lambda: list(
-                client.activity_logs.list(
-                    filter=filter_str,
-                    select="eventTimestamp,operationName,resourceId,resourceGroupName,resourceProviderName,status,caller,correlationId,level,description",
+                itertools.islice(
+                    client.activity_logs.list(
+                        filter=filter_str,
+                        select="eventTimestamp,operationName,resourceId,resourceGroupName,resourceProviderName,status,caller,correlationId,level,description",
+                    ),
+                    1000,
                 )
             )
         )
