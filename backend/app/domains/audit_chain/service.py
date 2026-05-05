@@ -118,32 +118,69 @@ class AuditChainService:
         await self.db.flush()
         await self.db.refresh(event)
 
-        # Generate activity notifications for audited user actions.
-        from app.domains.notifications.service import NotificationsService
+        # Only a curated allowlist of audit events generates an in-app notification.
+        # Auth session events (login, refresh) and low-signal updates are intentionally
+        # excluded to prevent notification spam. All events still land in the audit chain.
+        _NOTIFICATION_ALLOWLIST = {
+            # Identity & access
+            "invite.created",
+            "invite.accepted",
+            "invite.revoked",
+            "auth.user.deactivated",
+            "auth.passkey.revoked",
+            "auth.mfa.totp.enabled",
+            "auth.mfa.totp.disabled",
+            "auth.password.changed",
+            "auth.password.admin_reset",
+            "auth.mfa.admin_reset",
+            "auth.user.lgpd_purge",
+            # Cloud accounts
+            "cloud_account.created",
+            "cloud_account.deleted",
+            "cloud_account.sync.completed",
+            "cloud_account.sync.warning",
+            "worker.ingestion.dlq_failure",
+            "worker.carbon_sync.dlq_failure",
+            # Cost & anomalies
+            "budget.threshold.crossed",
+            "cost.anomaly.detected",
+            # Governance & security
+            "support_access.started",
+            "support_access.ended",
+            "platform_admin.workspace.force_suspended",
+            "platform_admin.workspace.force_restored",
+            "platform_admin.workspace.force_archived",
+            "experiment.approved",
+            # Cloud change events (dedupe handled by source_type+source_id)
+            "change_event.created",
+        }
 
-        notif = NotificationsService(self.db)
-        normalized_event = event_type.lower()
-        severity = AlertSeverity.INFO
-        if any(k in normalized_event for k in ("deleted", "revoked", "failed", "denied")):
-            severity = AlertSeverity.WARNING
-        if any(k in normalized_event for k in ("blocked", "compromised", "critical")):
-            severity = AlertSeverity.CRITICAL
+        if event_type in _NOTIFICATION_ALLOWLIST:
+            from app.domains.notifications.service import NotificationsService
 
-        await notif.create_realtime_alert(
-            org_id=org_id,
-            category=AlertCategory.ACTIVITY,
-            severity=severity,
-            event_type=event_type,
-            title=f"Activity: {event_type}",
-            body=f"{entity_type} {entity_id} updated by workspace action.",
-            source_type="audit_event",
-            source_id=str(event.id),
-            extra_metadata={
-                "entity_type": entity_type,
-                "entity_id": entity_id,
-                "actor_user_id": str(actor_user_id) if actor_user_id else None,
-            },
-        )
+            notif = NotificationsService(self.db)
+            normalized_event = event_type.lower()
+            severity = AlertSeverity.INFO
+            if any(k in normalized_event for k in ("deleted", "revoked", "failed", "denied")):
+                severity = AlertSeverity.WARNING
+            if any(k in normalized_event for k in ("blocked", "compromised", "critical")):
+                severity = AlertSeverity.CRITICAL
+
+            await notif.create_realtime_alert(
+                org_id=org_id,
+                category=AlertCategory.ACTIVITY,
+                severity=severity,
+                event_type=event_type,
+                title=f"Activity: {event_type}",
+                body=f"{entity_type} {entity_id} updated by workspace action.",
+                source_type="audit_event",
+                source_id=str(event.id),
+                extra_metadata={
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "actor_user_id": str(actor_user_id) if actor_user_id else None,
+                },
+            )
         return event
 
     async def list_events(
