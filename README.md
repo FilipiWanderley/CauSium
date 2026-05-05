@@ -45,6 +45,7 @@
 - [PulseIntel IA](#-pulseintel-ia)
 - [Observabilidade](#-observabilidade)
 - [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
+- [Recent Enhancements](#-recent-enhancements)
 - [Roadmap — Sprint 13–22](#-roadmap--sprint-1322)
 - [Stack Tecnológica](#-stack-tecnológica)
 - [Configuração e Setup](#-configuração-e-setup)
@@ -236,7 +237,7 @@ CauSium
 | Autenticação (Passkey, TOTP, OIDC, backup codes) | ✅ | WebAuthn FIDO2, TOTP HMAC customizado, refresh tokens, blacklist JWT |
 | Multi-tenant / Workspaces | ✅ | Lifecycle ACTIVE/SUSPENDED/ARCHIVED, member quota, workspace keyrings |
 | Perfis, Membros e Convites | ✅ | CRUD, invite flow, must_change_password, LGPD consent |
-| Cost Visibility (dashboard, KPIs, SKUs, export) | ✅ | Dashboard, costs, SKUs, async CSV/Excel export |
+| Cost Visibility (dashboard, KPIs, SKUs, export) | ✅ | Dashboard, costs, SKUs, async CSV/Excel export; subscription friendly names; cost variance alert banner; English-only UI |
 | Alertas e Notificações (SMTP + Slack) | ✅ | AlertRecord, AlertRule, NotificationPreference, DLQ, WebSocket stream |
 | VM Rightsizing | ✅ | Engine + scoring + oportunidade + explain IA |
 | Anomaly Detection | ⚠️ | Worker + service implementados; UI de alertas em amadurecimento |
@@ -966,6 +967,41 @@ graph TB
         ARGO[ArgoCD GitOps] --> AKS
     end
 ```
+
+---
+
+## 🆕 Recent Enhancements
+
+### Subscription Friendly Names (Backend + Frontend)
+
+Azure subscriptions are now displayed with their human-readable `display_name` (e.g., "ALYA") instead of raw UUIDs in cost filter dropdowns.
+
+- **Backend:** `AzureClient.list_accessible_subscriptions_with_names()` fetches names via `azure-mgmt-subscription` at request time. Lookup is best-effort — any failure is logged as a warning and the response falls back gracefully to `subscription_name: null`.
+- **Schema:** `SubscriptionCostBreakdown.subscription_name: str | None` (Pydantic v2, optional, no migration required).
+- **Frontend:** `EconomicsCostsPage` renders `"ALYA (a1b2c3d4…) · $1,234"` when a name is available, or `"a1b2c3d4… · $1,234"` as fallback.
+
+### Cost Variance Alert Banner (Frontend-only)
+
+The Dashboard shows an informational/warning banner when today's partial cost deviates significantly from the 30-day average.
+
+- **Logic (`computeAlert`):** Fires only when today has data and the 30-day average is ≥ $50. Returns `warning` if delta ≥ +20%, `info` if delta ≥ +10% and today > $200, or `info` for any cost drop.
+- **Microcopy:** "Today's partial cost is X% above/below the 30-day average" with a detail line showing today, avg, and absolute delta.
+- **No backend changes.** Uses existing `todayCost` and `avgPrevious30d` values already fetched by the Dashboard.
+
+### Dashboard Baseline vs. Monitoring Separation
+
+The Dashboard KPI row now clearly separates the current monitoring period from the historical baseline:
+
+- "Today vs average" delta card compares today's partial cost against the 30-day rolling average.
+- Labels distinguish "Today (partial)" from "30d avg (baseline)" to avoid confusion with incomplete daily data.
+
+### English-Only UI
+
+The entire application is now fixed to English. The PT/EN language switcher has been removed.
+
+- `I18nContext` hardcodes `lang = 'en'`, `setLang` is a no-op, and any previously stored locale preference is cleared from `localStorage` on load.
+- The language switcher UI block has been removed from `Header`.
+- The Dashboard uses a local hardcoded English copy object instead of the i18n `t.dashboard` lookup, keeping it immune to any future locale changes.
 
 ---
 
