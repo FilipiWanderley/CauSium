@@ -8,6 +8,7 @@ import type {
   DetailedCostRow,
   ReservationEfficiencyAction,
   ReservationEfficiencyByFamily,
+  SubscriptionCostSummary,
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentBoolean, usePersistentNumber, usePersistentString } from '../../hooks/usePersistentBoolean'
@@ -170,10 +171,16 @@ export function EconomicsCostsPage() {
   const [serviceQuery, setServiceQuery] = usePersistentString('sp.economicsCosts.filters.service', '')
   const [providerQuery, setProviderQuery] = usePersistentString('sp.economicsCosts.filters.provider', '')
   const [teamQuery, setTeamQuery] = usePersistentString('sp.economicsCosts.filters.team', '')
+  const [subscriptionFilter, setSubscriptionFilter] = useState('')
   const [servicePage, setServicePage] = useState(1)
   const [teamPage, setTeamPage] = useState(1)
   const [page, setPage] = useState(1)
   const [criticalOnly, setCriticalOnly] = usePersistentBoolean('sp.reservations.criticalOnly', false)
+
+  const subscriptionsQuery = useQuery<SubscriptionCostSummary>({
+    queryKey: ['ledger', 'subscriptions', days],
+    queryFn: () => ledgerApi.subscriptionCostSummary(days).then((r) => r.data),
+  })
 
   const servicesQuery = useQuery<PageResponse<ServiceBreakdown>>({
     queryKey: ['economics-costs-services', days, servicePage],
@@ -188,7 +195,7 @@ export function EconomicsCostsPage() {
   })
 
   const detailedCostsQuery = useQuery<PageResponse<DetailedCostRow>>({
-    queryKey: ['economics-costs-detailed', days, serviceQuery, providerQuery, teamQuery, page],
+    queryKey: ['economics-costs-detailed', days, serviceQuery, providerQuery, teamQuery, subscriptionFilter, page],
     queryFn: () =>
       ledgerApi
         .detailedCosts({
@@ -196,6 +203,7 @@ export function EconomicsCostsPage() {
           service: serviceQuery || undefined,
           provider: providerQuery || undefined,
           owner_team: teamQuery || undefined,
+          subscription_id: subscriptionFilter || undefined,
           page,
           page_size: 20,
         })
@@ -217,12 +225,13 @@ export function EconomicsCostsPage() {
   const visibleFamilies = criticalOnly
     ? prioritizedFamilies.filter((item) => item.action_priority >= 4)
     : prioritizedFamilies
-  const hasTextFilters = Boolean(serviceQuery || providerQuery || teamQuery)
+  const hasTextFilters = Boolean(serviceQuery || providerQuery || teamQuery || subscriptionFilter)
 
   const clearTextFilters = () => {
     setServiceQuery('')
     setProviderQuery('')
     setTeamQuery('')
+    setSubscriptionFilter('')
     setServicePage(1)
     setTeamPage(1)
     setPage(1)
@@ -284,6 +293,24 @@ export function EconomicsCostsPage() {
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
           </label>
+
+          {(subscriptionsQuery.data?.subscription_count ?? 0) > 1 && (
+            <label className="text-sm text-gray-600">
+              Subscription
+              <select
+                value={subscriptionFilter}
+                onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1) }}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              >
+                <option value="">Todas ({subscriptionsQuery.data?.subscription_count})</option>
+                {subscriptionsQuery.data?.items.map((s) => (
+                  <option key={s.subscription_id} value={s.subscription_id}>
+                    {s.subscription_id.slice(0, 8)}… · {money.format(s.total_cost_usd)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <div className="rounded-lg border border-gray-200 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{ec.visibleCost}</div>

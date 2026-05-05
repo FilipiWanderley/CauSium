@@ -153,6 +153,7 @@ async def detailed_costs(
     resource_id: str | None = Query(default=None),
     resource_name: str | None = Query(default=None),
     account_id: str | None = Query(default=None),
+    subscription_id: str | None = Query(default=None),
     page_params: PageParams = Depends(PageParams),
 ):
     service_layer = CloudLedgerService(db)
@@ -167,6 +168,7 @@ async def detailed_costs(
         resource_id=resource_id,
         resource_name=resource_name,
         account_id=account_id,
+        subscription_id=subscription_id,
         limit=page_params.limit,
         offset=page_params.offset,
     )

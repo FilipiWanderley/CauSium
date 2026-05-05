@@ -55,6 +55,7 @@ export const ledgerApi = {
     resource_id?: string
     resource_name?: string
     account_id?: string
+    subscription_id?: string
     page?: number
     page_size?: number
   }) =>

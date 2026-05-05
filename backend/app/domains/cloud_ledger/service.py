@@ -716,6 +716,7 @@ class CloudLedgerService:
         resource_id: str | None = None,
         resource_name: str | None = None,
         account_id: str | None = None,
+        subscription_id: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[DetailedCostRow], int]:
@@ -744,6 +745,7 @@ class CloudLedgerService:
             "resource_id": resource_id,
             "resource_name": resource_name,
             "account_id": account_id,
+            "subscription_id": subscription_id,
         }
         for field_name, field_value in filters.items():
             if field_value:
