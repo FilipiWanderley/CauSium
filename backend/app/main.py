@@ -78,9 +78,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+required_cors_origins = [
+    "https://gentle-sea-0b9925a0f.7.azurestaticapps.net",
+    "http://localhost:5173",
+]
+allow_origins = list(dict.fromkeys(required_cors_origins + settings.cors_origins_list))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
