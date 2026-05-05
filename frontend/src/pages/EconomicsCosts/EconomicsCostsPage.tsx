@@ -585,6 +585,7 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
           <tr className="border-b text-left text-xs font-medium text-gray-500">
             <th className="pb-2 pr-3">{ec.colDate}</th>
             <th className="pb-2 pr-3">{ec.colProvider}</th>
+            <th className="pb-2 pr-3">Subscription</th>
             <th className="pb-2 pr-3">{ec.colService}</th>
             <th className="pb-2 pr-3">{ec.colResource}</th>
             <th className="pb-2 pr-3">{ec.colTeam}</th>
@@ -598,6 +599,9 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
             <tr key={`${row.date}-${row.provider}-${row.resource_name ?? 'resource'}-${index}`}>
               <td className="py-2 pr-3 text-gray-700">{row.date}</td>
               <td className="py-2 pr-3 text-gray-700">{row.provider}</td>
+              <td className="py-2 pr-3 font-mono text-xs text-gray-500">
+                {row.subscription_id ? `${row.subscription_id.slice(0, 8)}…` : '-'}
+              </td>
               <td className="py-2 pr-3 text-gray-700">{row.service ?? '-'}</td>
               <td className="py-2 pr-3 font-medium text-gray-800">{row.resource_name ?? '-'}</td>
               <td className="py-2 pr-3 text-gray-700">{row.owner_team ?? '-'}</td>
