@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -36,6 +36,12 @@ _ACTIVITY_TO_ALERT_SEVERITY = {
     ActivityEventSeverity.WARNING: AlertSeverity.WARNING,
     ActivityEventSeverity.CRITICAL: AlertSeverity.CRITICAL,
 }
+
+_SYNC_DEDUPE_EVENT_TYPES = {
+    "cloud_account.sync.completed",
+    "cloud_account.sync.warning",
+}
+_SYNC_DEDUPE_WINDOW_MINUTES = 30
 
 
 class NotificationsService:
@@ -238,6 +244,53 @@ class NotificationsService:
         )
         return result.scalar_one_or_none()
 
+    @staticmethod
+    def _extract_sync_account_id(
+        *,
+        source_id: str | None,
+        extra_metadata: dict | None,
+    ) -> str | None:
+        if isinstance(extra_metadata, dict):
+            raw_account_id = extra_metadata.get("account_id")
+            if raw_account_id:
+                try:
+                    return str(UUID(str(raw_account_id)))
+                except (TypeError, ValueError):
+                    pass
+
+        if source_id:
+            # Expected sync source_id patterns:
+            # - "{account_id}:{start_iso}:{end_iso}"
+            # - "{account_id}:{lookback_days}:inline"
+            first_token = str(source_id).split(":", 1)[0]
+            if first_token:
+                try:
+                    return str(UUID(first_token))
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    async def _get_recent_sync_equivalent_alert(
+        self,
+        *,
+        org_id: UUID,
+        event_type: str,
+        account_id: str,
+    ) -> AlertRecord | None:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=_SYNC_DEDUPE_WINDOW_MINUTES)
+        result = await self.db.execute(
+            select(AlertRecord)
+            .where(
+                AlertRecord.org_id == org_id,
+                AlertRecord.created_at >= cutoff,
+                AlertRecord.extra_metadata["event_type"].astext == event_type,
+                AlertRecord.extra_metadata["account_id"].astext == account_id,
+            )
+            .order_by(AlertRecord.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     # ------------------------------------------------------------------
     # Notification preferences (SP-NT03)
     # ------------------------------------------------------------------
@@ -437,6 +490,23 @@ class NotificationsService:
             if existing is not None:
                 return existing
 
+        normalized_metadata: dict = dict(extra_metadata) if isinstance(extra_metadata, dict) else {}
+        if event_type in _SYNC_DEDUPE_EVENT_TYPES:
+            account_id = self._extract_sync_account_id(
+                source_id=source_id,
+                extra_metadata=normalized_metadata,
+            )
+            normalized_metadata["event_type"] = event_type
+            if account_id:
+                normalized_metadata["account_id"] = account_id
+                recent_equivalent = await self._get_recent_sync_equivalent_alert(
+                    org_id=org_id,
+                    event_type=event_type,
+                    account_id=account_id,
+                )
+                if recent_equivalent is not None:
+                    return recent_equivalent
+
         return await self.create(
             org_id=org_id,
             category=category,
@@ -447,7 +517,7 @@ class NotificationsService:
             source_type=source_type,
             source_id=source_id,
             user_id=user_id,
-            extra_metadata=extra_metadata,
+            extra_metadata=normalized_metadata or None,
         )
 
     async def create_realtime_alert(
