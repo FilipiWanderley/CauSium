@@ -128,6 +128,21 @@ class DetailedCostRow(BaseModel):
     currency: str | None = None
 
 
+class SubscriptionCostBreakdown(BaseModel):
+    subscription_id: str
+    total_cost_usd: float
+    row_count: int
+    max_date: date
+    percentage_of_total: float
+
+
+class SubscriptionCostSummary(BaseModel):
+    days: int
+    total_cost_usd: float
+    subscription_count: int
+    items: list[SubscriptionCostBreakdown]
+
+
 class IngestRequest(BaseModel):
     account_id: UUID
     start_date: date

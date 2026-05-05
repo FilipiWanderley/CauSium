@@ -18,6 +18,7 @@ from app.domains.cloud_ledger.schemas import (
     ReservationCoverageSummary,
     ReservationEfficiencySummary,
     ServiceBreakdown,
+    SubscriptionCostSummary,
 )
 from app.domains.cloud_ledger.service import CloudLedgerService
 
@@ -120,6 +121,23 @@ async def top_teams(
     service = CloudLedgerService(db)
     items, total = service.get_top_teams(current_user.org_id, days=days, limit=page_params.limit, offset=page_params.offset)
     return Page.of(items, total, page_params)
+
+
+@router.get("/costs/subscriptions", response_model=SubscriptionCostSummary)
+async def subscription_cost_breakdown(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+    days: int = Query(default=30, ge=7, le=365),
+    account_id: str | None = Query(default=None),
+    provider: str | None = Query(default=None),
+):
+    service = CloudLedgerService(db)
+    return service.get_subscription_cost_breakdown(
+        current_user.org_id,
+        days=days,
+        account_id=account_id,
+        provider=provider,
+    )
 
 
 @router.get("/costs", response_model=Page[DetailedCostRow])

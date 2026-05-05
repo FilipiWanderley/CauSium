@@ -21,6 +21,8 @@ from app.domains.cloud_ledger.schemas import (
     ReservationCoverageByService,
     ReservationCoverageSummary,
     ReservationEfficiencyByFamily,
+    SubscriptionCostBreakdown,
+    SubscriptionCostSummary,
     ReservationEfficiencySummary,
     ServiceBreakdown,
 )
@@ -816,6 +818,78 @@ class CloudLedgerService:
         except Exception as exc:
             log.warning("ledger.detailed_costs.failed", error=str(exc))
             return [], 0
+
+    def get_subscription_cost_breakdown(
+        self,
+        org_id: UUID,
+        *,
+        days: int = 30,
+        account_id: str | None = None,
+        provider: str | None = None,
+    ) -> SubscriptionCostSummary:
+        end = date.today()
+        start = end - timedelta(days=days)
+
+        where_parts = [
+            "org_id = {org_id:String}",
+            "date >= {start:Date}",
+            "date <= {end:Date}",
+        ]
+        params: dict[str, object] = {"org_id": str(org_id), "start": start, "end": end}
+
+        if account_id:
+            where_parts.append("account_id = {account_id:String}")
+            params["account_id"] = account_id
+        if provider:
+            where_parts.append("provider = {provider:String}")
+            params["provider"] = provider
+
+        where_clause = " AND ".join(where_parts)
+
+        try:
+            rows = execute_query(
+                f"""
+                SELECT
+                    subscription_id,
+                    sum(cost_usd)   AS total_cost_usd,
+                    count()         AS row_count,
+                    max(date)       AS max_date
+                FROM cost_facts
+                WHERE {where_clause}
+                  AND subscription_id != ''
+                  AND subscription_id IS NOT NULL
+                GROUP BY subscription_id
+                ORDER BY total_cost_usd DESC
+                """,
+                params,
+            )
+        except Exception as exc:
+            log.warning("ledger.subscription_breakdown.failed", error=str(exc))
+            return SubscriptionCostSummary(
+                days=days, total_cost_usd=0.0, subscription_count=0, items=[]
+            )
+
+        grand_total = sum(float(r["total_cost_usd"]) for r in rows)
+        items = [
+            SubscriptionCostBreakdown(
+                subscription_id=r["subscription_id"],
+                total_cost_usd=float(r["total_cost_usd"]),
+                row_count=int(r["row_count"]),
+                max_date=r["max_date"],
+                percentage_of_total=(
+                    round(float(r["total_cost_usd"]) / grand_total * 100, 2)
+                    if grand_total > 0
+                    else 0.0
+                ),
+            )
+            for r in rows
+        ]
+        return SubscriptionCostSummary(
+            days=days,
+            total_cost_usd=grand_total,
+            subscription_count=len(items),
+            items=items,
+        )
 
     def get_top_services(
         self,
