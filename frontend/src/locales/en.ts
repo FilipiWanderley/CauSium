@@ -146,6 +146,9 @@ export interface Translations {
     reservationsHighBadge: string
     reservationsCriticalOnly: string
     reservationsShowAll: string
+    alertCostSpike: string
+    alertCostDrop: string
+    alertCostDetail: string
   }
   budget: {
     title: string
@@ -1132,8 +1135,11 @@ export const en: Translations = {
     resActionExchange: 'Exchange',
     resActionDoNotRenew: 'Do not renew',
     reservationsHighBadge: '{{count}} high',
-    reservationsCriticalOnly: 'Critical only',
+    reservationsCriticalOnly: 'High priority only',
     reservationsShowAll: 'Show all',
+    alertCostSpike: "Today's cost is {{delta}}% above the 30-day average",
+    alertCostDrop: "Today's cost is {{delta}}% below the 30-day average",
+    alertCostDetail: 'Today: {{today}} · 30d avg: {{avg}} · Delta: {{diff}}',
   },
   budget: {
     title: 'Workspace Budget',

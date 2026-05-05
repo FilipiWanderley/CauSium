@@ -70,6 +70,31 @@ const shiftDays = (base: Date, days: number) => {
   return d
 }
 
+type AlertSeverity = 'warning' | 'info'
+interface CostAlert {
+  severity: AlertSeverity
+  delta: number   // signed percentage
+  todayCost: number
+  avgPrevious30d: number
+}
+
+function computeAlert(
+  todayCost: number,
+  avgPrevious30d: number,
+  todayHasData: boolean,
+): CostAlert | null {
+  if (!todayHasData || avgPrevious30d <= 0 || avgPrevious30d < 50) return null
+  const delta = ((todayCost - avgPrevious30d) / avgPrevious30d) * 100
+  const absDelta = Math.abs(delta)
+  if (delta < 0) {
+    // cost drop — always info, no minimum threshold
+    return { severity: 'info', delta, todayCost, avgPrevious30d }
+  }
+  if (absDelta >= 20) return { severity: 'warning', delta, todayCost, avgPrevious30d }
+  if (absDelta >= 10 && todayCost > 200) return { severity: 'info', delta, todayCost, avgPrevious30d }
+  return null
+}
+
 function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
   const Icon = EVENT_ICON[ev.event_type]
   const color = EVENT_COLOR[ev.event_type]
@@ -356,6 +381,8 @@ export function DashboardPage() {
       ? ((todayCost - avgPrevious30d) / avgPrevious30d) * 100
       : null
 
+  const costAlert = computeAlert(todayCost, avgPrevious30d, todayHasData)
+
   return (
     <div className="space-y-6">
       {explainOpen && (
@@ -618,6 +645,30 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {costAlert && (
+        <div className={clsx(
+          'rounded-xl border px-4 py-3 text-sm',
+          costAlert.severity === 'warning'
+            ? 'border-amber-300 bg-amber-50 text-amber-900'
+            : 'border-blue-200 bg-blue-50 text-blue-900',
+        )}>
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className={clsx('h-4 w-4 shrink-0', costAlert.severity === 'warning' ? 'text-amber-500' : 'text-blue-400')} />
+            {costAlert.delta > 0
+              ? d.alertCostSpike.replace('{{delta}}', Math.abs(costAlert.delta).toFixed(1))
+              : d.alertCostDrop.replace('{{delta}}', Math.abs(costAlert.delta).toFixed(1))
+            }
+          </div>
+          <div className="mt-1 text-xs opacity-80">
+            {d.alertCostDetail
+              .replace('{{today}}', fmt(costAlert.todayCost))
+              .replace('{{avg}}', fmt(costAlert.avgPrevious30d))
+              .replace('{{diff}}', `${costAlert.delta > 0 ? '+' : ''}${fmt(costAlert.todayCost - costAlert.avgPrevious30d)}`)
+            }
+          </div>
+        </div>
+      )}
 
       {/* Budget widget — SP-EC01 */}
       <div ref={budgetSectionRef}>

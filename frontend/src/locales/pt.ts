@@ -148,6 +148,9 @@ export const pt: Translations = {
     reservationsHighBadge: '{{count}} alta',
     reservationsCriticalOnly: 'Somente críticas',
     reservationsShowAll: 'Mostrar todas',
+    alertCostSpike: 'Custo hoje {{delta}}% acima da média dos últimos 30 dias',
+    alertCostDrop: 'Custo hoje {{delta}}% abaixo da média dos últimos 30 dias',
+    alertCostDetail: 'Hoje: {{today}} · Média 30d: {{avg}} · Delta: {{diff}}',
   },
   budget: {
     title: 'Orçamento do Workspace',
