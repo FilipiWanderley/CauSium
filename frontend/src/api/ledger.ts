@@ -7,6 +7,7 @@ import type {
   ReservationCoverageSummary,
   ReservationEfficiencySummary,
   ServiceBreakdown,
+  SubscriptionCostSummary,
 } from '../types'
 
 export interface ExportJob {
@@ -75,4 +76,7 @@ export const ledgerApi = {
 
   downloadExportUrl: (jobId: string) =>
     `/api/v1/economics/reports/export/${jobId}/download`,
+
+  subscriptionCostSummary: (days = 30) =>
+    apiClient.get<SubscriptionCostSummary>('/ledger/costs/subscriptions', { params: { days } }),
 }

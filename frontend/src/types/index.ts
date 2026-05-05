@@ -79,6 +79,21 @@ export interface ServiceBreakdown {
   percentage: number
 }
 
+export interface SubscriptionCostBreakdown {
+  subscription_id: string
+  total_cost_usd: number
+  row_count: number
+  max_date: string
+  percentage_of_total: number
+}
+
+export interface SubscriptionCostSummary {
+  days: number
+  total_cost_usd: number
+  subscription_count: number
+  items: SubscriptionCostBreakdown[]
+}
+
 export interface DashboardMetrics {
   current_month_cost: number
   previous_month_cost: number

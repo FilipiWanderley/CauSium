@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { executiveApi } from '../../api/executive'
+import { ledgerApi } from '../../api/ledger'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import {
   BarChart,
@@ -30,6 +31,11 @@ export function ExecutivePage() {
     queryFn: () => executiveApi.scorecard().then((r) => r.data),
   })
 
+  const { data: subscriptionSummary } = useQuery({
+    queryKey: ['ledger', 'subscriptions', 30],
+    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
+  })
+
   if (summaryLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -44,6 +50,28 @@ export function ExecutivePage() {
         <h1 className="text-2xl font-bold text-gray-900">{e.title}</h1>
         <p className="text-sm text-gray-500 mt-1">{e.subtitle}</p>
       </div>
+
+      {/* Multi-subscription scope card */}
+      {subscriptionSummary && subscriptionSummary.subscription_count > 0 && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
+              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h18" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-blue-900">
+                {subscriptionSummary.subscription_count} subscription{subscriptionSummary.subscription_count !== 1 ? 's' : ''} conectada{subscriptionSummary.subscription_count !== 1 ? 's' : ''}
+              </p>
+              <p className="text-xs text-blue-700">
+                {fmt(subscriptionSummary.total_cost_usd)} monitorados nos últimos {subscriptionSummary.days} dias
+              </p>
+            </div>
+          </div>
+          <div className="text-xs text-blue-500 hidden sm:block">Azure</div>
+        </div>
+      )}
 
       {/* Top KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
