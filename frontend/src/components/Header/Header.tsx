@@ -3,16 +3,13 @@ import { Bell, LogOut } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { notificationsApi } from '../../api/notifications'
 import { useAuth } from '../../hooks/useAuth'
-import { useI18n, type Language } from '../../contexts/I18nContext'
+import { useI18n } from '../../contexts/I18nContext'
 import { UserAvatar } from '../Avatar/UserAvatar'
 import { preloadRoute } from '../../routes/lazyPages'
 
-const LANG_LABELS: Record<Language, string> = { en: 'EN', pt: 'PT' }
-const LANGS: Language[] = ['en', 'pt']
-
 export function Header() {
   const { user, logout } = useAuth()
-  const { lang, setLang, t } = useI18n()
+  const { t } = useI18n()
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
@@ -25,23 +22,6 @@ export function Header() {
     <header className="flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
       <div />
       <div className="flex items-center gap-4">
-        {/* Language switcher */}
-        <div className="flex items-center rounded-lg border border-gray-200 p-0.5">
-          {LANGS.map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
-                lang === l
-                  ? 'bg-brand-500 text-white'
-                  : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              {LANG_LABELS[l]}
-            </button>
-          ))}
-        </div>
-
         {/* User + org */}
         {user && (
           <div className="flex items-center gap-2.5">

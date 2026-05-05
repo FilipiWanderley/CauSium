@@ -17,14 +17,10 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Language>(
-    () => (localStorage.getItem(STORAGE_KEY) as Language) ?? 'en'
-  )
-
-  const setLang = useCallback((l: Language) => {
-    localStorage.setItem(STORAGE_KEY, l)
-    setLangState(l)
-  }, [])
+  // Language is fixed to English. Clear any previously stored locale preference.
+  localStorage.removeItem(STORAGE_KEY)
+  const [lang] = useState<Language>('en')
+  const setLang = useCallback((_l: Language) => {}, [])
 
   const value = useMemo(
     () => ({ lang, setLang, t: LOCALES[lang] }),
