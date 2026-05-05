@@ -137,7 +137,8 @@ class Settings(BaseSettings):
         "http://localhost:3000,"
         "http://localhost:5173,"
         "http://localhost:5174,"
-        "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net"
+        "https://causium-api-2026-fea3frguggasbcg3.brazilsouth-01.azurewebsites.net,"
+        "https://gentle-sea-0b9925a0f.7.azurestaticapps.net"
     )
 
     # SP-A04: Origin / Referer validation on auth state-mutation endpoints.
