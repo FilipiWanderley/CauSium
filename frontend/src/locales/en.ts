@@ -430,6 +430,8 @@ export interface Translations {
     topSavings: string
     completedDate: string
     perMonth: string
+    azureSubscriptionsConnected: string
+    monitoredHistoricalDays: string
   }
   gov: {
     title: string
@@ -1068,12 +1070,12 @@ export const en: Translations = {
     explainCostCauses: 'Top causes',
     explainCostRecommendation: 'Recommendation',
     explainCostConfidence: 'Confidence',
-    insightsTitle: 'AI Insights Engine',
+    insightsTitle: 'Historical Insights (baseline)',
     insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
     insightsTopSaving: 'Top saving opportunity',
     insightsMainRisk: 'Main risk',
     insightsTrend: 'Cost trend',
-    insightsAction: 'Recommended action',
+    insightsAction: 'Recommended action (based on historical baseline)',
     insightsConfidence: 'Insight confidence',
     insightsUnavailable: 'No insights available right now.',
     anomaliesTitle: 'Cost Anomalies',
@@ -1088,11 +1090,11 @@ export const en: Translations = {
     openOpportunities: '{{count}} open opportunities',
     activeAccounts: 'Active Accounts',
     totalConnected: '{{count}} total connected',
-    events7d: 'Events (7d)',
+    events7d: 'Recent events — last 7 days',
     cloudActivityEvents: 'Cloud activity & change events',
-    costTrend: 'Cost Trend — 30 Days',
+    costTrend: 'Cost baseline — last 30 days',
     noCostData: 'No cost data yet. Sync an account to populate.',
-    topServices: 'Top Services',
+    topServices: 'Top services — historical window',
     noServiceData: 'No service data yet.',
     connectedAccounts: 'Connected Accounts',
     colAccount: 'Account',
@@ -1410,6 +1412,8 @@ export const en: Translations = {
     topSavings: 'Top Realized Savings',
     completedDate: 'Completed {{date}}',
     perMonth: '/mo',
+    azureSubscriptionsConnected: 'Azure real data — {{count}} connected subscription(s)',
+    monitoredHistoricalDays: 'monitored over the last {{days}} days (historical baseline)',
   },
   gov: {
     title: 'PulseGov',
@@ -1504,8 +1508,8 @@ export const en: Translations = {
   },
   economicsCosts: {
     title: 'Economics Costs',
-    subtitle: 'Explore detailed cost distribution by service and team using interactive filters.',
-    timeWindow: 'Time window',
+    subtitle: 'Historical baseline analysis of cost distribution by service and team with interactive filters.',
+    timeWindow: 'Historical window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
     last90: 'Last 90 days',

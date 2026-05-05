@@ -62,10 +62,11 @@ export function ExecutivePage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-blue-900">
-                {subscriptionSummary.subscription_count} subscription{subscriptionSummary.subscription_count !== 1 ? 's' : ''} conectada{subscriptionSummary.subscription_count !== 1 ? 's' : ''}
+                {e.azureSubscriptionsConnected.replace('{{count}}', String(subscriptionSummary.subscription_count))}
               </p>
               <p className="text-xs text-blue-700">
-                {fmt(subscriptionSummary.total_cost_usd)} monitorados nos últimos {subscriptionSummary.days} dias
+                {fmt(subscriptionSummary.total_cost_usd)}{' '}
+                {e.monitoredHistoricalDays.replace('{{days}}', String(subscriptionSummary.days))}
               </p>
             </div>
           </div>
