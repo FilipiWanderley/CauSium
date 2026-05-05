@@ -81,6 +81,7 @@ export interface ServiceBreakdown {
 
 export interface SubscriptionCostBreakdown {
   subscription_id: string
+  subscription_name?: string | null
   total_cost_usd: number
   row_count: number
   max_date: string

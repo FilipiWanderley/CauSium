@@ -135,6 +135,19 @@ class AzureConnectorClient(BaseConnector):
         log.info("azure.list_accessible_subscriptions", count=len(ids), subscription_ids=ids)
         return ids
 
+    async def list_accessible_subscriptions_with_names(self) -> list[tuple[str, str]]:
+        """Return (subscription_id, display_name) pairs for all accessible subscriptions."""
+        from azure.mgmt.subscription import SubscriptionClient
+
+        cred = self._get_credential()
+        client = SubscriptionClient(cred)
+        subs = await asyncio.to_thread(lambda: list(client.subscriptions.list()))
+        return [
+            (s.subscription_id, s.display_name or s.subscription_id)
+            for s in subs
+            if s.subscription_id
+        ]
+
     async def validate_cost_management_scope(self, subscription_id: str) -> None:
         """Verify the SP has at minimum Cost Management Reader on the given subscription.
 

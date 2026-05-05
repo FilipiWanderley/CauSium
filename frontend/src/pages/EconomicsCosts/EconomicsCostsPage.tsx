@@ -305,7 +305,10 @@ export function EconomicsCostsPage() {
                 <option value="">Todas ({subscriptionsQuery.data?.subscription_count})</option>
                 {subscriptionsQuery.data?.items.map((s) => (
                   <option key={s.subscription_id} value={s.subscription_id}>
-                    {s.subscription_id.slice(0, 8)}… · {money.format(s.total_cost_usd)}
+                    {s.subscription_name
+                      ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                      : `${s.subscription_id.slice(0, 8)}…`
+                    } · {money.format(s.total_cost_usd)}
                   </option>
                 ))}
               </select>

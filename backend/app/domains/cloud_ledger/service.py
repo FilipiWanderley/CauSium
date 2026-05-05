@@ -821,7 +821,7 @@ class CloudLedgerService:
             log.warning("ledger.detailed_costs.failed", error=str(exc))
             return [], 0
 
-    def get_subscription_cost_breakdown(
+    async def get_subscription_cost_breakdown(
         self,
         org_id: UUID,
         *,
@@ -871,10 +871,40 @@ class CloudLedgerService:
                 days=days, total_cost_usd=0.0, subscription_count=0, items=[]
             )
 
+        # Best-effort lookup of Azure subscription display names.
+        # Tries the first Azure account in the org; silently falls back to None on any error.
+        name_map: dict[str, str] = {}
+        try:
+            from app.domains.cloud_accounts.models import CloudProvider
+            from app.domains.cloud_accounts.service import CloudAccountService
+            from app.domains.connectors.azure.client import AzureConnectorClient
+
+            account_service = CloudAccountService(self.db)
+            accounts, _ = await account_service.list_accounts(org_id)
+            azure_accounts = [a for a in accounts if a.provider == CloudProvider.AZURE]
+            if azure_accounts:
+                target = next(
+                    (a for a in azure_accounts if account_id and str(a.id) == account_id),
+                    azure_accounts[0],
+                )
+                creds = await account_service.get_azure_credentials(target)
+                if creds:
+                    client = AzureConnectorClient(
+                        tenant_id=creds.tenant_id,
+                        client_id=creds.client_id,
+                        client_secret=creds.client_secret,
+                    )
+                    pairs = await client.list_accessible_subscriptions_with_names()
+                    name_map = {sub_id: name for sub_id, name in pairs}
+                    log.info("ledger.subscription_breakdown.names_fetched", count=len(name_map))
+        except Exception as exc:
+            log.warning("ledger.subscription_breakdown.names_lookup_failed", error=str(exc))
+
         grand_total = sum(float(r["total_cost_usd"]) for r in rows)
         items = [
             SubscriptionCostBreakdown(
                 subscription_id=r["subscription_id"],
+                subscription_name=name_map.get(r["subscription_id"]) or None,
                 total_cost_usd=float(r["total_cost_usd"]),
                 row_count=int(r["row_count"]),
                 max_date=r["max_date"],

@@ -132,7 +132,7 @@ async def subscription_cost_breakdown(
     provider: str | None = Query(default=None),
 ):
     service = CloudLedgerService(db)
-    return service.get_subscription_cost_breakdown(
+    return await service.get_subscription_cost_breakdown(
         current_user.org_id,
         days=days,
         account_id=account_id,

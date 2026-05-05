@@ -130,6 +130,7 @@ class DetailedCostRow(BaseModel):
 
 class SubscriptionCostBreakdown(BaseModel):
     subscription_id: str
+    subscription_name: str | None = None
     total_cost_usd: float
     row_count: int
     max_date: date
