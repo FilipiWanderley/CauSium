@@ -110,6 +110,12 @@ export interface Translations {
     totalConnected: string
     events7d: string
     cloudActivityEvents: string
+    monitoringVsBaseline: string
+    todayCost: string
+    avgPrevious30d: string
+    todayVsAvgDelta: string
+    partialUntilLastSync: string
+    billingProcessingPending: string
     costTrend: string
     noCostData: string
     topServices: string
@@ -1092,6 +1098,12 @@ export const en: Translations = {
     totalConnected: '{{count}} total connected',
     events7d: 'Recent events — last 7 days',
     cloudActivityEvents: 'Cloud activity & change events',
+    monitoringVsBaseline: 'Current monitoring vs historical baseline',
+    todayCost: "Today's cost",
+    avgPrevious30d: 'Daily average (previous 30 days)',
+    todayVsAvgDelta: 'Today vs average delta',
+    partialUntilLastSync: 'Partial up to last sync',
+    billingProcessingPending: 'Waiting for billing processing',
     costTrend: 'Cost baseline — last 30 days',
     noCostData: 'No cost data yet. Sync an account to populate.',
     topServices: 'Top services — historical window',

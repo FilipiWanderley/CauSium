@@ -64,6 +64,11 @@ const DASHBOARD_PROVIDERS = ['all', 'azure', 'aws', 'gcp'] as const
 type DashboardProviderFilter = (typeof DASHBOARD_PROVIDERS)[number]
 
 const toISODate = (d: Date) => d.toISOString().slice(0, 10)
+const shiftDays = (base: Date, days: number) => {
+  const d = new Date(base)
+  d.setDate(d.getDate() + days)
+  return d
+}
 
 function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Record<ChangeEventType, string> }) {
   const Icon = EVENT_ICON[ev.event_type]
@@ -333,6 +338,23 @@ export function DashboardPage() {
     medium: d.anomalySeverityMedium,
     high: d.anomalySeverityHigh,
   }
+  const todayKey = toISODate(new Date())
+  const dailyTrend = metrics?.daily_trend ?? []
+  const costByDate = new Map(
+    dailyTrend.map((point) => [String(point.date).slice(0, 10), point.cost_usd ?? 0]),
+  )
+  const todayCost = costByDate.get(todayKey) ?? 0
+  const todayHasData = costByDate.has(todayKey)
+  let previous30Sum = 0
+  for (let offset = -30; offset <= -1; offset += 1) {
+    const dayKey = toISODate(shiftDays(new Date(), offset))
+    previous30Sum += costByDate.get(dayKey) ?? 0
+  }
+  const avgPrevious30d = previous30Sum / 30
+  const deltaTodayVsAvg =
+    todayHasData && avgPrevious30d > 0
+      ? ((todayCost - avgPrevious30d) / avgPrevious30d) * 100
+      : null
 
   return (
     <div className="space-y-6">
@@ -565,6 +587,36 @@ export function DashboardPage() {
           subtitle={d.cloudActivityEvents}
           icon={<Activity className="h-5 w-5" />}
         />
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">{d.monitoringVsBaseline}</h2>
+            <p className="mt-1 text-xs text-gray-500">{d.partialUntilLastSync}</p>
+          </div>
+          {!todayHasData && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+              {d.billingProcessingPending}
+            </span>
+          )}
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">{fmt(todayCost)}</div>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="text-xs uppercase tracking-wide text-gray-500">{d.avgPrevious30d}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">{fmt(avgPrevious30d)}</div>
+          </div>
+          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+            <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayVsAvgDelta}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">
+              {deltaTodayVsAvg === null ? '—' : `${deltaTodayVsAvg > 0 ? '+' : ''}${deltaTodayVsAvg.toFixed(1)}%`}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Budget widget — SP-EC01 */}
