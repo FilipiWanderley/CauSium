@@ -9,8 +9,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   loginWithPasskey: (email: string) => Promise<void>
   registerCurrentPasskey: () => Promise<void>
-  logout: () => void
-  logoutAll: () => void
+  logout: () => Promise<void>
+  logoutAll: () => Promise<void>
   /** Replace the in-memory user without a network round-trip. */
   refreshUser: (updated: User) => Promise<void>
 }
@@ -21,13 +21,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const logout = useCallback(() => {
-    authApi.logout().catch(() => undefined)
+  const logout = useCallback(async () => {
+    await authApi.logout()
     setUser(null)
   }, [])
 
-  const logoutAll = useCallback(() => {
-    authApi.logoutAll().catch(() => undefined)
+  const logoutAll = useCallback(async () => {
+    await authApi.logoutAll()
     setUser(null)
   }, [])
 

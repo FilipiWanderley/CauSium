@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bell, LogOut } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -10,6 +11,8 @@ import { preloadRoute } from '../../routes/lazyPages'
 export function Header() {
   const { user, logout } = useAuth()
   const { t } = useI18n()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState<string | null>(null)
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
@@ -17,6 +20,18 @@ export function Header() {
     refetchInterval: 30_000,
   })
   const unread = unreadCount?.unread ?? 0
+  const handleLogout = async () => {
+    setLogoutError(null)
+    setIsLoggingOut(true)
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+      setLogoutError('Failed to sign out. Please try again.')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <header className="flex items-center justify-between border-b bg-white px-6 py-3 shadow-sm">
@@ -54,12 +69,16 @@ export function Header() {
         </Link>
 
         <button
-          onClick={logout}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          onClick={() => {
+            void handleLogout()
+          }}
+          disabled={isLoggingOut}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-60"
         >
           <LogOut className="h-4 w-4" />
           {t.header.logout}
         </button>
+        {logoutError && <span className="text-xs text-red-600">{logoutError}</span>}
       </div>
     </header>
   )
