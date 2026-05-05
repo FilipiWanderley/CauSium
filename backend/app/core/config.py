@@ -378,6 +378,20 @@ class Settings(BaseSettings):
             return self.is_production
         return self.auth_cookie_secure
 
+    @property
+    def auth_cookie_samesite_effective(self) -> str:
+        raw = (self.auth_cookie_samesite or "").strip().lower()
+        if raw not in {"lax", "strict", "none"}:
+            raw = "lax"
+        # Cross-site SPA (Azure Static Web Apps) -> API (Azure App Service)
+        # requires SameSite=None in production for auth cookies to be sent.
+        if self.is_production:
+            return "none"
+        # Browsers reject SameSite=None without Secure.
+        if raw == "none" and not self.auth_cookie_secure_effective:
+            return "lax"
+        return raw
+
     def validate_production_security(self) -> None:
         if not self.is_production or not self.force_secure_datastores_in_production:
             return
