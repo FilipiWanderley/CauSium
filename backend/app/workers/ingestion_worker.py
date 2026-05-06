@@ -75,7 +75,7 @@ async def enqueue_periodic_sync_jobs(interval_seconds: int) -> int:
             "ingestion.periodic_jobs_queued",
             queued=queued,
             interval_seconds=interval_seconds,
-            lookback_days=lookback_days,
+            lookback_strategy="smart_per_account_last_sync",
         )
     return queued
 
