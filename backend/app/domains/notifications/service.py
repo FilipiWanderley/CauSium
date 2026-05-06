@@ -42,6 +42,8 @@ _SYNC_DEDUPE_EVENT_TYPES = {
     "cloud_account.sync.warning",
 }
 _SYNC_DEDUPE_WINDOW_MINUTES = 30
+_ANOMALY_DEDUPE_EVENT_TYPES = {"cost.anomaly.detected"}
+_BUDGET_DEDUPE_EVENT_TYPES = {"budget.threshold.crossed"}
 
 
 class NotificationsService:
@@ -291,6 +293,125 @@ class NotificationsService:
         )
         return result.scalar_one_or_none()
 
+    @staticmethod
+    def _normalize_observed_date(value: object) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        if "T" in text:
+            text = text.split("T", 1)[0]
+        return text
+
+    @staticmethod
+    def _extract_anomaly_signature(
+        *,
+        source_id: str | None,
+        extra_metadata: dict | None,
+    ) -> dict[str, str] | None:
+        provider: str | None = None
+        service: str | None = None
+        observed_date: str | None = None
+
+        if isinstance(extra_metadata, dict):
+            provider_raw = str(extra_metadata.get("provider") or "").strip().lower()
+            service_raw = str(extra_metadata.get("service") or "").strip().lower()
+            observed_date_raw = NotificationsService._normalize_observed_date(
+                extra_metadata.get("observed_date")
+            )
+            provider = provider_raw or None
+            service = service_raw or None
+            observed_date = observed_date_raw or None
+
+        # Fallback for legacy payloads where metadata may be incomplete.
+        if (not provider or not service or not observed_date) and source_id:
+            parts = str(source_id).split(":", 2)
+            if len(parts) == 3:
+                fallback_date = NotificationsService._normalize_observed_date(parts[0])
+                fallback_provider = parts[1].strip().lower() or None
+                fallback_service = parts[2].strip().lower() or None
+                provider = provider or fallback_provider
+                service = service or fallback_service
+                observed_date = observed_date or fallback_date
+
+        if not provider or not service or not observed_date:
+            return None
+        return {
+            "provider": provider,
+            "service": service,
+            "observed_date": observed_date,
+        }
+
+    @staticmethod
+    def _extract_budget_signature(
+        *,
+        source_id: str | None,
+        extra_metadata: dict | None,
+    ) -> dict[str, str] | None:
+        budget_id: str | None = None
+        period_start: str | None = None
+        threshold: str | None = None
+
+        # Primary source for budget dedupe is source_id.
+        if source_id:
+            parts = str(source_id).split(":", 2)
+            if len(parts) == 3:
+                budget_id = parts[0].strip() or None
+                period_start = NotificationsService._normalize_observed_date(parts[1])
+                threshold_raw = parts[2].strip()
+                # Source may carry an additional suffix after threshold;
+                # keep only the first segment for semantic dedupe.
+                threshold_raw = threshold_raw.split(":", 1)[0].strip()
+                threshold = str(int(threshold_raw)) if threshold_raw.isdigit() else (threshold_raw or None)
+
+        # Fallback for callers that only provide metadata.
+        if isinstance(extra_metadata, dict):
+            if not budget_id:
+                budget_raw = str(extra_metadata.get("budget_id") or "").strip()
+                budget_id = budget_raw or None
+            if not period_start:
+                period_start = NotificationsService._normalize_observed_date(
+                    extra_metadata.get("period_start")
+                )
+            if not threshold:
+                threshold_value = extra_metadata.get("threshold")
+                if threshold_value is not None:
+                    try:
+                        threshold = str(int(threshold_value))
+                    except (TypeError, ValueError):
+                        threshold = str(threshold_value).strip() or None
+
+        if not budget_id or not period_start or not threshold:
+            return None
+        return {
+            "budget_id": budget_id,
+            "period_start": period_start,
+            "threshold": threshold,
+        }
+
+    async def _get_semantic_equivalent_alert(
+        self,
+        *,
+        org_id: UUID,
+        category: AlertCategory,
+        event_type: str,
+        signature: dict[str, str],
+    ) -> AlertRecord | None:
+        filters = [
+            AlertRecord.org_id == org_id,
+            AlertRecord.category == category,
+            AlertRecord.extra_metadata["event_type"].astext == event_type,
+        ]
+        for key, value in signature.items():
+            filters.append(AlertRecord.extra_metadata[key].astext == value)
+
+        result = await self.db.execute(
+            select(AlertRecord)
+            .where(and_(*filters))
+            .order_by(AlertRecord.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     # ------------------------------------------------------------------
     # Notification preferences (SP-NT03)
     # ------------------------------------------------------------------
@@ -506,6 +627,38 @@ class NotificationsService:
                 )
                 if recent_equivalent is not None:
                     return recent_equivalent
+        elif event_type in _ANOMALY_DEDUPE_EVENT_TYPES:
+            anomaly_signature = self._extract_anomaly_signature(
+                source_id=source_id,
+                extra_metadata=normalized_metadata,
+            )
+            normalized_metadata["event_type"] = event_type
+            if anomaly_signature:
+                normalized_metadata.update(anomaly_signature)
+                equivalent = await self._get_semantic_equivalent_alert(
+                    org_id=org_id,
+                    category=category,
+                    event_type=event_type,
+                    signature=anomaly_signature,
+                )
+                if equivalent is not None:
+                    return equivalent
+        elif event_type in _BUDGET_DEDUPE_EVENT_TYPES:
+            budget_signature = self._extract_budget_signature(
+                source_id=source_id,
+                extra_metadata=normalized_metadata,
+            )
+            normalized_metadata["event_type"] = event_type
+            if budget_signature:
+                normalized_metadata.update(budget_signature)
+                equivalent = await self._get_semantic_equivalent_alert(
+                    org_id=org_id,
+                    category=category,
+                    event_type=event_type,
+                    signature=budget_signature,
+                )
+                if equivalent is not None:
+                    return equivalent
 
         return await self.create(
             org_id=org_id,
