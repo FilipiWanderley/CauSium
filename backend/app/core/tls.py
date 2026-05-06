@@ -16,8 +16,8 @@ Design notes
     OpenSSL before the TLS handshake.
 
 * redis.asyncio:
-    Accepts ssl.SSLContext via the `ssl` keyword argument in from_url().
-    Only applied when the URL scheme is rediss://.
+    In this project version, prefer TLS kwargs in from_url() (ssl_cert_reqs,
+    ssl_check_hostname, ssl_ca_certs, ssl_min_version) with rediss:// URLs.
 
 * clickhouse-connect (ClickHouse):
     clickhouse-connect < 0.8 does not accept an SSLContext directly; it

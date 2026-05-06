@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     db_ssl_ca_file: str = ""
     db_ssl_min_version: str = "TLSv1.3"
 
-    # Redis — ssl.SSLContext is injected when the URL scheme is rediss://.
+    # Redis — TLS params are passed to redis.asyncio.from_url when using rediss://.
     redis_ssl_verify: bool = True
     redis_ssl_ca_file: str = ""
     redis_ssl_min_version: str = "TLSv1.3"

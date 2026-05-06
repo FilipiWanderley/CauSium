@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ssl
 from typing import Any, AsyncGenerator
 
 import redis.asyncio as aioredis
@@ -78,12 +79,17 @@ def get_redis_pool() -> aioredis.Redis | DisabledRedis:
             "decode_responses": True,
         }
         if redis_url.startswith("rediss://"):
-            from app.core.tls import build_ssl_context
-
-            kwargs["ssl"] = build_ssl_context(
-                verify=settings.redis_ssl_verify,
-                ca_file=settings.redis_ssl_ca_file or None,
-                min_version=settings.redis_ssl_min_version,
+            tls_version_map: dict[str, ssl.TLSVersion] = {
+                "TLSv1.2": ssl.TLSVersion.TLSv1_2,
+                "TLSv1.3": ssl.TLSVersion.TLSv1_3,
+            }
+            kwargs["ssl_cert_reqs"] = "required" if settings.redis_ssl_verify else "none"
+            kwargs["ssl_check_hostname"] = settings.redis_ssl_verify
+            if settings.redis_ssl_ca_file:
+                kwargs["ssl_ca_certs"] = settings.redis_ssl_ca_file
+            kwargs["ssl_min_version"] = tls_version_map.get(
+                settings.redis_ssl_min_version,
+                ssl.TLSVersion.TLSv1_3,
             )
         _redis_pool = aioredis.from_url(redis_url, **kwargs)
         _redis_pool_loop_id = current_loop_id
