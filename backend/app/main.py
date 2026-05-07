@@ -46,15 +46,18 @@ async def lifespan(app: FastAPI):
     instrument_app(app)
     log.info("app.startup", env=settings.app_env, azure_mock=not settings.azure_credentials_available)
 
-    # Start the ingestion worker loop inside the app process.
-    # This worker handles periodic sync for all active accounts with smart
-    # lookback calculation based on last_sync_at — no separate scheduler needed.
-    from app.workers.ingestion_worker import run_ingestion_worker
-    worker_task = asyncio.create_task(run_ingestion_worker())
+    worker_task = None
+    if settings.ingestion_worker_enabled:
+        from app.workers.ingestion_worker import run_ingestion_worker
+        worker_task = asyncio.create_task(run_ingestion_worker())
+        log.info("ingestion_worker.started")
+    else:
+        log.info("ingestion_worker.disabled", reason="INGESTION_WORKER_ENABLED=false")
 
     yield
 
-    worker_task.cancel()
+    if worker_task is not None:
+        worker_task.cancel()
     from app.core.redis import close_redis
     await close_redis()
     shutdown_tracing()

@@ -269,6 +269,7 @@ class Settings(BaseSettings):
     ai_openai_base_url: str = "https://api.openai.com/v1"
 
     # Workers
+    ingestion_worker_enabled: bool = True
     ingestion_interval_hours: int = 6
     scoring_interval_hours: int = 1
     anomaly_detection_interval_minutes: int = 30
