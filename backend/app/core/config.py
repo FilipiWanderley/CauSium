@@ -384,10 +384,6 @@ class Settings(BaseSettings):
         raw = (self.auth_cookie_samesite or "").strip().lower()
         if raw not in {"lax", "strict", "none"}:
             raw = "lax"
-        # Cross-site SPA (Azure Static Web Apps) -> API (Azure App Service)
-        # requires SameSite=None in production for auth cookies to be sent.
-        if self.is_production:
-            return "none"
         # Browsers reject SameSite=None without Secure.
         if raw == "none" and not self.auth_cookie_secure_effective:
             return "lax"
