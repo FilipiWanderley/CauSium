@@ -556,18 +556,18 @@ export function DashboardPage() {
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{d.title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{d.title}</h1>
           <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <label className="text-sm text-gray-600">
+        <div className="flex flex-col items-end gap-2 min-w-0">
+          <label className="text-sm text-gray-600 w-full sm:w-auto">
             {d.providerScope}
             <div className="relative mt-1">
               <button
                 type="button"
                 onClick={() => setProviderMenuOpen((prev) => !prev)}
-                className="inline-flex min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="inline-flex w-full sm:min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               >
                 <span>{providerLabelMap[providerFilter]}</span>
                 <ChevronDown
@@ -717,7 +717,7 @@ export function DashboardPage() {
             </span>
           )}
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
             <div className="mt-1 text-xl font-semibold text-gray-900">{fmt(todayCost)}</div>
@@ -1025,7 +1025,7 @@ export function DashboardPage() {
                   <tbody className="divide-y divide-gray-50">
                     {filteredAccounts.map((a) => (
                       <tr key={a.id}>
-                        <td className="py-3 pr-4 font-medium text-gray-900">{a.display_name}</td>
+                        <td className="py-3 pr-4 font-medium text-gray-900 max-w-[120px] truncate">{a.display_name}</td>
                         <td className="py-3 pr-4 text-gray-500 uppercase text-xs">{a.provider}</td>
                         <td className="py-3 pr-4">
                           <span

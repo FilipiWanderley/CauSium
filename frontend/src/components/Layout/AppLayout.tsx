@@ -47,7 +47,7 @@ export function AppLayout() {
               aria-label={t.common.close}
               onClick={() => setSidebarOpen(false)}
             />
-            <div className="absolute inset-y-0 left-0 w-60">
+            <div className="absolute inset-y-0 left-0 w-60 flex flex-col">
               <Sidebar onNavigate={() => setSidebarOpen(false)} />
             </div>
           </div>
