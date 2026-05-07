@@ -38,6 +38,10 @@ type NavItem = {
   badge?: number
 }
 
+type SidebarProps = {
+  onNavigate?: () => void
+}
+
 function getCoreNav(nav: Translations['nav']): NavItem[] {
   return [
     { to: '/app/economics', icon: LayoutDashboard, label: nav.economics },
@@ -62,11 +66,12 @@ const NAV_LINK_CLASS = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm f
 const ACTIVE_CLASS = 'bg-brand-600 text-white'
 const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
 
-function SideNavLink({ to, icon: Icon, label, badge }: NavItem) {
+function SideNavLink({ to, icon: Icon, label, badge, onNavigate }: NavItem & { onNavigate?: () => void }) {
   return (
     <NavLink
       to={to}
       end
+      onClick={onNavigate}
       onMouseEnter={() => preloadRoute(to)}
       onFocus={() => preloadRoute(to)}
       onPointerDown={() => preloadRoute(to)}
@@ -85,7 +90,7 @@ function SideNavLink({ to, icon: Icon, label, badge }: NavItem) {
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: SidebarProps) {
   const { user } = useAuth()
   const { t } = useI18n()
   const isPlatformAdmin = user?.role === 'platform_admin'
@@ -141,27 +146,37 @@ export function Sidebar() {
           className="h-full overflow-y-auto py-4 space-y-1 px-2 scrollbar-dark"
         >
           {coreNav.map((item) => (
-            <SideNavLink key={item.to} {...item} badge={item.to === '/app/notifications' ? unread : undefined} />
+            <SideNavLink
+              key={item.to}
+              {...item}
+              onNavigate={onNavigate}
+              badge={item.to === '/app/notifications' ? unread : undefined}
+            />
           ))}
 
           {isAdmin && (
             <>
               <div className="my-2 mx-3 border-t border-gray-700" />
-              <SideNavLink to="/app/cloud" icon={Cloud} label={t.nav.settingsCloud} />
-              <SideNavLink to="/app/members" icon={Users} label={t.nav.members} />
-              <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} />
-              <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} />
+              <SideNavLink to="/app/cloud" icon={Cloud} label={t.nav.settingsCloud} onNavigate={onNavigate} />
+              <SideNavLink to="/app/members" icon={Users} label={t.nav.members} onNavigate={onNavigate} />
+              <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} onNavigate={onNavigate} />
+              <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} onNavigate={onNavigate} />
             </>
           )}
 
-          <SideNavLink to="/app/settings" icon={Settings} label={t.nav.settings} />
+          <SideNavLink to="/app/settings" icon={Settings} label={t.nav.settings} onNavigate={onNavigate} />
 
           {isPlatformAdmin && (
             <>
               <div className="my-2 mx-3 border-t border-gray-700" />
-              <SideNavLink to="/app/platform/workspaces" icon={Building2} label={t.nav.platformWorkspaces} />
-              <SideNavLink to="/app/platform/sync" icon={RefreshCw} label={t.nav.platformSync} />
-              <SideNavLink to="/app/platform/slo" icon={Siren} label={t.nav.platformSlo} />
+              <SideNavLink
+                to="/app/platform/workspaces"
+                icon={Building2}
+                label={t.nav.platformWorkspaces}
+                onNavigate={onNavigate}
+              />
+              <SideNavLink to="/app/platform/sync" icon={RefreshCw} label={t.nav.platformSync} onNavigate={onNavigate} />
+              <SideNavLink to="/app/platform/slo" icon={Siren} label={t.nav.platformSlo} onNavigate={onNavigate} />
             </>
           )}
         </div>
