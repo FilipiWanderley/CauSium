@@ -1164,6 +1164,191 @@ class CloudLedgerService:
             log.warning("ledger.dominant_currency.failed", error=str(e))
         return "USD"
 
+    async def get_reconciliation(
+        self,
+        org_id: UUID,
+        *,
+        account_id: str | None = None,
+        subscription_id: str | None = None,
+        start: date | None = None,
+        end: date | None = None,
+        provider: str | None = None,
+    ):
+        from app.domains.cloud_ledger.schemas import (
+            ReconciliationReport,
+            ReconciliationSubscriptionRow,
+            ReconciliationWarnings,
+        )
+
+        today = date.today()
+        if start is None:
+            start = today.replace(day=1)
+        if end is None:
+            end = today
+
+        where_parts = [
+            "org_id = {org_id:String}",
+            "date >= {start:Date}",
+            "date <= {end:Date}",
+        ]
+        params: dict[str, object] = {"org_id": str(org_id), "start": start, "end": end}
+
+        if account_id:
+            where_parts.append("account_id = {account_id:String}")
+            params["account_id"] = account_id
+        if subscription_id:
+            where_parts.append("subscription_id = {subscription_id:String}")
+            params["subscription_id"] = subscription_id
+        if provider:
+            where_parts.append("provider = {provider:String}")
+            params["provider"] = provider
+
+        where_clause = " AND ".join(where_parts)
+
+        try:
+            rows = execute_query(
+                f"""
+                SELECT
+                    subscription_id,
+                    account_id,
+                    currency,
+                    provider,
+                    count()                                                      AS records_count,
+                    sum(cost_usd)                                                AS total_cost,
+                    min(date)                                                    AS min_date,
+                    max(date)                                                    AS max_date,
+                    uniqExact(service)                                           AS distinct_services,
+                    uniqExact(resource_id)                                       AS distinct_resources,
+                    countIf(subscription_id = '' OR subscription_id IS NULL)    AS missing_sub_count
+                FROM cost_facts
+                WHERE {where_clause}
+                GROUP BY subscription_id, account_id, currency, provider
+                ORDER BY total_cost DESC
+                """,
+                params,
+            )
+        except Exception as exc:
+            log.warning("ledger.reconciliation.query_failed", error=str(exc))
+            rows = []
+
+        # Aggregate totals across all rows
+        total_cost = sum(float(r["total_cost"]) for r in rows)
+        records_count = sum(int(r["records_count"]) for r in rows)
+        distinct_services = max((int(r["distinct_services"]) for r in rows), default=0)
+        distinct_resources = max((int(r["distinct_resources"]) for r in rows), default=0)
+        all_currencies = sorted({str(r["currency"]) for r in rows if r.get("currency")})
+        dominant_currency = all_currencies[0] if all_currencies else "USD"
+        mixed_currency = len(all_currencies) > 1
+        min_date = min((r["min_date"] for r in rows if r.get("min_date")), default=None)
+        max_date = max((r["max_date"] for r in rows if r.get("max_date")), default=None)
+        missing_sub_total = sum(int(r.get("missing_sub_count") or 0) for r in rows)
+
+        # Distinct subscription_ids (excluding empty)
+        distinct_subs = {str(r["subscription_id"]) for r in rows if r.get("subscription_id")}
+        subscription_count = len(distinct_subs)
+
+        # Load cloud_accounts for cross-reference
+        account_service = CloudAccountService(self.db)
+        accounts, _ = await account_service.list_accounts(org_id)
+        account_by_id = {str(a.id): a for a in accounts}
+        external_ids = {a.external_id for a in accounts}
+
+        # Build by_subscription rows
+        by_subscription: list[ReconciliationSubscriptionRow] = []
+        orphan_count = 0
+        has_mismatch = False
+
+        for r in rows:
+            sub_id = str(r.get("subscription_id") or "")
+            acc_id = str(r.get("account_id") or "")
+            account = account_by_id.get(acc_id)
+            display_name = account.display_name if account else None
+
+            # external_id_match: subscription_id in cost_facts matches an external_id in cloud_accounts
+            ext_match = bool(sub_id and sub_id in external_ids)
+            if not ext_match and sub_id:
+                has_mismatch = True
+
+            # orphan: account_id in cost_facts not found in cloud_accounts
+            if acc_id and acc_id not in account_by_id:
+                orphan_count += int(r["records_count"])
+
+            by_subscription.append(
+                ReconciliationSubscriptionRow(
+                    subscription_id=sub_id or "",
+                    account_id=acc_id or None,
+                    display_name=display_name,
+                    provider=str(r.get("provider") or ""),
+                    total_cost=float(r["total_cost"]),
+                    records_count=int(r["records_count"]),
+                    min_date=r.get("min_date"),
+                    max_date=r.get("max_date"),
+                    currency=str(r.get("currency") or "") or None,
+                    external_id_match=ext_match,
+                )
+            )
+
+        # Dashboard equivalent: sum of get_month_cost for each month in range
+        # If range spans multiple months, sum each month individually using the same logic.
+        dashboard_equivalent_total = 0.0
+        try:
+            current = start.replace(day=1)
+            while current <= end:
+                dashboard_equivalent_total += self.get_month_cost(
+                    org_id,
+                    current.year,
+                    current.month,
+                    provider=provider,
+                    subscription_id=subscription_id,
+                )
+                # Advance to next month
+                if current.month == 12:
+                    current = current.replace(year=current.year + 1, month=1)
+                else:
+                    current = current.replace(month=current.month + 1)
+        except Exception as exc:
+            log.warning("ledger.reconciliation.dashboard_equiv_failed", error=str(exc))
+
+        difference = total_cost - dashboard_equivalent_total
+        difference_pct = (
+            round(difference / dashboard_equivalent_total * 100, 2)
+            if dashboard_equivalent_total
+            else 0.0
+        )
+
+        warnings = ReconciliationWarnings(
+            no_data=records_count == 0,
+            mixed_currency=mixed_currency,
+            partial_range=bool(max_date and max_date < end),
+            missing_subscription_id=missing_sub_total > 0,
+            account_mismatch=has_mismatch,
+            orphan_records=orphan_count,
+        )
+
+        return ReconciliationReport(
+            org_id=str(org_id),
+            account_id=account_id,
+            subscription_id=subscription_id,
+            provider=provider,
+            start_date=start,
+            end_date=end,
+            total_cost=round(total_cost, 2),
+            dashboard_equivalent_total=round(dashboard_equivalent_total, 2),
+            difference=round(difference, 2),
+            difference_pct=difference_pct,
+            records_count=records_count,
+            min_date=min_date,
+            max_date=max_date,
+            distinct_services=distinct_services,
+            distinct_resources=distinct_resources,
+            subscription_count=subscription_count,
+            currencies=all_currencies,
+            dominant_currency=dominant_currency,
+            mixed_currency=mixed_currency,
+            by_subscription=by_subscription,
+            warnings=warnings,
+        )
+
     async def get_dashboard_metrics(
         self,
         org_id: UUID,

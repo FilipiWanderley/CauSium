@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import date
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, Query
@@ -15,6 +16,7 @@ from app.domains.cloud_ledger.schemas import (
     DetailedCostRow,
     IngestRequest,
     IngestResult,
+    ReconciliationReport,
     ReservationCoverageSummary,
     ReservationEfficiencySummary,
     ServiceBreakdown,
@@ -158,20 +160,25 @@ async def detailed_costs(
     subscription_id: str | None = Query(default=None),
     page_params: PageParams = Depends(PageParams),
 ):
-    service_layer = CloudLedgerService(db)
-    items, total = service_layer.get_detailed_costs(
+    return Page.of(items, total, page_params)
+
+
+@router.get("/reconciliation", response_model=ReconciliationReport)
+async def get_reconciliation(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER)),
+    account_id: str | None = Query(default=None),
+    subscription_id: str | None = Query(default=None),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    provider: str | None = Query(default=None),
+):
+    service = CloudLedgerService(db)
+    return await service.get_reconciliation(
         current_user.org_id,
-        days=days,
-        service=service,
-        provider=provider,
-        owner_team=owner_team,
-        environment=environment,
-        region=region,
-        resource_id=resource_id,
-        resource_name=resource_name,
         account_id=account_id,
         subscription_id=subscription_id,
-        limit=page_params.limit,
-        offset=page_params.offset,
+        start=start_date,
+        end=end_date,
+        provider=provider.lower() if provider else None,
     )
-    return Page.of(items, total, page_params)

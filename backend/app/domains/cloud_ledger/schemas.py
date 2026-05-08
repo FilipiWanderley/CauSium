@@ -160,3 +160,50 @@ class IngestResult(BaseModel):
     usage_records: int = 0
     status: str
     message: str | None = None
+
+
+class ReconciliationSubscriptionRow(BaseModel):
+    subscription_id: str
+    account_id: str | None = None
+    display_name: str | None = None
+    provider: str | None = None
+    total_cost: float
+    records_count: int
+    min_date: date | None = None
+    max_date: date | None = None
+    currency: str | None = None
+    external_id_match: bool = False
+
+
+class ReconciliationWarnings(BaseModel):
+    no_data: bool = False
+    mixed_currency: bool = False
+    partial_range: bool = False
+    missing_subscription_id: bool = False
+    account_mismatch: bool = False
+    orphan_records: int = 0
+
+
+class ReconciliationReport(BaseModel):
+    org_id: str
+    account_id: str | None = None
+    subscription_id: str | None = None
+    provider: str | None = None
+    start_date: date
+    end_date: date
+    total_cost: float
+    dashboard_equivalent_total: float
+    difference: float
+    difference_pct: float
+    records_count: int
+    min_date: date | None = None
+    max_date: date | None = None
+    distinct_services: int
+    distinct_resources: int
+    subscription_count: int
+    currencies: list[str]
+    dominant_currency: str
+    mixed_currency: bool
+    by_subscription: list[ReconciliationSubscriptionRow]
+    warnings: ReconciliationWarnings
+    note: str = "This report reflects ingested data only and is not an official cloud provider invoice."
