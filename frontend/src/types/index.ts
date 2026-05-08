@@ -104,6 +104,7 @@ export interface DashboardMetrics {
   top_teams: ServiceBreakdown[]
   event_count_7d: number
   active_accounts: number
+  currency?: string
 }
 
 export interface ReservationCoverageByService {

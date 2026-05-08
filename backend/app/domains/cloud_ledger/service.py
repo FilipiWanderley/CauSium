@@ -1126,6 +1126,44 @@ class CloudLedgerService:
         except Exception:
             return 0
 
+    def get_dominant_currency(
+        self,
+        org_id: UUID,
+        provider: str | None = None,
+        subscription_id: str | None = None,
+    ) -> str:
+        today = date.today()
+        start = today.replace(day=1)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
+        params: dict[str, object] = {"org_id": str(org_id), "start": start, "end": today}
+        if provider:
+            params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
+        try:
+            rows = execute_query(
+                f"""
+                SELECT currency, sum(cost_usd) AS total
+                FROM cost_facts
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                  AND currency != ''
+                  {provider_where}
+                  {subscription_where}
+                GROUP BY currency
+                ORDER BY total DESC
+                LIMIT 1
+                """,
+                params,
+            )
+            if rows and rows[0].get("currency"):
+                return str(rows[0]["currency"]).upper()
+        except Exception as e:
+            log.warning("ledger.dominant_currency.failed", error=str(e))
+        return "USD"
+
     async def get_dashboard_metrics(
         self,
         org_id: UUID,
@@ -1149,6 +1187,7 @@ class CloudLedgerService:
 
         top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
         top_teams, _ = self.get_top_teams(org_id, provider=provider)
+        currency = self.get_dominant_currency(org_id, provider=provider, subscription_id=subscription_id)
         return DashboardMetrics(
             current_month_cost=current_month,
             previous_month_cost=previous_month,
@@ -1158,6 +1197,7 @@ class CloudLedgerService:
             top_teams=top_teams,
             event_count_7d=self.get_event_count(org_id, days=7, provider=provider, subscription_id=subscription_id),
             active_accounts=active_accounts,
+            currency=currency,
         )
 
     def get_reservation_coverage(

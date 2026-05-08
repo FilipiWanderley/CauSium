@@ -51,6 +51,7 @@ class DashboardMetrics(BaseModel):
     top_teams: list[ServiceBreakdown]
     event_count_7d: int
     active_accounts: int
+    currency: str = "USD"
 
 
 class ReservationCoverageByService(BaseModel):

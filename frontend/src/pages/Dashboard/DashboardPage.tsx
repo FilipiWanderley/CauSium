@@ -26,8 +26,8 @@ import type {
 import clsx from 'clsx'
 import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+const fmt = (n: number, currency = 'USD') =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
 
 const EVENT_ICON: Record<ChangeEventType, React.ElementType> = {
   incident: AlertTriangle,
@@ -452,6 +452,7 @@ export function DashboardPage() {
   }
 
   const explainData: ExplainCostChangeResponse | undefined = explainMutation.data
+  const fmtCost = (n: number) => fmt(n, metrics?.currency ?? 'USD')
   const insightsData: IntelInsightsResponse | undefined = intelInsights
   const anomalyItems: IntelCostAnomaly[] = intelAnomaliesPage?.items ?? []
   const visibleAnomalies = anomalyHighOnly
@@ -700,7 +701,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title={d.currentMonthCost}
-          value={fmt(metrics?.current_month_cost ?? 0)}
+          value={fmtCost(metrics?.current_month_cost ?? 0)}
           change={metrics?.mom_change_pct}
           changeLabel={d.vsLastMonth}
           icon={<DollarSign className="h-5 w-5" />}
@@ -760,11 +761,11 @@ export function DashboardPage() {
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{fmt(todayCost)}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(todayCost)}</div>
           </div>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{d.avgPrevious30d}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{fmt(avgPrevious30d)}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(avgPrevious30d)}</div>
           </div>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayVsAvgDelta}</div>
@@ -791,9 +792,9 @@ export function DashboardPage() {
           </div>
           <div className="mt-1 text-xs opacity-80">
             {d.alertCostDetail
-              .replace('{{today}}', fmt(costAlert.todayCost))
-              .replace('{{avg}}', fmt(costAlert.avgPrevious30d))
-              .replace('{{diff}}', `${costAlert.delta > 0 ? '+' : ''}${fmt(costAlert.todayCost - costAlert.avgPrevious30d)}`)
+              .replace('{{today}}', fmtCost(costAlert.todayCost))
+              .replace('{{avg}}', fmtCost(costAlert.avgPrevious30d))
+              .replace('{{diff}}', `${costAlert.delta > 0 ? '+' : ''}${fmtCost(costAlert.todayCost - costAlert.avgPrevious30d)}`)
             }
           </div>
         </div>
