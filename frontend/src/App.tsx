@@ -21,6 +21,7 @@ import {
   NotificationsPage,
   OptimizationPlanPage,
   OpportunitiesPage,
+  ReconciliationPage,
   ResetPasswordPage,
   RiskBudgetsPage,
   SettingsPage,
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="platform/workspaces" element={lazyRoute(<WorkspacesPage />)} />
           <Route path="platform/sync" element={lazyRoute(<SyncStatusPage />)} />
           <Route path="platform/slo" element={lazyRoute(<SloPage />)} />
+          <Route path="admin/reconciliation" element={lazyRoute(<ReconciliationPage />)} />
         </Route>
 
         {/* ── Fallback ─────────────────────────────────────────────── */}

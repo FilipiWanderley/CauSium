@@ -107,6 +107,53 @@ export interface DashboardMetrics {
   currency?: string
 }
 
+export interface ReconciliationSubscriptionRow {
+  subscription_id: string
+  account_id: string | null
+  display_name: string | null
+  provider: string | null
+  total_cost: number
+  records_count: number
+  min_date: string | null
+  max_date: string | null
+  currency: string | null
+  external_id_match: boolean
+}
+
+export interface ReconciliationWarnings {
+  no_data: boolean
+  mixed_currency: boolean
+  partial_range: boolean
+  missing_subscription_id: boolean
+  account_mismatch: boolean
+  orphan_records: number
+}
+
+export interface ReconciliationReport {
+  org_id: string
+  account_id: string | null
+  subscription_id: string | null
+  provider: string | null
+  start_date: string
+  end_date: string
+  total_cost: number
+  dashboard_equivalent_total: number
+  difference: number
+  difference_pct: number
+  records_count: number
+  min_date: string | null
+  max_date: string | null
+  distinct_services: number
+  distinct_resources: number
+  subscription_count: number
+  currencies: string[]
+  dominant_currency: string
+  mixed_currency: boolean
+  by_subscription: ReconciliationSubscriptionRow[]
+  warnings: ReconciliationWarnings
+  note: string
+}
+
 export interface ReservationCoverageByService {
   service: string
   compute_cost_usd: number

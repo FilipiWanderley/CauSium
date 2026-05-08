@@ -23,6 +23,7 @@ export interface Translations {
     platformWorkspaces: string
     platformSync: string
     platformSlo: string
+    adminReconciliation: string
     soon: string
   }
   common: {
@@ -1014,6 +1015,7 @@ export const en: Translations = {
     platformWorkspaces: 'Workspaces',
     platformSync: 'Sync',
     platformSlo: 'SLO',
+    adminReconciliation: 'Reconciliation',
     soon: 'Soon',
   },
   common: {

@@ -88,6 +88,9 @@ export const SyncStatusPage = lazyWithPreload(() =>
 export const SloPage = lazyWithPreload(() =>
   import('../pages/Platform/SloPage').then((m) => ({ default: m.SloPage }))
 )
+export const ReconciliationPage = lazyWithPreload(() =>
+  import('../pages/Reconciliation/ReconciliationPage').then((m) => ({ default: m.ReconciliationPage }))
+)
 
 const PRELOAD_BY_PATH: Array<[string, () => Promise<unknown>]> = [
   ['/login', LoginPage.preload],
@@ -122,6 +125,7 @@ const PRELOAD_BY_PATH: Array<[string, () => Promise<unknown>]> = [
   ['/app/platform/workspaces', WorkspacesPage.preload],
   ['/app/platform/sync', SyncStatusPage.preload],
   ['/app/platform/slo', SloPage.preload],
+  ['/app/admin/reconciliation', ReconciliationPage.preload],
 ]
 
 export function preloadRoute(path: string): void {

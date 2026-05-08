@@ -8,6 +8,7 @@ import type {
   ReservationEfficiencySummary,
   ServiceBreakdown,
   SubscriptionCostSummary,
+  ReconciliationReport,
 } from '../types'
 
 export interface ExportJob {
@@ -80,4 +81,13 @@ export const ledgerApi = {
 
   subscriptionCostSummary: (days = 30) =>
     apiClient.get<SubscriptionCostSummary>('/ledger/costs/subscriptions', { params: { days } }),
+
+  reconciliation: (params?: {
+    account_id?: string
+    subscription_id?: string
+    start_date?: string
+    end_date?: string
+    provider?: string
+  }) =>
+    apiClient.get<ReconciliationReport>('/ledger/reconciliation', { params }),
 }

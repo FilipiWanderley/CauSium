@@ -25,6 +25,7 @@ export const pt: Translations = {
     platformWorkspaces: 'Workspaces',
     platformSync: 'Sincronização',
     platformSlo: 'SLO',
+    adminReconciliation: 'Reconciliação',
     soon: 'Em breve',
   },
   common: {

@@ -22,6 +22,7 @@ import {
   Boxes,
   FileSpreadsheet,
   Cpu,
+  ClipboardCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
@@ -161,6 +162,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <SideNavLink to="/app/members" icon={Users} label={t.nav.members} onNavigate={onNavigate} />
               <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} onNavigate={onNavigate} />
               <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} onNavigate={onNavigate} />
+              <SideNavLink to="/app/admin/reconciliation" icon={ClipboardCheck} label={t.nav.adminReconciliation} onNavigate={onNavigate} />
             </>
           )}
 
