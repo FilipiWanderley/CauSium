@@ -40,6 +40,7 @@ async def get_dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
     provider: str | None = Query(default=None),
+    subscription_id: str | None = Query(default=None),
 ):
     accounts, _ = await CloudAccountService(db).list_accounts(current_user.org_id)
     provider_filter = provider.lower() if provider else None
@@ -54,6 +55,7 @@ async def get_dashboard(
         current_user.org_id,
         active,
         provider=provider_filter,
+        subscription_id=subscription_id,
     )
 
 

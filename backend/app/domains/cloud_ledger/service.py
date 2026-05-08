@@ -677,13 +677,17 @@ class CloudLedgerService:
         org_id: UUID,
         days: int = 30,
         provider: str | None = None,
+        subscription_id: str | None = None,
     ) -> list[CostTrend]:
         end = date.today()
         start = end - timedelta(days=days)
         provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
         params = {"org_id": str(org_id), "start": start, "end": end}
         if provider:
             params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
         try:
             rows = execute_query(
                 f"""
@@ -693,6 +697,7 @@ class CloudLedgerService:
                   AND date >= {{start:Date}}
                   AND date <= {{end:Date}}
                   {provider_where}
+                  {subscription_where}
                 GROUP BY date
                 ORDER BY date
                 """,
@@ -930,10 +935,12 @@ class CloudLedgerService:
         limit: int = 10,
         offset: int = 0,
         provider: str | None = None,
+        subscription_id: str | None = None,
     ) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
         params = {
             "org_id": str(org_id),
             "start": start,
@@ -943,6 +950,8 @@ class CloudLedgerService:
         }
         if provider:
             params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
         try:
             # Total count
             total_rows = execute_query(
@@ -953,6 +962,7 @@ class CloudLedgerService:
                   AND date >= {{start:Date}}
                   AND date <= {{end:Date}}
                   {provider_where}
+                  {subscription_where}
                 """,
                 params,
             )
@@ -967,6 +977,7 @@ class CloudLedgerService:
                   AND date >= {{start:Date}}
                   AND date <= {{end:Date}}
                   {provider_where}
+                  {subscription_where}
                 GROUP BY service
                 ORDER BY cost_usd DESC
                 LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
@@ -1057,11 +1068,15 @@ class CloudLedgerService:
         year: int,
         month: int,
         provider: str | None = None,
+        subscription_id: str | None = None,
     ) -> float:
         provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
         params = {"org_id": str(org_id), "year": year, "month": month}
         if provider:
             params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
         try:
             rows = execute_query(
                 f"""
@@ -1071,6 +1086,7 @@ class CloudLedgerService:
                   AND toYear(date) = {{year:UInt16}}
                   AND toMonth(date) = {{month:UInt8}}
                   {provider_where}
+                  {subscription_where}
                 """,
                 params,
             )
@@ -1078,13 +1094,22 @@ class CloudLedgerService:
         except Exception:
             return 0.0
 
-    def get_event_count(self, org_id: UUID, days: int = 7, provider: str | None = None) -> int:
+    def get_event_count(
+        self,
+        org_id: UUID,
+        days: int = 7,
+        provider: str | None = None,
+        subscription_id: str | None = None,
+    ) -> int:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
         provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
         params = {"org_id": str(org_id), "start": start}
         if provider:
             params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
         try:
             rows = execute_query(
                 f"""
@@ -1093,6 +1118,7 @@ class CloudLedgerService:
                 WHERE org_id = {{org_id:String}}
                   AND timestamp >= {{start:DateTime}}
                   {provider_where}
+                  {subscription_where}
                 """,
                 params,
             )
@@ -1105,30 +1131,32 @@ class CloudLedgerService:
         org_id: UUID,
         active_accounts: int,
         provider: str | None = None,
+        subscription_id: str | None = None,
     ) -> DashboardMetrics:
         today = date.today()
-        current_month = self.get_month_cost(org_id, today.year, today.month, provider=provider)
+        current_month = self.get_month_cost(org_id, today.year, today.month, provider=provider, subscription_id=subscription_id)
         prev_month = today.replace(day=1) - timedelta(days=1)
         previous_month = self.get_month_cost(
             org_id,
             prev_month.year,
             prev_month.month,
             provider=provider,
+            subscription_id=subscription_id,
         )
         mom_change = (
             (current_month - previous_month) / previous_month * 100 if previous_month else 0
         )
 
-        top_services, _ = self.get_top_services(org_id, provider=provider)
+        top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
         top_teams, _ = self.get_top_teams(org_id, provider=provider)
         return DashboardMetrics(
             current_month_cost=current_month,
             previous_month_cost=previous_month,
             mom_change_pct=round(mom_change, 1),
-            daily_trend=self.get_cost_trend(org_id, days=30, provider=provider),
+            daily_trend=self.get_cost_trend(org_id, days=30, provider=provider, subscription_id=subscription_id),
             top_services=top_services,
             top_teams=top_teams,
-            event_count_7d=self.get_event_count(org_id, days=7, provider=provider),
+            event_count_7d=self.get_event_count(org_id, days=7, provider=provider, subscription_id=subscription_id),
             active_accounts=active_accounts,
         )
 
