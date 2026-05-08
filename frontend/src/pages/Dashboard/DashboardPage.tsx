@@ -21,6 +21,7 @@ import type {
   ExplainCostChangeRequest,
   ExplainCostChangeResponse,
   ReservationEfficiencyAction,
+  SubscriptionCostSummary,
 } from '../../types'
 import clsx from 'clsx'
 import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
@@ -258,6 +259,7 @@ export function DashboardPage() {
     aws: d.providerAws,
     gcp: d.providerGcp,
   }
+  const [subscriptionId, setSubscriptionId] = useState<string>('')
 
   const explainWindow = useMemo(() => {
     const now = new Date()
@@ -290,9 +292,17 @@ export function DashboardPage() {
     },
   })
 
+  const { data: subscriptionsData } = useQuery<SubscriptionCostSummary>({
+    queryKey: ['ledger', 'subscriptions', 30],
+    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
+  })
+
   const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['dashboard', providerFilter],
-    queryFn: () => ledgerApi.dashboard(providerParam).then((r) => r.data),
+    queryKey: ['dashboard', providerFilter, subscriptionId],
+    queryFn: () =>
+      ledgerApi
+        .dashboard(providerParam, subscriptionId || undefined)
+        .then((r) => r.data),
     refetchInterval: 30000,
   })
 
@@ -561,46 +571,76 @@ export function DashboardPage() {
           <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
         </div>
         <div className="flex flex-col items-end gap-2 min-w-0">
-          <label className="text-sm text-gray-600 w-full sm:w-auto">
-            {d.providerScope}
-            <div className="relative mt-1">
-              <button
-                type="button"
-                onClick={() => setProviderMenuOpen((prev) => !prev)}
-                className="inline-flex w-full sm:min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              >
-                <span>{providerLabelMap[providerFilter]}</span>
-                <ChevronDown
-                  className={clsx(
-                    'h-4 w-4 text-gray-400 transition-transform',
-                    providerMenuOpen && 'rotate-180',
-                  )}
-                />
-              </button>
-              {providerMenuOpen && (
-                <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-                  {DASHBOARD_PROVIDERS.map((providerOption) => (
-                    <button
-                      key={providerOption}
-                      type="button"
-                      onClick={() => {
-                        setProviderFilterRaw(providerOption)
-                        setProviderMenuOpen(false)
-                      }}
-                      className={clsx(
-                        'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
-                        providerOption === providerFilter
-                          ? 'bg-brand-50 text-brand-700'
-                          : 'text-gray-700 hover:bg-gray-50',
-                      )}
-                    >
-                      {providerLabelMap[providerOption]}
-                    </button>
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            {/* Provider scope dropdown */}
+            <label className="text-sm text-gray-600 w-full sm:w-auto">
+              {d.providerScope}
+              <div className="relative mt-1">
+                <button
+                  type="button"
+                  onClick={() => setProviderMenuOpen((prev) => !prev)}
+                  className="inline-flex w-full sm:min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                >
+                  <span>{providerLabelMap[providerFilter]}</span>
+                  <ChevronDown
+                    className={clsx(
+                      'h-4 w-4 text-gray-400 transition-transform',
+                      providerMenuOpen && 'rotate-180',
+                    )}
+                  />
+                </button>
+                {providerMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+                    {DASHBOARD_PROVIDERS.map((providerOption) => (
+                      <button
+                        key={providerOption}
+                        type="button"
+                        onClick={() => {
+                          setProviderFilterRaw(providerOption)
+                          setProviderMenuOpen(false)
+                        }}
+                        className={clsx(
+                          'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
+                          providerOption === providerFilter
+                            ? 'bg-brand-50 text-brand-700'
+                            : 'text-gray-700 hover:bg-gray-50',
+                        )}
+                      >
+                        {providerLabelMap[providerOption]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </label>
+
+            {/* Subscription filter — only shown when org has >1 subscription */}
+            {(subscriptionsData?.subscription_count ?? 0) > 1 && (
+              <label className="text-sm text-gray-600 w-full sm:w-auto">
+                Subscription
+                <select
+                  value={subscriptionId}
+                  onChange={(e) => setSubscriptionId(e.target.value)}
+                  className="mt-1 block w-full sm:min-w-44 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">All subscriptions</option>
+                  {subscriptionsData?.items.map((s) => (
+                    <option key={s.subscription_id} value={s.subscription_id}>
+                      {s.subscription_name
+                        ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                        : `${s.subscription_id.slice(0, 8)}…`}
+                    </option>
                   ))}
-                </div>
-              )}
-            </div>
-          </label>
+                </select>
+                {subscriptionId && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    Applies to cost overview metrics only.
+                  </p>
+                )}
+              </label>
+            )}
+          </div>
+
           <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"

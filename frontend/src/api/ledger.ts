@@ -25,8 +25,8 @@ export interface ExportJob {
 }
 
 export const ledgerApi = {
-  dashboard: (provider?: string) =>
-    apiClient.get<DashboardMetrics>('/ledger/dashboard', { params: { provider } }),
+  dashboard: (provider?: string, subscription_id?: string) =>
+    apiClient.get<DashboardMetrics>('/ledger/dashboard', { params: { provider, subscription_id } }),
 
   costTrend: (days = 30) =>
     apiClient.get<CostTrend[]>(`/ledger/costs/trend?days=${days}`),
