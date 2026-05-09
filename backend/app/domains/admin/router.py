@@ -716,3 +716,117 @@ async def admin_force_sync(
         "opportunities_generated": opportunities_generated,
         "days": days,
     })
+
+
+@router.get(
+    "/orgs/{org_id}/subscriptions/discover",
+    include_in_schema=False,
+    summary="Preview subscriptions found in cost_facts for an org (read-only)",
+)
+async def admin_discover_subscriptions(
+    org_id: UUID,
+    account_id: UUID | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from fastapi.responses import JSONResponse
+    from app.domains.cloud_accounts.service import CloudAccountService
+    from app.domains.cloud_accounts.schemas import SubscriptionDiscoverOut, DiscoveredSubscriptionRow
+
+    svc = CloudAccountService(db)
+
+    # Validate org exists
+    from sqlalchemy import select
+    from app.domains.auth.models import Organization
+    org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+    if org_result.scalar_one_or_none() is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    rows = await svc.discover_subscriptions_from_cost_facts(
+        org_id, account_id=account_id, provider=provider
+    )
+
+    # Check which are already registered
+    existing_subs, _ = await svc.list_subscriptions(org_id, account_id=account_id)
+    registered_keys = {
+        (str(s.cloud_account_id), s.provider.value, s.subscription_id)
+        for s in existing_subs
+    }
+
+    out_rows = []
+    already_count = 0
+    for r in rows:
+        key = (r["cloud_account_id"], r["provider"], r["subscription_id"])
+        already = key in registered_keys
+        if already:
+            already_count += 1
+        out_rows.append(DiscoveredSubscriptionRow(
+            org_id=r["org_id"],
+            cloud_account_id=r["cloud_account_id"],
+            provider=r["provider"],
+            cloud_tenant_id=r["cloud_tenant_id"],
+            subscription_id=r["subscription_id"],
+            already_registered=already,
+        ))
+
+    result = SubscriptionDiscoverOut(
+        org_id=str(org_id),
+        discovered_count=len(out_rows),
+        already_registered_count=already_count,
+        new_count=len(out_rows) - already_count,
+        subscriptions=out_rows,
+    )
+    return JSONResponse(result.model_dump())
+
+
+@router.post(
+    "/orgs/{org_id}/subscriptions/backfill",
+    include_in_schema=False,
+    summary="Backfill cloud_account_subscriptions from cost_facts (idempotent upsert)",
+)
+async def admin_backfill_subscriptions(
+    org_id: UUID,
+    dry_run: bool = Query(default=True),
+    account_id: UUID | None = Query(default=None),
+    provider: str | None = Query(default=None),
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from fastapi.responses import JSONResponse
+    from app.domains.cloud_accounts.service import CloudAccountService
+    from app.domains.cloud_accounts.schemas import SubscriptionBackfillOut, DiscoveredSubscriptionRow
+
+    svc = CloudAccountService(db)
+
+    # Validate org exists
+    from sqlalchemy import select
+    from app.domains.auth.models import Organization
+    org_result = await db.execute(select(Organization).where(Organization.id == org_id))
+    if org_result.scalar_one_or_none() is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    result = await svc.backfill_subscriptions_from_cost_facts(
+        org_id,
+        account_id=account_id,
+        provider=provider,
+        dry_run=dry_run,
+    )
+
+    if not dry_run:
+        await db.commit()
+
+    out = SubscriptionBackfillOut(
+        org_id=result["org_id"],
+        dry_run=result["dry_run"],
+        discovered_count=result["discovered_count"],
+        inserted_count=result["inserted_count"],
+        updated_count=result["updated_count"],
+        skipped_count=result["skipped_count"],
+        subscriptions=[DiscoveredSubscriptionRow(**r) for r in result["subscriptions"]],
+    )
+    return JSONResponse(out.model_dump())

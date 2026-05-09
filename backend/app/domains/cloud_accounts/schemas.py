@@ -135,3 +135,30 @@ class CloudAccountSubscriptionOut(BaseModel):
 class SubscriptionListOut(BaseModel):
     items: list[CloudAccountSubscriptionOut]
     total: int
+
+
+class DiscoveredSubscriptionRow(BaseModel):
+    org_id: str
+    cloud_account_id: str
+    provider: str
+    cloud_tenant_id: str | None
+    subscription_id: str
+    already_registered: bool
+
+
+class SubscriptionDiscoverOut(BaseModel):
+    org_id: str
+    discovered_count: int
+    already_registered_count: int
+    new_count: int
+    subscriptions: list[DiscoveredSubscriptionRow]
+
+
+class SubscriptionBackfillOut(BaseModel):
+    org_id: str
+    dry_run: bool
+    discovered_count: int
+    inserted_count: int
+    updated_count: int
+    skipped_count: int
+    subscriptions: list[DiscoveredSubscriptionRow]

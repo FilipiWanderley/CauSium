@@ -498,3 +498,185 @@ class CloudAccountService:
             q = q.where(CloudAccountSubscription.cloud_account_id == account_id)
         result = await self.db.execute(q)
         return result.scalar_one_or_none()
+
+    async def discover_subscriptions_from_cost_facts(
+        self,
+        org_id: UUID,
+        account_id: UUID | None = None,
+        provider: str | None = None,
+    ) -> list[dict]:
+        """Read-only: return distinct (account_id, provider, subscription_id) from cost_facts."""
+        from app.core.clickhouse import execute_query
+
+        where_parts = [
+            "org_id = {org_id:String}",
+            "subscription_id != ''",
+            "subscription_id IS NOT NULL",
+        ]
+        params: dict = {"org_id": str(org_id)}
+        if account_id is not None:
+            where_parts.append("account_id = {account_id:String}")
+            params["account_id"] = str(account_id)
+        if provider is not None:
+            where_parts.append("provider = {provider:String}")
+            params["provider"] = provider
+
+        where_clause = " AND ".join(where_parts)
+        try:
+            rows = execute_query(
+                f"""
+                SELECT DISTINCT
+                    account_id,
+                    provider,
+                    subscription_id
+                FROM cost_facts
+                WHERE {where_clause}
+                ORDER BY account_id, subscription_id
+                """,
+                params,
+            )
+        except Exception as exc:
+            log.warning("subscription.discover.clickhouse_failed", error=str(exc))
+            return []
+
+        # Load registered cloud_accounts to resolve cloud_tenant_id
+        accounts, _ = await self.list_accounts(org_id)
+        account_map = {str(a.id): a for a in accounts}
+
+        result = []
+        for r in rows:
+            acc_id = str(r.get("account_id") or "")
+            acct = account_map.get(acc_id)
+            result.append({
+                "org_id": str(org_id),
+                "cloud_account_id": acc_id,
+                "provider": str(r.get("provider") or ""),
+                "cloud_tenant_id": acct.tenant_id if acct else None,
+                "subscription_id": str(r.get("subscription_id") or ""),
+            })
+        return result
+
+    async def backfill_subscriptions_from_cost_facts(
+        self,
+        org_id: UUID,
+        account_id: UUID | None = None,
+        provider: str | None = None,
+        dry_run: bool = True,
+    ) -> dict:
+        """
+        Upsert discovered subscriptions into cloud_account_subscriptions.
+        dry_run=True (default): returns preview without writing.
+        dry_run=False: performs idempotent upsert.
+        Status logic:
+          - New rows: status=discovered
+          - Existing rows: preserve status if already active/inactive/removed;
+            only update last_seen_at and fill empty name fields.
+        """
+        from datetime import datetime, timezone
+        from app.domains.cloud_accounts.models import SubscriptionStatus
+
+        discovered = await self.discover_subscriptions_from_cost_facts(
+            org_id, account_id=account_id, provider=provider
+        )
+
+        # Load existing registrations for this org
+        existing_result = await self.db.execute(
+            select(CloudAccountSubscription).where(
+                CloudAccountSubscription.org_id == org_id
+            )
+        )
+        existing = existing_result.scalars().all()
+        # Key: (cloud_account_id, provider, subscription_id)
+        existing_map = {
+            (str(s.cloud_account_id), s.provider.value, s.subscription_id): s
+            for s in existing
+        }
+
+        # Load cloud_accounts for tenant_id resolution
+        accounts, _ = await self.list_accounts(org_id)
+        account_map = {str(a.id): a for a in accounts}
+
+        now = datetime.now(timezone.utc)
+        inserted = 0
+        updated = 0
+        skipped = 0
+        rows_out = []
+
+        for row in discovered:
+            acc_id = row["cloud_account_id"]
+            prov = row["provider"]
+            sub_id = row["subscription_id"]
+            tenant_id = row["cloud_tenant_id"]
+
+            if not acc_id or not sub_id:
+                skipped += 1
+                continue
+
+            # Validate cloud_account belongs to this org
+            acct = account_map.get(acc_id)
+            if acct is None:
+                skipped += 1
+                continue
+
+            key = (acc_id, prov, sub_id)
+            already = existing_map.get(key)
+            already_registered = already is not None
+
+            rows_out.append({
+                "org_id": str(org_id),
+                "cloud_account_id": acc_id,
+                "provider": prov,
+                "cloud_tenant_id": tenant_id,
+                "subscription_id": sub_id,
+                "already_registered": already_registered,
+            })
+
+            if dry_run:
+                continue
+
+            if already is None:
+                # Insert new row
+                from app.domains.cloud_accounts.models import CloudProvider
+                try:
+                    prov_enum = CloudProvider(prov)
+                except ValueError:
+                    skipped += 1
+                    continue
+                new_sub = CloudAccountSubscription(
+                    org_id=org_id,
+                    cloud_account_id=acct.id,
+                    provider=prov_enum,
+                    cloud_tenant_id=tenant_id,
+                    subscription_id=sub_id,
+                    subscription_name=None,
+                    display_name=None,
+                    status=SubscriptionStatus.DISCOVERED,
+                    last_seen_at=now,
+                )
+                self.db.add(new_sub)
+                inserted += 1
+            else:
+                # Update last_seen_at; preserve status unless it's still discovered
+                already.last_seen_at = now
+                if already.status == SubscriptionStatus.DISCOVERED:
+                    pass  # keep as discovered — no promotion without explicit action
+                # Fill empty name fields if still blank
+                if not already.subscription_name:
+                    already.subscription_name = None
+                if not already.display_name:
+                    already.display_name = None
+                updated += 1
+
+        if not dry_run:
+            await self.db.flush()
+
+        discovered_count = len(rows_out) + skipped
+        return {
+            "org_id": str(org_id),
+            "dry_run": dry_run,
+            "discovered_count": discovered_count,
+            "inserted_count": inserted,
+            "updated_count": updated,
+            "skipped_count": skipped,
+            "subscriptions": rows_out,
+        }

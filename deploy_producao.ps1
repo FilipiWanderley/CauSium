@@ -18,9 +18,9 @@ $SWA_LOCATION       = "eastus2"
 $GITHUB_REPO        = "FilipiWanderley/CauSium"
 
 # Chaves geradas (únicas para este deploy)
-$SECRET_KEY         = "0b770b9e10d7f0c7f0530c2d89d1858d56b5f5c8a2a8e57cafb645d0f7389eac"
-$ENCRYPTION_KEY     = "nzoTeCn6WGUbqbju17LdnQC3Zi32P6WWRcm2XRxhIHY="
-$MONITORING_KEY     = "6e60989c9fde45c47a3350cc41199f55ec517236bb1a70af3766363563f9f46d"
+$SECRET_KEY         = "<SECRET_KEY>"
+$ENCRYPTION_KEY     = "<ENCRYPTION_KEY>"
+$MONITORING_KEY     = "<INTERNAL_MONITORING_KEY>"
 
 # ---------------------------------------------------------------------------
 Write-Host ""
