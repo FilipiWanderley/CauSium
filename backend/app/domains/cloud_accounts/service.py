@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.core.security import decrypt_secret_for_org, encrypt_secret_for_org
 from app.domains.audit_chain.service import AuditChainService
-from app.domains.cloud_accounts.models import CloudAccount, CloudProvider, ConnectorHealth, ConnectorStatus
+from app.domains.cloud_accounts.models import CloudAccount, CloudAccountSubscription, CloudProvider, ConnectorHealth, ConnectorStatus
 from app.domains.admin.models import DlqMessage, DlqStatus
 from app.domains.cloud_accounts.schemas import AwsCredentials, AzureCredentials, CloudAccountCreate, GcpCredentials
 from app.domains.cloud_accounts.validators import ScopeValidationResult
@@ -458,3 +458,43 @@ class CloudAccountService:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def list_subscriptions(
+        self,
+        org_id: UUID,
+        account_id: UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[CloudAccountSubscription], int]:
+        base = select(CloudAccountSubscription).where(
+            CloudAccountSubscription.org_id == org_id
+        )
+        count_base = select(func.count()).select_from(CloudAccountSubscription).where(
+            CloudAccountSubscription.org_id == org_id
+        )
+        if account_id is not None:
+            base = base.where(CloudAccountSubscription.cloud_account_id == account_id)
+            count_base = count_base.where(
+                CloudAccountSubscription.cloud_account_id == account_id
+            )
+        total_result = await self.db.execute(count_base)
+        total = total_result.scalar_one()
+        result = await self.db.execute(
+            base.order_by(CloudAccountSubscription.created_at).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all()), total
+
+    async def get_subscription(
+        self,
+        org_id: UUID,
+        subscription_id: str,
+        account_id: UUID | None = None,
+    ) -> CloudAccountSubscription | None:
+        q = select(CloudAccountSubscription).where(
+            CloudAccountSubscription.org_id == org_id,
+            CloudAccountSubscription.subscription_id == subscription_id,
+        )
+        if account_id is not None:
+            q = q.where(CloudAccountSubscription.cloud_account_id == account_id)
+        result = await self.db.execute(q)
+        return result.scalar_one_or_none()

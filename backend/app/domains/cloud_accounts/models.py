@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -21,6 +21,13 @@ class ConnectorStatus(str, enum.Enum):
     INACTIVE = "inactive"
     ERROR = "error"
     PENDING = "pending"
+
+
+class SubscriptionStatus(str, enum.Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DISCOVERED = "discovered"
+    REMOVED = "removed"
 
 
 class CloudAccount(Base):
@@ -46,6 +53,9 @@ class CloudAccount(Base):
     organization: Mapped = relationship("Organization", back_populates="cloud_accounts")
     health_checks: Mapped[list["ConnectorHealth"]] = relationship(
         "ConnectorHealth", back_populates="account", cascade="all, delete-orphan"
+    )
+    subscriptions: Mapped[list["CloudAccountSubscription"]] = relationship(
+        "CloudAccountSubscription", back_populates="cloud_account", cascade="all, delete-orphan"
     )
 
 
@@ -98,3 +108,48 @@ class AwsCurIngestionCheckpoint(Base):
     object_etag: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     records_ingested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CloudAccountSubscription(Base):
+    __tablename__ = "cloud_account_subscriptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "org_id", "cloud_account_id", "provider", "subscription_id",
+            name="uq_cas_org_account_provider_sub",
+        ),
+        Index("ix_cas_org_id", "org_id"),
+        Index("ix_cas_cloud_account_id", "cloud_account_id"),
+        Index("ix_cas_subscription_id", "subscription_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    cloud_account_id: Mapped[UUID] = mapped_column(
+        ForeignKey("cloud_accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[CloudProvider] = mapped_column(
+        Enum(CloudProvider, values_callable=lambda x: [e.value for e in x]), nullable=False
+    )
+    cloud_tenant_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    subscription_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    subscription_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status: Mapped[SubscriptionStatus] = mapped_column(
+        Enum(SubscriptionStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=SubscriptionStatus.DISCOVERED,
+    )
+    discovered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    cloud_account: Mapped["CloudAccount"] = relationship(
+        "CloudAccount", back_populates="subscriptions"
+    )

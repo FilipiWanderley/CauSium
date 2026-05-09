@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.domains.cloud_accounts.models import CloudProvider, ConnectorStatus
+from app.domains.cloud_accounts.models import CloudProvider, ConnectorStatus, SubscriptionStatus
 
 
 class AzureCredentials(BaseModel):
@@ -112,3 +112,26 @@ class ScopeValidationOut(BaseModel):
     message: str
     validated_scopes: list[str] = []
     scopes_validated_at: datetime | None = None
+
+
+class CloudAccountSubscriptionOut(BaseModel):
+    id: UUID
+    org_id: UUID
+    cloud_account_id: UUID
+    provider: CloudProvider
+    cloud_tenant_id: str | None
+    subscription_id: str
+    subscription_name: str | None
+    display_name: str | None
+    status: SubscriptionStatus
+    discovered_at: datetime
+    last_seen_at: datetime | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class SubscriptionListOut(BaseModel):
+    items: list[CloudAccountSubscriptionOut]
+    total: int
