@@ -19,6 +19,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # cloudprovider already exists (created in 0001) -- reference only, do not recreate.
+    # subscriptionstatus is new -- create it explicitly before the table.
+    op.execute(
+        "CREATE TYPE subscriptionstatus AS ENUM "
+        "('active', 'inactive', 'discovered', 'removed')"
+    )
+
     op.create_table(
         "cloud_account_subscriptions",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -26,7 +33,7 @@ def upgrade() -> None:
         sa.Column("cloud_account_id", sa.UUID(), nullable=False),
         sa.Column(
             "provider",
-            sa.Enum("azure", "aws", "gcp", name="cloudprovider"),
+            sa.Enum("azure", "aws", "gcp", name="cloudprovider", create_type=False),
             nullable=False,
         ),
         sa.Column("cloud_tenant_id", sa.String(255), nullable=True),
@@ -35,7 +42,11 @@ def upgrade() -> None:
         sa.Column("display_name", sa.String(255), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("active", "inactive", "discovered", "removed", name="subscriptionstatus"),
+            sa.Enum(
+                "active", "inactive", "discovered", "removed",
+                name="subscriptionstatus",
+                create_type=False,
+            ),
             nullable=False,
             server_default="discovered",
         ),
@@ -80,5 +91,5 @@ def downgrade() -> None:
     op.drop_index("ix_cas_cloud_account_id", table_name="cloud_account_subscriptions")
     op.drop_index("ix_cas_org_id", table_name="cloud_account_subscriptions")
     op.drop_table("cloud_account_subscriptions")
-    # cloudprovider enum is shared with cloud_accounts -- do NOT drop it here.
+    # cloudprovider is shared with cloud_accounts -- do NOT drop it here.
     op.execute("DROP TYPE IF EXISTS subscriptionstatus")
