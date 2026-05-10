@@ -11,42 +11,38 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0041"
 down_revision: Union[str, None] = "0040"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+cloudprovider_enum = postgresql.ENUM(
+    "azure", "aws", "gcp", name="cloudprovider", create_type=False
+)
+subscriptionstatus_enum = postgresql.ENUM(
+    "active", "inactive", "discovered", "removed",
+    name="subscriptionstatus", create_type=False,
+)
+
 
 def upgrade() -> None:
-    # cloudprovider already exists (created in 0001) -- reference only, do not recreate.
-    # subscriptionstatus is new -- create it explicitly before the table.
-    op.execute(
-        "CREATE TYPE subscriptionstatus AS ENUM "
-        "('active', 'inactive', 'discovered', 'removed')"
-    )
+    subscriptionstatus_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "cloud_account_subscriptions",
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("org_id", sa.UUID(), nullable=False),
         sa.Column("cloud_account_id", sa.UUID(), nullable=False),
-        sa.Column(
-            "provider",
-            sa.Enum("azure", "aws", "gcp", name="cloudprovider", create_type=False),
-            nullable=False,
-        ),
+        sa.Column("provider", cloudprovider_enum, nullable=False),
         sa.Column("cloud_tenant_id", sa.String(255), nullable=True),
         sa.Column("subscription_id", sa.String(255), nullable=False),
         sa.Column("subscription_name", sa.String(255), nullable=True),
         sa.Column("display_name", sa.String(255), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(
-                "active", "inactive", "discovered", "removed",
-                name="subscriptionstatus",
-                create_type=False,
-            ),
+            subscriptionstatus_enum,
             nullable=False,
             server_default="discovered",
         ),
@@ -91,5 +87,4 @@ def downgrade() -> None:
     op.drop_index("ix_cas_cloud_account_id", table_name="cloud_account_subscriptions")
     op.drop_index("ix_cas_org_id", table_name="cloud_account_subscriptions")
     op.drop_table("cloud_account_subscriptions")
-    # cloudprovider is shared with cloud_accounts -- do NOT drop it here.
-    op.execute("DROP TYPE IF EXISTS subscriptionstatus")
+    subscriptionstatus_enum.drop(op.get_bind(), checkfirst=True)
