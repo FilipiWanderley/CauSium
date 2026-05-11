@@ -920,6 +920,7 @@ class CloudLedgerService:
                 ),
             )
             for r in rows
+            if r["subscription_id"] != "aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa"
         ]
         return SubscriptionCostSummary(
             days=days,
