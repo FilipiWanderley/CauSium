@@ -144,6 +144,7 @@ class DiscoveredSubscriptionRow(BaseModel):
     cloud_tenant_id: str | None
     subscription_id: str
     already_registered: bool
+    skipped_reason: str | None = None
 
 
 class SubscriptionDiscoverOut(BaseModel):
@@ -151,7 +152,9 @@ class SubscriptionDiscoverOut(BaseModel):
     discovered_count: int
     already_registered_count: int
     new_count: int
+    skipped_count: int = 0
     subscriptions: list[DiscoveredSubscriptionRow]
+    skipped_subscriptions: list[DiscoveredSubscriptionRow] = Field(default_factory=list)
 
 
 class SubscriptionBackfillOut(BaseModel):
@@ -162,3 +165,4 @@ class SubscriptionBackfillOut(BaseModel):
     updated_count: int
     skipped_count: int
     subscriptions: list[DiscoveredSubscriptionRow]
+    skipped_subscriptions: list[DiscoveredSubscriptionRow] = Field(default_factory=list)

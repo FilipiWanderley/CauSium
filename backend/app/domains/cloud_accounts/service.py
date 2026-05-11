@@ -18,6 +18,10 @@ from app.domains.connectors.factory import get_connector_for_account
 
 log = get_logger(__name__)
 
+_SUSPECT_PLACEHOLDER_SUBSCRIPTIONS = {
+    "aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa",
+}
+
 
 class CloudAccountService:
     def __init__(self, db: AsyncSession):
@@ -504,14 +508,12 @@ class CloudAccountService:
         org_id: UUID,
         account_id: UUID | None = None,
         provider: str | None = None,
-    ) -> list[dict]:
-        """Read-only: return distinct (account_id, provider, subscription_id) from cost_facts."""
+    ) -> dict:
+        """Read-only discovery with defensive filtering for suspicious subscriptions."""
         from app.core.clickhouse import execute_query
 
         where_parts = [
             "org_id = {org_id:String}",
-            "subscription_id != ''",
-            "subscription_id IS NOT NULL",
         ]
         params: dict = {"org_id": str(org_id)}
         if account_id is not None:
@@ -537,24 +539,57 @@ class CloudAccountService:
             )
         except Exception as exc:
             log.warning("subscription.discover.clickhouse_failed", error=str(exc))
-            return []
+            return {
+                "org_id": str(org_id),
+                "discovered_count": 0,
+                "skipped_count": 0,
+                "subscriptions": [],
+                "skipped_subscriptions": [],
+            }
 
         # Load registered cloud_accounts to resolve cloud_tenant_id
         accounts, _ = await self.list_accounts(org_id)
         account_map = {str(a.id): a for a in accounts}
 
         result = []
+        skipped = []
         for r in rows:
             acc_id = str(r.get("account_id") or "")
+            sub_id = str(r.get("subscription_id") or "").strip()
+            provider_value = str(r.get("provider") or "")
             acct = account_map.get(acc_id)
-            result.append({
+            row_out = {
                 "org_id": str(org_id),
                 "cloud_account_id": acc_id,
-                "provider": str(r.get("provider") or ""),
+                "provider": provider_value,
                 "cloud_tenant_id": acct.tenant_id if acct else None,
-                "subscription_id": str(r.get("subscription_id") or ""),
-            })
-        return result
+                "subscription_id": sub_id,
+                "already_registered": False,
+            }
+
+            if not sub_id:
+                row_out["skipped_reason"] = "empty_subscription_id"
+                skipped.append(row_out)
+                continue
+            if sub_id.lower() in _SUSPECT_PLACEHOLDER_SUBSCRIPTIONS:
+                row_out["skipped_reason"] = "invalid_placeholder_subscription"
+                skipped.append(row_out)
+                continue
+            if acct is None:
+                row_out["skipped_reason"] = "orphan_account"
+                skipped.append(row_out)
+                continue
+
+            row_out["skipped_reason"] = None
+            result.append(row_out)
+
+        return {
+            "org_id": str(org_id),
+            "discovered_count": len(result),
+            "skipped_count": len(skipped),
+            "subscriptions": result,
+            "skipped_subscriptions": skipped,
+        }
 
     async def backfill_subscriptions_from_cost_facts(
         self,
@@ -575,9 +610,11 @@ class CloudAccountService:
         from datetime import datetime, timezone
         from app.domains.cloud_accounts.models import SubscriptionStatus
 
-        discovered = await self.discover_subscriptions_from_cost_facts(
+        discovery = await self.discover_subscriptions_from_cost_facts(
             org_id, account_id=account_id, provider=provider
         )
+        discovered = discovery["subscriptions"]
+        skipped_rows = list(discovery["skipped_subscriptions"])
 
         # Load existing registrations for this org
         existing_result = await self.db.execute(
@@ -599,7 +636,7 @@ class CloudAccountService:
         now = datetime.now(timezone.utc)
         inserted = 0
         updated = 0
-        skipped = 0
+        skipped = len(skipped_rows)
         rows_out = []
 
         for row in discovered:
@@ -610,12 +647,30 @@ class CloudAccountService:
 
             if not acc_id or not sub_id:
                 skipped += 1
+                skipped_rows.append({
+                    "org_id": str(org_id),
+                    "cloud_account_id": acc_id,
+                    "provider": prov,
+                    "cloud_tenant_id": tenant_id,
+                    "subscription_id": sub_id,
+                    "already_registered": False,
+                    "skipped_reason": "empty_subscription_id",
+                })
                 continue
 
             # Validate cloud_account belongs to this org
             acct = account_map.get(acc_id)
             if acct is None:
                 skipped += 1
+                skipped_rows.append({
+                    "org_id": str(org_id),
+                    "cloud_account_id": acc_id,
+                    "provider": prov,
+                    "cloud_tenant_id": tenant_id,
+                    "subscription_id": sub_id,
+                    "already_registered": False,
+                    "skipped_reason": "orphan_account",
+                })
                 continue
 
             key = (acc_id, prov, sub_id)
@@ -629,6 +684,7 @@ class CloudAccountService:
                 "cloud_tenant_id": tenant_id,
                 "subscription_id": sub_id,
                 "already_registered": already_registered,
+                "skipped_reason": None,
             })
 
             if dry_run:
@@ -670,13 +726,13 @@ class CloudAccountService:
         if not dry_run:
             await self.db.flush()
 
-        discovered_count = len(rows_out) + skipped
         return {
             "org_id": str(org_id),
             "dry_run": dry_run,
-            "discovered_count": discovered_count,
+            "discovered_count": len(rows_out),
             "inserted_count": inserted,
             "updated_count": updated,
             "skipped_count": skipped,
             "subscriptions": rows_out,
+            "skipped_subscriptions": skipped_rows,
         }

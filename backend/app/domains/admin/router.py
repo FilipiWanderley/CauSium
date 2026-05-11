@@ -745,9 +745,11 @@ async def admin_discover_subscriptions(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    rows = await svc.discover_subscriptions_from_cost_facts(
+    discovery = await svc.discover_subscriptions_from_cost_facts(
         org_id, account_id=account_id, provider=provider
     )
+    rows = discovery["subscriptions"]
+    skipped_rows = discovery["skipped_subscriptions"]
 
     # Check which are already registered
     existing_subs, _ = await svc.list_subscriptions(org_id, account_id=account_id)
@@ -770,14 +772,30 @@ async def admin_discover_subscriptions(
             cloud_tenant_id=r["cloud_tenant_id"],
             subscription_id=r["subscription_id"],
             already_registered=already,
+            skipped_reason=r.get("skipped_reason"),
         ))
+
+    out_skipped_rows = [
+        DiscoveredSubscriptionRow(
+            org_id=r["org_id"],
+            cloud_account_id=r["cloud_account_id"],
+            provider=r["provider"],
+            cloud_tenant_id=r["cloud_tenant_id"],
+            subscription_id=r["subscription_id"],
+            already_registered=False,
+            skipped_reason=r.get("skipped_reason"),
+        )
+        for r in skipped_rows
+    ]
 
     result = SubscriptionDiscoverOut(
         org_id=str(org_id),
         discovered_count=len(out_rows),
         already_registered_count=already_count,
         new_count=len(out_rows) - already_count,
+        skipped_count=len(out_skipped_rows),
         subscriptions=out_rows,
+        skipped_subscriptions=out_skipped_rows,
     )
     return JSONResponse(result.model_dump())
 
@@ -828,5 +846,8 @@ async def admin_backfill_subscriptions(
         updated_count=result["updated_count"],
         skipped_count=result["skipped_count"],
         subscriptions=[DiscoveredSubscriptionRow(**r) for r in result["subscriptions"]],
+        skipped_subscriptions=[
+            DiscoveredSubscriptionRow(**r) for r in result["skipped_subscriptions"]
+        ],
     )
     return JSONResponse(out.model_dump())
