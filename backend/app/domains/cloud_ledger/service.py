@@ -1253,6 +1253,18 @@ class CloudLedgerService:
         account_by_id = {str(a.id): a for a in accounts}
         external_ids = {a.external_id for a in accounts}
 
+        # Load cloud_account_subscriptions for extended matching
+        from app.domains.cloud_accounts.models import CloudAccountSubscription
+
+        cas_result = await self.db.execute(
+            select(CloudAccountSubscription.subscription_id).where(
+                CloudAccountSubscription.org_id == org_id
+            )
+        )
+        registered_subscription_ids = {row[0] for row in cas_result.all()}
+
+        PLACEHOLDER_SUBSCRIPTION = "aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa"
+
         # Build by_subscription rows
         by_subscription: list[ReconciliationSubscriptionRow] = []
         orphan_count = 0
@@ -1264,13 +1276,15 @@ class CloudLedgerService:
             account = account_by_id.get(acc_id)
             display_name = account.display_name if account else None
 
-            # external_id_match: subscription_id in cost_facts matches an external_id in cloud_accounts
-            ext_match = bool(sub_id and sub_id in external_ids)
-            if not ext_match and sub_id:
+            # external_id_match: subscription_id matches external_id OR is registered in cloud_account_subscriptions
+            ext_match = bool(sub_id and (sub_id in external_ids or sub_id in registered_subscription_ids))
+
+            # Mismatch: only flag if not matched AND not the known placeholder
+            if not ext_match and sub_id and sub_id != PLACEHOLDER_SUBSCRIPTION:
                 has_mismatch = True
 
-            # orphan: account_id in cost_facts not found in cloud_accounts
-            if acc_id and acc_id not in account_by_id:
+            # orphan: account_id in cost_facts not found in cloud_accounts (ignore placeholder sub)
+            if acc_id and acc_id not in account_by_id and sub_id != PLACEHOLDER_SUBSCRIPTION:
                 orphan_count += int(r["records_count"])
 
             by_subscription.append(
