@@ -1006,10 +1006,12 @@ class CloudLedgerService:
         limit: int = 10,
         offset: int = 0,
         provider: str | None = None,
+        subscription_id: str | None = None,
     ) -> tuple[list[ServiceBreakdown], int]:
         end = date.today()
         start = end - timedelta(days=days)
         provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
         params = {
             "org_id": str(org_id),
             "start": start,
@@ -1019,6 +1021,8 @@ class CloudLedgerService:
         }
         if provider:
             params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
         try:
             # Total count
             total_rows = execute_query(
@@ -1029,6 +1033,7 @@ class CloudLedgerService:
                   AND date >= {{start:Date}}
                   AND date <= {{end:Date}}
                   {provider_where}
+                  {subscription_where}
                 """,
                 params,
             )
@@ -1043,6 +1048,7 @@ class CloudLedgerService:
                   AND date >= {{start:Date}}
                   AND date <= {{end:Date}}
                   {provider_where}
+                  {subscription_where}
                 GROUP BY owner_team
                 ORDER BY cost_usd DESC
                 LIMIT {{limit:UInt32}} OFFSET {{offset:UInt32}}
@@ -1389,7 +1395,7 @@ class CloudLedgerService:
         )
 
         top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
-        top_teams, _ = self.get_top_teams(org_id, provider=provider)
+        top_teams, _ = self.get_top_teams(org_id, provider=provider, subscription_id=subscription_id)
         currency = self.get_dominant_currency(org_id, provider=provider, subscription_id=subscription_id)
         return DashboardMetrics(
             current_month_cost=current_month,
