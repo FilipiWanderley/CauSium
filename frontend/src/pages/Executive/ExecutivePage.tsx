@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { executiveApi } from '../../api/executive'
 import { ledgerApi } from '../../api/ledger'
@@ -21,19 +22,21 @@ export function ExecutivePage() {
   const { t } = useI18n()
   const e = t.executive
 
+  const [subscriptionId, setSubscriptionId] = useState<string>('')
+
+  const { data: subscriptionSummary } = useQuery({
+    queryKey: ['ledger', 'subscriptions', 30],
+    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
+  })
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['executive', 'summary'],
-    queryFn: () => executiveApi.summary().then((r) => r.data),
+    queryKey: ['executive', 'summary', subscriptionId],
+    queryFn: () => executiveApi.summary(subscriptionId || undefined).then((r) => r.data),
   })
 
   const { data: scorecard } = useQuery({
     queryKey: ['executive', 'scorecard'],
     queryFn: () => executiveApi.scorecard().then((r) => r.data),
-  })
-
-  const { data: subscriptionSummary } = useQuery({
-    queryKey: ['ledger', 'subscriptions', 30],
-    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
   })
 
   if (summaryLoading) {
@@ -50,6 +53,26 @@ export function ExecutivePage() {
         <h1 className="text-2xl font-bold text-gray-900">{e.title}</h1>
         <p className="text-sm text-gray-500 mt-1">{e.subtitle}</p>
       </div>
+
+      {/* Subscription filter */}
+      {subscriptionSummary && subscriptionSummary.subscription_count > 1 && (
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Subscription</label>
+          <select
+            value={subscriptionId}
+            onChange={(ev) => setSubscriptionId(ev.target.value)}
+            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+          >
+            <option value="">All subscriptions</option>
+            {subscriptionSummary.items.map((item) => (
+              <option key={item.subscription_id} value={item.subscription_id}>
+                {item.subscription_name || item.subscription_id.slice(0, 8) + '…'}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-gray-400">Applies to financial metrics only.</span>
+        </div>
+      )}
 
       {/* Multi-subscription scope card */}
       {subscriptionSummary && subscriptionSummary.subscription_count > 0 && (

@@ -23,33 +23,41 @@ class ExecutiveService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _get_month_cost(self, org_id: UUID, year: int, month: int) -> float:
+    def _get_month_cost(self, org_id: UUID, year: int, month: int, subscription_id: str | None = None) -> float:
         try:
+            sub_where = "AND subscription_id={sub:String}" if subscription_id else ""
+            params: dict = {"org": str(org_id), "y": year, "m": month}
+            if subscription_id:
+                params["sub"] = subscription_id
             rows = execute_query(
-                "SELECT sum(cost_usd) as total FROM cost_facts WHERE org_id={org:String} AND toYear(date)={y:UInt16} AND toMonth(date)={m:UInt8}",
-                {"org": str(org_id), "y": year, "m": month},
+                f"SELECT sum(cost_usd) as total FROM cost_facts WHERE org_id={{org:String}} AND toYear(date)={{y:UInt16}} AND toMonth(date)={{m:UInt8}} {sub_where}",
+                params,
             )
             return float(rows[0]["total"]) if rows else 0.0
         except Exception:
             return 0.0
 
-    def _get_ytd_cost(self, org_id: UUID, year: int) -> float:
+    def _get_ytd_cost(self, org_id: UUID, year: int, subscription_id: str | None = None) -> float:
         try:
+            sub_where = "AND subscription_id={sub:String}" if subscription_id else ""
+            params: dict = {"org": str(org_id), "y": year}
+            if subscription_id:
+                params["sub"] = subscription_id
             rows = execute_query(
-                "SELECT sum(cost_usd) as total FROM cost_facts WHERE org_id={org:String} AND toYear(date)={y:UInt16}",
-                {"org": str(org_id), "y": year},
+                f"SELECT sum(cost_usd) as total FROM cost_facts WHERE org_id={{org:String}} AND toYear(date)={{y:UInt16}} {sub_where}",
+                params,
             )
             return float(rows[0]["total"]) if rows else 0.0
         except Exception:
             return 0.0
 
-    def _simple_forecast(self, org_id: UUID) -> tuple[float, str]:
+    def _simple_forecast(self, org_id: UUID, subscription_id: str | None = None) -> tuple[float, str]:
         """Linear forecast based on last 3 months average."""
         today = date.today()
         monthly_costs = []
         for i in range(1, 4):
             d = (today.replace(day=1) - timedelta(days=i * 28))
-            monthly_costs.append(self._get_month_cost(org_id, d.year, d.month))
+            monthly_costs.append(self._get_month_cost(org_id, d.year, d.month, subscription_id=subscription_id))
 
         if not any(monthly_costs):
             return 0.0, "insufficient_data"
@@ -57,15 +65,15 @@ class ExecutiveService:
         avg = sum(monthly_costs) / len([c for c in monthly_costs if c > 0])
         return round(avg * 1.05, 2), "low"  # 5% growth assumption
 
-    async def get_summary(self, org_id: UUID) -> ExecutiveSummary:
+    async def get_summary(self, org_id: UUID, subscription_id: str | None = None) -> ExecutiveSummary:
         today = date.today()
         prev = (today.replace(day=1) - timedelta(days=1))
 
-        current_cost = self._get_month_cost(org_id, today.year, today.month)
-        prev_cost = self._get_month_cost(org_id, prev.year, prev.month)
+        current_cost = self._get_month_cost(org_id, today.year, today.month, subscription_id=subscription_id)
+        prev_cost = self._get_month_cost(org_id, prev.year, prev.month, subscription_id=subscription_id)
         mom = (current_cost - prev_cost) / prev_cost * 100 if prev_cost else 0
-        ytd = self._get_ytd_cost(org_id, today.year)
-        forecast, confidence = self._simple_forecast(org_id)
+        ytd = self._get_ytd_cost(org_id, today.year, subscription_id=subscription_id)
+        forecast, confidence = self._simple_forecast(org_id, subscription_id=subscription_id)
 
         # Savings from completed initiatives
         result = await self.db.execute(

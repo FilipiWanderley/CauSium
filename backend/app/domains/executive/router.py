@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -16,9 +16,10 @@ router = APIRouter(prefix="/executive", tags=["executive"])
 async def get_summary(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    subscription_id: str | None = Query(None),
 ):
     service = ExecutiveService(db)
-    return await service.get_summary(current_user.org_id)
+    return await service.get_summary(current_user.org_id, subscription_id=subscription_id)
 
 
 @router.get("/scorecard", response_model=ScorecardResponse)
