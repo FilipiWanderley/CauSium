@@ -652,6 +652,14 @@ export function DashboardPage() {
           <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
+              onClick={() => queueIngestionMutation.mutate()}
+              disabled={queueIngestionMutation.isPending || !accounts}
+              className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}
+            </button>
+            <button
+              type="button"
               onClick={() => refreshDashboardMutation.mutate()}
               disabled={refreshDashboardMutation.isPending}
               className="rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -663,19 +671,14 @@ export function DashboardPage() {
               onClick={() => {
                 budgetSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-100"
             >
               {d.adjustBudget}
             </button>
-            <button
-              type="button"
-              onClick={() => queueIngestionMutation.mutate()}
-              disabled={queueIngestionMutation.isPending || !accounts}
-              className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}
-            </button>
           </div>
+          <p className="text-xs text-gray-400">
+            When syncing cloud data, new provider usage and costs may take a few minutes to appear.
+          </p>
           {actionMessage && (
             <p
               className={clsx(
