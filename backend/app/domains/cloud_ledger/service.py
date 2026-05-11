@@ -1359,7 +1359,10 @@ class CloudLedgerService:
             currencies=all_currencies,
             dominant_currency=dominant_currency,
             mixed_currency=mixed_currency,
-            by_subscription=by_subscription,
+            by_subscription=[
+                row for row in by_subscription
+                if row.subscription_id != PLACEHOLDER_SUBSCRIPTION
+            ],
             warnings=warnings,
         )
 
