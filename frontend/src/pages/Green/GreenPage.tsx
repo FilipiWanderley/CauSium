@@ -8,13 +8,9 @@ import {
   type EmissionsMonthRow,
 } from '../../api/green'
 import { useI18n } from '../../contexts/I18nContext'
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 function DeltaBadge({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-gray-400 text-xs">—</span>
@@ -35,6 +31,7 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 export function GreenPage() {
   const { t } = useI18n()
   const gr = t.green
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const BREAKDOWN_LABELS: Record<BreakdownDimension, string> = {
     service:     gr.byService,
@@ -90,6 +87,14 @@ export function GreenPage() {
           <p className="mt-1 text-sm text-gray-500">
             {gr.subtitle}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+              {gr.sustainabilityEstimate}
+            </span>
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
+              {gr.organizationWide}
+            </span>
+          </div>
         </div>
 
         <select
@@ -120,7 +125,7 @@ export function GreenPage() {
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.cloudSpend}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
-            {s ? money.format(s.total_cost_usd) : '—'}
+            {s ? formatMoney(s.total_cost_usd) : '—'}
           </p>
         </div>
 
@@ -180,7 +185,7 @@ export function GreenPage() {
                   <td className="px-4 py-3 font-medium text-gray-800">{row.month}</td>
                   <td className="px-4 py-3 text-gray-700">{fmt.format(row.kg_co2e)}</td>
                   <td className="px-4 py-3 text-gray-500">{(row.kg_co2e / 1000).toFixed(3)}</td>
-                  <td className="px-4 py-3 text-gray-700">{money.format(row.cost_usd)}</td>
+                  <td className="px-4 py-3 text-gray-700">{formatMoney(row.cost_usd)}</td>
                   <td className="px-4 py-3">
                     <DeltaBadge pct={row.delta_pct} />
                   </td>

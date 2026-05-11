@@ -442,6 +442,11 @@ export interface Translations {
     perMonth: string
     azureSubscriptionsConnected: string
     monitoredHistoricalDays: string
+    financialValuesBrl: string
+    consolidated: string
+    filtered: string
+    organizationWide: string
+    financialMetric: string
   }
   gov: {
     title: string
@@ -501,6 +506,10 @@ export interface Translations {
     untagged: string
     errorInventory: string
     noInventory: string
+    governanceMetric: string
+    organizationWide: string
+    resourcesUnit: string
+    complianceUnit: string
   }
   green: {
     title: string
@@ -533,6 +542,8 @@ export interface Translations {
     dataOfficial: string
     dataEstimated: string
     dataMixed: string
+    sustainabilityEstimate: string
+    organizationWide: string
   }
   economicsCosts: {
     title: string
@@ -604,6 +615,8 @@ export interface Translations {
     reservationHighBadge: string
     reservationCriticalOnly: string
     reservationShowAll: string
+    financialValuesBrl: string
+    filtered: string
   }
   economicsUsage: {
     title: string
@@ -626,6 +639,16 @@ export interface Translations {
     noData: string
     colDate: string
     colValue: string
+    operationalMetric: string
+    organizationWide: string
+    financialValuesBrl: string
+    reservationCoverage: string
+    computeSpendBasis: string
+    reservedSpendBasis: string
+    uncoveredSpendBasis: string
+    coveragePct: string
+    reservationsDetected: string
+    noReservationsDetected: string
   }
   economicsSkus: {
     title: string
@@ -650,6 +673,8 @@ export interface Translations {
     colSku: string
     colCost: string
     colShare: string
+    financialValuesBrl: string
+    consolidated: string
   }
   economicsReports: {
     title: string
@@ -674,6 +699,8 @@ export interface Translations {
     running: string
     completed: string
     completedDownload: string
+    financialValuesBrl: string
+    consolidated: string
   }
   notifications: {
     title: string
@@ -1407,8 +1434,8 @@ export const en: Translations = {
   },
   executive: {
     title: 'Executive View',
-    subtitle: 'Financial performance, savings, and team efficiency',
-    currentMonthCost: 'Current Month Cost',
+    subtitle: 'Consolidated financial performance, savings, and team efficiency.',
+    currentMonthCost: 'Current Month Spend',
     mom: 'MoM',
     ytdSpend: 'YTD Cloud Spend',
     ytdDesc: 'Year to date',
@@ -1434,10 +1461,15 @@ export const en: Translations = {
     perMonth: '/mo',
     azureSubscriptionsConnected: 'Azure real data — {{count}} connected subscription(s)',
     monitoredHistoricalDays: 'monitored over the last {{days}} days (historical baseline)',
+    financialValuesBrl: 'Displayed using tenant billing context',
+    consolidated: 'Consolidated',
+    filtered: 'Filtered',
+    organizationWide: 'Organization-wide',
+    financialMetric: 'Billing-context financial metric',
   },
   gov: {
     title: 'PulseGov',
-    subtitle: 'Resource governance — ownership coverage, label compliance, Advisor recommendations, and full inventory.',
+    subtitle: 'Resource governance metrics for ownership coverage, label compliance, Advisor recommendations, and full inventory.',
     last7: 'Last 7 days',
     last30: 'Last 30 days',
     last90: 'Last 90 days',
@@ -1446,7 +1478,7 @@ export const en: Translations = {
     avgCompliance: 'Avg Compliance',
     recommendations: 'Recommendations',
     estSavings: 'Est. Savings',
-    deployedResources: 'Deployed Resources',
+    deployedResources: 'Governed Resources',
     types: 'types',
     tabUnowned: 'Unowned Resources',
     tabCompliance: 'Label Compliance',
@@ -1458,10 +1490,10 @@ export const en: Translations = {
     colRegion: 'Region',
     colEnvironment: 'Environment',
     colDaysActive: 'Days Active',
-    colCost: 'Cost (USD)',
+    colCost: 'Spend',
     colTeam: 'Team',
-    colTotalCost: 'Total Cost',
-    colUntaggedCost: 'Untagged Cost',
+    colTotalCost: 'Total Spend',
+    colUntaggedCost: 'Untagged Spend',
     colCompliance: 'Compliance',
     errorUnowned: 'Failed to load unowned costs data.',
     errorCompliance: 'Failed to load compliance data.',
@@ -1493,17 +1525,21 @@ export const en: Translations = {
     untagged: 'untagged',
     errorInventory: 'Failed to load inventory data.',
     noInventory: 'No inventory data yet. Trigger a sync to populate.',
+    governanceMetric: 'Governance metric',
+    organizationWide: 'Organization-wide',
+    resourcesUnit: 'resources',
+    complianceUnit: 'compliance %',
   },
   green: {
     title: 'PulseGreen',
-    subtitle: 'Estimated carbon footprint derived from cloud spend and regional grid intensity.',
+    subtitle: 'Sustainability estimate derived from cloud spend and regional grid intensity.',
     last3m: 'Last 3 months',
     last6m: 'Last 6 months',
     last12m: 'Last 12 months',
     totalCO2: 'Total CO₂e',
     kg: 'kg',
     tCO2: 'tCO₂e',
-    cloudSpend: 'Cloud Spend',
+    cloudSpend: 'Cloud Spend Basis',
     intensity: 'Intensity (gCO₂e/$)',
     momDelta: 'MoM Delta',
     monthlyTrend: 'Monthly Emissions Trend',
@@ -1511,7 +1547,7 @@ export const en: Translations = {
     colMonth: 'Month',
     colKg: 'kgCO₂e',
     colTCO2: 'tCO₂e',
-    colCost: 'Cloud Cost',
+    colCost: 'Cloud Spend Basis',
     colMom: 'MoM',
     breakdown: 'Emissions Breakdown',
     window7: '7 days',
@@ -1525,10 +1561,12 @@ export const en: Translations = {
     dataOfficial: 'Data source: official provider carbon API',
     dataEstimated: 'Data source: calibrated cost-based estimate',
     dataMixed: 'Data source: mixed (official + estimated)',
+    sustainabilityEstimate: 'Sustainability estimate',
+    organizationWide: 'Organization-wide',
   },
   economicsCosts: {
     title: 'Economics Costs',
-    subtitle: 'Historical baseline analysis of cost distribution by service and team with interactive filters.',
+    subtitle: 'Historical baseline analysis of spend distribution by service and team with interactive filters.',
     timeWindow: 'Historical window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
@@ -1540,7 +1578,7 @@ export const en: Translations = {
     providerFilterPlaceholder: 'azure, aws, gcp',
     teamFilter: 'Team filter',
     teamFilterPlaceholder: 'owner team',
-    visibleCost: 'Visible Cost',
+    visibleCost: 'Visible Spend',
     exportReport: 'Export Report',
     format: 'Format',
     csv: 'CSV',
@@ -1550,18 +1588,18 @@ export const en: Translations = {
     buildingFormat: 'Building {{format}} — please wait…',
     downloadFile: 'Download {{filename}}',
     reset: 'Reset',
-    detailedCosts: 'Detailed Costs',
-    detailedCostsDesc: 'Detailed rows from the ledger with combined filters and pagination.',
+    detailedCosts: 'Detailed Spend Rows',
+    detailedCostsDesc: 'Detailed ledger rows with combined filters and pagination.',
     totalRows: 'Total rows: {{count}}',
     loadingRows: 'Loading detailed costs...',
     noRows: 'No cost rows for current filters.',
     pageOf: 'Page {{page}} of {{total}}',
     previous: 'Previous',
     next: 'Next',
-    costByService: 'Cost by Service',
+    costByService: 'Spend by Service',
     loadingServices: 'Loading services...',
     noServiceData: 'No results for the selected filters. Try clearing filters or expanding the time range.',
-    costByTeam: 'Cost by Team',
+    costByTeam: 'Spend by Team',
     loadingTeams: 'Loading teams...',
     noTeamData: 'No team data available.',
     colDate: 'Date',
@@ -1571,13 +1609,13 @@ export const en: Translations = {
     colTeam: 'Team',
     colEnvironment: 'Environment',
     colRegion: 'Region',
-    colCost: 'Cost',
+    colCost: 'Spend',
     reservationEfficiency: 'Reservation Efficiency',
     familiesCount: 'Families analyzed: {{count}}',
     loadingReservationEfficiency: 'Loading reservation efficiency...',
     noReservationEfficiency: 'No active reservations or savings plans detected. Purchase reservations to reduce cost and unlock this analysis.',
     avgUtilization: 'Average utilization',
-    totalWaste: 'Total waste',
+    totalWaste: 'Potential Waste',
     totalReserved: 'Reserved commitment',
     colFamily: 'Family',
     colPriority: 'Priority',
@@ -1596,32 +1634,44 @@ export const en: Translations = {
     reservationHighBadge: '{{count}} high',
     reservationCriticalOnly: 'Critical only',
     reservationShowAll: 'Show all',
+    financialValuesBrl: 'Financial values follow tenant billing context',
+    filtered: 'Filtered',
   },
   economicsUsage: {
     title: 'Economics Usage',
-    subtitle: 'Monitor usage behavior, identify volatility and track efficiency stability over time.',
+    subtitle: 'Monitor operational usage behavior, identify volatility, and track efficiency stability over time.',
     timeWindow: 'Time window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
     last90: 'Last 90 days',
     last180: 'Last 180 days',
     dailyAvg: 'Daily Average',
-    dailyAvgDesc: 'Cost units / day',
+    dailyAvgDesc: 'Usage units / day',
     peakDay: 'Peak Day',
-    peakDayDesc: 'Highest observed day',
+    peakDayDesc: 'Highest usage day',
     volatility: 'Volatility',
-    volatilityDesc: 'Standard deviation',
+    volatilityDesc: 'Operational variance',
     efficiencyScore: 'Efficiency Score',
-    efficiencyScoreDesc: 'Stability and MoM impact',
+    efficiencyScoreDesc: 'Operational metric',
     timeline: 'Usage Timeline ({{days}} days)',
     loadingTimeline: 'Loading usage timeline...',
     noData: 'No usage data available for this period.',
     colDate: 'Date',
-    colValue: 'Usage Value',
+    colValue: 'Usage units / day',
+    operationalMetric: 'Operational metric',
+    organizationWide: 'Organization-wide',
+    financialValuesBrl: 'Displayed using tenant billing context',
+    reservationCoverage: 'Reservation Coverage',
+    computeSpendBasis: 'Compute Spend Basis',
+    reservedSpendBasis: 'Reserved Commitment Spend',
+    uncoveredSpendBasis: 'Uncovered Spend Basis',
+    coveragePct: 'Coverage (%)',
+    reservationsDetected: 'Reservations detected',
+    noReservationsDetected: 'No active reservation detected',
   },
   economicsSkus: {
     title: 'Economics SKUs',
-    subtitle: 'Track spending concentration by SKU dimension to prioritize optimization efforts.',
+    subtitle: 'Track spend concentration by SKU dimension to prioritize optimization efforts.',
     note: 'SKU view is currently mapped from service-level billing dimension. Provider-native SKU ingestion will be connected in a follow-up increment.',
     window: 'Window',
     last30: 'Last 30 days',
@@ -1633,19 +1683,21 @@ export const en: Translations = {
     top20: 'Top 20',
     top30: 'Top 30',
     top50: 'Top 50',
-    totalCost: 'Total Cost',
+    totalCost: 'Total Spend',
     top3Share: 'Top 3 Share',
-    breakdown: 'SKU Breakdown',
+    breakdown: 'SKU Spend Breakdown',
     loading: 'Loading SKU breakdown...',
     noData: 'No SKU data available for the selected window.',
     colRank: '#',
     colSku: 'SKU',
-    colCost: 'Cost',
+    colCost: 'Spend',
     colShare: 'Share',
+    financialValuesBrl: 'Financial values follow tenant billing context',
+    consolidated: 'Billing-aligned view',
   },
   economicsReports: {
     title: 'Economics Reports',
-    subtitle: 'Generate operational snapshots from key financial indicators and export them as CSV.',
+    subtitle: 'Generate consolidated snapshots from key financial indicators and export them as CSV or Excel.',
     reportWindow: 'Report window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
@@ -1653,11 +1705,11 @@ export const en: Translations = {
     processing: 'Processing...',
     exportCsv: 'Export CSV',
     exportExcel: 'Export Excel',
-    currentMonth: 'Current Month',
-    previousMonth: 'Previous Month',
+    currentMonth: 'Current Month Spend',
+    previousMonth: 'Previous Month Spend',
     momChange: 'MoM Change',
-    topServices: 'Top Services',
-    topTeams: 'Top Teams',
+    topServices: 'Top Services by Spend',
+    topTeams: 'Top Teams by Spend',
     loading: 'Loading...',
     noData: 'Select a time range and click Generate Report to view financial indicators.',
     errorEnqueue: 'Failed to enqueue the export job.',
@@ -1666,6 +1718,8 @@ export const en: Translations = {
     running: 'Export running. The download will start automatically.',
     completed: 'Export completed and downloaded.',
     completedDownload: 'Export completed. Starting download.',
+    financialValuesBrl: 'Uses dashboard billing currency when available',
+    consolidated: 'Billing-aligned view',
   },
   notifications: {
     title: 'Notifications',

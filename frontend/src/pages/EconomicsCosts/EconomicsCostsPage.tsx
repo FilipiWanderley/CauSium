@@ -12,14 +12,9 @@ import type {
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentBoolean, usePersistentNumber, usePersistentString } from '../../hooks/usePersistentBoolean'
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const DAYS_OPTIONS = [30, 60, 90, 180] as const
-
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 // ─── Export panel ────────────────────────────────────────────────────────────
 
@@ -166,6 +161,7 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
 export function EconomicsCostsPage() {
   const { t } = useI18n()
   const ec = t.economicsCosts
+  const currencyCode = DEFAULT_DISPLAY_CURRENCY
 
   const [days, setDays] = usePersistentNumber('sp.economicsCosts.days', 30, [...DAYS_OPTIONS])
   const [serviceQuery, setServiceQuery] = usePersistentString('sp.economicsCosts.filters.service', '')
@@ -226,6 +222,7 @@ export function EconomicsCostsPage() {
     ? prioritizedFamilies.filter((item) => item.action_priority >= 4)
     : prioritizedFamilies
   const hasTextFilters = Boolean(serviceQuery || providerQuery || teamQuery || subscriptionFilter)
+  const formatMoney = (value: number) => formatCurrency(value, currencyCode)
 
   const clearTextFilters = () => {
     setServiceQuery('')
@@ -242,6 +239,14 @@ export function EconomicsCostsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{ec.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{ec.subtitle}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            {ec.financialValuesBrl}
+          </span>
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+            {ec.filtered}
+          </span>
+        </div>
       </div>
 
       {/* Filters */}
@@ -308,7 +313,7 @@ export function EconomicsCostsPage() {
                     {s.subscription_name
                       ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
                       : `${s.subscription_id.slice(0, 8)}…`
-                    } · {money.format(s.total_cost_usd)}
+                    } · {formatMoney(s.total_cost_usd)}
                   </option>
                 ))}
               </select>
@@ -317,7 +322,7 @@ export function EconomicsCostsPage() {
 
           <div className="rounded-lg border border-gray-200 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{ec.visibleCost}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{money.format(totalFilteredCost)}</div>
+            <div className="mt-1 text-xl font-semibold text-gray-900">{formatMoney(totalFilteredCost)}</div>
           </div>
         </div>
         <div className="mt-3 flex justify-end">
@@ -378,13 +383,13 @@ export function EconomicsCostsPage() {
               <div className="rounded-lg border border-gray-200 p-3">
                 <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalWaste}</div>
                 <div className="mt-1 text-lg font-semibold text-red-600">
-                  {money.format(reservationEfficiencyQuery.data?.total_waste_cost_usd ?? 0)}
+                  {formatMoney(reservationEfficiencyQuery.data?.total_waste_cost_usd ?? 0)}
                 </div>
               </div>
               <div className="rounded-lg border border-gray-200 p-3">
                 <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalReserved}</div>
                 <div className="mt-1 text-lg font-semibold text-gray-900">
-                  {money.format(reservationEfficiencyQuery.data?.total_reserved_capacity_units ?? 0)}
+                  {(reservationEfficiencyQuery.data?.total_reserved_capacity_units ?? 0).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -556,6 +561,8 @@ type EcKeys = {
 }
 
 function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: string; ec: EcKeys }) {
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -570,7 +577,7 @@ function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: 
           {rows.map((row) => (
             <tr key={`${label}-${row.service}`}>
               <td className="py-2 pr-3 font-medium text-gray-800">{row.service}</td>
-              <td className="py-2 pr-3 text-gray-700">{money.format(row.cost_usd)}</td>
+              <td className="py-2 pr-3 text-gray-700">{formatMoney(row.cost_usd)}</td>
               <td className="py-2 text-gray-700">{row.percentage.toFixed(1)}%</td>
             </tr>
           ))}
@@ -581,6 +588,8 @@ function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: 
 }
 
 function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys }) {
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -610,7 +619,7 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
               <td className="py-2 pr-3 text-gray-700">{row.owner_team ?? '-'}</td>
               <td className="py-2 pr-3 text-gray-700">{row.environment ?? '-'}</td>
               <td className="py-2 pr-3 text-gray-700">{row.region ?? '-'}</td>
-              <td className="py-2 text-gray-700">{money.format(row.cost_usd)}</td>
+              <td className="py-2 text-gray-700">{formatMoney(row.cost_usd)}</td>
             </tr>
           ))}
         </tbody>
@@ -620,6 +629,7 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
 }
 
 function ReservationEfficiencyTable({ rows, ec }: { rows: ReservationEfficiencyByFamily[]; ec: EcKeys }) {
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
   const actionLabel: Record<ReservationEfficiencyAction, string> = {
     keep: ec.actionKeep,
     resize_resource: ec.actionResize,
@@ -653,7 +663,7 @@ function ReservationEfficiencyTable({ rows, ec }: { rows: ReservationEfficiencyB
                 </span>
               </td>
               <td className="py-2 pr-3 text-gray-700">{row.utilization_pct.toFixed(1)}%</td>
-              <td className="py-2 pr-3 text-red-600">{money.format(row.waste_cost_usd)}</td>
+              <td className="py-2 pr-3 text-red-600">{formatMoney(row.waste_cost_usd)}</td>
               <td className="py-2 pr-3">
                 <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                   {actionLabel[row.recommended_action]}

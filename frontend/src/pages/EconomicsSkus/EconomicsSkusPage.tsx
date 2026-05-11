@@ -4,16 +4,12 @@ import { Boxes } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
 import type { ServiceBreakdown } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsSkusPage() {
   const { t } = useI18n()
   const es = t.economicsSkus
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const [days, setDays] = useState(30)
   const [limit, setLimit] = useState(20)
@@ -35,6 +31,14 @@ export function EconomicsSkusPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{es.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{es.subtitle}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            {es.financialValuesBrl}
+          </span>
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+            {es.consolidated}
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -73,7 +77,7 @@ export function EconomicsSkusPage() {
 
           <div className="rounded-lg border border-gray-200 px-3 py-2">
             <div className="text-xs uppercase tracking-wide text-gray-500">{es.totalCost}</div>
-            <div className="mt-1 text-lg font-semibold text-gray-900">{currency.format(summary.totalCost)}</div>
+            <div className="mt-1 text-lg font-semibold text-gray-900">{formatMoney(summary.totalCost)}</div>
           </div>
 
           <div className="rounded-lg border border-gray-200 px-3 py-2">
@@ -122,7 +126,7 @@ export function EconomicsSkusPage() {
                   <tr key={`${item.service}-${index}`}>
                     <td className="py-2 pr-3 text-gray-500">{index + 1}</td>
                     <td className="py-2 pr-3 font-medium text-gray-800">{item.service}</td>
-                    <td className="py-2 pr-3 text-gray-700">{currency.format(item.cost_usd)}</td>
+                    <td className="py-2 pr-3 text-gray-700">{formatMoney(item.cost_usd)}</td>
                     <td className="py-2 text-gray-700">{item.percentage.toFixed(1)}%</td>
                   </tr>
                 ))}

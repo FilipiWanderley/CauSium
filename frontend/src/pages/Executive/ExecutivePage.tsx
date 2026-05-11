@@ -14,13 +14,12 @@ import {
 } from 'recharts'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function ExecutivePage() {
   const { t } = useI18n()
   const e = t.executive
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
@@ -52,6 +51,20 @@ export function ExecutivePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{e.title}</h1>
         <p className="text-sm text-gray-500 mt-1">{e.subtitle}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            {e.financialValuesBrl}
+          </span>
+          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
+            {e.organizationWide}
+          </span>
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+            {subscriptionId ? e.filtered : e.consolidated}
+          </span>
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700">
+            {e.financialMetric}
+          </span>
+        </div>
       </div>
 
       {/* Subscription filter */}
@@ -92,7 +105,7 @@ export function ExecutivePage() {
                 {e.azureSubscriptionsConnected.replace('{{count}}', String(subscriptionSummary.subscription_count))}
               </p>
               <p className="text-xs text-blue-700">
-                {fmt(subscriptionSummary.total_cost_usd)}{' '}
+                {formatMoney(subscriptionSummary.total_cost_usd)}{' '}
                 {e.monitoredHistoricalDays.replace('{{days}}', String(subscriptionSummary.days))}
               </p>
             </div>
@@ -105,7 +118,7 @@ export function ExecutivePage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <MetricCard
           title={e.currentMonthCost}
-          value={fmt(summary?.current_month_cost_usd ?? 0)}
+          value={formatMoney(summary?.current_month_cost_usd ?? 0)}
           change={summary?.mom_change_pct}
           changeLabel={e.mom}
           subtitle={subscriptionId
@@ -117,33 +130,33 @@ export function ExecutivePage() {
         />
         <MetricCard
           title={e.ytdSpend}
-          value={fmt(summary?.ytd_cost_usd ?? 0)}
+          value={formatMoney(summary?.ytd_cost_usd ?? 0)}
           subtitle={subscriptionId
             ? `Filtered: ${subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}`
             : e.ytdDesc}
         />
         <MetricCard
           title={e.realizedSavings}
-          value={fmt(summary?.total_realized_savings_usd ?? 0)}
-          subtitle={subscriptionId ? 'Organization-wide' : e.realizedDesc.replace('{{amount}}', fmt(summary?.savings_this_month_usd ?? 0))}
+          value={formatMoney(summary?.total_realized_savings_usd ?? 0)}
+          subtitle={subscriptionId ? e.organizationWide : e.realizedDesc.replace('{{amount}}', formatMoney(summary?.savings_this_month_usd ?? 0))}
           variant="success"
         />
         <MetricCard
           title={e.potentialSavings}
-          value={fmt(summary?.total_potential_savings_usd ?? 0)}
-          subtitle={subscriptionId ? 'Organization-wide' : e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
+          value={formatMoney(summary?.total_potential_savings_usd ?? 0)}
+          subtitle={subscriptionId ? e.organizationWide : e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
           variant="success"
         />
       </div>
 
       {/* Initiatives status */}
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={subscriptionId ? 'Organization-wide' : e.initiatives} />
-        <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={subscriptionId ? 'Organization-wide' : e.initiatives} variant="success" />
+        <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={subscriptionId ? e.organizationWide : e.initiatives} />
+        <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={subscriptionId ? e.organizationWide : e.initiatives} variant="success" />
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-gray-500">{e.forecastNextMonth}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
-            {fmt(summary?.forecast_next_month_usd ?? 0)}
+            {formatMoney(summary?.forecast_next_month_usd ?? 0)}
           </p>
           <p className="mt-1 text-xs text-gray-400">
             {e.confidence}: {summary?.forecast_confidence ?? e.na} · {e.linearProjection}
@@ -192,7 +205,7 @@ export function ExecutivePage() {
               {scorecard.teams.map((row) => (
                 <tr key={row.team}>
                   <td className="py-2 pr-4 font-medium text-gray-900">{row.team}</td>
-                  <td className="py-2 pr-4 text-gray-700">{fmt(row.current_month_cost_usd)}</td>
+                  <td className="py-2 pr-4 text-gray-700">{formatMoney(row.current_month_cost_usd)}</td>
                   <td className={clsx('py-2 pr-4 text-xs font-medium', row.mom_change_pct > 0 ? 'text-red-600' : 'text-green-600')}>
                     {row.mom_change_pct > 0 ? '+' : ''}{row.mom_change_pct.toFixed(1)}%
                   </td>
@@ -237,7 +250,7 @@ export function ExecutivePage() {
                   )}
                 </div>
                 <span className="text-sm font-bold text-green-600">
-                  {fmt(s.realized_savings_usd)}{e.perMonth}
+                  {formatMoney(s.realized_savings_usd)}{e.perMonth}
                 </span>
               </li>
             ))}

@@ -4,6 +4,7 @@ import { Activity, TrendingUp } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const numberFmt = new Intl.NumberFormat('en-US')
 
@@ -54,11 +55,25 @@ export function EconomicsUsagePage() {
     return Math.max(0, Math.min(100, Math.round(raw)))
   }, [dashboardQuery.data?.mom_change_pct, usageSignals.dailyAvg, usageSignals.volatility])
 
+  const displayCurrency = dashboardQuery.data?.currency ?? DEFAULT_DISPLAY_CURRENCY
+  const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{eu.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{eu.subtitle}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+            {eu.operationalMetric}
+          </span>
+          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
+            {eu.organizationWide}
+          </span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            {eu.financialValuesBrl}
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -106,7 +121,7 @@ export function EconomicsUsagePage() {
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-gray-900">
-          Cobertura de Reservas (Reserved Instances / Savings Plans)
+          {eu.reservationCoverage}
         </h2>
         {reservationCoverageQuery.isLoading ? (
           <div className="py-8 text-center text-sm text-gray-500">Calculando cobertura de reservas...</div>
@@ -116,27 +131,27 @@ export function EconomicsUsagePage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <UsageCard
-                title="Compute Total (USD)"
-                value={numberFmt.format(Math.round(reservationCoverageQuery.data.total_compute_cost_usd))}
-                subtitle="Custo total de recursos de compute"
+                title={eu.computeSpendBasis}
+                value={formatMoney(reservationCoverageQuery.data.total_compute_cost_usd)}
+                subtitle={eu.organizationWide}
                 icon={<Activity className="h-4 w-4" />}
               />
               <UsageCard
-                title="Reservado (USD)"
-                value={numberFmt.format(Math.round(reservationCoverageQuery.data.total_reserved_cost_usd))}
-                subtitle="Custo associado a reserva/compromisso"
+                title={eu.reservedSpendBasis}
+                value={formatMoney(reservationCoverageQuery.data.total_reserved_cost_usd)}
+                subtitle={eu.organizationWide}
                 icon={<TrendingUp className="h-4 w-4" />}
               />
               <UsageCard
-                title="Descoberto (USD)"
-                value={numberFmt.format(Math.round(reservationCoverageQuery.data.uncovered_compute_cost_usd))}
-                subtitle="Parcela ainda em on-demand"
+                title={eu.uncoveredSpendBasis}
+                value={formatMoney(reservationCoverageQuery.data.uncovered_compute_cost_usd)}
+                subtitle={eu.organizationWide}
                 icon={<Activity className="h-4 w-4" />}
               />
               <UsageCard
-                title="Cobertura (%)"
+                title={eu.coveragePct}
                 value={`${reservationCoverageQuery.data.coverage_pct}%`}
-                subtitle={reservationCoverageQuery.data.has_active_reservations ? 'Reservas detectadas' : 'Sem reserva ativa detectada'}
+                subtitle={reservationCoverageQuery.data.has_active_reservations ? eu.reservationsDetected : eu.noReservationsDetected}
                 icon={<TrendingUp className="h-4 w-4" />}
               />
             </div>
@@ -151,19 +166,19 @@ export function EconomicsUsagePage() {
                   <thead>
                     <tr className="border-b text-left text-xs font-medium text-gray-500">
                       <th className="pb-2 pr-3">Serviço</th>
-                      <th className="pb-2 pr-3">Compute (USD)</th>
-                      <th className="pb-2 pr-3">Reservado (USD)</th>
-                      <th className="pb-2 pr-3">Descoberto (USD)</th>
-                      <th className="pb-2">Cobertura</th>
+                      <th className="pb-2 pr-3">{eu.computeSpendBasis}</th>
+                      <th className="pb-2 pr-3">{eu.reservedSpendBasis}</th>
+                      <th className="pb-2 pr-3">{eu.uncoveredSpendBasis}</th>
+                      <th className="pb-2">{eu.coveragePct}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {reservationCoverageQuery.data.services.slice(0, 8).map((row) => (
                       <tr key={row.service}>
                         <td className="py-2 pr-3 text-gray-700">{row.service}</td>
-                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.compute_cost_usd))}</td>
-                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.reserved_cost_usd))}</td>
-                        <td className="py-2 pr-3 text-gray-900">{numberFmt.format(Math.round(row.uncovered_cost_usd))}</td>
+                        <td className="py-2 pr-3 text-gray-900">{formatMoney(row.compute_cost_usd)}</td>
+                        <td className="py-2 pr-3 text-gray-900">{formatMoney(row.reserved_cost_usd)}</td>
+                        <td className="py-2 pr-3 text-gray-900">{formatMoney(row.uncovered_cost_usd)}</td>
                         <td className="py-2 text-gray-900">{row.coverage_pct}%</td>
                       </tr>
                     ))}

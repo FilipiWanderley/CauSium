@@ -9,14 +9,9 @@ import {
   type UnownedCostRow,
 } from '../../api/gov'
 import { useI18n } from '../../contexts/I18nContext'
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
-
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
@@ -113,6 +108,7 @@ type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
 export function GovPage() {
   const { t } = useI18n()
   const g = t.gov
+  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'unowned',         label: g.tabUnowned         },
@@ -194,6 +190,14 @@ export function GovPage() {
           <p className="mt-1 text-sm text-gray-500">
             {g.subtitle}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-violet-50 px-2.5 py-1 font-medium text-violet-700">
+              {g.governanceMetric}
+            </span>
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
+              {g.organizationWide}
+            </span>
+          </div>
         </div>
 
         <select
@@ -210,12 +214,12 @@ export function GovPage() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          { label: g.billedResources,    value: s ? s.total_resources.toLocaleString() : '—',     color: 'border-gray-100' },
-          { label: g.unowned,            value: s ? s.unowned_resources.toLocaleString() : '—',   color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : undefined },
-          { label: g.avgCompliance,      value: s ? `${s.avg_compliance_pct}%` : '—',             color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100' },
+          { label: g.billedResources,    value: s ? s.total_resources.toLocaleString() : '—',     color: 'border-gray-100', sub: g.resourcesUnit },
+          { label: g.unowned,            value: s ? s.unowned_resources.toLocaleString() : '—',   color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : g.resourcesUnit },
+          { label: g.avgCompliance,      value: s ? `${s.avg_compliance_pct}%` : '—',             color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100', sub: g.complianceUnit },
           { label: g.recommendations,    value: rs ? rs.total.toLocaleString() : '—',             color: 'border-blue-100',  sub: rs && rs.high_impact > 0 ? `${rs.high_impact} ${g.impactHigh.toLowerCase()}` : undefined },
-          { label: g.estSavings,         value: rs ? money.format(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100' },
-          { label: g.deployedResources,  value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : undefined },
+          { label: g.estSavings,         value: rs ? formatMoney(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100', sub: g.organizationWide },
+          { label: g.deployedResources,  value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : g.resourcesUnit },
         ].map((k) => (
           <div key={k.label} className={`rounded-xl border ${k.color} bg-white p-4 shadow-sm`}>
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{k.label}</p>
@@ -267,7 +271,7 @@ export function GovPage() {
                     <td className="px-4 py-3 text-gray-600">{row.region}</td>
                     <td className="px-4 py-3 text-gray-600">{row.environment}</td>
                     <td className="px-4 py-3 text-gray-600">{row.days_active}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">{money.format(row.cost_usd)}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">{formatMoney(row.cost_usd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -297,8 +301,8 @@ export function GovPage() {
                 {(complianceQ.data as LabelComplianceRow[]).map((row, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">{row.team}</td>
-                    <td className="px-4 py-3 text-gray-700">{money.format(row.total_cost_usd)}</td>
-                    <td className="px-4 py-3 text-gray-500">{money.format(row.untagged_cost_usd)}</td>
+                    <td className="px-4 py-3 text-gray-700">{formatMoney(row.total_cost_usd)}</td>
+                    <td className="px-4 py-3 text-gray-500">{formatMoney(row.untagged_cost_usd)}</td>
                     <td className="px-4 py-3"><ComplianceBadge pct={row.compliance_pct} /></td>
                     <td className="w-32 px-4 py-3"><ComplianceBar pct={row.compliance_pct} /></td>
                   </tr>
@@ -360,7 +364,7 @@ export function GovPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-700 max-w-[280px]">{row.short_description}</td>
                       <td className="px-4 py-3 font-semibold text-emerald-700">
-                        {row.estimated_savings_usd != null ? money.format(row.estimated_savings_usd) : '—'}
+                        {row.estimated_savings_usd != null ? formatMoney(row.estimated_savings_usd) : '—'}
                       </td>
                     </tr>
                   ))}

@@ -5,12 +5,7 @@ import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
-
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsReportsPage() {
   const { t } = useI18n()
@@ -97,6 +92,8 @@ export function EconomicsReportsPage() {
   const isLoading = dashboardQuery.isLoading || servicesQuery.isLoading || teamsQuery.isLoading
   const exportStatus = exportJobQuery.data?.status
   const isExporting = createExportMutation.isPending || exportStatus === 'queued' || exportStatus === 'running'
+  const displayCurrency = dashboardQuery.data?.currency ?? DEFAULT_DISPLAY_CURRENCY
+  const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
 
   function handleExport(fileFormat: 'csv' | 'xlsx') {
     createExportMutation.mutate(fileFormat)
@@ -126,6 +123,14 @@ export function EconomicsReportsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{er.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{er.subtitle}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+            {er.financialValuesBrl}
+          </span>
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
+            {er.consolidated}
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -168,8 +173,8 @@ export function EconomicsReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard title={er.currentMonth} value={money.format(dashboardQuery.data?.current_month_cost ?? 0)} />
-        <MetricCard title={er.previousMonth} value={money.format(dashboardQuery.data?.previous_month_cost ?? 0)} />
+        <MetricCard title={er.currentMonth} value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)} />
+        <MetricCard title={er.previousMonth} value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)} />
         <MetricCard
           title={er.momChange}
           value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`}
@@ -184,8 +189,8 @@ export function EconomicsReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BreakdownCard title={er.topServices} rows={servicesQuery.data ?? []} loading={servicesQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} />
-        <BreakdownCard title={er.topTeams} rows={teamsQuery.data ?? []} loading={teamsQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} />
+        <BreakdownCard title={er.topServices} rows={servicesQuery.data ?? []} loading={servicesQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} currency={displayCurrency} />
+        <BreakdownCard title={er.topTeams} rows={teamsQuery.data ?? []} loading={teamsQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} currency={displayCurrency} />
       </div>
     </div>
   )
@@ -214,13 +219,17 @@ function BreakdownCard({
   loading,
   loadingLabel,
   noDataLabel,
+  currency,
 }: {
   title: string
   rows: Array<{ service: string; cost_usd: number; percentage: number }>
   loading: boolean
   loadingLabel: string
   noDataLabel: string
+  currency: string
 }) {
+  const formatMoney = (value: number) => formatCurrency(value, currency)
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-sm font-semibold text-gray-900">{title}</h2>
@@ -234,7 +243,7 @@ function BreakdownCard({
             <div key={`${title}-${row.service}`} className="flex items-center justify-between rounded border border-gray-100 px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-gray-800">{row.service}</div>
-                <div className="text-xs text-gray-500">{money.format(row.cost_usd)}</div>
+                <div className="text-xs text-gray-500">{formatMoney(row.cost_usd)}</div>
                 <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
                   <div
                     className="h-1.5 rounded-full bg-blue-500"
