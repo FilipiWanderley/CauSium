@@ -63,14 +63,18 @@ export function ExecutivePage() {
             onChange={(ev) => setSubscriptionId(ev.target.value)}
             className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
           >
-            <option value="">All subscriptions</option>
+            <option value="">All subscriptions (consolidated)</option>
             {subscriptionSummary.items.map((item) => (
               <option key={item.subscription_id} value={item.subscription_id}>
                 {item.subscription_name || item.subscription_id.slice(0, 8) + '…'}
               </option>
             ))}
           </select>
-          <span className="text-xs text-gray-400">Applies to financial metrics only.</span>
+          <span className="text-xs text-gray-400">
+            {subscriptionId
+              ? `Viewing: ${subscriptionSummary.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}. Financial metrics only.`
+              : `Consolidated across ${subscriptionSummary.subscription_count} subscriptions.`}
+          </span>
         </div>
       )}
 
@@ -104,31 +108,38 @@ export function ExecutivePage() {
           value={fmt(summary?.current_month_cost_usd ?? 0)}
           change={summary?.mom_change_pct}
           changeLabel={e.mom}
+          subtitle={subscriptionId
+            ? `Filtered: ${subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}`
+            : subscriptionSummary && subscriptionSummary.subscription_count > 1
+              ? `Consolidated · ${subscriptionSummary.subscription_count} subscriptions`
+              : undefined}
           variant={(summary?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
         />
         <MetricCard
           title={e.ytdSpend}
           value={fmt(summary?.ytd_cost_usd ?? 0)}
-          subtitle={e.ytdDesc}
+          subtitle={subscriptionId
+            ? `Filtered: ${subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}`
+            : e.ytdDesc}
         />
         <MetricCard
           title={e.realizedSavings}
           value={fmt(summary?.total_realized_savings_usd ?? 0)}
-          subtitle={e.realizedDesc.replace('{{amount}}', fmt(summary?.savings_this_month_usd ?? 0))}
+          subtitle={subscriptionId ? 'Organization-wide' : e.realizedDesc.replace('{{amount}}', fmt(summary?.savings_this_month_usd ?? 0))}
           variant="success"
         />
         <MetricCard
           title={e.potentialSavings}
           value={fmt(summary?.total_potential_savings_usd ?? 0)}
-          subtitle={e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
+          subtitle={subscriptionId ? 'Organization-wide' : e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
           variant="success"
         />
       </div>
 
       {/* Initiatives status */}
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={e.initiatives} />
-        <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={e.initiatives} variant="success" />
+        <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={subscriptionId ? 'Organization-wide' : e.initiatives} />
+        <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={subscriptionId ? 'Organization-wide' : e.initiatives} variant="success" />
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-gray-500">{e.forecastNextMonth}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
@@ -137,6 +148,11 @@ export function ExecutivePage() {
           <p className="mt-1 text-xs text-gray-400">
             {e.confidence}: {summary?.forecast_confidence ?? e.na} · {e.linearProjection}
           </p>
+          {subscriptionId && (
+            <p className="mt-1 text-xs text-brand-500">
+              Filtered: {subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}
+            </p>
+          )}
         </div>
       </div>
 

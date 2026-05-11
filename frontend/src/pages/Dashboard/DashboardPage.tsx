@@ -297,6 +297,12 @@ export function DashboardPage() {
     queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
   })
 
+  const scopeLabel = subscriptionId
+    ? `Filtered: ${subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}`
+    : subscriptionsData && subscriptionsData.subscription_count > 1
+      ? `Consolidated · ${subscriptionsData.subscription_count} subscriptions`
+      : undefined
+
   const { data: metrics, isLoading: metricsLoading } = useQuery({
     queryKey: ['dashboard', providerFilter, subscriptionId],
     queryFn: () =>
@@ -624,7 +630,7 @@ export function DashboardPage() {
                   onChange={(e) => setSubscriptionId(e.target.value)}
                   className="mt-1 block w-full sm:min-w-44 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 >
-                  <option value="">All subscriptions</option>
+                  <option value="">All subscriptions (consolidated)</option>
                   {subscriptionsData?.items.map((s) => (
                     <option key={s.subscription_id} value={s.subscription_id}>
                       {s.subscription_name
@@ -633,11 +639,11 @@ export function DashboardPage() {
                     </option>
                   ))}
                 </select>
-                {subscriptionId && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    Applies to cost overview metrics only.
-                  </p>
-                )}
+                <p className="mt-1 text-xs text-gray-400">
+                  {subscriptionId
+                    ? `Subscription-scoped view: ${subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}. Applies to cost metrics only.`
+                    : `Consolidated view across ${subscriptionsData?.subscription_count ?? 0} subscriptions.`}
+                </p>
               </label>
             )}
           </div>
@@ -704,6 +710,7 @@ export function DashboardPage() {
           value={fmtCost(metrics?.current_month_cost ?? 0)}
           change={metrics?.mom_change_pct}
           changeLabel={d.vsLastMonth}
+          subtitle={scopeLabel}
           icon={<DollarSign className="h-5 w-5" />}
           variant={(metrics?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
           action={
@@ -728,7 +735,7 @@ export function DashboardPage() {
         <MetricCard
           title={d.potentialSavings}
           value={fmt(summary?.total_potential_savings_usd ?? 0)}
-          subtitle={d.openOpportunities.replace('{{count}}', String(openCount))}
+          subtitle={subscriptionId ? 'Organization-wide' : d.openOpportunities.replace('{{count}}', String(openCount))}
           icon={<TrendingUp className="h-5 w-5" />}
           variant="success"
         />
