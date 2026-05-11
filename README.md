@@ -46,6 +46,7 @@
 - [Observabilidade](#-observabilidade)
 - [Infraestrutura e Deploy](#-infraestrutura-e-deploy)
 - [Recent Enhancements](#-recent-enhancements)
+- [Enterprise Multi-Subscription Support](#-enterprise-multi-subscription-support--may-2026)
 - [Roadmap — Sprint 13–22](#-roadmap--sprint-1322)
 - [Stack Tecnológica](#-stack-tecnológica)
 - [Configuração e Setup](#-configuração-e-setup)
@@ -237,7 +238,7 @@ CauSium
 | Autenticação (Passkey, TOTP, OIDC, backup codes) | ✅ | WebAuthn FIDO2, TOTP HMAC customizado, refresh tokens, blacklist JWT |
 | Multi-tenant / Workspaces | ✅ | Lifecycle ACTIVE/SUSPENDED/ARCHIVED, member quota, workspace keyrings |
 | Perfis, Membros e Convites | ✅ | CRUD, invite flow, must_change_password, LGPD consent |
-| Cost Visibility (dashboard, KPIs, SKUs, export) | ✅ | Dashboard, costs, SKUs, async CSV/Excel export; subscription friendly names; cost variance alert banner; English-only UI |
+| Cost Visibility (dashboard, KPIs, SKUs, export) | ✅ | Dashboard, costs, SKUs, async CSV/Excel export; subscription friendly names; cost variance alert banner; multi-subscription reconciliation; English-only UI |
 | Alertas e Notificações (SMTP + Slack) | ✅ | AlertRecord, AlertRule, NotificationPreference, DLQ, WebSocket stream |
 | VM Rightsizing | ✅ | Engine + scoring + oportunidade + explain IA |
 | Anomaly Detection | ⚠️ | Worker + service implementados; UI de alertas em amadurecimento |
@@ -448,6 +449,8 @@ Pode ser solicitado pelo próprio usuário ou por admin/platform_admin.
 /admin/support-access                → Criar sessão de suporte
 /admin/support-access/active         → Sessões ativas
 /admin/support-access/{id}/end       → Encerrar sessão
+/admin/orgs/{id}/subscriptions/discover → Preview subscriptions (read-only)
+/admin/orgs/{id}/subscriptions/backfill → Backfill catálogo (dry_run=true default)
 ```
 
 ### Fluxo Support Access
@@ -510,6 +513,7 @@ erDiagram
     User ||--o{ PasskeyCredential : "tem"
     User ||--o{ TotpBackupCode : "tem"
 
+    CloudAccount ||--o{ CloudAccountSubscription : "tem"
     CloudAccount ||--o{ CostFact : "gera"
     CloudAccount ||--o{ UsageObservation : "gera"
 
@@ -602,7 +606,7 @@ graph LR
     end
 ```
 
-### Migrações Alembic — 40 migrações (0001–0039)
+### Migrações Alembic — 41 migrações (0001–0041)
 
 | # | Arquivo | Conteúdo |
 |---|---------|---------|
@@ -646,6 +650,7 @@ graph LR
 | 0037 | `confidence_calibrations.py` | Confidence calibration (Adaptive Engine) |
 | 0038 | `support_access_sessions.py` | Support access sessions |
 | 0039 | `user_deleted_at_retention.py` | LGPD — deleted_at + retenção |
+| 0041 | `cloud_account_subscriptions.py` | cloud_account_subscriptions — catálogo multi-subscription enterprise |
 
 ---
 
@@ -815,7 +820,7 @@ sequenceDiagram
 ├── /auth/*              → Passkey, OIDC, MFA TOTP, backup codes, LGPD purge/export
 ├── /cloud-accounts/*    → Conectores multi-cloud (Azure, AWS, GCP)
 ├── /economics/*         → Dashboard, budget, custos, SKUs, export async
-├── /ledger/*            → Reservas, coverage, cobertura RI/Savings Plans
+├── /ledger/*            → Reservas, coverage, reconciliation, cobertura RI/Savings Plans
 ├── /intel/*             → Explain cost, explain opportunity, anomaly detection
 ├── /lab/*               → Experimentos, runs, approvals, state machine
 ├── /notifications/*     → Alertas, preferências, WebSocket stream
@@ -1005,6 +1010,112 @@ The entire application is now fixed to English. The PT/EN language switcher has 
 
 ---
 
+## 🏢 Enterprise Multi-Subscription Support — May 2026
+
+### Arquitetura Multi-Subscription
+
+Enterprise cloud environments operate with multiple subscriptions under a single connector. CauSium now formally supports this pattern:
+
+```
+Organization
+└── Cloud Account (connector + credentials)
+    └── Cloud Account Subscriptions (N per connector)
+        └── Cost Facts (ClickHouse — per subscription_id)
+```
+
+| Conceito | Papel |
+|----------|-------|
+| `cloud_accounts` | Conector/credencial — 1 por Service Principal ou IAM Role |
+| `cloud_account_subscriptions` | Catálogo formal de subscriptions descobertas/registradas |
+| `cost_facts` | Dados financeiros no ClickHouse — referência cruzada via `subscription_id` |
+
+A separação permite que 1 conector Azure (com 1 Service Principal) ingira dados de N subscriptions sem duplicar credenciais ou cloud accounts.
+
+### Fluxo Enterprise Azure
+
+```mermaid
+flowchart LR
+    TENANT[Azure Tenant] --> CA[Cloud Account\nService Principal]
+    CA --> SUB1[Subscription A]
+    CA --> SUB2[Subscription B]
+    CA --> SUB3[Subscription C]
+    CA --> SUBN[Subscription N]
+    SUB1 & SUB2 & SUB3 & SUBN --> INGEST[Cost Ingestion]
+    INGEST --> CH[(ClickHouse\ncost_facts)]
+    CH --> RECON[Reconciliation\nexternal_id_match]
+```
+
+### Reconciliação Auditável
+
+O endpoint `GET /api/v1/ledger/reconciliation` fornece validação de integridade entre dados ingeridos e contas registradas:
+
+| Campo | Descrição |
+|-------|-----------|
+| `total_cost` | Soma de custos no período (ClickHouse) |
+| `dashboard_equivalent_total` | Valor equivalente no dashboard |
+| `difference` | Divergência entre reconciliação e dashboard |
+| `external_id_match` | `true` se subscription_id existe no catálogo |
+| `account_mismatch` | Warning: subscription sem match no catálogo |
+| `orphan_records` | Registros com account_id inexistente |
+| `mixed_currency` | Múltiplas moedas detectadas |
+| `partial_range` | Dados não cobrem o período completo |
+
+Características:
+- Read-only — não altera dados
+- Uso interno admin/engineer
+- Compara ClickHouse vs PostgreSQL para validação cruzada
+
+### Currency-Aware Dashboard
+
+O dashboard detecta automaticamente a moeda dominante da organização:
+
+- Suporte a BRL e USD
+- `dominant_currency` determinado pela moeda mais frequente nos registros
+- `mixed_currency=true` quando múltiplas moedas coexistem
+- Sem conversão cambial automática — valores preservados na moeda original
+
+### Governança de Dados
+
+| Mecanismo | Descrição |
+|-----------|-----------|
+| Placeholder filtering | `aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa` ignorado em warnings de integridade |
+| Orphan detection | Registros com `account_id` inexistente são contabilizados |
+| External ID match | Validação cruzada subscription_id vs catálogo registrado |
+| Idempotent backfill | `dry_run=true` default; upsert sem duplicação |
+
+### Novas Tabelas e Conceitos
+
+| Tabela/Conceito | Descrição |
+|-----------------|-----------|
+| `cloud_account_subscriptions` | Catálogo de subscriptions por conector (migration 0041) |
+| `SubscriptionStatus` | Enum: `active`, `inactive`, `discovered`, `removed` |
+| `external_id_match` | Flag de reconciliação: subscription reconhecida no catálogo |
+| Discovered subscriptions | Subscriptions encontradas em cost_facts e registradas via backfill |
+
+Constraint: `UNIQUE(org_id, cloud_account_id, provider, subscription_id)`
+
+### Segurança Operacional
+
+| Controle | Detalhe |
+|----------|---------|
+| `dry_run=true` default | Backfill não persiste sem confirmação explícita |
+| Endpoints admin protegidos | `X-Internal-Key` obrigatório |
+| Reconciliation read-only | Nenhuma mutação em ClickHouse ou PostgreSQL |
+| Placeholder hardcoded | UUID reservado do sistema, imutável |
+| Fallback automático | Se catálogo vazio, comportamento antigo preservado |
+
+### Roadmap Multi-Subscription
+
+| Prioridade | Feature | Status |
+|------------|---------|--------|
+| Alta | Auto-discovery no ingest | 🧭 Planejado |
+| Alta | Admin subscription UI | 🧭 Planejado |
+| Média | CSV export reconciliação | 🧭 Planejado |
+| Média | Azure live reconciliation | 🧭 Planejado |
+| Baixa | Subscription governance (ativar/desativar/renomear) | 🧭 Planejado |
+
+---
+
 ## 🗺️ Roadmap — Sprint 13–22
 
 ### Sprint 13–16 — Execução Assistida → Automação Controlada
@@ -1118,7 +1229,7 @@ gantt
 |-----------|-----|
 | Python 3.12 | Runtime principal |
 | FastAPI 0.115+ | Framework HTTP assíncrono |
-| SQLAlchemy 2.x async | ORM async — 40 migrações Alembic |
+| SQLAlchemy 2.x async | ORM async — 41 migrações Alembic |
 | Pydantic v2 | Validação e serialização |
 | Structlog | Logging estruturado JSON |
 | clickhouse-driver | Client OLAP analytics |
@@ -1243,7 +1354,8 @@ CauSium/
 │   │   └── domains/                   # 14 domínios de negócio
 │   │       ├── admin/                 # Support access · DLQ · org lifecycle
 │   │       ├── auth/                  # Passkey · OIDC · MFA · LGPD · anonymization
-│   │       ├── cloud_accounts/        # Azure · AWS · GCP connectors
+│   │       ├── cloud_accounts/        # Azure · AWS · GCP connectors + subscription catalog
+│   │       ├── cloud_ledger/          # Cost ingestion · reconciliation · dashboard metrics
 │   │       ├── decision_engine/       # VM · AKS · Autoscaler · confidence calibration
 │   │       ├── economics/             # Custos · SKUs · export async
 │   │       ├── experiments/           # PulseLab · runs · approvals
@@ -1371,7 +1483,8 @@ npm test
 | **workspace** | Conta isolada de um cliente (equiv. org/tenant) |
 | **platform_admin** | Administrador global da plataforma (operação interna) |
 | **workspace_admin** | Administrador do workspace do cliente |
-| **CloudAccount** | Credencial multi-cloud cifrada com WorkspaceKeyring |
+| **CloudAccount** | Conector multi-cloud cifrado com WorkspaceKeyring — 1 por Service Principal/IAM Role |
+| **CloudAccountSubscription** | Subscription registrada no catálogo formal — N por CloudAccount |
 | **WorkspaceKeyring** | Chave Fernet org-scoped com rotação automática 30 dias |
 | **ExecutionPlan** | Plano de execução de uma oportunidade: aprovação, scheduling, handoff |
 | **ConfidenceCalibration** | Ajuste adaptativo do score de confiança por categoria/region/provider baseado em resultados reais |
