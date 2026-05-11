@@ -9,7 +9,9 @@ import { Navigate } from 'react-router-dom'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-const ALLOWED_ROLES = new Set(['admin', 'engineer', 'platform_admin'])
+const ALLOWED_ROLES = new Set(['platform_admin'])
+
+const PLACEHOLDER_SUBSCRIPTION = 'aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa'
 
 function fmtCost(n: number, currency = 'USD') {
   try {
@@ -345,7 +347,12 @@ export function ReconciliationPage() {
           {/* By subscription table */}
           <div>
             <h2 className="mb-3 text-sm font-semibold text-gray-900">By Subscription</h2>
-            <SubscriptionTable rows={data.by_subscription} currency={currency} />
+            <SubscriptionTable
+              rows={data.by_subscription.filter(
+                (row) => row.subscription_id !== PLACEHOLDER_SUBSCRIPTION
+              )}
+              currency={currency}
+            />
           </div>
 
           {/* Disclaimer */}

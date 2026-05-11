@@ -162,7 +162,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <SideNavLink to="/app/members" icon={Users} label={t.nav.members} onNavigate={onNavigate} />
               <SideNavLink to="/app/settings/team" icon={Settings} label={t.nav.settingsTeam} onNavigate={onNavigate} />
               <SideNavLink to="/app/settings/security" icon={Settings} label={t.nav.settingsSecurity} onNavigate={onNavigate} />
-              <SideNavLink to="/app/admin/reconciliation" icon={ClipboardCheck} label={t.nav.adminReconciliation} onNavigate={onNavigate} />
             </>
           )}
 
@@ -171,6 +170,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           {isPlatformAdmin && (
             <>
               <div className="my-2 mx-3 border-t border-gray-700" />
+              <SideNavLink to="/app/admin/reconciliation" icon={ClipboardCheck} label={t.nav.adminReconciliation} onNavigate={onNavigate} />
               <SideNavLink
                 to="/app/platform/workspaces"
                 icon={Building2}
