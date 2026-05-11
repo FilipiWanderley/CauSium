@@ -578,7 +578,7 @@ export function DashboardPage() {
           <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
         </div>
         <div className="flex flex-col items-end gap-2 min-w-0">
-          <div className="flex flex-wrap items-end justify-end gap-3">
+          <div className="flex flex-wrap items-start justify-end gap-3">
             {/* Provider scope dropdown */}
             <label className="text-sm text-gray-600 w-full sm:w-auto">
               {d.providerScope}
@@ -619,6 +619,7 @@ export function DashboardPage() {
                   </div>
                 )}
               </div>
+              <p className="mt-1 min-h-[16px] text-xs text-gray-400">&nbsp;</p>
             </label>
 
             {/* Subscription filter — only shown when org has >1 subscription */}
@@ -639,7 +640,7 @@ export function DashboardPage() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 min-h-[16px] text-xs text-gray-400">
                   {subscriptionId
                     ? `Subscription-scoped view: ${subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}. Applies to cost metrics only.`
                     : `Consolidated view across ${subscriptionsData?.subscription_count ?? 0} subscriptions.`}

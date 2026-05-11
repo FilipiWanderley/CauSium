@@ -56,7 +56,7 @@ export function ExecutivePage() {
 
       {/* Subscription filter */}
       {subscriptionSummary && subscriptionSummary.subscription_count > 1 && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Subscription</label>
           <select
             value={subscriptionId}
