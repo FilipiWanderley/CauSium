@@ -270,6 +270,26 @@ class CloudLedgerService:
                 for r in costs
             ]
             if cost_rows:
+                if account.provider == CloudProvider.AZURE:
+                    try:
+                        self._delete_azure_cost_overlap(
+                            org_id=org_id,
+                            account_id=account_id,
+                            cost_rows=cost_rows,
+                        )
+                    except Exception as e:
+                        log.error("ledger.azure_dedup.abort", error=str(e))
+                        account.status = ConnectorStatus.ERROR
+                        account.last_sync_at = datetime.now(timezone.utc)
+                        await self.db.flush()
+                        return IngestResult(
+                            account_id=account_id,
+                            cost_records=0,
+                            event_records=0,
+                            status="error",
+                            message=f"Azure dedup delete failed: {e}",
+                        )
+
                 try:
                     insert_rows("cost_facts", cost_rows)
                 except Exception as e:
@@ -671,6 +691,77 @@ class CloudLedgerService:
             )
         )
         return {row[0] for row in result.all()}
+
+    def _delete_azure_cost_overlap(
+        self,
+        org_id: UUID,
+        account_id: UUID,
+        cost_rows: list[dict],
+    ) -> None:
+        """Delete existing cost_facts rows that overlap with an incoming Azure batch.
+
+        Azure Cost Exports are cumulative month-to-date CSVs — each file contains
+        all rows from day 1 through the export date. Without this step, re-ingesting
+        overlapping exports causes N-fold duplication.
+        """
+        from collections import defaultdict
+
+        from app.core.clickhouse import execute_command
+
+        by_sub: dict[str, list] = defaultdict(list)
+        for row in cost_rows:
+            sub_id = row.get("subscription_id", "")
+            if sub_id:
+                by_sub[sub_id].append(row)
+
+        if not by_sub:
+            log.warning(
+                "ledger.azure_dedup.skipped",
+                reason="no_subscription_id_in_batch",
+                org_id=str(org_id),
+                account_id=str(account_id),
+                batch_size=len(cost_rows),
+            )
+            return
+
+        for sub_id, sub_rows in by_sub.items():
+            dates = [row["date"] for row in sub_rows if row.get("date")]
+            if not dates:
+                log.warning(
+                    "ledger.azure_dedup.skipped_sub",
+                    reason="no_dates_in_sub_batch",
+                    subscription_id=sub_id,
+                )
+                continue
+
+            min_date = min(dates)
+            max_date = max(dates)
+
+            execute_command(
+                "DELETE FROM cost_facts "
+                "WHERE org_id = {org_id:String} "
+                "  AND account_id = {account_id:String} "
+                "  AND provider = 'azure' "
+                "  AND subscription_id = {subscription_id:String} "
+                "  AND date >= {min_date:Date} "
+                "  AND date <= {max_date:Date}",
+                {
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "subscription_id": sub_id,
+                    "min_date": min_date,
+                    "max_date": max_date,
+                },
+            )
+            log.info(
+                "ledger.azure_dedup.deleted",
+                org_id=str(org_id),
+                account_id=str(account_id),
+                subscription_id=sub_id,
+                min_date=str(min_date),
+                max_date=str(max_date),
+                incoming_rows=len(sub_rows),
+            )
 
     def get_cost_trend(
         self,
