@@ -1101,6 +1101,24 @@ export interface Translations {
     billingCostBasis: string
     billingCurrency: string
     costBasisActualPreTax: string
+    integrityHealthy: string
+    integrityDelayed: string
+    integrityPartial: string
+    integrityWarning: string
+    integrityLastSync: string
+    integrityDataThrough: string
+    integrityBillingPeriod: string
+    integrityGapDays: string
+    integritySyncAge: string
+    integritySubscriptions: string
+    integrityDiagnosticsTitle: string
+    integrityDiagnosticsSubtitle: string
+    integrityProviderScope: string
+    integrityDataCoverage: string
+    integrityStatusLabel: string
+    integrityDelayedMessage: string
+    integrityNoDataMessage: string
+    integrityPartialMessage: string
   }
 }
 
@@ -2207,5 +2225,23 @@ export const en: Translations = {
     billingCostBasis: 'Actual Cost · Pre-tax',
     billingCurrency: 'Billing: {{currency}}',
     costBasisActualPreTax: 'Actual Cost · Pre-tax',
+    integrityHealthy: 'Healthy',
+    integrityDelayed: 'Delayed',
+    integrityPartial: 'Partial',
+    integrityWarning: 'Warning',
+    integrityLastSync: 'Last sync: {{time}}',
+    integrityDataThrough: 'Data available through {{date}}',
+    integrityBillingPeriod: 'Billing period: calendar month',
+    integrityGapDays: 'Ingestion gap: {{days}} day(s)',
+    integritySyncAge: 'Sync age: {{minutes}} min',
+    integritySubscriptions: '{{count}} active subscriptions',
+    integrityDiagnosticsTitle: 'Data Diagnostics',
+    integrityDiagnosticsSubtitle: 'Detailed metadata about data freshness and coverage',
+    integrityProviderScope: 'Provider scope: {{scope}}',
+    integrityDataCoverage: 'Coverage: {{start}} to {{end}}',
+    integrityStatusLabel: 'Reconciliation status',
+    integrityDelayedMessage: 'Billing data is 3–5 days behind. This is common during provider processing windows.',
+    integrityNoDataMessage: 'No billing data available. Verify cloud account connectivity.',
+    integrityPartialMessage: 'Data coverage is incomplete. Some subscriptions may not be reporting.',
   },
 }

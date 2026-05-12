@@ -16,6 +16,7 @@ from app.domains.cloud_ledger.schemas import (
     DetailedCostRow,
     IngestRequest,
     IngestResult,
+    IntegrityMetadata,
     ReconciliationReport,
     ReservationCoverageSummary,
     ReservationEfficiencySummary,
@@ -182,3 +183,12 @@ async def get_reconciliation(
         end=end_date,
         provider=provider.lower() if provider else None,
     )
+
+
+@router.get("/integrity-metadata", response_model=IntegrityMetadata)
+async def get_integrity_metadata(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    service = CloudLedgerService(db)
+    return await service.get_integrity_metadata(current_user.org_id)

@@ -18,6 +18,7 @@ from app.domains.cloud_ledger.schemas import (
     DashboardMetrics,
     DetailedCostRow,
     IngestResult,
+    IntegrityMetadata,
     ReservationCoverageByService,
     ReservationCoverageSummary,
     ReservationEfficiencyByFamily,
@@ -2107,4 +2108,60 @@ class CloudLedgerService:
             total_payg_equivalent_cost_usd=round(total_payg_equivalent, 2),
             families=families,
             recommendation=recommendation,
+        )
+
+    async def get_integrity_metadata(self, org_id: UUID) -> IntegrityMetadata:
+        from time import perf_counter as _pc
+
+        t0 = _pc()
+        today = date.today()
+        now = datetime.now(timezone.utc)
+
+        metadata = self._get_month_metadata(org_id, today.year, today.month)
+        data_max_date = metadata.get("max_date")
+        subscriptions_active = metadata.get("subscriptions_included", 0)
+
+        accounts, _ = await CloudAccountService(self.db).list_accounts(org_id)
+        sync_timestamps = [
+            a.last_sync_at for a in accounts if a.last_sync_at is not None
+        ]
+        most_recent_sync = max(sync_timestamps) if sync_timestamps else None
+
+        if data_max_date is None:
+            ingestion_gap_days = 999
+            reconciliation_status = "warning"
+        else:
+            max_date_val = data_max_date if isinstance(data_max_date, date) else date.fromisoformat(str(data_max_date))
+            ingestion_gap_days = (today - max_date_val).days
+            if ingestion_gap_days <= 2:
+                reconciliation_status = "healthy"
+            elif ingestion_gap_days <= 5:
+                reconciliation_status = "delayed"
+            else:
+                reconciliation_status = "partial"
+
+        sync_age_minutes: float | None = None
+        if most_recent_sync is not None:
+            sync_dt = most_recent_sync if most_recent_sync.tzinfo else most_recent_sync.replace(tzinfo=timezone.utc)
+            sync_age_minutes = round((now - sync_dt).total_seconds() / 60, 1)
+
+        elapsed_ms = round((_pc() - t0) * 1000, 1)
+        log.info(
+            "ledger.integrity_metadata.computed",
+            org_id=str(org_id),
+            reconciliation_status=reconciliation_status,
+            ingestion_gap_days=ingestion_gap_days,
+            sync_age_minutes=sync_age_minutes,
+            subscriptions_active=subscriptions_active,
+            elapsed_ms=elapsed_ms,
+        )
+
+        return IntegrityMetadata(
+            ingestion_gap_days=ingestion_gap_days,
+            sync_age_minutes=sync_age_minutes,
+            reconciliation_status=reconciliation_status,
+            last_sync_at=most_recent_sync,
+            data_through_date=data_max_date,
+            billing_period="calendar_month",
+            subscriptions_active=subscriptions_active,
         )

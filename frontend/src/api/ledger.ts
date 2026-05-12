@@ -3,6 +3,7 @@ import type {
   DashboardMetrics,
   CostTrend,
   DetailedCostRow,
+  IntegrityMetadata,
   PageResponse,
   ReservationCoverageSummary,
   ReservationEfficiencySummary,
@@ -90,4 +91,7 @@ export const ledgerApi = {
     provider?: string
   }) =>
     apiClient.get<ReconciliationReport>('/ledger/reconciliation', { params }),
+
+  integrityMetadata: () =>
+    apiClient.get<IntegrityMetadata>('/ledger/integrity-metadata'),
 }

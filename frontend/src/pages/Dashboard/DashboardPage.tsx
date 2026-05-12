@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb, ChevronDown } from 'lucide-react'
+import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Settings, Zap, Lightbulb, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
+import { ReconciliationBadge } from '../../components/UX/ReconciliationBadge'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
@@ -22,6 +23,7 @@ import type {
   IntelInsightsResponse,
   ExplainCostChangeRequest,
   ExplainCostChangeResponse,
+  ReconciliationStatus,
   ReservationEfficiencyAction,
   SubscriptionCostSummary,
 } from '../../types'
@@ -340,6 +342,26 @@ export function DashboardPage() {
         .then((r) => r.data),
     refetchInterval: 30000,
   })
+
+  const { data: integrityData } = useQuery({
+    queryKey: ['ledger', 'integrity-metadata'],
+    queryFn: () => ledgerApi.integrityMetadata().then((r) => r.data),
+    refetchInterval: 60000,
+  })
+
+  const clientReconciliationStatus: ReconciliationStatus = useMemo(() => {
+    if (!metrics?.data_max_date) return 'warning'
+    const gap = Math.floor(
+      (Date.now() - new Date(metrics.data_max_date).getTime()) / (1000 * 60 * 60 * 24),
+    )
+    if (gap <= 2) return 'healthy'
+    if (gap <= 5) return 'delayed'
+    return 'partial'
+  }, [metrics?.data_max_date])
+
+  const reconciliationStatus = integrityData?.reconciliation_status ?? clientReconciliationStatus
+
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
 
   if (metricsLoading) {
     return (
@@ -710,6 +732,50 @@ export function DashboardPage() {
             {metrics.billing_currency && (
               <span>{ux.billingCurrency.replace('{{currency}}', metrics.billing_currency)}</span>
             )}
+          </div>
+        )}
+
+        {/* Sync visibility & reconciliation health */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+          <ReconciliationBadge status={reconciliationStatus} />
+          {metrics?.data_max_date && (
+            <span className="text-xs text-gray-500">
+              {ux.integrityDataThrough.replace('{{date}}', metrics.data_max_date)}
+            </span>
+          )}
+          {(() => {
+            const syncTimes = (accounts ?? [])
+              .map((a) => a.last_sync_at)
+              .filter((t): t is string => t !== null)
+            const latest = syncTimes.length
+              ? new Date(Math.max(...syncTimes.map((t) => new Date(t).getTime())))
+              : null
+            return latest ? (
+              <span className="text-xs text-gray-500">
+                {ux.integrityLastSync.replace('{{time}}', latest.toLocaleString())}
+              </span>
+            ) : null
+          })()}
+          <span className="text-xs text-gray-500">{ux.integrityBillingPeriod}</span>
+        </div>
+
+        {/* Contextual integrity alerts */}
+        {reconciliationStatus === 'delayed' && (
+          <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 mt-2">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{ux.integrityDelayedMessage}</span>
+          </div>
+        )}
+        {reconciliationStatus === 'partial' && (
+          <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800 mt-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{ux.integrityPartialMessage}</span>
+          </div>
+        )}
+        {reconciliationStatus === 'warning' && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{ux.integrityNoDataMessage}</span>
           </div>
         )}
       </div>
@@ -1088,6 +1154,66 @@ export function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Data Diagnostics — collapsible */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setDiagnosticsOpen((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-4 text-left"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">{ux.integrityDiagnosticsTitle}</h2>
+            <p className="mt-0.5 text-xs text-gray-500">{ux.integrityDiagnosticsSubtitle}</p>
+          </div>
+          <ChevronRight
+            className={clsx(
+              'h-4 w-4 text-gray-400 transition-transform',
+              diagnosticsOpen && 'rotate-90',
+            )}
+          />
+        </button>
+        {diagnosticsOpen && (
+          <div className="border-t border-gray-100 px-5 py-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">{ux.integrityStatusLabel}</div>
+                <div className="mt-1"><ReconciliationBadge status={reconciliationStatus} /></div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Subscriptions</div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {integrityData?.subscriptions_active ?? metrics?.subscriptions_included ?? 0}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Currency</div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {metrics?.billing_currency ?? '—'}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Provider</div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {providerLabelMap[providerFilter]}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Data Coverage</div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {metrics?.data_min_date ?? '—'} → {metrics?.data_max_date ?? '—'}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Ingestion Gap</div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {integrityData ? `${integrityData.ingestion_gap_days} day(s)` : '—'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

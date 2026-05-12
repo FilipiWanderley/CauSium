@@ -134,6 +134,18 @@ export interface ReconciliationWarnings {
   orphan_records: number
 }
 
+export type ReconciliationStatus = 'healthy' | 'delayed' | 'partial' | 'warning'
+
+export interface IntegrityMetadata {
+  ingestion_gap_days: number
+  sync_age_minutes: number | null
+  reconciliation_status: ReconciliationStatus
+  last_sync_at: string | null
+  data_through_date: string | null
+  billing_period: string
+  subscriptions_active: number
+}
+
 export interface ReconciliationReport {
   org_id: string
   account_id: string | null

@@ -212,3 +212,13 @@ class ReconciliationReport(BaseModel):
     by_subscription: list[ReconciliationSubscriptionRow]
     warnings: ReconciliationWarnings
     note: str = "This report reflects ingested data only and is not an official cloud provider invoice."
+
+
+class IntegrityMetadata(BaseModel):
+    ingestion_gap_days: int
+    sync_age_minutes: float | None = None
+    reconciliation_status: Literal["healthy", "delayed", "partial", "warning"]
+    last_sync_at: datetime | None = None
+    data_through_date: date | None = None
+    billing_period: str = "calendar_month"
+    subscriptions_active: int = 0
