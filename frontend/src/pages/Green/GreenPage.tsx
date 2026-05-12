@@ -8,6 +8,7 @@ import {
   type EmissionsMonthRow,
 } from '../../api/green'
 import { useI18n } from '../../contexts/I18nContext'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
@@ -108,44 +109,53 @@ export function GreenPage() {
         </select>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
-            {gr.totalCO2}
-          </p>
-          <p className="mt-1 text-2xl font-bold text-emerald-800">
-            {s ? `${fmt.format(s.total_kg_co2e)} ${gr.kg}` : '—'}
-          </p>
-          <p className="text-xs text-emerald-600">
-            {s ? `${fmt.format(s.total_kg_co2e / 1000)} ${gr.tCO2}` : ''}
-          </p>
-        </div>
+      <div className="space-y-4">
+        <SectionIntro
+          title={gr.overviewTitle}
+          subtitle={gr.overviewSubtitle}
+          badges={[
+            { label: gr.sustainabilityEstimate, tone: 'sustainability' },
+            { label: gr.organizationWide, tone: 'organization' },
+          ]}
+        />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-600">
+              {gr.totalCO2}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-emerald-800">
+              {s ? `${fmt.format(s.total_kg_co2e)} ${gr.kg}` : '—'}
+            </p>
+            <p className="text-xs text-emerald-600">
+              {s ? `${fmt.format(s.total_kg_co2e / 1000)} ${gr.tCO2}` : ''}
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.cloudSpend}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {s ? formatMoney(s.total_cost_usd) : '—'}
-          </p>
-        </div>
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.cloudSpend}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {s ? formatMoney(s.total_cost_usd) : '—'}
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            {gr.intensity}
-          </p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {s ? fmt.format(s.intensity_avg) : '—'}
-          </p>
-        </div>
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              {gr.intensity}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {s ? fmt.format(s.intensity_avg) : '—'}
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.momDelta}</p>
-          <div className="mt-1">
-            {s ? (
-              <DeltaBadge pct={s.mom_delta_pct} />
-            ) : (
-              <p className="text-2xl font-bold text-gray-900">—</p>
-            )}
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{gr.momDelta}</p>
+            <div className="mt-1">
+              {s ? (
+                <DeltaBadge pct={s.mom_delta_pct} />
+              ) : (
+                <p className="text-2xl font-bold text-gray-900">—</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -196,69 +206,79 @@ export function GreenPage() {
         )}
       </div>
 
-      {/* Breakdown */}
-      <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
-          <h2 className="text-sm font-semibold text-gray-700">{gr.breakdown}</h2>
-          <div className="flex items-center gap-3">
-            <select
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:outline-none"
-            >
-              <option value={7}>{gr.window7}</option>
-              <option value={30}>{gr.window30}</option>
-              <option value={90}>{gr.window90}</option>
-            </select>
-            <select
-              value={by}
-              onChange={(e) => setBy(e.target.value as BreakdownDimension)}
-              className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:outline-none"
-            >
-              {(Object.keys(BREAKDOWN_LABELS) as BreakdownDimension[]).map((k) => (
-                <option key={k} value={k}>
-                  {BREAKDOWN_LABELS[k]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="p-5">
-          {breakdownQ.isPending ? (
-            <div className="space-y-3">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
-              ))}
+      <div className="space-y-4">
+        <SectionIntro
+          title={gr.breakdownTitle}
+          subtitle={gr.breakdownSubtitle}
+          badges={[
+            { label: gr.sustainabilityEstimate, tone: 'sustainability' },
+            { label: gr.organizationWide, tone: 'organization' },
+          ]}
+          compact
+        />
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-gray-700">{gr.breakdown}</h2>
+            <div className="flex items-center gap-3">
+              <select
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:outline-none"
+              >
+                <option value={7}>{gr.window7}</option>
+                <option value={30}>{gr.window30}</option>
+                <option value={90}>{gr.window90}</option>
+              </select>
+              <select
+                value={by}
+                onChange={(e) => setBy(e.target.value as BreakdownDimension)}
+                className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:outline-none"
+              >
+                {(Object.keys(BREAKDOWN_LABELS) as BreakdownDimension[]).map((k) => (
+                  <option key={k} value={k}>
+                    {BREAKDOWN_LABELS[k]}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : breakdown.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-400">{gr.noBreakdown}</p>
-          ) : (
-            <div className="space-y-3">
-              {(breakdown as EmissionsBreakdownRow[]).map((row, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span
-                      className="max-w-[200px] truncate font-medium text-gray-800"
-                      title={row.dimension}
-                    >
-                      {row.dimension}
-                    </span>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>{fmt.format(row.kg_co2e)} {gr.kg}</span>
-                      <span className="font-semibold text-emerald-600">{row.share_pct}%</span>
+          </div>
+
+          <div className="p-5">
+            {breakdownQ.isPending ? (
+              <div className="space-y-3">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
+                ))}
+              </div>
+            ) : breakdown.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400">{gr.noBreakdown}</p>
+            ) : (
+              <div className="space-y-3">
+                {(breakdown as EmissionsBreakdownRow[]).map((row, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span
+                        className="max-w-[200px] truncate font-medium text-gray-800"
+                        title={row.dimension}
+                      >
+                        {row.dimension}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>{fmt.format(row.kg_co2e)} {gr.kg}</span>
+                        <span className="font-semibold text-emerald-600">{row.share_pct}%</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-gray-100">
+                      <div
+                        className="h-2 rounded-full bg-emerald-400"
+                        style={{ width: `${(row.kg_co2e / maxKg) * 100}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-gray-100">
-                    <div
-                      className="h-2 rounded-full bg-emerald-400"
-                      style={{ width: `${(row.kg_co2e / maxKg) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

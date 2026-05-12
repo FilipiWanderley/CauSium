@@ -79,8 +79,26 @@ export interface Translations {
     providerAzure: string
     providerAws: string
     providerGcp: string
+    subscriptionLabel: string
+    allSubscriptionsConsolidated: string
+    subscriptionScopedView: string
+    consolidatedViewAcross: string
+    syncHint: string
+    filteredScope: string
+    consolidatedScope: string
     currentMonthCost: string
     vsLastMonth: string
+    financialOverview: string
+    financialOverviewSubtitle: string
+    optimizationSection: string
+    optimizationSectionSubtitle: string
+    operationsSection: string
+    operationsSectionSubtitle: string
+    financialMetric: string
+    operationalMetric: string
+    organizationWide: string
+    subscriptionScoped: string
+    billingContext: string
     explainCostCta: string
     explainCostTitle: string
     explainCostLoading: string
@@ -437,6 +455,14 @@ export interface Translations {
     currentMonth: string
     openOpps: string
     efficiency: string
+    subscriptionLabel: string
+    allSubscriptionsConsolidated: string
+    subscriptionViewing: string
+    consolidatedAcross: string
+    filteredScope: string
+    consolidatedScope: string
+    azureLabel: string
+    scoreLabel: string
     topSavings: string
     completedDate: string
     perMonth: string
@@ -447,6 +473,15 @@ export interface Translations {
     filtered: string
     organizationWide: string
     financialMetric: string
+    operationalMetric: string
+    subscriptionScoped: string
+    billingContext: string
+    overviewTitle: string
+    overviewSubtitle: string
+    optimizationTitle: string
+    optimizationSubtitle: string
+    operationsTitle: string
+    operationsSubtitle: string
   }
   gov: {
     title: string
@@ -510,6 +545,9 @@ export interface Translations {
     organizationWide: string
     resourcesUnit: string
     complianceUnit: string
+    sectionTitle: string
+    sectionSubtitle: string
+    noGovernanceIssues: string
   }
   green: {
     title: string
@@ -544,6 +582,10 @@ export interface Translations {
     dataMixed: string
     sustainabilityEstimate: string
     organizationWide: string
+    overviewTitle: string
+    overviewSubtitle: string
+    breakdownTitle: string
+    breakdownSubtitle: string
   }
   economicsCosts: {
     title: string
@@ -559,6 +601,8 @@ export interface Translations {
     providerFilterPlaceholder: string
     teamFilter: string
     teamFilterPlaceholder: string
+    subscriptionLabel: string
+    allSubscriptionsCount: string
     visibleCost: string
     exportReport: string
     format: string
@@ -585,12 +629,14 @@ export interface Translations {
     noTeamData: string
     colDate: string
     colProvider: string
+    colSubscription: string
     colService: string
     colResource: string
     colTeam: string
     colEnvironment: string
     colRegion: string
     colCost: string
+    colShare: string
     reservationEfficiency: string
     familiesCount: string
     loadingReservationEfficiency: string
@@ -617,6 +663,12 @@ export interface Translations {
     reservationShowAll: string
     financialValuesBrl: string
     filtered: string
+    financialMetric: string
+    billingContext: string
+    overviewTitle: string
+    overviewSubtitle: string
+    optimizationTitle: string
+    optimizationSubtitle: string
   }
   economicsUsage: {
     title: string
@@ -647,8 +699,15 @@ export interface Translations {
     reservedSpendBasis: string
     uncoveredSpendBasis: string
     coveragePct: string
+    reservationCoverageLoading: string
+    reservationCoverageEmpty: string
     reservationsDetected: string
     noReservationsDetected: string
+    operationsTitle: string
+    operationsSubtitle: string
+    financialTitle: string
+    financialSubtitle: string
+    serviceColumn: string
   }
   economicsSkus: {
     title: string
@@ -675,6 +734,8 @@ export interface Translations {
     colShare: string
     financialValuesBrl: string
     consolidated: string
+    overviewTitle: string
+    overviewSubtitle: string
   }
   economicsReports: {
     title: string
@@ -701,6 +762,8 @@ export interface Translations {
     completedDownload: string
     financialValuesBrl: string
     consolidated: string
+    overviewTitle: string
+    overviewSubtitle: string
   }
   notifications: {
     title: string
@@ -1098,8 +1161,26 @@ export const en: Translations = {
     providerAzure: 'Azure',
     providerAws: 'AWS',
     providerGcp: 'GCP',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
+    subscriptionScopedView: 'Subscription-scoped view: {{name}}. Applies to cost metrics only.',
+    consolidatedViewAcross: 'Consolidated view across {{count}} subscriptions.',
+    syncHint: 'When syncing cloud data, new provider usage and costs may take a few minutes to appear.',
+    filteredScope: 'Filtered: {{scope}}',
+    consolidatedScope: 'Consolidated · {{count}} subscriptions',
     currentMonthCost: 'Current Month Cost',
     vsLastMonth: 'vs last month',
+    financialOverview: 'Financial Overview',
+    financialOverviewSubtitle: 'Spend, forecast and trend for the selected scope.',
+    optimizationSection: 'Optimization',
+    optimizationSectionSubtitle: 'Recommendations, anomaly signals and efficiency priorities for the current scope.',
+    operationsSection: 'Operational Metrics',
+    operationsSectionSubtitle: 'Monitoring, activity and connected cloud estate signals.',
+    financialMetric: 'Financial metric',
+    operationalMetric: 'Operational metric',
+    organizationWide: 'Organization-wide',
+    subscriptionScoped: 'Subscription scoped',
+    billingContext: 'Billing context',
     explainCostCta: 'Explain change',
     explainCostTitle: 'Explain Cost Change',
     explainCostLoading: 'Analyzing cost drivers…',
@@ -1115,10 +1196,10 @@ export const en: Translations = {
     insightsTrend: 'Cost trend',
     insightsAction: 'Recommended action (based on historical baseline)',
     insightsConfidence: 'Insight confidence',
-    insightsUnavailable: 'No insights available right now.',
+    insightsUnavailable: 'No optimization insights available for this scope yet.',
     anomaliesTitle: 'Cost Anomalies',
     anomaliesSubtitle: 'Outliers detected against recent baseline',
-    anomaliesNone: 'No anomalies detected in the recent window.',
+    anomaliesNone: 'No anomalies detected for the selected scope.',
     anomalyCriticalOnly: 'High only',
     anomalyShowAll: 'Show all',
     anomalySeverityLow: 'Low',
@@ -1148,7 +1229,7 @@ export const en: Translations = {
     never: 'Never',
     recentChanges: 'Recent Changes',
     viewAll: 'View all →',
-    noChangeEvents: 'No change events logged yet.',
+    noChangeEvents: 'No recent change events found for this scope yet.',
     noAccounts: 'No accounts connected yet.',
     connectFirstAccountCta: 'Connect Account',
     connectFirstAccountMessage: 'Connect your first cloud account to start seeing your costs.',
@@ -1157,7 +1238,7 @@ export const en: Translations = {
     reservationsViewAll: 'Open costs →',
     reservationsPriority: 'Priority P{{priority}}',
     reservationsWaste: 'Waste {{waste}}',
-    reservationsEmpty: 'No reservation action items for now.',
+    reservationsEmpty: 'No reservation opportunities detected for this scope yet.',
     resActionKeep: 'Keep',
     resActionResize: 'Resize',
     resActionScheduleStop: 'Schedule stop',
@@ -1456,6 +1537,14 @@ export const en: Translations = {
     currentMonth: 'Current Month',
     openOpps: 'Open Opps',
     efficiency: 'Efficiency',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
+    subscriptionViewing: 'Viewing: {{scope}}. Financial metrics only.',
+    consolidatedAcross: 'Consolidated across {{count}} subscriptions.',
+    filteredScope: 'Filtered: {{scope}}',
+    consolidatedScope: 'Consolidated · {{count}} subscriptions',
+    azureLabel: 'Azure',
+    scoreLabel: 'Score',
     topSavings: 'Top Realized Savings',
     completedDate: 'Completed {{date}}',
     perMonth: '/mo',
@@ -1466,6 +1555,15 @@ export const en: Translations = {
     filtered: 'Filtered',
     organizationWide: 'Organization-wide',
     financialMetric: 'Billing-context financial metric',
+    operationalMetric: 'Operational metric',
+    subscriptionScoped: 'Subscription scoped',
+    billingContext: 'Billing context',
+    overviewTitle: 'Financial Overview',
+    overviewSubtitle: 'Spend, forecast and savings performance for the selected scope.',
+    optimizationTitle: 'Optimization',
+    optimizationSubtitle: 'Savings execution progress, forecast and prioritized initiatives.',
+    operationsTitle: 'Operational Metrics',
+    operationsSubtitle: 'Team efficiency signals and current operating performance by team.',
   },
   gov: {
     title: 'PulseGov',
@@ -1529,6 +1627,9 @@ export const en: Translations = {
     organizationWide: 'Organization-wide',
     resourcesUnit: 'resources',
     complianceUnit: 'compliance %',
+    sectionTitle: 'Governance',
+    sectionSubtitle: 'Policy, tagging and operational compliance signals across the organization.',
+    noGovernanceIssues: 'No governance issues found.',
   },
   green: {
     title: 'PulseGreen',
@@ -1563,6 +1664,10 @@ export const en: Translations = {
     dataMixed: 'Data source: mixed (official + estimated)',
     sustainabilityEstimate: 'Sustainability estimate',
     organizationWide: 'Organization-wide',
+    overviewTitle: 'Sustainability',
+    overviewSubtitle: 'Carbon and efficiency estimates based on cloud usage and billing signals.',
+    breakdownTitle: 'Sustainability Breakdown',
+    breakdownSubtitle: 'Emission distribution across cloud dimensions for the selected time window.',
   },
   economicsCosts: {
     title: 'Economics Costs',
@@ -1578,6 +1683,8 @@ export const en: Translations = {
     providerFilterPlaceholder: 'azure, aws, gcp',
     teamFilter: 'Team filter',
     teamFilterPlaceholder: 'owner team',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsCount: 'All ({{count}})',
     visibleCost: 'Visible Spend',
     exportReport: 'Export Report',
     format: 'Format',
@@ -1604,12 +1711,14 @@ export const en: Translations = {
     noTeamData: 'No team data available.',
     colDate: 'Date',
     colProvider: 'Provider',
+    colSubscription: 'Subscription',
     colService: 'Service',
     colResource: 'Resource',
     colTeam: 'Team',
     colEnvironment: 'Environment',
     colRegion: 'Region',
     colCost: 'Spend',
+    colShare: 'Share',
     reservationEfficiency: 'Reservation Efficiency',
     familiesCount: 'Families analyzed: {{count}}',
     loadingReservationEfficiency: 'Loading reservation efficiency...',
@@ -1636,6 +1745,12 @@ export const en: Translations = {
     reservationShowAll: 'Show all',
     financialValuesBrl: 'Financial values follow tenant billing context',
     filtered: 'Filtered',
+    financialMetric: 'Financial metric',
+    billingContext: 'Billing context',
+    overviewTitle: 'Financial Overview',
+    overviewSubtitle: 'Spend visibility and detailed billing rows for the current filter set.',
+    optimizationTitle: 'Optimization',
+    optimizationSubtitle: 'Reservation efficiency and waste signals to prioritize optimization work.',
   },
   economicsUsage: {
     title: 'Economics Usage',
@@ -1666,8 +1781,15 @@ export const en: Translations = {
     reservedSpendBasis: 'Reserved Commitment Spend',
     uncoveredSpendBasis: 'Uncovered Spend Basis',
     coveragePct: 'Coverage (%)',
+    reservationCoverageLoading: 'Calculating reservation coverage...',
+    reservationCoverageEmpty: 'No reservation data for this period.',
     reservationsDetected: 'Reservations detected',
     noReservationsDetected: 'No active reservation detected',
+    operationsTitle: 'Operational Metrics',
+    operationsSubtitle: 'Usage intensity, peaks and stability indicators for the selected time window.',
+    financialTitle: 'Financial Overview',
+    financialSubtitle: 'Reservation coverage and billing-aligned spend basis for compute usage.',
+    serviceColumn: 'Service',
   },
   economicsSkus: {
     title: 'Economics SKUs',
@@ -1694,6 +1816,8 @@ export const en: Translations = {
     colShare: 'Share',
     financialValuesBrl: 'Financial values follow tenant billing context',
     consolidated: 'Billing-aligned view',
+    overviewTitle: 'Financial Overview',
+    overviewSubtitle: 'Billing concentration by SKU dimension to highlight where spend is most concentrated.',
   },
   economicsReports: {
     title: 'Economics Reports',
@@ -1720,6 +1844,8 @@ export const en: Translations = {
     completedDownload: 'Export completed. Starting download.',
     financialValuesBrl: 'Uses dashboard billing currency when available',
     consolidated: 'Billing-aligned view',
+    overviewTitle: 'Financial Overview',
+    overviewSubtitle: 'Export-ready financial summary with billing-aligned monthly trend context.',
   },
   notifications: {
     title: 'Notifications',

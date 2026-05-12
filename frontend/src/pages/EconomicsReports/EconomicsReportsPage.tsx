@@ -5,6 +5,7 @@ import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsReportsPage() {
@@ -172,20 +173,30 @@ export function EconomicsReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard title={er.currentMonth} value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)} />
-        <MetricCard title={er.previousMonth} value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)} />
-        <MetricCard
-          title={er.momChange}
-          value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`}
-          valueClassName={
-            (dashboardQuery.data?.mom_change_pct ?? 0) > 0
-              ? 'text-red-600'
-              : (dashboardQuery.data?.mom_change_pct ?? 0) < 0
-                ? 'text-green-600'
-                : undefined
-          }
+      <div className="space-y-4">
+        <SectionIntro
+          title={er.overviewTitle}
+          subtitle={er.overviewSubtitle}
+          badges={[
+            { label: er.financialValuesBrl, tone: 'billing' },
+            { label: er.consolidated, tone: 'organization' },
+          ]}
         />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard title={er.currentMonth} value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)} emphasis="primary" />
+          <MetricCard title={er.previousMonth} value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)} emphasis="secondary" />
+          <MetricCard
+            title={er.momChange}
+            value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`}
+            valueClassName={
+              (dashboardQuery.data?.mom_change_pct ?? 0) > 0
+                ? 'text-red-600'
+                : (dashboardQuery.data?.mom_change_pct ?? 0) < 0
+                  ? 'text-green-600'
+                  : undefined
+            }
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -200,15 +211,27 @@ function MetricCard({
   title,
   value,
   valueClassName,
+  emphasis = 'default',
 }: {
   title: string
   value: string
   valueClassName?: string
+  emphasis?: 'default' | 'primary' | 'secondary'
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-wide text-gray-500">{title}</div>
-      <div className={`mt-1 text-xl font-semibold ${valueClassName ?? 'text-gray-900'}`}>{value}</div>
+    <div className={`rounded-xl border p-4 shadow-sm ${
+      emphasis === 'primary'
+        ? 'border-slate-900 bg-slate-900'
+        : emphasis === 'secondary'
+          ? 'border-gray-200 bg-slate-50'
+          : 'border-gray-200 bg-white'
+    }`}>
+      <div className={`text-xs uppercase tracking-wide ${emphasis === 'primary' ? 'text-slate-300' : 'text-gray-500'}`}>{title}</div>
+      <div className={`mt-1 text-xl font-semibold ${
+        emphasis === 'primary'
+          ? 'text-white'
+          : valueClassName ?? 'text-gray-900'
+      }`}>{value}</div>
     </div>
   )
 }

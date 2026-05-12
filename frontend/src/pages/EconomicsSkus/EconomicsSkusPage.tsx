@@ -4,6 +4,7 @@ import { Boxes } from 'lucide-react'
 import { ledgerApi } from '../../api/ledger'
 import type { ServiceBreakdown } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsSkusPage() {
@@ -45,56 +46,66 @@ export function EconomicsSkusPage() {
         {es.note}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <label className="text-sm text-gray-600">
-            {es.window}
-            <select
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value={30}>{es.last30}</option>
-              <option value={60}>{es.last60}</option>
-              <option value={90}>{es.last90}</option>
-              <option value={180}>{es.last180}</option>
-            </select>
-          </label>
-
-          <label className="text-sm text-gray-600">
-            {es.topRows}
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value={10}>{es.top10}</option>
-              <option value={20}>{es.top20}</option>
-              <option value={30}>{es.top30}</option>
-              <option value={50}>{es.top50}</option>
-            </select>
-          </label>
-
-          <div className="rounded-lg border border-gray-200 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{es.totalCost}</div>
-            <div className="mt-1 text-lg font-semibold text-gray-900">{formatMoney(summary.totalCost)}</div>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{es.top3Share}</div>
-            <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
-              {summary.top3Share.toFixed(1)}%
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  summary.concentrationRisk === 'high'
-                    ? 'bg-red-100 text-red-700'
-                    : summary.concentrationRisk === 'medium'
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-green-100 text-green-700'
-                }`}
+      <div className="space-y-4">
+        <SectionIntro
+          title={es.overviewTitle}
+          subtitle={es.overviewSubtitle}
+          badges={[
+            { label: es.financialValuesBrl, tone: 'billing' },
+            { label: es.consolidated, tone: 'organization' },
+          ]}
+        />
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <label className="text-sm text-gray-600">
+              {es.window}
+              <select
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               >
-                {summary.concentrationRisk}
-              </span>
+                <option value={30}>{es.last30}</option>
+                <option value={60}>{es.last60}</option>
+                <option value={90}>{es.last90}</option>
+                <option value={180}>{es.last180}</option>
+              </select>
+            </label>
+
+            <label className="text-sm text-gray-600">
+              {es.topRows}
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              >
+                <option value={10}>{es.top10}</option>
+                <option value={20}>{es.top20}</option>
+                <option value={30}>{es.top30}</option>
+                <option value={50}>{es.top50}</option>
+              </select>
+            </label>
+
+            <div className="rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-white shadow-sm">
+              <div className="text-xs uppercase tracking-wide text-slate-300">{es.totalCost}</div>
+              <div className="mt-1 text-lg font-semibold">{formatMoney(summary.totalCost)}</div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-gray-500">{es.top3Share}</div>
+              <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                {summary.top3Share.toFixed(1)}%
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    summary.concentrationRisk === 'high'
+                      ? 'bg-red-100 text-red-700'
+                      : summary.concentrationRisk === 'medium'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}
+                >
+                  {summary.concentrationRisk}
+                </span>
+              </div>
             </div>
           </div>
         </div>

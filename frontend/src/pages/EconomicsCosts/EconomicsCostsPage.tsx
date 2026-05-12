@@ -12,6 +12,7 @@ import type {
 } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentBoolean, usePersistentNumber, usePersistentString } from '../../hooks/usePersistentBoolean'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const DAYS_OPTIONS = [30, 60, 90, 180] as const
@@ -249,91 +250,106 @@ export function EconomicsCostsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <label className="text-sm text-gray-600">
-            {ec.timeWindow}
-            <select
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value={30}>{ec.last30}</option>
-              <option value={60}>{ec.last60}</option>
-              <option value={90}>{ec.last90}</option>
-              <option value={180}>{ec.last180}</option>
-            </select>
-          </label>
-
-          <label className="text-sm text-gray-600">
-            {ec.serviceFilter}
-            <input
-              type="text"
-              value={serviceQuery}
-              onChange={(e) => { setServiceQuery(e.target.value); setPage(1) }}
-              placeholder={ec.serviceFilterPlaceholder}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
-          </label>
-
-          <label className="text-sm text-gray-600">
-            {ec.providerFilter}
-            <input
-              type="text"
-              value={providerQuery}
-              onChange={(e) => { setProviderQuery(e.target.value); setPage(1) }}
-              placeholder={ec.providerFilterPlaceholder}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
-          </label>
-
-          <label className="text-sm text-gray-600">
-            {ec.teamFilter}
-            <input
-              type="text"
-              value={teamQuery}
-              onChange={(e) => { setTeamQuery(e.target.value); setPage(1) }}
-              placeholder={ec.teamFilterPlaceholder}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
-          </label>
-
-          {(subscriptionsQuery.data?.subscription_count ?? 0) > 1 && (
+      <div className="space-y-4">
+        <SectionIntro
+          title={ec.overviewTitle}
+          subtitle={ec.overviewSubtitle}
+          badges={[
+            { label: ec.financialMetric, tone: 'financial' },
+            { label: ec.billingContext, tone: 'billing' },
+            { label: ec.filtered, tone: 'subscription' },
+          ]}
+        />
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <label className="text-sm text-gray-600">
-              Subscription
+              {ec.timeWindow}
               <select
-                value={subscriptionFilter}
-                onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1) }}
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               >
-                <option value="">Todas ({subscriptionsQuery.data?.subscription_count})</option>
-                {subscriptionsQuery.data?.items.map((s) => (
-                  <option key={s.subscription_id} value={s.subscription_id}>
-                    {s.subscription_name
-                      ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
-                      : `${s.subscription_id.slice(0, 8)}…`
-                    } · {formatMoney(s.total_cost_usd)}
-                  </option>
-                ))}
+                <option value={30}>{ec.last30}</option>
+                <option value={60}>{ec.last60}</option>
+                <option value={90}>{ec.last90}</option>
+                <option value={180}>{ec.last180}</option>
               </select>
             </label>
-          )}
 
-          <div className="rounded-lg border border-gray-200 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{ec.visibleCost}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{formatMoney(totalFilteredCost)}</div>
+            <label className="text-sm text-gray-600">
+              {ec.serviceFilter}
+              <input
+                type="text"
+                value={serviceQuery}
+                onChange={(e) => { setServiceQuery(e.target.value); setPage(1) }}
+                placeholder={ec.serviceFilterPlaceholder}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </label>
+
+            <label className="text-sm text-gray-600">
+              {ec.providerFilter}
+              <input
+                type="text"
+                value={providerQuery}
+                onChange={(e) => { setProviderQuery(e.target.value); setPage(1) }}
+                placeholder={ec.providerFilterPlaceholder}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </label>
+
+            <label className="text-sm text-gray-600">
+              {ec.teamFilter}
+              <input
+                type="text"
+                value={teamQuery}
+                onChange={(e) => { setTeamQuery(e.target.value); setPage(1) }}
+                placeholder={ec.teamFilterPlaceholder}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </label>
+
+            {(subscriptionsQuery.data?.subscription_count ?? 0) > 1 && (
+              <label className="text-sm text-gray-600">
+                {ec.subscriptionLabel}
+                <select
+                  value={subscriptionFilter}
+                  onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1) }}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                >
+                  <option value="">
+                    {ec.allSubscriptionsCount.replace('{{count}}', String(subscriptionsQuery.data?.subscription_count ?? 0))}
+                  </option>
+                  {subscriptionsQuery.data?.items.map((s) => (
+                    <option key={s.subscription_id} value={s.subscription_id}>
+                      {s.subscription_name
+                        ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                        : `${s.subscription_id.slice(0, 8)}…`
+                      } · {formatMoney(s.total_cost_usd)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <div className="rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-white shadow-sm xl:col-span-1">
+              <div className="text-xs uppercase tracking-wide text-slate-300">{ec.visibleCost}</div>
+              <div className="mt-1 text-2xl font-semibold">{formatMoney(totalFilteredCost)}</div>
+              <div className="mt-1 text-xs text-slate-300">
+                {hasTextFilters ? ec.filtered : ec.detailedCostsDesc}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={clearTextFilters}
-            disabled={!hasTextFilters}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t.common.reset}
-          </button>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={clearTextFilters}
+              disabled={!hasTextFilters}
+              className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t.common.reset}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -343,60 +359,71 @@ export function EconomicsCostsPage() {
         filters={{ service: serviceQuery || undefined, provider: providerQuery || undefined, owner_team: teamQuery || undefined }}
       />
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-900">{ec.reservationEfficiency}</h2>
-            {highPriorityCount > 0 && (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                {ec.reservationHighBadge.replace('{{count}}', String(highPriorityCount))}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="text-xs text-gray-600 hover:underline"
-              onClick={() => setCriticalOnly((prev) => !prev)}
-            >
-              {criticalOnly ? ec.reservationShowAll : ec.reservationCriticalOnly}
-            </button>
-            <div className="text-xs text-gray-500">
-              {ec.familiesCount.replace('{{count}}', String(visibleFamilies.length))}
+      <div className="space-y-4">
+        <SectionIntro
+          title={ec.optimizationTitle}
+          subtitle={ec.optimizationSubtitle}
+          badges={[
+            { label: ec.financialMetric, tone: 'financial' },
+            { label: ec.billingContext, tone: 'billing' },
+          ]}
+          compact
+        />
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <h2 className="text-sm font-semibold text-gray-900">{ec.reservationEfficiency}</h2>
+              {highPriorityCount > 0 && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                  {ec.reservationHighBadge.replace('{{count}}', String(highPriorityCount))}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="text-xs text-gray-600 hover:underline"
+                onClick={() => setCriticalOnly((prev) => !prev)}
+              >
+                {criticalOnly ? ec.reservationShowAll : ec.reservationCriticalOnly}
+              </button>
+              <div className="text-xs text-gray-500">
+                {ec.familiesCount.replace('{{count}}', String(visibleFamilies.length))}
+              </div>
             </div>
           </div>
+          {reservationEfficiencyQuery.isLoading ? (
+            <div className="py-8 text-center text-sm text-gray-500">{ec.loadingReservationEfficiency}</div>
+          ) : !(reservationEfficiencyQuery.data?.families.length ?? 0) ? (
+            <div className="py-8 text-center text-sm text-gray-500">{ec.noReservationEfficiency}</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">{ec.avgUtilization}</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900">
+                    {reservationEfficiencyQuery.data?.avg_utilization_pct.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalWaste}</div>
+                  <div className="mt-1 text-lg font-semibold text-red-600">
+                    {formatMoney(reservationEfficiencyQuery.data?.total_waste_cost_usd ?? 0)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalReserved}</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900">
+                    {(reservationEfficiencyQuery.data?.total_reserved_capacity_units ?? 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+              <p className="mb-3 text-sm text-gray-600">{reservationEfficiencyQuery.data?.recommendation}</p>
+              <ReservationEfficiencyTable rows={visibleFamilies} ec={ec} />
+            </>
+          )}
         </div>
-        {reservationEfficiencyQuery.isLoading ? (
-          <div className="py-8 text-center text-sm text-gray-500">{ec.loadingReservationEfficiency}</div>
-        ) : !(reservationEfficiencyQuery.data?.families.length ?? 0) ? (
-          <div className="py-8 text-center text-sm text-gray-500">{ec.noReservationEfficiency}</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
-              <div className="rounded-lg border border-gray-200 p-3">
-                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.avgUtilization}</div>
-                <div className="mt-1 text-lg font-semibold text-gray-900">
-                  {reservationEfficiencyQuery.data?.avg_utilization_pct.toFixed(1)}%
-                </div>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3">
-                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalWaste}</div>
-                <div className="mt-1 text-lg font-semibold text-red-600">
-                  {formatMoney(reservationEfficiencyQuery.data?.total_waste_cost_usd ?? 0)}
-                </div>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3">
-                <div className="text-xs uppercase tracking-wide text-gray-500">{ec.totalReserved}</div>
-                <div className="mt-1 text-lg font-semibold text-gray-900">
-                  {(reservationEfficiencyQuery.data?.total_reserved_capacity_units ?? 0).toLocaleString()}
-                </div>
-              </div>
-            </div>
-            <p className="mb-3 text-sm text-gray-600">{reservationEfficiencyQuery.data?.recommendation}</p>
-            <ReservationEfficiencyTable rows={visibleFamilies} ec={ec} />
-          </>
-        )}
       </div>
 
       {/* Detailed costs table */}
@@ -529,12 +556,14 @@ type EcKeys = {
   colService: string
   colCost: string
   colDate: string
+  colSubscription: string
   colProvider: string
   colResource: string
   colTeam: string
   colEnvironment: string
   colRegion: string
   colFamily: string
+  colShare: string
   colPriority: string
   colUtilization: string
   colAction: string
@@ -570,7 +599,7 @@ function BreakdownTable({ rows, label, ec }: { rows: ServiceBreakdown[]; label: 
           <tr className="border-b text-left text-xs font-medium text-gray-500">
             <th className="pb-2 pr-3">{label}</th>
             <th className="pb-2 pr-3">{ec.colCost}</th>
-            <th className="pb-2">Share</th>
+            <th className="pb-2">{ec.colShare}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -597,7 +626,7 @@ function DetailedCostsTable({ rows, ec }: { rows: DetailedCostRow[]; ec: EcKeys 
           <tr className="border-b text-left text-xs font-medium text-gray-500">
             <th className="pb-2 pr-3">{ec.colDate}</th>
             <th className="pb-2 pr-3">{ec.colProvider}</th>
-            <th className="pb-2 pr-3">Subscription</th>
+            <th className="pb-2 pr-3">{ec.colSubscription}</th>
             <th className="pb-2 pr-3">{ec.colService}</th>
             <th className="pb-2 pr-3">{ec.colResource}</th>
             <th className="pb-2 pr-3">{ec.colTeam}</th>

@@ -5,6 +5,7 @@ import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Sett
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
@@ -145,96 +146,7 @@ export function DashboardPage() {
   const { t, lang } = useI18n()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // Dashboard is always rendered in English regardless of the global locale setting.
-  const d = {
-    title: 'Dashboard',
-    subtitle: 'Cloud spending overview and optimization scorecard',
-    providerScope: 'Provider scope',
-    refreshData: 'Refresh data',
-    refreshingData: 'Refreshing...',
-    adjustBudget: 'Adjust budget',
-    queueIngestion: 'Sync Data',
-    queueingIngestion: 'Queueing...',
-    refreshSuccess: 'Dashboard data refreshed.',
-    ingestQueuedSuccess: 'Ingestion queued for {{count}} account(s).',
-    ingestNoAccounts: 'No active account available for ingestion.',
-    actionError: 'Action failed. Please try again.',
-    providerAll: 'All providers',
-    providerAzure: 'Azure',
-    providerAws: 'AWS',
-    providerGcp: 'GCP',
-    currentMonthCost: 'Current Month Cost',
-    vsLastMonth: 'vs last month',
-    explainCostCta: 'Explain change',
-    explainCostTitle: 'Explain Cost Change',
-    explainCostLoading: 'Analyzing cost drivers…',
-    explainCostError: 'Could not generate an explanation right now.',
-    explainCostSummary: 'Summary',
-    explainCostCauses: 'Top causes',
-    explainCostRecommendation: 'Recommendation',
-    explainCostConfidence: 'Confidence',
-    insightsTitle: 'Historical Insights (baseline)',
-    insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
-    insightsTopSaving: 'Top saving opportunity',
-    insightsMainRisk: 'Main risk',
-    insightsTrend: 'Cost trend',
-    insightsAction: 'Recommended action (based on historical baseline)',
-    insightsConfidence: 'Insight confidence',
-    insightsUnavailable: 'No insights available right now.',
-    anomaliesTitle: 'Cost Anomalies',
-    anomaliesSubtitle: 'Outliers detected against recent baseline',
-    anomaliesNone: 'No anomalies detected in the recent window.',
-    anomalyCriticalOnly: 'High only',
-    anomalyShowAll: 'Show all',
-    anomalySeverityLow: 'Low',
-    anomalySeverityMedium: 'Medium',
-    anomalySeverityHigh: 'High',
-    potentialSavings: 'Potential Savings',
-    openOpportunities: '{{count}} open opportunities',
-    activeAccounts: 'Active Accounts',
-    totalConnected: '{{count}} total connected',
-    events7d: 'Recent events — last 7 days',
-    cloudActivityEvents: 'Cloud activity & change events',
-    monitoringVsBaseline: 'Current monitoring vs historical baseline',
-    todayCost: "Today's cost",
-    avgPrevious30d: 'Daily average (previous 30 days)',
-    todayVsAvgDelta: 'Today vs average',
-    partialUntilLastSync: 'Partial up to last sync',
-    billingProcessingPending: 'Waiting for billing processing',
-    costTrend: 'Cost baseline — last 30 days',
-    noCostData: 'No cost data yet. Sync an account to populate.',
-    topServices: 'Top services — historical window',
-    noServiceData: 'No service data yet.',
-    connectedAccounts: 'Connected Accounts',
-    colAccount: 'Account',
-    colProvider: 'Provider',
-    colStatus: 'Status',
-    colLastSync: 'Last Sync',
-    never: 'Never',
-    recentChanges: 'Recent Changes',
-    viewAll: 'View all →',
-    noChangeEvents: 'No change events logged yet.',
-    noAccounts: 'No accounts connected yet.',
-    connectFirstAccountCta: 'Connect Account',
-    connectFirstAccountMessage: 'Connect your first cloud account to start seeing your costs.',
-    changeEventsOverlaid: '{{count}} change event{{s}} overlaid',
-    reservationsTitle: 'Reservation Priorities',
-    reservationsViewAll: 'Open costs →',
-    reservationsPriority: 'Priority P{{priority}}',
-    reservationsWaste: 'Waste {{waste}}',
-    reservationsEmpty: 'No reservation action items for now.',
-    resActionKeep: 'Keep',
-    resActionResize: 'Resize',
-    resActionScheduleStop: 'Schedule stop',
-    resActionExchange: 'Exchange',
-    resActionDoNotRenew: 'Do not renew',
-    reservationsHighBadge: '{{count}} high',
-    reservationsCriticalOnly: 'High priority only',
-    reservationsShowAll: 'Show all',
-    alertCostSpike: "Today's partial cost is {{delta}}% above the 30-day average",
-    alertCostDrop: "Today's partial cost is {{delta}}% below the 30-day average",
-    alertCostDetail: 'Today partial: {{today}} · 30d avg: {{avg}} · Delta: {{diff}}',
-  } as const
+  const d = t.dashboard
   const ce = t.changeEvents
   const [explainOpen, setExplainOpen] = useState(false)
   const budgetSectionRef = useRef<HTMLDivElement | null>(null)
@@ -298,9 +210,13 @@ export function DashboardPage() {
   })
 
   const scopeLabel = subscriptionId
-    ? `Filtered: ${subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}`
+    ? d.filteredScope.replace(
+        '{{scope}}',
+        subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
+          `${subscriptionId.slice(0, 8)}…`,
+      )
     : subscriptionsData && subscriptionsData.subscription_count > 1
-      ? `Consolidated · ${subscriptionsData.subscription_count} subscriptions`
+      ? d.consolidatedScope.replace('{{count}}', String(subscriptionsData.subscription_count))
       : undefined
 
   const { data: metrics, isLoading: metricsLoading } = useQuery({
@@ -625,13 +541,13 @@ export function DashboardPage() {
             {/* Subscription filter — only shown when org has >1 subscription */}
             {(subscriptionsData?.subscription_count ?? 0) > 1 && (
               <label className="text-sm text-gray-600 w-full sm:w-auto">
-                Subscription
+                {d.subscriptionLabel}
                 <select
                   value={subscriptionId}
                   onChange={(e) => setSubscriptionId(e.target.value)}
                   className="mt-1 block w-full sm:min-w-44 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 >
-                  <option value="">All subscriptions (consolidated)</option>
+                  <option value="">{d.allSubscriptionsConsolidated}</option>
                   {subscriptionsData?.items.map((s) => (
                     <option key={s.subscription_id} value={s.subscription_id}>
                       {s.subscription_name
@@ -642,8 +558,15 @@ export function DashboardPage() {
                 </select>
                 <p className="mt-1 min-h-[16px] text-xs text-gray-400">
                   {subscriptionId
-                    ? `Subscription-scoped view: ${subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name || subscriptionId.slice(0, 8) + '…'}. Applies to cost metrics only.`
-                    : `Consolidated view across ${subscriptionsData?.subscription_count ?? 0} subscriptions.`}
+                    ? d.subscriptionScopedView.replace(
+                        '{{name}}',
+                        subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
+                          `${subscriptionId.slice(0, 8)}…`,
+                      )
+                    : d.consolidatedViewAcross.replace(
+                        '{{count}}',
+                        String(subscriptionsData?.subscription_count ?? 0),
+                      )}
                 </p>
               </label>
             )}
@@ -677,7 +600,7 @@ export function DashboardPage() {
             </button>
           </div>
           <p className="text-xs text-gray-400">
-            When syncing cloud data, new provider usage and costs may take a few minutes to appear.
+            {d.syncHint}
           </p>
           {actionMessage && (
             <p
@@ -708,80 +631,104 @@ export function DashboardPage() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title={d.currentMonthCost}
-          value={fmtCost(metrics?.current_month_cost ?? 0)}
-          change={metrics?.mom_change_pct}
-          changeLabel={d.vsLastMonth}
-          subtitle={scopeLabel}
-          icon={<DollarSign className="h-5 w-5" />}
-          variant={(metrics?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
-          action={
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100"
-              onClick={() => {
-                setExplainOpen(true)
-                explainMutation.mutate({
-                  start_date: explainWindow.start_date,
-                  end_date: explainWindow.end_date,
-                  language: lang,
-                  ...(providerParam ? { provider: providerParam } : {}),
-                })
-              }}
-            >
-              <Lightbulb className="h-3.5 w-3.5" />
-              {d.explainCostCta}
-            </button>
-          }
+      <div className="space-y-4">
+        <SectionIntro
+          title={d.financialOverview}
+          subtitle={d.financialOverviewSubtitle}
+          badges={[
+            { label: d.financialMetric, tone: 'financial' },
+            { label: subscriptionId ? d.subscriptionScoped : d.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
+            { label: d.billingContext, tone: 'billing' },
+          ]}
         />
-        <MetricCard
-          title={d.potentialSavings}
-          value={fmt(summary?.total_potential_savings_usd ?? 0)}
-          subtitle={subscriptionId ? 'Organization-wide' : d.openOpportunities.replace('{{count}}', String(openCount))}
-          icon={<TrendingUp className="h-5 w-5" />}
-          variant="success"
-        />
-        <MetricCard
-          title={d.activeAccounts}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title={d.currentMonthCost}
+            value={fmtCost(metrics?.current_month_cost ?? 0)}
+            change={metrics?.mom_change_pct}
+            changeLabel={d.vsLastMonth}
+            subtitle={scopeLabel}
+            icon={<DollarSign className="h-5 w-5" />}
+            variant={(metrics?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
+            emphasis="primary"
+            action={
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                onClick={() => {
+                  setExplainOpen(true)
+                  explainMutation.mutate({
+                    start_date: explainWindow.start_date,
+                    end_date: explainWindow.end_date,
+                    language: lang,
+                    ...(providerParam ? { provider: providerParam } : {}),
+                  })
+                }}
+              >
+                <Lightbulb className="h-3.5 w-3.5" />
+                {d.explainCostCta}
+              </button>
+            }
+          />
+          <MetricCard
+            title={d.potentialSavings}
+            value={fmt(summary?.total_potential_savings_usd ?? 0)}
+            subtitle={subscriptionId ? d.organizationWide : d.openOpportunities.replace('{{count}}', String(openCount))}
+            icon={<TrendingUp className="h-5 w-5" />}
+            variant="success"
+            emphasis="secondary"
+          />
+          <MetricCard
+            title={d.activeAccounts}
             value={filteredAccounts.filter((a) => a.status === 'active').length}
-          subtitle={d.totalConnected.replace('{{count}}', String(totalConnected))}
-          icon={<Cloud className="h-5 w-5" />}
-        />
-        <MetricCard
-          title={d.events7d}
-          value={(metrics?.event_count_7d ?? 0).toLocaleString()}
-          subtitle={d.cloudActivityEvents}
-          icon={<Activity className="h-5 w-5" />}
-        />
+            subtitle={d.totalConnected.replace('{{count}}', String(totalConnected))}
+            icon={<Cloud className="h-5 w-5" />}
+            emphasis="secondary"
+          />
+          <MetricCard
+            title={d.events7d}
+            value={(metrics?.event_count_7d ?? 0).toLocaleString()}
+            subtitle={d.cloudActivityEvents}
+            icon={<Activity className="h-5 w-5" />}
+          />
+        </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">{d.monitoringVsBaseline}</h2>
-            <p className="mt-1 text-xs text-gray-500">{d.partialUntilLastSync}</p>
+      <div className="space-y-4">
+        <SectionIntro
+          title={d.operationsSection}
+          subtitle={d.operationsSectionSubtitle}
+          badges={[
+            { label: d.operationalMetric, tone: 'operational' },
+            { label: d.organizationWide, tone: 'organization' },
+          ]}
+        />
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">{d.monitoringVsBaseline}</h2>
+              <p className="mt-1 text-xs text-gray-500">{d.partialUntilLastSync}</p>
+            </div>
+            {!todayHasData && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                {d.billingProcessingPending}
+              </span>
+            )}
           </div>
-          {!todayHasData && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-              {d.billingProcessingPending}
-            </span>
-          )}
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(todayCost)}</div>
-          </div>
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{d.avgPrevious30d}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(avgPrevious30d)}</div>
-          </div>
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-            <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayVsAvgDelta}</div>
-            <div className="mt-1 text-xl font-semibold text-gray-900">
-              {deltaTodayVsAvg === null ? '—' : `${deltaTodayVsAvg > 0 ? '+' : ''}${deltaTodayVsAvg.toFixed(1)}%`}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(todayCost)}</div>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-gray-500">{d.avgPrevious30d}</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(avgPrevious30d)}</div>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+              <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayVsAvgDelta}</div>
+              <div className="mt-1 text-xl font-semibold text-gray-900">
+                {deltaTodayVsAvg === null ? '—' : `${deltaTodayVsAvg > 0 ? '+' : ''}${deltaTodayVsAvg.toFixed(1)}%`}
+              </div>
             </div>
           </div>
         </div>
@@ -811,117 +758,128 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Budget widget — SP-EC01 */}
-      <div ref={budgetSectionRef}>
-        <BudgetWidget />
-      </div>
+      <div className="space-y-4">
+        <SectionIntro
+          title={d.optimizationSection}
+          subtitle={d.optimizationSectionSubtitle}
+          badges={[
+            { label: d.financialMetric, tone: 'financial' },
+            { label: d.billingContext, tone: 'billing' },
+            { label: subscriptionId ? d.subscriptionScoped : d.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
+          ]}
+        />
 
-      {/* AI Insights + Cost Anomalies */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">{d.insightsTitle}</h2>
-            <p className="mt-1 text-xs text-gray-500">{d.insightsSubtitle}</p>
-          </div>
-
-          {intelInsightsLoading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-            </div>
-          ) : intelInsightsError || !insightsData ? (
-            <div className="flex h-40 items-center justify-center text-sm text-gray-400">
-              {d.insightsUnavailable}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {d.insightsTopSaving}
-                </p>
-                <p className="mt-1 text-sm text-gray-800">{insightsData.top_saving_opportunity}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {d.insightsMainRisk}
-                </p>
-                <p className="mt-1 text-sm text-gray-800">{insightsData.main_risk}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {d.insightsTrend}
-                </p>
-                <p className="mt-1 text-sm text-gray-800">{insightsData.cost_trend_summary}</p>
-              </div>
-              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
-                  {d.insightsAction}
-                </p>
-                <p className="mt-1 text-sm text-violet-900">{insightsData.recommended_action}</p>
-                <p className="mt-2 text-xs text-violet-700">
-                  {d.insightsConfidence}: {Math.round(insightsData.confidence * 100)}%
-                  {insightsData.model ? ` · ${insightsData.model}` : ''}
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Budget widget — SP-EC01 */}
+        <div ref={budgetSectionRef}>
+          <BudgetWidget />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">{d.anomaliesTitle}</h2>
-              <p className="mt-1 text-xs text-gray-500">{d.anomaliesSubtitle}</p>
+        {/* AI Insights + Cost Anomalies */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">{d.insightsTitle}</h2>
+              <p className="mt-1 text-xs text-gray-500">{d.insightsSubtitle}</p>
             </div>
-            <button
-              type="button"
-              className="text-xs text-brand-600 hover:underline"
-              onClick={() => setAnomalyHighOnly((prev) => !prev)}
-            >
-              {anomalyHighOnly ? d.anomalyShowAll : d.anomalyCriticalOnly}
-            </button>
-          </div>
 
-          {intelAnomaliesLoading ? (
-            <div className="flex h-40 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-            </div>
-          ) : visibleAnomalies.length > 0 ? (
-            <div className="space-y-2">
-              {visibleAnomalies.slice(0, 5).map((item) => (
-                <div key={item.id} className="rounded-lg border border-gray-100 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-900">{item.service}</p>
-                    <span
-                      className={clsx(
-                        'rounded-full px-2 py-0.5 text-xs font-semibold',
-                        ANOMALY_BADGE_CLASS[item.severity],
-                      )}
-                    >
-                      {anomalySeverityLabel[item.severity]}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500 uppercase">{item.provider}</p>
-                  <div className="mt-2 text-xs text-gray-600">
-                    z-score {item.z_score.toFixed(2)}
-                    {item.deviation_pct != null
-                      ? ` · +${item.deviation_pct.toFixed(1)}%`
-                      : ''}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {fmt(item.current_cost_usd)} vs {fmt(item.historical_mean_usd)}
-                  </div>
+            {intelInsightsLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+              </div>
+            ) : intelInsightsError || !insightsData ? (
+              <div className="flex h-40 items-center justify-center text-sm text-gray-400">
+                {d.insightsUnavailable}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsTopSaving}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsData.top_saving_opportunity}</p>
                 </div>
-              ))}
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsMainRisk}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsData.main_risk}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsTrend}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsData.cost_trend_summary}</p>
+                </div>
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                    {d.insightsAction}
+                  </p>
+                  <p className="mt-1 text-sm text-violet-900">{insightsData.recommended_action}</p>
+                  <p className="mt-2 text-xs text-violet-700">
+                    {d.insightsConfidence}: {Math.round(insightsData.confidence * 100)}%
+                    {insightsData.model ? ` · ${insightsData.model}` : ''}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">{d.anomaliesTitle}</h2>
+                <p className="mt-1 text-xs text-gray-500">{d.anomaliesSubtitle}</p>
+              </div>
+              <button
+                type="button"
+                className="text-xs text-brand-600 hover:underline"
+                onClick={() => setAnomalyHighOnly((prev) => !prev)}
+              >
+                {anomalyHighOnly ? d.anomalyShowAll : d.anomalyCriticalOnly}
+              </button>
             </div>
-          ) : (
-            <div className="flex h-40 items-center justify-center text-sm text-gray-400">
-              {d.anomaliesNone}
-            </div>
-          )}
+
+            {intelAnomaliesLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+              </div>
+            ) : visibleAnomalies.length > 0 ? (
+              <div className="space-y-2">
+                {visibleAnomalies.slice(0, 5).map((item) => (
+                  <div key={item.id} className="rounded-lg border border-gray-100 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900">{item.service}</p>
+                      <span
+                        className={clsx(
+                          'rounded-full px-2 py-0.5 text-xs font-semibold',
+                          ANOMALY_BADGE_CLASS[item.severity],
+                        )}
+                      >
+                        {anomalySeverityLabel[item.severity]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 uppercase">{item.provider}</p>
+                    <div className="mt-2 text-xs text-gray-600">
+                      z-score {item.z_score.toFixed(2)}
+                      {item.deviation_pct != null
+                        ? ` · +${item.deviation_pct.toFixed(1)}%`
+                        : ''}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {fmt(item.current_cost_usd)} vs {fmt(item.historical_mean_usd)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-sm text-gray-400">
+                {d.anomaliesNone}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Charts row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">        {/* Cost trend + change events overlay */}
         <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -973,7 +931,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Change events feed + Accounts table */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">

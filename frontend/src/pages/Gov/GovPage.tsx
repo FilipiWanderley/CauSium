@@ -9,6 +9,7 @@ import {
   type UnownedCostRow,
 } from '../../api/gov'
 import { useI18n } from '../../contexts/I18nContext'
+import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -212,21 +213,31 @@ export function GovPage() {
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {[
-          { label: g.billedResources,    value: s ? s.total_resources.toLocaleString() : '—',     color: 'border-gray-100', sub: g.resourcesUnit },
-          { label: g.unowned,            value: s ? s.unowned_resources.toLocaleString() : '—',   color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : g.resourcesUnit },
-          { label: g.avgCompliance,      value: s ? `${s.avg_compliance_pct}%` : '—',             color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100', sub: g.complianceUnit },
-          { label: g.recommendations,    value: rs ? rs.total.toLocaleString() : '—',             color: 'border-blue-100',  sub: rs && rs.high_impact > 0 ? `${rs.high_impact} ${g.impactHigh.toLowerCase()}` : undefined },
-          { label: g.estSavings,         value: rs ? formatMoney(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100', sub: g.organizationWide },
-          { label: g.deployedResources,  value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : g.resourcesUnit },
-        ].map((k) => (
-          <div key={k.label} className={`rounded-xl border ${k.color} bg-white p-4 shadow-sm`}>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{k.label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{k.value}</p>
-            {k.sub && <p className="text-xs text-amber-600">{k.sub}</p>}
-          </div>
-        ))}
+      <div className="space-y-4">
+        <SectionIntro
+          title={g.sectionTitle}
+          subtitle={g.sectionSubtitle}
+          badges={[
+            { label: g.governanceMetric, tone: 'governance' },
+            { label: g.organizationWide, tone: 'organization' },
+          ]}
+        />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            { label: g.billedResources, value: s ? s.total_resources.toLocaleString() : '—', color: 'border-slate-900 bg-slate-900 text-white', sub: g.resourcesUnit, valueClass: 'text-white', labelClass: 'text-slate-300', subClass: 'text-slate-300' },
+            { label: g.unowned, value: s ? s.unowned_resources.toLocaleString() : '—', color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : g.resourcesUnit },
+            { label: g.avgCompliance, value: s ? `${s.avg_compliance_pct}%` : '—', color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100', sub: g.complianceUnit },
+            { label: g.recommendations, value: rs ? rs.total.toLocaleString() : '—', color: 'border-blue-100', sub: rs && rs.high_impact > 0 ? `${rs.high_impact} ${g.impactHigh.toLowerCase()}` : undefined },
+            { label: g.estSavings, value: rs ? formatMoney(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100', sub: g.organizationWide },
+            { label: g.deployedResources, value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : g.resourcesUnit },
+          ].map((k) => (
+            <div key={k.label} className={`rounded-xl border ${k.color} p-4 shadow-sm ${k.color.includes('bg-slate-900') ? '' : 'bg-white'}`}>
+              <p className={`text-xs font-medium uppercase tracking-wide ${k.labelClass ?? 'text-gray-400'}`}>{k.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${k.valueClass ?? 'text-gray-900'}`}>{k.value}</p>
+              {k.sub && <p className={`text-xs ${k.subClass ?? 'text-amber-600'}`}>{k.sub}</p>}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Tab switcher */}
@@ -253,7 +264,7 @@ export function GovPage() {
            unownedQ.isError ? (
             <div className="p-8 text-center text-sm text-red-500">{g.errorUnowned}</div>
            ) : (unownedQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Tag} message={g.allOwned} />
+            <EmptyState icon={Tag} message={g.noGovernanceIssues} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
@@ -339,7 +350,7 @@ export function GovPage() {
              recsQ.isError ? (
               <div className="p-8 text-center text-sm text-red-500">{g.errorRecommendations}</div>
              ) : (recsQ.data ?? []).length === 0 ? (
-              <EmptyState icon={Lightbulb} message={g.noRecommendations} />
+              <EmptyState icon={Lightbulb} message={g.noGovernanceIssues} />
              ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">
