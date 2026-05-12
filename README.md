@@ -1020,6 +1020,58 @@ Azure Cost Management Exports generate **cumulative month-to-date CSVs** — eac
 **Commit:** `a76d70c` — `fix: prevent duplicate azure cost export ingestion`  
 **Full RCA:** [`docs/incidents/azure-cost-duplication-resolution.md`](docs/incidents/azure-cost-duplication-resolution.md)
 
+### Billing Transparency Metadata (May 2026)
+
+Dashboard and Executive now expose billing context metadata alongside the existing financial KPIs. The goal is to make the numbers easier to interpret without changing the underlying values or aggregation logic.
+
+- **Data coverage range:** the UI can show the first and last available date in the billing window (`data_min_date` → `data_max_date`)
+- **Subscription consolidation visibility:** the UI can show how many subscriptions are included in the current view (`subscriptions_included`)
+- **Billing currency transparency:** the active billing currency is now surfaced explicitly in the metadata strip
+- **Actual / pre-tax indication:** the KPI context states that the displayed cost basis is **Actual Cost · Pre-tax**
+
+This improvement is additive only: it adds transparency metadata to the existing payload and keeps the previously calculated totals unchanged.
+
+### Azure Export Capability Detection (May 2026)
+
+Azure exports vary significantly by tenant setup and export configuration. CauSium now documents and surfaces export capability detection so operators can understand why some billing views differ from the Azure Portal or expose more/less metadata.
+
+- **Export basis detection:** differentiate **actual** vs **amortized** style exports when the source dataset provides those columns
+- **Format detection:** distinguish **legacy** exports from **modern** export layouts
+- **Reservation metadata visibility:** detect when the export contains reservation or savings-plan-aligned attributes
+- **Azure Portal comparison hints:** explain that Portal views may include amortization, credits, taxes, or UI-side defaults not present in raw exports
+- **Enterprise diagnostics visibility:** show those signals in diagnostics-oriented flows so support and FinOps operators can validate the source quality quickly
+
+### Reservation & Savings Plan Readiness (May 2026)
+
+The normalized ledger model now carries richer billing metadata required for reservation and savings-plan-aware analytics, while preserving the current cost pipeline and existing `cost_usd` semantics.
+
+Structured fields now supported in the ingestion/normalization path include:
+
+- `charge_type`
+- `pricing_model`
+- `benefit_id`
+- `benefit_name`
+- `publisher_type`
+- `frequency`
+- `cost_type`
+
+These fields create the groundwork for future **operational vs amortized cost analytics**, coverage diagnostics, and richer enterprise FinOps drill-downs.
+
+### Enterprise Diagnostics UX (May 2026)
+
+Recent UX work improves the operator experience for understanding why numbers look the way they do, especially in Azure enterprise billing scenarios.
+
+- Billing context is now visible directly in key executive and dashboard views
+- Diagnostic metadata helps distinguish partial coverage windows from complete month coverage
+- Consolidated subscription count makes enterprise rollups explicit
+- Capability signals help explain why one tenant may support richer reservation analysis than another
+
+### FINOPS-4 Technical Notes
+
+For the architecture summary, Azure Portal/export divergence, `ActualCost` vs `AmortizedCost`, legacy export limitations, and the incremental FINOPS-4 roadmap, see:
+
+- [`docs/roadmap/FINOPS_4_Billing_Transparency_and_Azure_Exports.md`](docs/roadmap/FINOPS_4_Billing_Transparency_and_Azure_Exports.md)
+
 ---
 
 ## 🏢 Enterprise Multi-Subscription Support — May 2026
