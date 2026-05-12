@@ -470,7 +470,9 @@ export function DashboardPage() {
                     <p className="mt-2 text-sm text-gray-700">{explainData.summary}</p>
                     <div className="mt-3 text-xs text-gray-500">
                       {d.explainCostConfidence}: {Math.round(explainData.confidence * 100)}%
-                      {explainData.model ? ` · ${explainData.model}` : ''}
+                      {explainData.model && !['mock', 'rules', 'rule-based'].includes(explainData.model)
+                        ? ` · ${explainData.model}`
+                        : ` · ${d.explainCostModelRuleBased}`}
                     </div>
                   </div>
 
@@ -936,7 +938,9 @@ export function DashboardPage() {
                   <p className="mt-1 text-sm text-violet-900">{insightsData.recommended_action}</p>
                   <p className="mt-2 text-xs text-violet-700">
                     {d.insightsConfidence}: {Math.round(insightsData.confidence * 100)}%
-                    {insightsData.model ? ` · ${insightsData.model}` : ''}
+                    {insightsData.model && !['mock', 'rules', 'rule-based'].includes(insightsData.model)
+                      ? ` · ${insightsData.model}`
+                      : ` · ${d.insightsModelRuleBased}`}
                   </p>
                 </div>
               </div>

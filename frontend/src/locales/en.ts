@@ -107,6 +107,7 @@ export interface Translations {
     explainCostCauses: string
     explainCostRecommendation: string
     explainCostConfidence: string
+    explainCostModelRuleBased: string
     insightsTitle: string
     insightsSubtitle: string
     insightsTopSaving: string
@@ -114,6 +115,7 @@ export interface Translations {
     insightsTrend: string
     insightsAction: string
     insightsConfidence: string
+    insightsModelRuleBased: string
     insightsUnavailable: string
     anomaliesTitle: string
     anomaliesSubtitle: string
@@ -1237,6 +1239,7 @@ export const en: Translations = {
     explainCostCauses: 'Top causes',
     explainCostRecommendation: 'Recommendation',
     explainCostConfidence: 'Confidence',
+    explainCostModelRuleBased: 'Based on billing history',
     insightsTitle: 'Historical Insights (baseline)',
     insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
     insightsTopSaving: 'Top saving opportunity',
@@ -1244,6 +1247,7 @@ export const en: Translations = {
     insightsTrend: 'Cost trend',
     insightsAction: 'Recommended action (based on historical baseline)',
     insightsConfidence: 'Insight confidence',
+    insightsModelRuleBased: 'Based on billing history',
     insightsUnavailable: 'No optimization insights available for this scope yet.',
     anomaliesTitle: 'Cost Anomalies',
     anomaliesSubtitle: 'Outliers detected against recent baseline',

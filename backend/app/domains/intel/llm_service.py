@@ -349,7 +349,7 @@ def _mock_explain_cost_change(
             else "Validate recent deploys and scaling events, then right-size or adjust autoscaling policies."
         ),
         confidence=0.35,
-        model="mock",
+        model="rule-based",
     )
 
 
@@ -398,7 +398,7 @@ def _mock_generate_insights(context: dict[str, Any], *, language: str = "en") ->
         cost_trend_summary=str(fallback.get("cost_trend_summary") or ""),
         recommended_action=str(fallback.get("recommended_action") or ""),
         confidence=float(fallback.get("confidence") or 0.6),
-        model="mock",
+        model="rule-based",
     )
 
 
@@ -465,7 +465,7 @@ def _mock_explain_recommendation(
                 "Aplicar rollout gradual e manter plano de rollback.",
             ],
             confidence=0.55,
-            model="mock",
+            model="rule-based",
         )
     return ExplainRecommendationOut(
         summary=f"The recommendation '{title}' is timely and likely to deliver positive efficiency gains.",
@@ -485,7 +485,7 @@ def _mock_explain_recommendation(
             "Roll out gradually and keep rollback ready.",
         ],
         confidence=0.55,
-        model="mock",
+        model="rule-based",
     )
 
 

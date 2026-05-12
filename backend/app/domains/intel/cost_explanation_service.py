@@ -51,7 +51,7 @@ class CostExplanationService:
         provider: str | None = None,
         language: str = "en",
     ) -> ExplainCostChangeOut:
-        await self._require_ai_feature(org_id)
+        ai_enabled = await self._is_ai_enabled(org_id)
 
         current = _Period(start=start_date, end=end_date)
         prev_end = current.start - timedelta(days=1)
@@ -77,11 +77,14 @@ class CostExplanationService:
             "recommendations": recs,
         }
 
+        if not ai_enabled:
+            return _mock_explain_cost_change(context, language=language or "en")
+
         try:
             return await self.llm.explain_cost_change(context)
         except Exception as exc:
             log.warning("intel.explain_cost_change.llm_failed", org_id=str(org_id), error=str(exc))
-            out = _mock_explain_cost_change(context)
+            out = _mock_explain_cost_change(context, language=language or "en")
             out.debug = {"llm_error": str(exc)}
             return out
 
@@ -89,6 +92,10 @@ class CostExplanationService:
         plan = await self._get_org_plan(org_id)
         if not self._plan_has_ai(plan):
             raise PermissionError("AI feature not enabled for this workspace plan")
+
+    async def _is_ai_enabled(self, org_id: UUID) -> bool:
+        plan = await self._get_org_plan(org_id)
+        return self._plan_has_ai(plan)
 
     async def _get_org_plan(self, org_id: UUID) -> str:
         result = await self.db.execute(select(Organization.plan).where(Organization.id == org_id))

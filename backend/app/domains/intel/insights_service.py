@@ -45,13 +45,23 @@ class IntelInsightsService:
         org_id: UUID,
         language: str = "en",
     ) -> IntelInsightsOut:
-        await self._require_ai_feature(org_id)
+        ai_enabled = await self._is_ai_enabled(org_id)
         lang = "pt" if str(language).lower().startswith("pt") else "en"
 
         trend = self._build_cost_trend(org_id, language=lang)
         opportunity = await self._get_top_saving_opportunity(org_id, language=lang)
         risk = await self._get_main_risk(org_id, language=lang)
         rule = self._compose_rule_insights(trend=trend, opportunity=opportunity, risk=risk, language=lang)
+
+        if not ai_enabled:
+            return IntelInsightsOut(
+                top_saving_opportunity=rule.top_saving_opportunity,
+                main_risk=rule.main_risk,
+                cost_trend_summary=rule.cost_trend_summary,
+                recommended_action=rule.recommended_action,
+                confidence=rule.confidence,
+                model="rule-based",
+            )
 
         context = {
             "language": lang,
@@ -316,6 +326,10 @@ class IntelInsightsService:
         plan = await self._get_org_plan(org_id)
         if not self._plan_has_ai(plan):
             raise PermissionError("AI feature not enabled for this workspace plan")
+
+    async def _is_ai_enabled(self, org_id: UUID) -> bool:
+        plan = await self._get_org_plan(org_id)
+        return self._plan_has_ai(plan)
 
     async def _get_org_plan(self, org_id: UUID) -> str:
         result = await self.db.execute(select(Organization.plan).where(Organization.id == org_id))
