@@ -696,6 +696,22 @@ export function DashboardPage() {
             icon={<Activity className="h-5 w-5" />}
           />
         </div>
+
+        {/* Billing transparency context */}
+        {metrics && (metrics.data_min_date || metrics.data_max_date) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-2">
+            {metrics.data_min_date && metrics.data_max_date && (
+              <span>{ux.billingDataRange.replace('{{start}}', metrics.data_min_date).replace('{{end}}', metrics.data_max_date)}</span>
+            )}
+            {(metrics.subscriptions_included ?? 0) > 0 && (
+              <span>{ux.billingSubscriptions.replace('{{count}}', String(metrics.subscriptions_included))}</span>
+            )}
+            <span>{ux.costBasisActualPreTax}</span>
+            {metrics.billing_currency && (
+              <span>{ux.billingCurrency.replace('{{currency}}', metrics.billing_currency)}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">

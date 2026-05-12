@@ -1098,5 +1098,10 @@ export const pt: Translations = {
     emptyNoGovernanceIssues: 'Nenhum problema de governança encontrado.',
     emptyNoRecentEvents: 'Nenhum evento operacional recente.',
     emptyNoEmissions: 'Nenhum dado de emissão disponível para este período.',
+    billingDataRange: '{{start}} – {{end}}',
+    billingSubscriptions: '{{count}} subscriptions consolidadas',
+    billingCostBasis: 'Custo Real · Pré-imposto',
+    billingCurrency: 'Faturamento: {{currency}}',
+    costBasisActualPreTax: 'Custo Real · Pré-imposto',
   },
 }

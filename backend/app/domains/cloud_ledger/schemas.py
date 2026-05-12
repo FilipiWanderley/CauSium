@@ -52,6 +52,11 @@ class DashboardMetrics(BaseModel):
     event_count_7d: int
     active_accounts: int
     currency: str = "USD"
+    data_min_date: date | None = None
+    data_max_date: date | None = None
+    subscriptions_included: int = 0
+    cost_basis: str = "actual_pre_tax"
+    billing_currency: str = "BRL"
 
 
 class ReservationCoverageByService(BaseModel):

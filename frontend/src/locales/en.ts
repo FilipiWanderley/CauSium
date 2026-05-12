@@ -1096,6 +1096,11 @@ export interface Translations {
     emptyNoGovernanceIssues: string
     emptyNoRecentEvents: string
     emptyNoEmissions: string
+    billingDataRange: string
+    billingSubscriptions: string
+    billingCostBasis: string
+    billingCurrency: string
+    costBasisActualPreTax: string
   }
 }
 
@@ -2197,5 +2202,10 @@ export const en: Translations = {
     emptyNoGovernanceIssues: 'No governance issues found.',
     emptyNoRecentEvents: 'No recent operational events.',
     emptyNoEmissions: 'No emissions data available for this period.',
+    billingDataRange: '{{start}} – {{end}}',
+    billingSubscriptions: '{{count}} subscriptions consolidated',
+    billingCostBasis: 'Actual Cost · Pre-tax',
+    billingCurrency: 'Billing: {{currency}}',
+    costBasisActualPreTax: 'Actual Cost · Pre-tax',
   },
 }

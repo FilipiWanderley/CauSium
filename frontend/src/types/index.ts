@@ -105,6 +105,11 @@ export interface DashboardMetrics {
   event_count_7d: number
   active_accounts: number
   currency?: string
+  data_min_date?: string | null
+  data_max_date?: string | null
+  subscriptions_included?: number
+  cost_basis?: string
+  billing_currency?: string
 }
 
 export interface ReconciliationSubscriptionRow {

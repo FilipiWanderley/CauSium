@@ -1373,6 +1373,50 @@ class CloudLedgerService:
             warnings=warnings,
         )
 
+    def _get_month_metadata(
+        self,
+        org_id: UUID,
+        year: int,
+        month: int,
+        provider: str | None = None,
+        subscription_id: str | None = None,
+    ) -> dict:
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
+        params: dict[str, object] = {"org_id": str(org_id), "year": year, "month": month}
+        if provider:
+            params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
+        try:
+            rows = execute_query(
+                f"""
+                SELECT
+                    min(date) AS min_date,
+                    max(date) AS max_date,
+                    uniqExact(subscription_id) AS sub_count
+                FROM cost_facts
+                WHERE org_id = {{org_id:String}}
+                  AND toYear(date) = {{year:UInt16}}
+                  AND toMonth(date) = {{month:UInt8}}
+                  AND subscription_id != ''
+                  AND subscription_id != 'placeholder'
+                  {provider_where}
+                  {subscription_where}
+                """,
+                params,
+            )
+            if rows:
+                row = rows[0]
+                return {
+                    "min_date": row.get("min_date"),
+                    "max_date": row.get("max_date"),
+                    "subscriptions_included": int(row.get("sub_count") or 0),
+                }
+        except Exception as e:
+            log.warning("ledger.month_metadata.failed", error=str(e))
+        return {"min_date": None, "max_date": None, "subscriptions_included": 0}
+
     async def get_dashboard_metrics(
         self,
         org_id: UUID,
@@ -1397,6 +1441,7 @@ class CloudLedgerService:
         top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
         top_teams, _ = self.get_top_teams(org_id, provider=provider, subscription_id=subscription_id)
         currency = self.get_dominant_currency(org_id, provider=provider, subscription_id=subscription_id)
+        metadata = self._get_month_metadata(org_id, today.year, today.month, provider=provider, subscription_id=subscription_id)
         return DashboardMetrics(
             current_month_cost=current_month,
             previous_month_cost=previous_month,
@@ -1407,6 +1452,11 @@ class CloudLedgerService:
             event_count_7d=self.get_event_count(org_id, days=7, provider=provider, subscription_id=subscription_id),
             active_accounts=active_accounts,
             currency=currency,
+            data_min_date=metadata.get("min_date"),
+            data_max_date=metadata.get("max_date"),
+            subscriptions_included=metadata.get("subscriptions_included", 0),
+            cost_basis="actual_pre_tax",
+            billing_currency=currency,
         )
 
     def get_reservation_coverage(

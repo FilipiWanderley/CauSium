@@ -32,6 +32,17 @@ export function ExecutivePage() {
     queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
   })
 
+  const { data: dashboardMeta } = useQuery({
+    queryKey: ['ledger', 'dashboard', 'meta', subscriptionId],
+    queryFn: () => ledgerApi.dashboard(undefined, subscriptionId || undefined).then((r) => r.data),
+    select: (d) => ({
+      data_min_date: d.data_min_date,
+      data_max_date: d.data_max_date,
+      subscriptions_included: d.subscriptions_included,
+      billing_currency: d.billing_currency,
+    }),
+  })
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['executive', 'summary', subscriptionId],
     queryFn: () => executiveApi.summary(subscriptionId || undefined).then((r) => r.data),
@@ -169,6 +180,22 @@ export function ExecutivePage() {
             tooltip={ux.tooltipPotentialSavings}
           />
         </div>
+
+        {/* Billing transparency context */}
+        {dashboardMeta && (dashboardMeta.data_min_date || dashboardMeta.data_max_date) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-2">
+            {dashboardMeta.data_min_date && dashboardMeta.data_max_date && (
+              <span>{ux.billingDataRange.replace('{{start}}', dashboardMeta.data_min_date).replace('{{end}}', dashboardMeta.data_max_date)}</span>
+            )}
+            {(dashboardMeta.subscriptions_included ?? 0) > 0 && (
+              <span>{ux.billingSubscriptions.replace('{{count}}', String(dashboardMeta.subscriptions_included))}</span>
+            )}
+            <span>{ux.costBasisActualPreTax}</span>
+            {dashboardMeta.billing_currency && (
+              <span>{ux.billingCurrency.replace('{{currency}}', dashboardMeta.billing_currency)}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
