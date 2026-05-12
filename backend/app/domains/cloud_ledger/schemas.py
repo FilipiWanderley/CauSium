@@ -222,3 +222,12 @@ class IntegrityMetadata(BaseModel):
     data_through_date: date | None = None
     billing_period: str = "calendar_month"
     subscriptions_active: int = 0
+    # FINOPS-4.1: export capability detection
+    detected_cost_type: Literal["actual", "amortized", "mixed", "unknown"] = "unknown"
+    export_format_hint: Literal["legacy", "modern", "focus", "unknown"] = "unknown"
+    reservation_metadata_available: bool = False
+    pricing_model_available: bool = False
+    charge_type_available: bool = False
+    benefit_metadata_available: bool = False
+    cost_basis_explanation: str = ""
+    portal_comparison_hint: str = ""

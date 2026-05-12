@@ -1211,7 +1211,43 @@ export function DashboardPage() {
                   {integrityData ? `${integrityData.ingestion_gap_days} day(s)` : '—'}
                 </div>
               </div>
+              {/* Export capability detection — FINOPS-4.1 */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  {ux.exportBasisLabel.replace('{{basis}}', '')}
+                </div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {integrityData?.cost_basis_explanation || '—'}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  {ux.exportFormatLabel.replace('{{format}}', '')}
+                </div>
+                <div className="mt-1 text-sm font-medium text-gray-900">
+                  {integrityData?.export_format_hint ?? '—'}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  {ux.exportReservationMeta}
+                </div>
+                <div className={clsx(
+                  'mt-1 text-sm font-medium',
+                  integrityData?.reservation_metadata_available ? 'text-green-700' : 'text-amber-700',
+                )}>
+                  {integrityData?.reservation_metadata_available
+                    ? ux.exportReservationAvailable
+                    : ux.exportReservationNotAvailable}
+                </div>
+              </div>
             </div>
+            {integrityData?.portal_comparison_hint && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{integrityData.portal_comparison_hint}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

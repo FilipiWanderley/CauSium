@@ -1119,6 +1119,12 @@ export interface Translations {
     integrityDelayedMessage: string
     integrityNoDataMessage: string
     integrityPartialMessage: string
+    exportBasisLabel: string
+    exportFormatLabel: string
+    exportReservationMeta: string
+    exportReservationAvailable: string
+    exportReservationNotAvailable: string
+    exportPortalHint: string
   }
 }
 
@@ -2243,5 +2249,11 @@ export const en: Translations = {
     integrityDelayedMessage: 'Billing data is 3–5 days behind. This is common during provider processing windows.',
     integrityNoDataMessage: 'No billing data available. Verify cloud account connectivity.',
     integrityPartialMessage: 'Data coverage is incomplete. Some subscriptions may not be reporting.',
+    exportBasisLabel: 'Export basis: {{basis}}',
+    exportFormatLabel: 'Export format: {{format}}',
+    exportReservationMeta: 'Reservation metadata',
+    exportReservationAvailable: 'Available',
+    exportReservationNotAvailable: 'Not available in current export',
+    exportPortalHint: '{{hint}}',
   },
 }

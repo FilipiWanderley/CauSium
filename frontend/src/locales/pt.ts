@@ -1121,5 +1121,11 @@ export const pt: Translations = {
     integrityDelayedMessage: 'Dados de faturamento estão 3–5 dias atrasados. Isso é comum durante janelas de processamento do provedor.',
     integrityNoDataMessage: 'Nenhum dado de faturamento disponível. Verifique a conectividade da conta cloud.',
     integrityPartialMessage: 'Cobertura de dados incompleta. Algumas subscriptions podem não estar reportando.',
+    exportBasisLabel: 'Base do export: {{basis}}',
+    exportFormatLabel: 'Formato do export: {{format}}',
+    exportReservationMeta: 'Metadata de reservas',
+    exportReservationAvailable: 'Disponível',
+    exportReservationNotAvailable: 'Não disponível no export atual',
+    exportPortalHint: '{{hint}}',
   },
 }

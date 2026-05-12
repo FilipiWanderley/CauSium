@@ -144,6 +144,15 @@ export interface IntegrityMetadata {
   data_through_date: string | null
   billing_period: string
   subscriptions_active: number
+  // FINOPS-4.1: export capability detection
+  detected_cost_type: 'actual' | 'amortized' | 'mixed' | 'unknown'
+  export_format_hint: 'legacy' | 'modern' | 'focus' | 'unknown'
+  reservation_metadata_available: boolean
+  pricing_model_available: boolean
+  charge_type_available: boolean
+  benefit_metadata_available: boolean
+  cost_basis_explanation: string
+  portal_comparison_hint: string
 }
 
 export interface ReconciliationReport {

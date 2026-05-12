@@ -2152,6 +2152,9 @@ class CloudLedgerService:
             sync_dt = most_recent_sync if most_recent_sync.tzinfo else most_recent_sync.replace(tzinfo=timezone.utc)
             sync_age_minutes = round((now - sync_dt).total_seconds() / 60, 1)
 
+        # FINOPS-4.1: detect export capabilities from stored metadata columns
+        export_detection = self._detect_export_capabilities(org_id)
+
         elapsed_ms = round((_pc() - t0) * 1000, 1)
         log.info(
             "ledger.integrity_metadata.computed",
@@ -2161,6 +2164,7 @@ class CloudLedgerService:
             sync_age_minutes=sync_age_minutes,
             subscriptions_active=subscriptions_active,
             elapsed_ms=elapsed_ms,
+            **export_detection,
         )
 
         return IntegrityMetadata(
@@ -2171,4 +2175,142 @@ class CloudLedgerService:
             data_through_date=data_max_date,
             billing_period="calendar_month",
             subscriptions_active=subscriptions_active,
+            **export_detection,
         )
+
+    def _detect_export_capabilities(self, org_id: UUID) -> dict:
+        """Detect export format and reservation metadata availability from cost_facts columns.
+
+        Pure read-only heuristic — does NOT alter any data or queries.
+        """
+        try:
+            rows = execute_query(
+                """
+                SELECT
+                    countIf(cost_type != '' AND cost_type != 'actual') AS amortized_rows,
+                    countIf(cost_type = 'actual' OR cost_type = '') AS actual_rows,
+                    countIf(charge_type != '') AS charge_type_rows,
+                    countIf(pricing_model != '') AS pricing_model_rows,
+                    countIf(benefit_id != '') AS benefit_id_rows,
+                    countIf(benefit_name != '') AS benefit_name_rows,
+                    countIf(frequency != '') AS frequency_rows,
+                    countIf(publisher_type != '') AS publisher_type_rows,
+                    count() AS total_rows
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= today() - 90
+                """,
+                {"org_id": str(org_id)},
+            )
+        except Exception as e:
+            log.warning("ledger.export_detection.failed", error=str(e))
+            return {
+                "detected_cost_type": "unknown",
+                "export_format_hint": "unknown",
+                "reservation_metadata_available": False,
+                "pricing_model_available": False,
+                "charge_type_available": False,
+                "benefit_metadata_available": False,
+                "cost_basis_explanation": "",
+                "portal_comparison_hint": "",
+            }
+
+        if not rows:
+            return {
+                "detected_cost_type": "unknown",
+                "export_format_hint": "unknown",
+                "reservation_metadata_available": False,
+                "pricing_model_available": False,
+                "charge_type_available": False,
+                "benefit_metadata_available": False,
+                "cost_basis_explanation": "",
+                "portal_comparison_hint": "",
+            }
+
+        row = rows[0]
+        total = int(row.get("total_rows") or 0)
+        if total == 0:
+            return {
+                "detected_cost_type": "unknown",
+                "export_format_hint": "unknown",
+                "reservation_metadata_available": False,
+                "pricing_model_available": False,
+                "charge_type_available": False,
+                "benefit_metadata_available": False,
+                "cost_basis_explanation": "",
+                "portal_comparison_hint": "",
+            }
+
+        amortized_rows = int(row.get("amortized_rows") or 0)
+        actual_rows = int(row.get("actual_rows") or 0)
+        charge_type_rows = int(row.get("charge_type_rows") or 0)
+        pricing_model_rows = int(row.get("pricing_model_rows") or 0)
+        benefit_id_rows = int(row.get("benefit_id_rows") or 0)
+        benefit_name_rows = int(row.get("benefit_name_rows") or 0)
+        frequency_rows = int(row.get("frequency_rows") or 0)
+        publisher_type_rows = int(row.get("publisher_type_rows") or 0)
+
+        # Detect cost type
+        if amortized_rows > 0 and actual_rows > 0:
+            detected_cost_type = "mixed"
+        elif amortized_rows > 0:
+            detected_cost_type = "amortized"
+        elif actual_rows > 0:
+            detected_cost_type = "actual"
+        else:
+            detected_cost_type = "unknown"
+
+        # Detect export format
+        metadata_fields_populated = sum([
+            charge_type_rows > 0,
+            pricing_model_rows > 0,
+            benefit_id_rows > 0,
+            frequency_rows > 0,
+            publisher_type_rows > 0,
+        ])
+        if metadata_fields_populated >= 3:
+            export_format_hint = "modern"
+        elif metadata_fields_populated >= 1:
+            export_format_hint = "modern"  # partial modern
+        else:
+            export_format_hint = "legacy"
+
+        # Detect reservation metadata availability
+        charge_type_available = charge_type_rows > 0
+        pricing_model_available = pricing_model_rows > 0
+        benefit_metadata_available = benefit_id_rows > 0 or benefit_name_rows > 0
+        reservation_metadata_available = pricing_model_available or benefit_metadata_available
+
+        # Generate explanations
+        if detected_cost_type == "actual":
+            cost_basis_explanation = "Actual Cost (pre-tax, as billed)"
+        elif detected_cost_type == "amortized":
+            cost_basis_explanation = "Amortized Cost (reservation charges spread daily)"
+        elif detected_cost_type == "mixed":
+            cost_basis_explanation = "Mixed (actual + amortized rows detected)"
+        else:
+            cost_basis_explanation = "Unknown cost basis"
+
+        if not reservation_metadata_available:
+            portal_comparison_hint = (
+                "Reservation/Savings Plan metadata not available in current export. "
+                "Azure Portal amortized views may differ from displayed totals."
+            )
+        elif detected_cost_type == "actual":
+            portal_comparison_hint = (
+                "Export is Actual Cost. Reservation purchases appear as lump-sum on purchase date. "
+                "Azure Portal amortized view will show different daily distribution."
+            )
+        else:
+            portal_comparison_hint = ""
+
+        return {
+            "detected_cost_type": detected_cost_type,
+            "export_format_hint": export_format_hint,
+            "reservation_metadata_available": reservation_metadata_available,
+            "pricing_model_available": pricing_model_available,
+            "charge_type_available": charge_type_available,
+            "benefit_metadata_available": benefit_metadata_available,
+            "cost_basis_explanation": cost_basis_explanation,
+            "portal_comparison_hint": portal_comparison_hint,
+        }
