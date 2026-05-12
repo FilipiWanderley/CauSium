@@ -33,6 +33,20 @@ import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersis
 const fmt = (n: number, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
 
+const USD_VALUE_RE = /(?:US\$|\$)\s*(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)/g
+const USD_LABEL_RE = /\bUSD\b\s*:?\s*(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)/g
+
+const formatCurrencyText = (text: string | null | undefined, currency: string) => {
+  if (!text) return ''
+  const replaceAmount = (raw: string) => {
+    const value = Number(raw.replace(/,/g, ''))
+    return Number.isFinite(value) ? fmt(value, currency) : raw
+  }
+  return text
+    .replace(USD_LABEL_RE, (_, raw: string) => `${currency}: ${replaceAmount(raw)}`)
+    .replace(USD_VALUE_RE, (_, raw: string) => replaceAmount(raw))
+}
+
 const EVENT_ICON: Record<ChangeEventType, React.ElementType> = {
   incident: AlertTriangle,
   cost_anomaly: DollarSign,
@@ -398,7 +412,8 @@ export function DashboardPage() {
   }
 
   const explainData: ExplainCostChangeResponse | undefined = explainMutation.data
-  const fmtCost = (n: number) => fmt(n, metrics?.currency ?? 'USD')
+  const effectiveCurrency = metrics?.billing_currency ?? metrics?.currency ?? 'USD'
+  const fmtCost = (n: number) => fmt(n, effectiveCurrency)
   const insightsData: IntelInsightsResponse | undefined = intelInsights
   const anomalyItems: IntelCostAnomaly[] = intelAnomaliesPage?.items ?? []
   const visibleAnomalies = anomalyHighOnly
@@ -428,6 +443,87 @@ export function DashboardPage() {
       : null
 
   const costAlert = computeAlert(todayCost, avgPrevious30d, todayHasData)
+  const momChangeLabel =
+    metrics?.mom_change_pct == null
+      ? null
+      : `${metrics.mom_change_pct > 0 ? '+' : ''}${metrics.mom_change_pct.toFixed(1)}%`
+  const explainFallback: ExplainCostChangeResponse | undefined = metrics
+    ? {
+        summary: momChangeLabel
+          ? d.explainCostFallbackSummaryWithChange
+              .replace('{{start}}', explainWindow.start_date)
+              .replace('{{end}}', explainWindow.end_date)
+              .replace('{{cost}}', fmtCost(metrics.current_month_cost ?? 0))
+              .replace('{{change}}', momChangeLabel)
+          : d.explainCostFallbackSummaryWithoutChange
+              .replace('{{start}}', explainWindow.start_date)
+              .replace('{{end}}', explainWindow.end_date)
+              .replace('{{cost}}', fmtCost(metrics.current_month_cost ?? 0)),
+        causes: [
+          {
+            cause: d.billingContext,
+            evidence: [
+              `${d.currentMonthCost}: ${fmtCost(metrics.current_month_cost ?? 0)}`,
+              ux.billingCurrency.replace('{{currency}}', effectiveCurrency),
+            ],
+            estimated_impact_usd: metrics.current_month_cost ?? 0,
+          },
+          {
+            cause: d.insightsTrend,
+            evidence: [
+              momChangeLabel
+                ? `${d.vsLastMonth}: ${momChangeLabel}`
+                : d.explainCostFallbackSummaryWithoutChange
+                    .replace('{{start}}', explainWindow.start_date)
+                    .replace('{{end}}', explainWindow.end_date)
+                    .replace('{{cost}}', fmtCost(metrics.current_month_cost ?? 0)),
+              metrics.data_max_date
+                ? ux.integrityDataThrough.replace('{{date}}', metrics.data_max_date)
+                : `${explainWindow.start_date} → ${explainWindow.end_date}`,
+            ],
+            estimated_impact_usd: null,
+          },
+        ],
+        impact: metrics.data_max_date
+          ? ux.integrityDataThrough.replace('{{date}}', metrics.data_max_date)
+          : `${explainWindow.start_date} → ${explainWindow.end_date}`,
+        recommendation: d.explainCostFallbackRecommendation.replace('{{currency}}', effectiveCurrency),
+        confidence: 0.45,
+        model: 'rule-based',
+      }
+    : undefined
+  const explainDisplayData: ExplainCostChangeResponse | undefined = (() => {
+    if (!explainData && !explainFallback) return undefined
+    if (!explainData) return explainFallback
+    return {
+      ...explainData,
+      summary: formatCurrencyText(explainData.summary, effectiveCurrency) || explainFallback?.summary || '',
+      causes:
+        explainData.causes.length > 0
+          ? explainData.causes.map((cause) => ({
+              ...cause,
+              cause: formatCurrencyText(cause.cause, effectiveCurrency),
+              evidence: cause.evidence.map((item) => formatCurrencyText(item, effectiveCurrency)),
+            }))
+          : explainFallback?.causes || [],
+      impact: formatCurrencyText(explainData.impact, effectiveCurrency) || explainFallback?.impact || '',
+      recommendation:
+        formatCurrencyText(explainData.recommendation, effectiveCurrency) ||
+        explainFallback?.recommendation ||
+        '',
+      confidence: explainData.confidence ?? explainFallback?.confidence ?? 0.45,
+      model: explainData.model ?? explainFallback?.model,
+    }
+  })()
+  const insightsDisplayData: IntelInsightsResponse | undefined = insightsData
+    ? {
+        ...insightsData,
+        top_saving_opportunity: formatCurrencyText(insightsData.top_saving_opportunity, effectiveCurrency),
+        main_risk: formatCurrencyText(insightsData.main_risk, effectiveCurrency),
+        cost_trend_summary: formatCurrencyText(insightsData.cost_trend_summary, effectiveCurrency),
+        recommended_action: formatCurrencyText(insightsData.recommended_action, effectiveCurrency),
+      }
+    : undefined
 
   return (
     <div className="space-y-6">
@@ -457,36 +553,36 @@ export function DashboardPage() {
                 </div>
               )}
 
-              {explainMutation.isError && (
+              {explainMutation.isError && !explainDisplayData && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                   {d.explainCostError}
                 </div>
               )}
 
-              {explainData && (
+              {explainDisplayData && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <p className="text-sm font-medium text-gray-900">{d.explainCostSummary}</p>
-                    <p className="mt-2 text-sm text-gray-700">{explainData.summary}</p>
+                    <p className="mt-2 text-sm text-gray-700">{explainDisplayData.summary}</p>
                     <div className="mt-3 text-xs text-gray-500">
-                      {d.explainCostConfidence}: {Math.round(explainData.confidence * 100)}%
-                      {explainData.model && !['mock', 'rules', 'rule-based'].includes(explainData.model)
-                        ? ` · ${explainData.model}`
+                      {d.explainCostConfidence}: {Math.round(explainDisplayData.confidence * 100)}%
+                      {explainDisplayData.model && !['mock', 'rules', 'rule-based'].includes(explainDisplayData.model)
+                        ? ` · ${explainDisplayData.model}`
                         : ` · ${d.explainCostModelRuleBased}`}
                     </div>
                   </div>
 
-                  {explainData.causes.length > 0 && (
+                  {explainDisplayData.causes.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-900">{d.explainCostCauses}</p>
                       <div className="space-y-2">
-                        {explainData.causes.map((c, idx) => (
+                        {explainDisplayData.causes.map((c, idx) => (
                           <div key={idx} className="rounded-lg border border-gray-200 p-4">
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-sm font-medium text-gray-900">{c.cause}</p>
                               {c.estimated_impact_usd != null && (
                                 <span className="text-xs font-semibold text-gray-600">
-                                  {fmt(c.estimated_impact_usd)}
+                                  {fmtCost(c.estimated_impact_usd)}
                                 </span>
                               )}
                             </div>
@@ -505,7 +601,7 @@ export function DashboardPage() {
 
                   <div className="rounded-lg border border-gray-200 p-4">
                     <p className="text-sm font-medium text-gray-900">{d.explainCostRecommendation}</p>
-                    <p className="mt-2 text-sm text-gray-700">{explainData.recommendation}</p>
+                    <p className="mt-2 text-sm text-gray-700">{explainDisplayData.recommendation}</p>
                   </div>
                 </div>
               )}
@@ -907,7 +1003,7 @@ export function DashboardPage() {
               <div className="flex h-40 items-center justify-center">
                 <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
               </div>
-            ) : intelInsightsError || !insightsData ? (
+            ) : intelInsightsError || !insightsDisplayData ? (
               <div className="flex h-40 items-center justify-center text-sm text-gray-400">
                 {d.insightsUnavailable}
               </div>
@@ -917,29 +1013,29 @@ export function DashboardPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {d.insightsTopSaving}
                   </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsData.top_saving_opportunity}</p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.top_saving_opportunity}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {d.insightsMainRisk}
                   </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsData.main_risk}</p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.main_risk}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {d.insightsTrend}
                   </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsData.cost_trend_summary}</p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.cost_trend_summary}</p>
                 </div>
                 <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
                     {d.insightsAction}
                   </p>
-                  <p className="mt-1 text-sm text-violet-900">{insightsData.recommended_action}</p>
+                  <p className="mt-1 text-sm text-violet-900">{insightsDisplayData.recommended_action}</p>
                   <p className="mt-2 text-xs text-violet-700">
-                    {d.insightsConfidence}: {Math.round(insightsData.confidence * 100)}%
-                    {insightsData.model && !['mock', 'rules', 'rule-based'].includes(insightsData.model)
-                      ? ` · ${insightsData.model}`
+                    {d.insightsConfidence}: {Math.round(insightsDisplayData.confidence * 100)}%
+                    {insightsDisplayData.model && !['mock', 'rules', 'rule-based'].includes(insightsDisplayData.model)
+                      ? ` · ${insightsDisplayData.model}`
                       : ` · ${d.insightsModelRuleBased}`}
                   </p>
                 </div>
@@ -989,7 +1085,7 @@ export function DashboardPage() {
                         : ''}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      {fmt(item.current_cost_usd)} vs {fmt(item.historical_mean_usd)}
+                      {fmtCost(item.current_cost_usd)} vs {fmtCost(item.historical_mean_usd)}
                     </div>
                   </div>
                 ))}

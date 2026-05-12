@@ -108,6 +108,9 @@ export interface Translations {
     explainCostRecommendation: string
     explainCostConfidence: string
     explainCostModelRuleBased: string
+    explainCostFallbackSummaryWithChange: string
+    explainCostFallbackSummaryWithoutChange: string
+    explainCostFallbackRecommendation: string
     insightsTitle: string
     insightsSubtitle: string
     insightsTopSaving: string
@@ -1240,9 +1243,15 @@ export const en: Translations = {
     explainCostRecommendation: 'Recommendation',
     explainCostConfidence: 'Confidence',
     explainCostModelRuleBased: 'Based on billing history',
+    explainCostFallbackSummaryWithChange:
+      'From {{start}} to {{end}}, current month cost is {{cost}} with a {{change}} change vs last month.',
+    explainCostFallbackSummaryWithoutChange:
+      'From {{start}} to {{end}}, current month cost is {{cost}}. Month-over-month comparison is not available yet.',
+    explainCostFallbackRecommendation:
+      'Review recent cost drivers for this period, validate the billing context in {{currency}}, and compare top services before taking action.',
     insightsTitle: 'Historical Insights (baseline)',
     insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
-    insightsTopSaving: 'Top saving opportunity',
+    insightsTopSaving: 'Savings summary',
     insightsMainRisk: 'Main risk',
     insightsTrend: 'Cost trend',
     insightsAction: 'Recommended action (based on historical baseline)',

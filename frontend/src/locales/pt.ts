@@ -110,9 +110,15 @@ export const pt: Translations = {
     explainCostRecommendation: 'Recomendação',
     explainCostConfidence: 'Confiança',
     explainCostModelRuleBased: 'Baseado no histórico de faturamento',
+    explainCostFallbackSummaryWithChange:
+      'De {{start}} a {{end}}, o custo do mês atual está em {{cost}} com variação de {{change}} vs o mês anterior.',
+    explainCostFallbackSummaryWithoutChange:
+      'De {{start}} a {{end}}, o custo do mês atual está em {{cost}}. A comparação vs o mês anterior ainda não está disponível.',
+    explainCostFallbackRecommendation:
+      'Revise os drivers recentes deste período, valide o contexto de faturamento em {{currency}} e compare os principais serviços antes de agir.',
     insightsTitle: 'Insights históricos (baseline)',
     insightsSubtitle: 'Recomendações priorizadas a partir de custo, oportunidades e anomalias',
-    insightsTopSaving: 'Maior oportunidade de economia',
+    insightsTopSaving: 'Resumo de economia',
     insightsMainRisk: 'Principal risco',
     insightsTrend: 'Tendência de custo',
     insightsAction: 'Ação recomendada (com base no histórico)',
