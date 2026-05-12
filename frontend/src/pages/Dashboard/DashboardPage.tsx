@@ -512,131 +512,162 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{d.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">{d.subtitle}</p>
-        </div>
-        <div className="flex flex-col items-end gap-2 min-w-0">
-          <div className="flex flex-wrap items-start justify-end gap-3">
-            {/* Provider scope dropdown */}
-            <label className="text-sm text-gray-600 w-full sm:w-auto">
-              {d.providerScope}
-              <div className="relative mt-1">
-                <button
-                  type="button"
-                  onClick={() => setProviderMenuOpen((prev) => !prev)}
-                  className="inline-flex w-full sm:min-w-44 items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition-colors hover:border-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <span>{providerLabelMap[providerFilter]}</span>
-                  <ChevronDown
-                    className={clsx(
-                      'h-4 w-4 text-gray-400 transition-transform',
-                      providerMenuOpen && 'rotate-180',
-                    )}
-                  />
-                </button>
-                {providerMenuOpen && (
-                  <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-                    {DASHBOARD_PROVIDERS.map((providerOption) => (
-                      <button
-                        key={providerOption}
-                        type="button"
-                        onClick={() => {
-                          setProviderFilterRaw(providerOption)
-                          setProviderMenuOpen(false)
-                        }}
-                        className={clsx(
-                          'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
-                          providerOption === providerFilter
-                            ? 'bg-brand-50 text-brand-700'
-                            : 'text-gray-700 hover:bg-gray-50',
-                        )}
-                      >
-                        {providerLabelMap[providerOption]}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="mt-1 min-h-[16px] text-xs text-gray-400">&nbsp;</p>
-            </label>
-
-            {/* Subscription filter — only shown when org has >1 subscription */}
-            {(subscriptionsData?.subscription_count ?? 0) > 1 && (
-              <label className="text-sm text-gray-600 w-full sm:w-auto">
-                {d.subscriptionLabel}
-                <select
-                  value={subscriptionId}
-                  onChange={(e) => setSubscriptionId(e.target.value)}
-                  className="mt-1 block w-full sm:min-w-44 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="">{d.allSubscriptionsConsolidated}</option>
-                  {subscriptionsData?.items.map((s) => (
-                    <option key={s.subscription_id} value={s.subscription_id}>
-                      {s.subscription_name
-                        ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
-                        : `${s.subscription_id.slice(0, 8)}…`}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 min-h-[16px] text-xs text-gray-400">
-                  {subscriptionId
-                    ? d.subscriptionScopedView.replace(
-                        '{{name}}',
-                        subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
-                          `${subscriptionId.slice(0, 8)}…`,
-                      )
-                    : d.consolidatedViewAcross.replace(
-                        '{{count}}',
-                        String(subscriptionsData?.subscription_count ?? 0),
-                      )}
-                </p>
-              </label>
-            )}
+      {/* Dashboard Header */}
+      <div className="rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Left: Title + contextual metadata */}
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-gray-900">{d.title}</h1>
+            <p className="text-xs text-gray-500 mt-0.5">{d.subtitle}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
+              <span className="inline-flex items-center gap-1">
+                <Cloud className="h-3 w-3" />
+                {providerLabelMap[providerFilter]}
+              </span>
+              {(subscriptionsData?.subscription_count ?? 0) > 0 && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span>{d.consolidatedScope.replace('{{count}}', String(subscriptionsData?.subscription_count ?? 0))}</span>
+                </>
+              )}
+              {(() => {
+                const syncTimes = (accounts ?? [])
+                  .map((a) => a.last_sync_at)
+                  .filter((t): t is string => t !== null)
+                const latest = syncTimes.length
+                  ? new Date(Math.max(...syncTimes.map((t) => new Date(t).getTime())))
+                  : null
+                return latest ? (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <FreshnessIndicator label={latest.toLocaleString()} variant="muted" />
+                  </>
+                ) : null
+              })()}
+            </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
+          {/* Right: Unified toolbar */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Provider scope dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setProviderMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                <span>{providerLabelMap[providerFilter]}</span>
+                <ChevronDown
+                  className={clsx(
+                    'h-3 w-3 text-gray-400 transition-transform',
+                    providerMenuOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+              {providerMenuOpen && (
+                <div className="absolute right-0 z-20 mt-1 w-44 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+                  {DASHBOARD_PROVIDERS.map((providerOption) => (
+                    <button
+                      key={providerOption}
+                      type="button"
+                      onClick={() => {
+                        setProviderFilterRaw(providerOption)
+                        setProviderMenuOpen(false)
+                      }}
+                      className={clsx(
+                        'w-full rounded px-2 py-1.5 text-left text-sm transition-colors',
+                        providerOption === providerFilter
+                          ? 'bg-brand-50 text-brand-700'
+                          : 'text-gray-700 hover:bg-gray-50',
+                      )}
+                    >
+                      {providerLabelMap[providerOption]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Subscription filter */}
+            {(subscriptionsData?.subscription_count ?? 0) > 1 && (
+              <select
+                value={subscriptionId}
+                onChange={(e) => setSubscriptionId(e.target.value)}
+                className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="">{d.allSubscriptionsConsolidated}</option>
+                {subscriptionsData?.items.map((s) => (
+                  <option key={s.subscription_id} value={s.subscription_id}>
+                    {s.subscription_name
+                      ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                      : `${s.subscription_id.slice(0, 8)}…`}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Separator */}
+            <div className="hidden sm:block h-5 w-px bg-gray-200" />
+
+            {/* Sync button — reduced visual weight */}
             <button
               type="button"
               onClick={() => queueIngestionMutation.mutate()}
               disabled={queueIngestionMutation.isPending || !accounts}
-              className="rounded-md bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}
             </button>
+
+            {/* Refresh button */}
             <button
               type="button"
               onClick={() => refreshDashboardMutation.mutate()}
               disabled={refreshDashboardMutation.isPending}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+              title={d.refreshData}
             >
-              {refreshDashboardMutation.isPending ? d.refreshingData : d.refreshData}
+              <RefreshCw className={clsx('h-3.5 w-3.5', refreshDashboardMutation.isPending && 'animate-spin')} />
             </button>
+
+            {/* Budget settings */}
             <button
               type="button"
               onClick={() => {
                 budgetSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}
-              className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-100"
+              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+              title={d.adjustBudget}
             >
-              {d.adjustBudget}
+              <Settings className="h-3.5 w-3.5" />
             </button>
           </div>
-          <p className="text-xs text-gray-400">
-            {d.syncHint}
-          </p>
-          {actionMessage && (
-            <p
-              className={clsx(
-                'text-xs',
-                actionMessage.kind === 'success' ? 'text-green-700' : 'text-red-700',
-              )}
-            >
-              {actionMessage.text}
-            </p>
-          )}
         </div>
+
+        {/* Contextual info + action messages */}
+        {(subscriptionId || actionMessage) && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-gray-100 pt-2">
+            {subscriptionId && (
+              <p className="text-xs text-gray-400">
+                {d.subscriptionScopedView.replace(
+                  '{{name}}',
+                  subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
+                    `${subscriptionId.slice(0, 8)}…`,
+                )}
+              </p>
+            )}
+            {actionMessage && (
+              <p
+                className={clsx(
+                  'text-xs',
+                  actionMessage.kind === 'success' ? 'text-green-700' : 'text-red-700',
+                )}
+              >
+                {actionMessage.text}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {accounts?.length === 0 && (
