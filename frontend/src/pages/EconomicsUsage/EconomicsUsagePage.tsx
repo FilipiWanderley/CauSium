@@ -5,6 +5,7 @@ import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const numberFmt = new Intl.NumberFormat('en-US')
@@ -12,6 +13,7 @@ const numberFmt = new Intl.NumberFormat('en-US')
 export function EconomicsUsagePage() {
   const { t } = useI18n()
   const eu = t.economicsUsage
+  const ux = t.ux
 
   const [days, setDays] = usePersistentNumber('sp.economicsUsage.days', 30, [30, 60, 90, 180])
 
@@ -97,6 +99,7 @@ export function EconomicsUsagePage() {
         <SectionIntro
           title={eu.operationsTitle}
           subtitle={eu.operationsSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: eu.operationalMetric, tone: 'operational' },
             { label: eu.organizationWide, tone: 'organization' },
@@ -121,12 +124,14 @@ export function EconomicsUsagePage() {
             value={numberFmt.format(Math.round(usageSignals.volatility))}
             subtitle={eu.volatilityDesc}
             icon={<Activity className="h-4 w-4" />}
+            tooltip={ux.tooltipVolatility}
           />
           <UsageCard
             title={eu.efficiencyScore}
             value={`${efficiencyScore}`}
             subtitle={eu.efficiencyScoreDesc}
             icon={<TrendingUp className="h-4 w-4" />}
+            tooltip={ux.tooltipEfficiencyScore}
           />
         </div>
       </div>
@@ -135,6 +140,7 @@ export function EconomicsUsagePage() {
         <SectionIntro
           title={eu.financialTitle}
           subtitle={eu.financialSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: eu.financialValuesBrl, tone: 'billing' },
             { label: eu.organizationWide, tone: 'organization' },
@@ -175,6 +181,7 @@ export function EconomicsUsagePage() {
                   value={`${reservationCoverageQuery.data.coverage_pct}%`}
                   subtitle={reservationCoverageQuery.data.has_active_reservations ? eu.reservationsDetected : eu.noReservationsDetected}
                   icon={<TrendingUp className="h-4 w-4" />}
+                  tooltip={ux.tooltipReservationCoverage}
                 />
               </div>
 
@@ -252,17 +259,22 @@ function UsageCard({
   subtitle,
   icon,
   emphasis = 'default',
+  tooltip,
 }: {
   title: string
   value: string
   subtitle: string
   icon: React.ReactNode
   emphasis?: 'default' | 'primary'
+  tooltip?: string
 }) {
   return (
     <div className={`rounded-xl border p-4 shadow-sm ${emphasis === 'primary' ? 'border-slate-900 bg-slate-900 text-white' : 'border-gray-200 bg-white'}`}>
       <div className="flex items-center justify-between">
-        <div className={`text-xs uppercase tracking-wide ${emphasis === 'primary' ? 'text-slate-300' : 'text-gray-500'}`}>{title}</div>
+        <div className={`text-xs uppercase tracking-wide ${emphasis === 'primary' ? 'text-slate-300' : 'text-gray-500'}`}>
+          {title}
+          {tooltip && <ExplainTooltip text={tooltip} className="ml-1.5 align-middle" />}
+        </div>
         <div className={emphasis === 'primary' ? 'text-slate-300' : 'text-gray-500'}>{icon}</div>
       </div>
       <div className={`mt-2 text-2xl font-semibold ${emphasis === 'primary' ? 'text-white' : 'text-gray-900'}`}>{value}</div>

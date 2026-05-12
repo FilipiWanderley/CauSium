@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { FreshnessIndicator } from '../UX/FreshnessIndicator'
 
 type BadgeTone =
   | 'financial'
@@ -20,6 +21,7 @@ interface SectionIntroProps {
   subtitle: string
   badges?: SectionBadge[]
   compact?: boolean
+  freshness?: string
 }
 
 const BADGE_STYLES: Record<BadgeTone, string> = {
@@ -38,13 +40,17 @@ export function SectionIntro({
   subtitle,
   badges = [],
   compact = false,
+  freshness,
 }: SectionIntroProps) {
   return (
     <div className={clsx('flex flex-col gap-3', compact && 'gap-2')}>
       <div>
-        <h2 className={clsx('font-semibold text-gray-900', compact ? 'text-sm' : 'text-base sm:text-lg')}>
-          {title}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className={clsx('font-semibold text-gray-900', compact ? 'text-sm' : 'text-base sm:text-lg')}>
+            {title}
+          </h2>
+          {freshness && <FreshnessIndicator label={freshness} />}
+        </div>
         <p className={clsx('mt-1 text-gray-500', compact ? 'text-xs' : 'text-sm')}>
           {subtitle}
         </p>

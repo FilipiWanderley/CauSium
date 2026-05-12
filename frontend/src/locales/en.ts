@@ -1078,6 +1078,25 @@ export interface Translations {
     readOnlyBannerTitle: string
     readOnlyBannerBody: string
   }
+  ux: {
+    freshnessRecent: string
+    freshnessSyncing: string
+    freshnessSnapshot: string
+    freshnessRefreshes: string
+    tooltipForecast: string
+    tooltipPotentialSavings: string
+    tooltipGovernance: string
+    tooltipCO2: string
+    tooltipReservationCoverage: string
+    tooltipEfficiencyScore: string
+    tooltipVolatility: string
+    tooltipConcentrationRisk: string
+    emptyNoAnomalies: string
+    emptyNoOptimizations: string
+    emptyNoGovernanceIssues: string
+    emptyNoRecentEvents: string
+    emptyNoEmissions: string
+  }
 }
 
 export const en: Translations = {
@@ -2159,5 +2178,24 @@ export const en: Translations = {
     errorPasswordTooShort: 'Password must be at least 8 characters.',
     errorInvalidOrExpiredLink: 'Failed to reset password. The link may be expired or invalid.',
     backToSignIn: 'Back to sign in',
+  },
+  ux: {
+    freshnessRecent: 'Last updated recently',
+    freshnessSyncing: 'Cloud sync in progress',
+    freshnessSnapshot: 'Based on latest available billing snapshot',
+    freshnessRefreshes: 'Data refreshes periodically',
+    tooltipForecast: 'Projected using historical spend trends.',
+    tooltipPotentialSavings: 'Estimated optimization opportunities based on detected inefficiencies.',
+    tooltipGovernance: 'Derived from tagging, policy and operational governance signals.',
+    tooltipCO2: 'Estimated using cloud usage and sustainability factors.',
+    tooltipReservationCoverage: 'Percentage of compute spend covered by reservations or savings plans.',
+    tooltipEfficiencyScore: 'Composite score based on cost volatility and month-over-month variation.',
+    tooltipVolatility: 'Standard deviation of daily spend over the selected window.',
+    tooltipConcentrationRisk: 'Share of total cost concentrated in the top 3 SKUs.',
+    emptyNoAnomalies: 'No anomalies detected for this scope.',
+    emptyNoOptimizations: 'No optimization opportunities detected yet.',
+    emptyNoGovernanceIssues: 'No governance issues found.',
+    emptyNoRecentEvents: 'No recent operational events.',
+    emptyNoEmissions: 'No emissions data available for this period.',
   },
 }

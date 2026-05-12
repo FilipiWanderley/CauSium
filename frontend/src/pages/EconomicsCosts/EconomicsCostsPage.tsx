@@ -13,6 +13,8 @@ import type {
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentBoolean, usePersistentNumber, usePersistentString } from '../../hooks/usePersistentBoolean'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const DAYS_OPTIONS = [30, 60, 90, 180] as const
@@ -162,6 +164,7 @@ function ExportPanel({ days, filters }: { days: number; filters: Record<string, 
 export function EconomicsCostsPage() {
   const { t } = useI18n()
   const ec = t.economicsCosts
+  const ux = t.ux
   const currencyCode = DEFAULT_DISPLAY_CURRENCY
 
   const [days, setDays] = usePersistentNumber('sp.economicsCosts.days', 30, [...DAYS_OPTIONS])
@@ -254,6 +257,7 @@ export function EconomicsCostsPage() {
         <SectionIntro
           title={ec.overviewTitle}
           subtitle={ec.overviewSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: ec.financialMetric, tone: 'financial' },
             { label: ec.billingContext, tone: 'billing' },

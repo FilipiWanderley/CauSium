@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { TrendingDown, TrendingUp } from 'lucide-react'
+import { ExplainTooltip } from '../UX/ExplainTooltip'
 
 interface MetricCardProps {
   title: string
@@ -11,6 +12,7 @@ interface MetricCardProps {
   variant?: 'default' | 'success' | 'warning' | 'danger'
   emphasis?: 'default' | 'primary' | 'secondary'
   action?: React.ReactNode
+  tooltip?: string
 }
 
 export function MetricCard({
@@ -23,6 +25,7 @@ export function MetricCard({
   variant = 'default',
   emphasis = 'default',
   action,
+  tooltip,
 }: MetricCardProps) {
   const isPositiveChange = change !== undefined && change > 0
   const isNegativeChange = change !== undefined && change < 0
@@ -45,7 +48,10 @@ export function MetricCard({
           <p className={clsx(
             'text-sm font-medium',
             emphasis === 'primary' ? 'text-slate-200' : 'text-gray-500',
-          )}>{title}</p>
+          )}>
+            {title}
+            {tooltip && <ExplainTooltip text={tooltip} className="ml-1.5 align-middle" />}
+          </p>
           <p className={clsx(
             'mt-1 text-2xl font-bold',
             emphasis === 'primary' ? 'text-white' : 'text-gray-900',

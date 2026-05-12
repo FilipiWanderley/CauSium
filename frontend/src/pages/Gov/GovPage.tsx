@@ -10,6 +10,7 @@ import {
 } from '../../api/gov'
 import { useI18n } from '../../contexts/I18nContext'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
 export function GovPage() {
   const { t } = useI18n()
   const g = t.gov
+  const ux = t.ux
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const TABS: { id: Tab; label: string }[] = [
@@ -191,13 +193,14 @@ export function GovPage() {
           <p className="mt-1 text-sm text-gray-500">
             {g.subtitle}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-violet-50 px-2.5 py-1 font-medium text-violet-700">
               {g.governanceMetric}
             </span>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
               {g.organizationWide}
             </span>
+            <ExplainTooltip text={ux.tooltipGovernance} />
           </div>
         </div>
 
@@ -217,6 +220,7 @@ export function GovPage() {
         <SectionIntro
           title={g.sectionTitle}
           subtitle={g.sectionSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: g.governanceMetric, tone: 'governance' },
             { label: g.organizationWide, tone: 'organization' },
@@ -264,7 +268,7 @@ export function GovPage() {
            unownedQ.isError ? (
             <div className="p-8 text-center text-sm text-red-500">{g.errorUnowned}</div>
            ) : (unownedQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Tag} message={g.noGovernanceIssues} />
+            <EmptyState icon={Tag} message={ux.emptyNoGovernanceIssues} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
@@ -350,7 +354,7 @@ export function GovPage() {
              recsQ.isError ? (
               <div className="p-8 text-center text-sm text-red-500">{g.errorRecommendations}</div>
              ) : (recsQ.data ?? []).length === 0 ? (
-              <EmptyState icon={Lightbulb} message={g.noGovernanceIssues} />
+              <EmptyState icon={Lightbulb} message={ux.emptyNoGovernanceIssues} />
              ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">

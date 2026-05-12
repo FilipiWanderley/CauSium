@@ -5,11 +5,13 @@ import { ledgerApi } from '../../api/ledger'
 import type { ServiceBreakdown } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsSkusPage() {
   const { t } = useI18n()
   const es = t.economicsSkus
+  const ux = t.ux
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const [days, setDays] = useState(30)
@@ -50,6 +52,7 @@ export function EconomicsSkusPage() {
         <SectionIntro
           title={es.overviewTitle}
           subtitle={es.overviewSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: es.financialValuesBrl, tone: 'billing' },
             { label: es.consolidated, tone: 'organization' },
@@ -91,7 +94,10 @@ export function EconomicsSkusPage() {
             </div>
 
             <div className="rounded-lg border border-gray-200 px-3 py-2">
-              <div className="text-xs uppercase tracking-wide text-gray-500">{es.top3Share}</div>
+              <div className="text-xs uppercase tracking-wide text-gray-500">
+                {es.top3Share}
+                <ExplainTooltip text={ux.tooltipConcentrationRisk} className="ml-1.5 align-middle" />
+              </div>
               <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 {summary.top3Share.toFixed(1)}%
                 <span

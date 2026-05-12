@@ -4,6 +4,8 @@ import { executiveApi } from '../../api/executive'
 import { ledgerApi } from '../../api/ledger'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import {
   BarChart,
   Bar,
@@ -20,6 +22,7 @@ import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 export function ExecutivePage() {
   const { t } = useI18n()
   const e = t.executive
+  const ux = t.ux
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const [subscriptionId, setSubscriptionId] = useState<string>('')
@@ -122,6 +125,7 @@ export function ExecutivePage() {
         <SectionIntro
           title={e.overviewTitle}
           subtitle={e.overviewSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: e.financialMetric, tone: 'financial' },
             { label: subscriptionId ? e.subscriptionScoped : e.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
@@ -162,6 +166,7 @@ export function ExecutivePage() {
             value={formatMoney(summary?.total_potential_savings_usd ?? 0)}
             subtitle={subscriptionId ? e.organizationWide : e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
             variant="success"
+            tooltip={ux.tooltipPotentialSavings}
           />
         </div>
       </div>
@@ -170,6 +175,7 @@ export function ExecutivePage() {
         <SectionIntro
           title={e.optimizationTitle}
           subtitle={e.optimizationSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: e.financialMetric, tone: 'financial' },
             { label: subscriptionId ? e.subscriptionScoped : e.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
@@ -180,7 +186,10 @@ export function ExecutivePage() {
           <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={subscriptionId ? e.organizationWide : e.initiatives} />
           <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={subscriptionId ? e.organizationWide : e.initiatives} variant="success" />
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-500">{e.forecastNextMonth}</p>
+            <p className="text-sm font-medium text-gray-500">
+              {e.forecastNextMonth}
+              <ExplainTooltip text={ux.tooltipForecast} className="ml-1.5 align-middle" />
+            </p>
             <p className="mt-1 text-2xl font-bold text-gray-900">
               {formatMoney(summary?.forecast_next_month_usd ?? 0)}
             </p>
@@ -202,6 +211,7 @@ export function ExecutivePage() {
           <SectionIntro
             title={e.operationsTitle}
             subtitle={e.operationsSubtitle}
+            freshness={ux.freshnessRecent}
             badges={[
               { label: e.operationalMetric, tone: 'operational' },
               { label: e.organizationWide, tone: 'organization' },

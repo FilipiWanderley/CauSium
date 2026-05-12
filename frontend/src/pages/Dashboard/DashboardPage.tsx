@@ -6,6 +6,7 @@ import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
@@ -148,6 +149,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient()
   const d = t.dashboard
   const ce = t.changeEvents
+  const ux = t.ux
   const [explainOpen, setExplainOpen] = useState(false)
   const budgetSectionRef = useRef<HTMLDivElement | null>(null)
   const [actionMessage, setActionMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
@@ -635,6 +637,7 @@ export function DashboardPage() {
         <SectionIntro
           title={d.financialOverview}
           subtitle={d.financialOverviewSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: d.financialMetric, tone: 'financial' },
             { label: subscriptionId ? d.subscriptionScoped : d.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
@@ -677,6 +680,7 @@ export function DashboardPage() {
             icon={<TrendingUp className="h-5 w-5" />}
             variant="success"
             emphasis="secondary"
+            tooltip={ux.tooltipPotentialSavings}
           />
           <MetricCard
             title={d.activeAccounts}
@@ -698,6 +702,7 @@ export function DashboardPage() {
         <SectionIntro
           title={d.operationsSection}
           subtitle={d.operationsSectionSubtitle}
+          freshness={ux.freshnessRecent}
           badges={[
             { label: d.operationalMetric, tone: 'operational' },
             { label: d.organizationWide, tone: 'organization' },
@@ -762,6 +767,7 @@ export function DashboardPage() {
         <SectionIntro
           title={d.optimizationSection}
           subtitle={d.optimizationSectionSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: d.financialMetric, tone: 'financial' },
             { label: d.billingContext, tone: 'billing' },
@@ -873,7 +879,7 @@ export function DashboardPage() {
               </div>
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-gray-400">
-                {d.anomaliesNone}
+                {ux.emptyNoAnomalies}
               </div>
             )}
           </div>
@@ -986,7 +992,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-              {d.reservationsEmpty}
+              {ux.emptyNoOptimizations}
             </div>
           )}
         </div>
@@ -1011,7 +1017,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="flex h-32 items-center justify-center text-sm text-gray-400">
-              {d.noChangeEvents}
+              {ux.emptyNoRecentEvents}
             </div>
           )}
         </div>

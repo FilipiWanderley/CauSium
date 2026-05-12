@@ -9,6 +9,7 @@ import {
 } from '../../api/green'
 import { useI18n } from '../../contexts/I18nContext'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
@@ -32,6 +33,7 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 export function GreenPage() {
   const { t } = useI18n()
   const gr = t.green
+  const ux = t.ux
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const BREAKDOWN_LABELS: Record<BreakdownDimension, string> = {
@@ -88,13 +90,14 @@ export function GreenPage() {
           <p className="mt-1 text-sm text-gray-500">
             {gr.subtitle}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
               {gr.sustainabilityEstimate}
             </span>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
               {gr.organizationWide}
             </span>
+            <ExplainTooltip text={ux.tooltipCO2} />
           </div>
         </div>
 
@@ -113,6 +116,7 @@ export function GreenPage() {
         <SectionIntro
           title={gr.overviewTitle}
           subtitle={gr.overviewSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: gr.sustainabilityEstimate, tone: 'sustainability' },
             { label: gr.organizationWide, tone: 'organization' },
@@ -173,7 +177,7 @@ export function GreenPage() {
           </div>
         ) : trend.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-400">
-            {gr.noEmissions}
+            {ux.emptyNoEmissions}
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -210,6 +214,7 @@ export function GreenPage() {
         <SectionIntro
           title={gr.breakdownTitle}
           subtitle={gr.breakdownSubtitle}
+          freshness={ux.freshnessRefreshes}
           badges={[
             { label: gr.sustainabilityEstimate, tone: 'sustainability' },
             { label: gr.organizationWide, tone: 'organization' },

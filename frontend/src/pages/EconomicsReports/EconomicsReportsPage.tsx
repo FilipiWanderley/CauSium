@@ -6,11 +6,13 @@ import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsReportsPage() {
   const { t } = useI18n()
   const er = t.economicsReports
+  const ux = t.ux
 
   const [days, setDays] = usePersistentNumber('sp.economicsReports.days', 30, [30, 60, 90])
   const [exportJobId, setExportJobId] = useState<string | null>(null)
@@ -177,6 +179,7 @@ export function EconomicsReportsPage() {
         <SectionIntro
           title={er.overviewTitle}
           subtitle={er.overviewSubtitle}
+          freshness={ux.freshnessSnapshot}
           badges={[
             { label: er.financialValuesBrl, tone: 'billing' },
             { label: er.consolidated, tone: 'organization' },
