@@ -1008,6 +1008,18 @@ The entire application is now fixed to English. The PT/EN language switcher has 
 - The language switcher UI block has been removed from `Header`.
 - The Dashboard uses a local hardcoded English copy object instead of the i18n `t.dashboard` lookup, keeping it immune to any future locale changes.
 
+### Azure Cost Export Idempotent Ingestion (May 2026)
+
+Azure Cost Management Exports generate **cumulative month-to-date CSVs** — each daily export contains all rows from day 1 through the export date. The ingestion pipeline now implements **delete-before-insert** to prevent duplication:
+
+- Before inserting a new Azure cost batch, the overlapping date range is cleared (scoped to `org_id + account_id + provider + subscription_id + date range`)
+- Safety guards prevent deletion without all required filters
+- If the delete fails, the insert is aborted (no partial state)
+- Self-healing: if insert fails after delete, the next sync cycle re-ingests
+
+**Commit:** `a76d70c` — `fix: prevent duplicate azure cost export ingestion`  
+**Full RCA:** [`docs/incidents/azure-cost-duplication-resolution.md`](docs/incidents/azure-cost-duplication-resolution.md)
+
 ---
 
 ## 🏢 Enterprise Multi-Subscription Support — May 2026
