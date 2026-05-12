@@ -402,6 +402,13 @@ class AzureConnectorClient(BaseConnector):
                         usage_unit=str(row_dict.get("UnitOfMeasure", "")),
                         currency=str(row_dict.get("Currency", "USD")),
                         tags=tags,
+                        charge_type=str(row_dict.get("ChargeType", "")),
+                        pricing_model=str(row_dict.get("PricingModel", "")),
+                        benefit_id=str(row_dict.get("BenefitId") or row_dict.get("ReservationId") or ""),
+                        benefit_name=str(row_dict.get("BenefitName") or row_dict.get("ReservationName") or ""),
+                        frequency=str(row_dict.get("Frequency", "")),
+                        publisher_type=str(row_dict.get("PublisherType", "")),
+                        cost_type="actual",
                     )
                 )
 
@@ -712,6 +719,25 @@ class AzureConnectorClient(BaseConnector):
             usage_unit=normalized.get("unitofmeasure") or normalized.get("usageunit") or normalized.get("unit") or "",
             currency=normalized.get("currency") or "USD",
             tags=tags,
+            charge_type=normalized.get("chargetype") or normalized.get("charge_type") or "",
+            pricing_model=normalized.get("pricingmodel") or normalized.get("pricing_model") or "",
+            benefit_id=(
+                normalized.get("benefitid")
+                or normalized.get("benefit_id")
+                or normalized.get("reservationid")
+                or normalized.get("reservation_id")
+                or ""
+            ),
+            benefit_name=(
+                normalized.get("benefitname")
+                or normalized.get("benefit_name")
+                or normalized.get("reservationname")
+                or normalized.get("reservation_name")
+                or ""
+            ),
+            frequency=normalized.get("frequency") or "",
+            publisher_type=normalized.get("publishertype") or normalized.get("publisher_type") or "",
+            cost_type="actual",
         )
 
     async def fetch_events(

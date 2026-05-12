@@ -21,6 +21,13 @@ class CanonicalCostRecord:
     usage_unit: str
     currency: str
     tags: dict[str, str]
+    charge_type: str = ""
+    pricing_model: str = ""
+    benefit_id: str = ""
+    benefit_name: str = ""
+    frequency: str = ""
+    publisher_type: str = ""
+    cost_type: str = "actual"
 
 
 @dataclass

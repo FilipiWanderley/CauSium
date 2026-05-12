@@ -126,6 +126,14 @@ MIGRATIONS = [
     # we add a new column and keep the old one for backwards compat with existing data.
     "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS tags_map Map(String, String) DEFAULT map()",
     "ALTER TABLE resource_inventory ADD COLUMN IF NOT EXISTS tags_map Map(String, String) DEFAULT map()",
+    # FINOPS-4: reservation/savings plan metadata columns
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS charge_type LowCardinality(String) DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS pricing_model LowCardinality(String) DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS benefit_id String DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS benefit_name String DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS frequency LowCardinality(String) DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS publisher_type LowCardinality(String) DEFAULT ''",
+    "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS cost_type LowCardinality(String) DEFAULT 'actual'",
 ]
 
 

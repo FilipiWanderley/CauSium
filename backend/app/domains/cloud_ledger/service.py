@@ -267,6 +267,13 @@ class CloudLedgerService:
                     "currency": r.currency,
                     "tags": r.tags,
                     "tags_map": r.tags if isinstance(r.tags, dict) else {},
+                    "charge_type": r.charge_type,
+                    "pricing_model": r.pricing_model,
+                    "benefit_id": r.benefit_id,
+                    "benefit_name": r.benefit_name,
+                    "frequency": r.frequency,
+                    "publisher_type": r.publisher_type,
+                    "cost_type": r.cost_type,
                 }
                 for r in costs
             ]
