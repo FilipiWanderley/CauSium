@@ -554,6 +554,67 @@ def seed_cost_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
     return len(rows)
 
 
+def seed_aks_cost_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
+    """Seed AKS cost_facts with resource_id in managedClusters/agentPools format."""
+    AKS_CLUSTERS = [
+        {"name": "aks-core-prod", "team": "platform", "env": "production"},
+        {"name": "aks-data-prod", "team": "data", "env": "production"},
+        {"name": "aks-dev-shared", "team": "backend", "env": "development"},
+    ]
+    AKS_POOLS = [
+        ("system", "Standard_D4s_v5", 3),
+        ("user-prod", "Standard_D8s_v5", 6),
+        ("user-batch", "Standard_D4s_v5", 4),
+        ("user-api", "Standard_D8s_v5", 8),
+    ]
+
+    rows = []
+    current = START_DATE
+    while current <= TODAY:
+        for cluster in AKS_CLUSTERS:
+            cluster_name = cluster["name"]
+            team = cluster["team"]
+            env = cluster["env"]
+            for pool_name, sku, node_count in AKS_POOLS:
+                resource_id = (
+                    f"/subscriptions/{SUB_ID}/resourceGroups/rg-{team}"
+                    f"/providers/Microsoft.ContainerService"
+                    f"/managedClusters/{cluster_name}/agentPools/{pool_name}"
+                )
+                # Cost per node per day (realistic Azure pricing)
+                cost_per_node_day = rng.uniform(4.0, 12.0)
+                if env == "production":
+                    cost_per_node_day *= 1.5
+                daily_cost = cost_per_node_day * node_count
+                if current.weekday() >= 5:
+                    daily_cost *= 0.7
+
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "resource_name": f"{cluster_name}/{pool_name}",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                    "owner_team": team,
+                    "cost_usd": round(daily_cost, 4),
+                    "usage_quantity": float(node_count),
+                    "usage_unit": "Nodes",
+                    "currency": "USD",
+                    "tags": {"team": team, "env": env, "pool": pool_name, "sku": sku},
+                    "sku_name": sku,
+                })
+        current += timedelta(days=1)
+
+    if not _insert_rows_safe("cost_facts", rows):
+        return 0
+    return len(rows)
+
+
 def seed_event_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
     EVENT_TYPES = [
         ("Microsoft.Compute/virtualMachines/restart/action", "warning"),
@@ -715,6 +776,7 @@ def seed_resource_inventory(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
 def seed_usage_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
     METRICS = [
         ("Percentage CPU",    "Percent"),
+        ("Memory Percentage", "Percent"),
         ("Network In Total",  "Bytes"),
         ("Network Out Total", "Bytes"),
     ]
@@ -734,6 +796,11 @@ def seed_usage_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
                     val = rng.uniform(8, 82)
                     if current.weekday() >= 5:
                         val *= 0.3
+                elif "Memory" in metric_name:
+                    # Memory correlates loosely with CPU but tends higher baseline
+                    val = rng.uniform(15, 75)
+                    if current.weekday() >= 5:
+                        val *= 0.5
                 else:
                     val = rng.uniform(500_000, 350_000_000)
                 rows.append({
@@ -757,6 +824,176 @@ def seed_usage_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
     return len(rows)
 
 
+def seed_aks_usage_facts(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
+    """Seed AKS nodepool usage_facts with resource_id in agentPools format."""
+    AKS_CLUSTERS = [
+        {"name": "aks-core-prod", "team": "platform", "env": "production"},
+        {"name": "aks-data-prod", "team": "data", "env": "production"},
+        {"name": "aks-dev-shared", "team": "backend", "env": "development"},
+    ]
+    AKS_POOLS = [
+        # (pool_name, is_system, node_count, cpu_baseline, mem_baseline, profile)
+        # profile: "underutilized" = eligible for rightsizing
+        #          "moderate" = borderline
+        #          "hot" = blocked by safety rules
+        ("system", True, 3, 25, 35, "moderate"),
+        ("user-prod", False, 6, 22, 38, "underutilized"),
+        ("user-batch", False, 4, 12, 25, "underutilized"),
+        ("user-api", False, 8, 55, 62, "hot"),
+    ]
+
+    rows = []
+    current = START_DATE
+    while current <= TODAY:
+        for cluster in AKS_CLUSTERS:
+            cluster_name = cluster["name"]
+            team = cluster["team"]
+            env = cluster["env"]
+            for pool_name, is_system, node_count, cpu_base, mem_base, profile in AKS_POOLS:
+                resource_id = (
+                    f"/subscriptions/{SUB_ID}/resourceGroups/rg-{team}"
+                    f"/providers/Microsoft.ContainerService"
+                    f"/managedClusters/{cluster_name}/agentPools/{pool_name}"
+                )
+
+                # CPU metric with realistic variation
+                cpu_val = cpu_base + rng.uniform(-8, 12)
+                if current.weekday() >= 5:
+                    cpu_val *= 0.4
+                cpu_val = max(2.0, min(95.0, cpu_val))
+
+                # Memory metric
+                mem_val = mem_base + rng.uniform(-6, 10)
+                if current.weekday() >= 5:
+                    mem_val *= 0.6
+                mem_val = max(5.0, min(95.0, mem_val))
+
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "Percentage CPU",
+                    "metric_value": round(cpu_val, 4),
+                    "metric_unit": "Percent",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "Memory Percentage",
+                    "metric_value": round(mem_val, 4),
+                    "metric_unit": "Percent",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+
+                # Node count metric (needed by AKS candidate query)
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "node count",
+                    "metric_value": float(node_count),
+                    "metric_unit": "Count",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+
+                # Allocated/Requested CPU and Memory (for resource pressure)
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "allocated cpu",
+                    "metric_value": round(node_count * 4.0 * (cpu_base / 100.0) * rng.uniform(0.9, 1.1), 2),
+                    "metric_unit": "Cores",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "allocated memory",
+                    "metric_value": round(node_count * 16.0 * (mem_base / 100.0) * rng.uniform(0.9, 1.1), 2),
+                    "metric_unit": "GiB",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "requested cpu",
+                    "metric_value": round(node_count * 4.0 * (cpu_base / 100.0) * rng.uniform(0.6, 0.85), 2),
+                    "metric_unit": "Cores",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+                rows.append({
+                    "date": current,
+                    "org_id": str(org_id),
+                    "account_id": str(account_id),
+                    "provider": "azure",
+                    "subscription_id": SUB_ID,
+                    "service": "Azure Kubernetes Service",
+                    "resource_id": resource_id,
+                    "metric_name": "requested memory",
+                    "metric_value": round(node_count * 16.0 * (mem_base / 100.0) * rng.uniform(0.6, 0.85), 2),
+                    "metric_unit": "GiB",
+                    "region": rng.choice(REGIONS),
+                    "environment": env,
+                })
+
+        current += timedelta(days=1)
+
+    if not _insert_rows_safe("usage_facts", rows):
+        return 0
+    return len(rows)
+
+
+async def _generate_dynamic_opportunities(org_id: uuid.UUID, account_id: uuid.UUID) -> int:
+    """Trigger the real decision engine to generate opportunities from seeded data."""
+    try:
+        engine = make_engine()
+        Session = async_sessionmaker(engine, expire_on_commit=False)
+        async with Session() as db:
+            from app.domains.decision_engine.service import DecisionEngineService
+            service = DecisionEngineService(db)
+            opps = await service.generate_opportunities_for_account(org_id, account_id)
+            await db.commit()
+            return len(opps)
+    except Exception as e:
+        print(f"  ! Geração dinâmica falhou (não-fatal): {e}")
+        return 0
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
@@ -778,6 +1015,9 @@ async def main() -> None:
     n = seed_cost_facts(org_id, account_id)
     print(f"  ✓ cost_facts:           {n:,} registros")
 
+    n = seed_aks_cost_facts(org_id, account_id)
+    print(f"  ✓ cost_facts (AKS):     {n:,} registros")
+
     n = seed_event_facts(org_id, account_id)
     print(f"  ✓ event_facts:          {n:,} registros")
 
@@ -791,7 +1031,15 @@ async def main() -> None:
     print(f"  ✓ resource_inventory:   {n:,} registros")
 
     n = seed_usage_facts(org_id, account_id)
-    print(f"  ✓ usage_facts:          {n:,} registros")
+    print(f"  ✓ usage_facts (VMs):    {n:,} registros")
+
+    n = seed_aks_usage_facts(org_id, account_id)
+    print(f"  ✓ usage_facts (AKS):    {n:,} registros")
+
+    # ── Generate dynamic opportunities via real engine ────────────────────
+    print("\n── Opportunity Generation ─────────────────────────────")
+    generated = await _generate_dynamic_opportunities(org_id, account_id)
+    print(f"  ✓ opportunities geradas dinamicamente: {generated}")
 
     print("\n✅  Seed concluido.")
     print(f"   Workspace: {DEMO_ORG_NAME}")
