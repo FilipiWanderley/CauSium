@@ -5,12 +5,14 @@ import { useI18n } from '../../contexts/I18nContext'
 import { Sidebar } from '../Sidebar/Sidebar'
 import { Header } from '../Header/Header'
 import { NotificationsRealtimeBridge } from '../../realtime/NotificationsRealtimeBridge'
+import { featureFlags } from '../../featureFlags'
 
 export function AppLayout() {
   const { isAuthenticated, isLoading, user } = useAuth()
   const { t } = useI18n()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const enterpriseShellEnabled = featureFlags.enterpriseShell
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -32,7 +34,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className={enterpriseShellEnabled ? 'flex h-screen overflow-hidden bg-slate-100' : 'flex h-screen overflow-hidden bg-gray-50'}>
       <NotificationsRealtimeBridge />
       <div className="hidden lg:flex">
         <Sidebar />
@@ -47,7 +49,7 @@ export function AppLayout() {
               aria-label={t.common.close}
               onClick={() => setSidebarOpen(false)}
             />
-            <div className="absolute inset-y-0 left-0 w-60 flex flex-col overflow-hidden">
+            <div className={enterpriseShellEnabled ? 'absolute inset-y-0 left-0 flex w-72 flex-col overflow-hidden' : 'absolute inset-y-0 left-0 w-60 flex flex-col overflow-hidden'}>
               <Sidebar onNavigate={() => setSidebarOpen(false)} />
             </div>
           </div>
@@ -56,11 +58,17 @@ export function AppLayout() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 lg:px-6">
+        <div
+          className={
+            enterpriseShellEnabled
+              ? 'border-b border-amber-200 bg-amber-50 px-4 py-2 lg:px-5'
+              : 'border-b border-amber-200 bg-amber-50 px-4 py-2.5 lg:px-6'
+          }
+        >
           <p className="text-xs font-semibold text-amber-900">{t.platform.readOnlyBannerTitle}</p>
           <p className="mt-0.5 text-xs text-amber-800">{t.platform.readOnlyBannerBody}</p>
         </div>
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className={enterpriseShellEnabled ? 'flex-1 overflow-auto p-3 lg:p-4' : 'flex-1 overflow-auto p-4 lg:p-6'}>
           <Outlet />
         </main>
       </div>

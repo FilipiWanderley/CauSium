@@ -1,20 +1,24 @@
 export interface Translations {
   nav: {
     economics: string
+    sectionEconomics: string
     economicsCosts: string
     economicsUsage: string
     economicsSkus: string
     economicsReports: string
+    sectionOptimization: string
     opportunities: string
     optimizationPlan: string
     experiments: string
     notifications: string
+    sectionGovernance: string
     gov: string
     green: string
     initiatives: string
     riskBudgets: string
     changeEvents: string
     executive: string
+    sectionPlatform: string
     members: string
     settings: string
     settingsTeam: string
@@ -192,6 +196,21 @@ export interface Translations {
   }
   header: {
     logout: string
+    searchPlaceholder: string
+    searchAriaLabel: string
+    breadcrumbsHome: string
+    operationalConsole: string
+    scopeProvider: string
+    scopeSubscription: string
+    scopePeriod: string
+    allProviders: string
+    allSubscriptions: string
+    period30d: string
+    periodCurrentMonth: string
+    period90d: string
+    compactDensity: string
+    comfortDensity: string
+    enterpriseShellVersion: string
   }
   opportunities: {
     title: string
@@ -1136,20 +1155,24 @@ export interface Translations {
 export const en: Translations = {
   nav: {
     economics: 'Economics',
+    sectionEconomics: 'Economics',
     economicsCosts: 'Costs',
     economicsUsage: 'Usage',
     economicsSkus: 'SKUs',
     economicsReports: 'Reports',
+    sectionOptimization: 'Optimization',
     opportunities: 'PulseIntel',
     optimizationPlan: 'Optimization Plan',
     experiments: 'PulseLab',
     notifications: 'Notifications',
+    sectionGovernance: 'Governance',
     gov: 'PulseGov',
     green: 'PulseGreen',
     initiatives: 'Initiatives',
     riskBudgets: 'Risk Budgets',
     changeEvents: 'Change Events',
     executive: 'Executive',
+    sectionPlatform: 'Platform',
     members: 'Members',
     settings: 'Settings',
     settingsTeam: 'Team',
@@ -1330,6 +1353,21 @@ export const en: Translations = {
   },
   header: {
     logout: 'Logout',
+    searchPlaceholder: 'Search resources, opportunities, subscriptions or initiatives',
+    searchAriaLabel: 'Global search',
+    breadcrumbsHome: 'Console',
+    operationalConsole: 'Operational Console',
+    scopeProvider: 'Provider scope',
+    scopeSubscription: 'Subscription scope',
+    scopePeriod: 'Period',
+    allProviders: 'All providers',
+    allSubscriptions: 'All subscriptions',
+    period30d: 'Last 30 days',
+    periodCurrentMonth: 'Current month',
+    period90d: 'Last 90 days',
+    compactDensity: 'Compact density',
+    comfortDensity: 'Comfort density',
+    enterpriseShellVersion: 'Enterprise Shell Preview',
   },
   opportunities: {
     title: 'Opportunities',
