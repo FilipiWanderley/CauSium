@@ -215,6 +215,8 @@ export interface Translations {
   opportunities: {
     title: string
     subtitle: string
+    viewTable: string
+    viewCards: string
     open: string
     inProgress: string
     resolved: string
@@ -253,8 +255,26 @@ export interface Translations {
     summaryPerMonth: string
     summaryHighRisk: string
     currentStatus: string
+    colOpportunity: string
+    colCategory: string
+    colProvider: string
+    colResourceScope: string
+    colEstimatedMonthlySavings: string
+    colConfidence: string
+    colRisk: string
+    colStatus: string
+    colDetectedAt: string
+    colAction: string
     readOnlyNoticeTitle: string
     readOnlyNoticeDesc: string
+    openDetail: string
+    providerAzure: string
+    providerAws: string
+    providerGcp: string
+    providerUnknown: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
     executionOwnershipHint: string
     markInReview: string
     markApproved: string
@@ -1372,6 +1392,8 @@ export const en: Translations = {
   opportunities: {
     title: 'Opportunities',
     subtitle: 'Prioritized by composite score — financial impact × risk × effort',
+    viewTable: 'Table',
+    viewCards: 'Cards',
     open: 'Open',
     inProgress: 'In Progress',
     resolved: 'Resolved',
@@ -1383,8 +1405,8 @@ export const en: Translations = {
     reservedInstances: 'Reserved Instances',
     storage: 'Storage',
     network: 'Network',
-    noOpportunities: 'No opportunities found.',
-    noOpportunitiesHint: 'Sync a cloud account and generate opportunities to see results here.',
+    noOpportunities: 'No opportunities in the operational queue.',
+    noOpportunitiesHint: 'Sync cloud accounts and generate recommendations to populate this FinOps work queue.',
     detailTitle: 'Opportunity Detail',
     targetResource: 'Target Resource',
     machineName: 'Machine',
@@ -1410,8 +1432,26 @@ export const en: Translations = {
     summaryPerMonth: '{{amount}}/mo',
     summaryHighRisk: '{{count}} high risk',
     currentStatus: 'Current status',
+    colOpportunity: 'Opportunity',
+    colCategory: 'Category',
+    colProvider: 'Provider',
+    colResourceScope: 'Resource / scope',
+    colEstimatedMonthlySavings: 'Estimated monthly savings',
+    colConfidence: 'Confidence',
+    colRisk: 'Risk',
+    colStatus: 'Status',
+    colDetectedAt: 'Detected',
+    colAction: 'Action',
     readOnlyNoticeTitle: 'Read-only analysis mode',
     readOnlyNoticeDesc: 'The platform only reads tenant data and generates recommendations. Execution always happens after explicit client decision.',
+    openDetail: 'Open detail',
+    providerAzure: 'Azure',
+    providerAws: 'AWS',
+    providerGcp: 'GCP',
+    providerUnknown: 'Unmapped',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
     executionOwnershipHint: 'Execution is external to the platform and owned by the client team.',
     markInReview: 'Mark as under review',
     markApproved: 'Mark as approved/executed',
