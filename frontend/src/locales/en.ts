@@ -221,6 +221,9 @@ export interface Translations {
     subtitle: string
     viewTable: string
     viewCards: string
+    exportCsv: string
+    exportCsvLoading: string
+    exportCsvError: string
     open: string
     inProgress: string
     resolved: string
@@ -1564,6 +1567,9 @@ export const en: Translations = {
     subtitle: 'Prioritized by composite score — financial impact × risk × effort',
     viewTable: 'Table',
     viewCards: 'Cards',
+    exportCsv: 'Export CSV',
+    exportCsvLoading: 'Exporting CSV...',
+    exportCsvError: 'Unable to export opportunities right now. Try again in a moment.',
     open: 'Open',
     inProgress: 'In Progress',
     resolved: 'Resolved',

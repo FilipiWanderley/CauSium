@@ -18,6 +18,16 @@ export const opportunitiesApi = {
     offset?: number
   }) => apiClient.get<ApiPage<Opportunity>>('/opportunities', { params }),
 
+  exportCsv: (params?: {
+    status?: string
+    category?: string
+    owner_team?: string
+  }) =>
+    apiClient.get<Blob>('/opportunities/export/csv', {
+      params,
+      responseType: 'blob',
+    }),
+
   summary: () => apiClient.get<OpportunitySummary>('/opportunities/summary'),
 
   get: (id: string) => apiClient.get<Opportunity>(`/opportunities/${id}`),

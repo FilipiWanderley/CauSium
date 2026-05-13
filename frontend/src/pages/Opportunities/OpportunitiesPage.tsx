@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Filter } from 'lucide-react'
+import { Download, Filter } from 'lucide-react'
 import clsx from 'clsx'
 import { OpportunityCard } from '../../components/Cards/OpportunityCard'
 import { opportunitiesApi } from '../../api/opportunities'
@@ -144,6 +144,30 @@ function getOpportunityScope(opportunity: Opportunity, unknownLabel: string) {
   }
 }
 
+function buildOpportunitiesExportFileName() {
+  return `causium-opportunities-export-${new Date().toISOString().slice(0, 10)}.csv`
+}
+
+async function getExportErrorMessage(error: unknown, fallback: string) {
+  const responseData = (error as { response?: { data?: Blob | { detail?: string; message?: string } } })?.response?.data
+
+  if (responseData instanceof Blob) {
+    try {
+      const text = await responseData.text()
+      const parsed = JSON.parse(text) as { detail?: string; message?: string }
+      return parsed.detail || parsed.message || fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  if (responseData && typeof responseData === 'object') {
+    return responseData.detail || responseData.message || fallback
+  }
+
+  return fallback
+}
+
 export function OpportunitiesPage() {
   const { t, lang } = useI18n()
   const o = t.opportunities
@@ -152,6 +176,7 @@ export function OpportunitiesPage() {
   const [selectedStatus, setSelectedStatus] = useState<OpportunityStatus | 'all'>('open')
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [explainOpp, setExplainOpp] = useState<Opportunity | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [viewModeRaw, setViewModeRaw] = usePersistentString('sp.opportunities.view', 'table')
   const viewMode: OpportunityViewMode = VIEW_MODES.includes(viewModeRaw as OpportunityViewMode)
     ? (viewModeRaw as OpportunityViewMode)
@@ -201,6 +226,33 @@ export function OpportunitiesPage() {
   const explainMutation = useMutation({
     mutationFn: ({ id, language }: { id: string; language: 'pt' | 'en' }) =>
       opportunitiesApi.explain(id, language).then((r) => r.data),
+  })
+  const exportCsvMutation = useMutation({
+    mutationFn: async () => {
+      setExportError(null)
+      try {
+        return await opportunitiesApi.exportCsv({
+          category: selectedCategory || undefined,
+          status: selectedStatus === 'all' ? undefined : selectedStatus,
+          owner_team: undefined,
+        })
+      } catch (error) {
+        throw new Error(await getExportErrorMessage(error, o.exportCsvError))
+      }
+    },
+    onSuccess: (response) => {
+      const url = window.URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = buildOpportunitiesExportFileName()
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    },
+    onError: (error) => {
+      setExportError(error instanceof Error ? error.message : o.exportCsvError)
+    },
   })
 
   const openExplain = (op: Opportunity) => {
@@ -309,7 +361,26 @@ export function OpportunitiesPage() {
           <option value="dismissed">{o.statusDismissed}</option>
           <option value="validated">{o.statusValidated}</option>
         </select>
-        <div className="ml-auto inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => exportCsvMutation.mutate()}
+            disabled={exportCsvMutation.isPending}
+            className={clsx(
+              'inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors',
+              exportCsvMutation.isPending
+                ? 'cursor-wait border-gray-200 bg-gray-50 text-gray-400'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50',
+            )}
+          >
+            {exportCsvMutation.isPending ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>{exportCsvMutation.isPending ? o.exportCsvLoading : o.exportCsv}</span>
+          </button>
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => setViewModeRaw('table')}
@@ -334,8 +405,15 @@ export function OpportunitiesPage() {
           >
             {o.viewCards}
           </button>
+          </div>
         </div>
       </div>
+
+      {exportError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {exportError}
+        </div>
+      )}
 
       {opportunities && opportunities.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
