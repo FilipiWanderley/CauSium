@@ -243,14 +243,6 @@ export function EconomicsCostsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{ec.title}</h1>
         <p className="mt-1 text-sm text-gray-500">{ec.subtitle}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-            {ec.financialValuesBrl}
-          </span>
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
-            {ec.filtered}
-          </span>
-        </div>
       </div>
 
       <div className="space-y-4">
@@ -258,11 +250,7 @@ export function EconomicsCostsPage() {
           title={ec.overviewTitle}
           subtitle={ec.overviewSubtitle}
           freshness={ux.freshnessSnapshot}
-          badges={[
-            { label: ec.financialMetric, tone: 'financial' },
-            { label: ec.billingContext, tone: 'billing' },
-            { label: ec.filtered, tone: 'subscription' },
-          ]}
+          badges={[{ label: ec.billingContext, tone: 'billing' }]}
         />
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -367,10 +355,6 @@ export function EconomicsCostsPage() {
         <SectionIntro
           title={ec.optimizationTitle}
           subtitle={ec.optimizationSubtitle}
-          badges={[
-            { label: ec.financialMetric, tone: 'financial' },
-            { label: ec.billingContext, tone: 'billing' },
-          ]}
           compact
         />
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -379,7 +363,7 @@ export function EconomicsCostsPage() {
               <Lightbulb className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold text-gray-900">{ec.reservationEfficiency}</h2>
               {highPriorityCount > 0 && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                <span className="text-xs font-medium text-red-700">
                   {ec.reservationHighBadge.replace('{{count}}', String(highPriorityCount))}
                 </span>
               )}

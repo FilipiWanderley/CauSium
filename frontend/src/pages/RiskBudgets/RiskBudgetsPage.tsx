@@ -113,18 +113,18 @@ function BudgetCard({
         </div>
       </div>
 
-      {/* Tags */}
-      <div className="flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+      {/* Context metadata */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+        <span className="font-medium text-brand-700">
           {meta.label}
         </span>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <span>
           {budget.domain}
         </span>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <span>
           {budget.environment}
         </span>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <span>
           {periodLabel}
         </span>
       </div>
@@ -371,7 +371,7 @@ export function RiskBudgetsPage() {
           <span className="text-sm text-gray-600">{rb.activeOnly}</span>
         </label>
         {exceeded > 0 && (
-          <div className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-red-700">
             <AlertTriangle className="h-3.5 w-3.5" />
             {exceeded} {rb.exceeded}
           </div>

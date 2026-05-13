@@ -139,18 +139,18 @@ export function OpportunitiesPage() {
       </div>
 
       {opportunities && opportunities.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+          <span className="font-medium text-gray-600">
             {o.summaryOpportunities.replace('{{count}}', String(opportunities.length))}
           </span>
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+          <span className="font-medium text-gray-600">
             {o.summaryPerMonth.replace(
               '{{amount}}',
               fmt(opportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0))
             )}
           </span>
           {opportunities.some((op) => op.risk_level === 'high') && (
-            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
+            <span className="font-medium text-red-700">
               {o.summaryHighRisk.replace(
                 '{{count}}',
                 String(opportunities.filter((op) => op.risk_level === 'high').length)
@@ -269,7 +269,7 @@ export function OpportunitiesPage() {
               <div>
                 <h3 className="text-lg font-bold text-gray-900">{selectedOpp.title}</h3>
                 <p className="mt-2 text-sm text-gray-600">{selectedOpp.description}</p>
-                <div className="mt-3 inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                <div className="mt-3 text-xs font-medium text-gray-500">
                   {o.currentStatus}: {statusLabels[selectedOpp.status]}
                 </div>
               </div>

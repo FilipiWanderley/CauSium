@@ -24,15 +24,15 @@ interface SectionIntroProps {
   freshness?: string
 }
 
-const BADGE_STYLES: Record<BadgeTone, string> = {
-  financial: 'bg-emerald-50 text-emerald-700',
-  operational: 'bg-blue-50 text-blue-700',
-  governance: 'bg-violet-50 text-violet-700',
-  organization: 'bg-gray-100 text-gray-700',
-  subscription: 'bg-sky-50 text-sky-700',
-  billing: 'bg-amber-50 text-amber-700',
-  sustainability: 'bg-teal-50 text-teal-700',
-  secondary: 'bg-slate-100 text-slate-700',
+const BADGE_DOT_STYLES: Record<BadgeTone, string> = {
+  financial: 'bg-emerald-500',
+  operational: 'bg-blue-500',
+  governance: 'bg-violet-500',
+  organization: 'bg-gray-400',
+  subscription: 'bg-sky-500',
+  billing: 'bg-amber-500',
+  sustainability: 'bg-teal-500',
+  secondary: 'bg-slate-400',
 }
 
 export function SectionIntro({
@@ -56,15 +56,13 @@ export function SectionIntro({
         </p>
       </div>
       {badges.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
           {badges.map((badge) => (
             <span
               key={`${badge.tone ?? 'secondary'}-${badge.label}`}
-              className={clsx(
-                'rounded-full px-2.5 py-1 font-medium',
-                BADGE_STYLES[badge.tone ?? 'secondary'],
-              )}
+              className="inline-flex items-center gap-1.5 font-medium"
             >
+              <span className={clsx('h-1.5 w-1.5 rounded-full', BADGE_DOT_STYLES[badge.tone ?? 'secondary'])} />
               {badge.label}
             </span>
           ))}
