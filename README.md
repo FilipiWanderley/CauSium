@@ -64,6 +64,7 @@
 - [Testes](#-testes)
 - [Métricas de Sucesso](#-métricas-de-sucesso)
 - [Glossário](#-glossário)
+- [Operational Credibility Roadmap](#-operational-credibility-roadmap)
 
 ---
 
@@ -2167,4 +2168,155 @@ npm test
 | **TotpBackupCode** | Código one-time de recuperação de conta MFA (10 por usuário) |
 | **SCA** | Stratum Causal Attribution — engine de atribuição causal de variações de custo (Wave 3) |
 | **ARI** | Adaptive Recommendation Index — ranking adaptativo de oportunidades (Wave 3) |
+
+---
+
+## 🎯 Operational Credibility Roadmap
+
+> After establishing the Enterprise UX foundation, the next phase focuses on proving **real FinOps value** in production. A polished interface means nothing if the platform cannot demonstrate tangible savings, granular visibility, and auditable execution evidence to enterprise stakeholders.
+
+### Why This Matters for Enterprise FinOps
+
+Enterprise buyers evaluate FinOps platforms on three axes:
+
+1. **Can it find real money?** — Not hypothetical savings, but validated opportunities with calculation logic, confidence scores, and provider-reconciled baselines.
+2. **Can it prove what happened?** — Realized savings with variance analysis, audit trails, and board-ready evidence.
+3. **Can I trust the numbers?** — Reconciliation against provider billing, granular drill-down to resource level, and transparent methodology.
+
+CauSium's Enterprise UX shell (collapsible sidebar, breadcrumbs, scope selectors) provides the navigation frame. This roadmap fills it with **operational substance**.
+
+### What CauSium Must Prove Before Enterprise Presentations
+
+| Capability | Current State | Required State |
+|-----------|--------------|----------------|
+| Real savings opportunities with $ values | Scoring engine exists, limited real data | Validated opportunities with calculation breakdown |
+| Resource-level drill-down | Subscription-level aggregation | Resource → SKU → tag granularity |
+| Usage/performance evidence | Not yet surfaced | CPU/memory p95, idle detection, rightsizing proof |
+| Executive reporting | Dashboard only | CSV/Excel export, PDF executive pack |
+| Reconciliation confidence | Basic integrity checks | Provider-reconciled totals with variance < 5% |
+| Realized savings tracking | Initiative status only | Estimated → approved → realized with variance |
+
+### Credibility Pillars
+
+```mermaid
+flowchart LR
+    A[Cost Data Ingestion] --> B[Usage & Performance Evidence]
+    B --> C[Opportunity Detection]
+    C --> D[Savings Calculation]
+    D --> E[Execution Tracking]
+    E --> F[Realized Savings]
+    F --> G[Audit & Reporting]
+
+    style A fill:#e0f2fe,stroke:#0284c7
+    style B fill:#e0f2fe,stroke:#0284c7
+    style C fill:#fef3c7,stroke:#d97706
+    style D fill:#fef3c7,stroke:#d97706
+    style E fill:#d1fae5,stroke:#059669
+    style F fill:#d1fae5,stroke:#059669
+    style G fill:#ede9fe,stroke:#7c3aed
+```
+
+### Priority Matrix
+
+| # | Pillar | Priority | Scope | Dependencies |
+|---|--------|----------|-------|--------------|
+| 1 | **Real Savings Engine** | P0 | Estimated savings with baseline, calculation logic, confidence, risk, monthly impact, provider comparison | Requires validated cost data + opportunity engine |
+| 2 | **Resource Granularity** | P0 | Drill-down: subscription → resource group/account/project → service → resource → SKU → tags/labels → owner/team | Requires enriched ingestion pipeline |
+| 3 | **Performance & Usage Context** | P1 | CPU p95, memory p95, idle resource detection, utilization trend, AKS node pressure, requested vs allocated, rightsizing evidence | Requires metrics collection (Azure Monitor / CloudWatch / GCP Monitoring) |
+| 4 | **Reporting & Export Layer** | P1 | CSV export, Excel workbook, PDF executive pack, board-ready summary, customer presentation mode | Frontend + backend async export jobs |
+| 5 | **Validation Before Presentation** | P0 | Reconcile against provider portal, confirm real opportunities exist, validate savings values match reality, validate usage evidence, validate reports before customer demos | Manual + automated reconciliation |
+| 6 | **Execution & Realized Savings** | P2 | Status lifecycle: approved → implemented → rejected. Realized savings tracking, variance (estimated vs realized), audit evidence chain | Requires initiative completion + financial confirmation |
+
+### Pillar Details
+
+#### 1. Real Savings Engine (P0)
+
+The platform must show **credible dollar values** for each opportunity:
+
+- **Baseline cost**: what the resource costs today (30d average)
+- **Projected cost**: what it would cost after optimization
+- **Estimated monthly savings**: difference with confidence interval
+- **Calculation logic**: transparent formula (not a black box)
+- **Confidence score**: based on data quality, observation window, variability
+- **Risk level**: operational risk of implementing the change
+- **Provider comparison**: how this compares to provider-native recommendations
+
+#### 2. Resource Granularity (P0)
+
+Enterprise customers expect drill-down from organization total to individual resource:
+
+- Subscription / Account / Project
+- Resource Group (Azure) / Account (AWS) / Project (GCP)
+- Service (Compute, Storage, Network, Database, etc.)
+- Individual Resource (VM, Disk, IP, etc.)
+- SKU / Instance Type
+- Tags / Labels / Cost Allocation Keys
+- Owner / Team attribution
+
+#### 3. Performance & Usage Context (P1)
+
+Savings recommendations without usage evidence are not credible:
+
+- CPU utilization p95 (last 7d, 30d)
+- Memory utilization p95
+- Idle resource detection (< 5% utilization sustained)
+- Utilization trend (increasing, stable, decreasing)
+- AKS/EKS/GKE node pressure and pod scheduling
+- Requested vs allocated (over-provisioning evidence)
+- Rightsizing evidence with before/after projection
+
+#### 4. Reporting & Export Layer (P1)
+
+Enterprise stakeholders need artifacts they can share:
+
+- **CSV**: raw data for analysts
+- **Excel**: formatted workbook with pivot-ready structure
+- **PDF executive pack**: summary with charts, top opportunities, realized savings
+- **Board-ready summary**: 1-page with KPIs, trend, and action items
+- **Customer presentation mode**: clean view without internal metadata
+
+#### 5. Validation Before Presentation (P0)
+
+Before any customer demo or enterprise presentation:
+
+- [ ] Reconcile CauSium totals against provider billing portal (variance < 5%)
+- [ ] Confirm at least 3 real, actionable opportunities with validated savings
+- [ ] Validate that savings calculations match manual verification
+- [ ] Validate usage/performance data against provider monitoring
+- [ ] Generate and review export reports for accuracy and completeness
+- [ ] Test drill-down path from total cost to individual resource
+
+#### 6. Execution & Realized Savings (P2)
+
+The full lifecycle from recommendation to proven value:
+
+- **Approved**: stakeholder accepted the recommendation
+- **Implemented**: change was executed (manually or via automation)
+- **Rejected**: stakeholder declined with documented reason
+- **Realized savings**: actual cost reduction measured post-implementation
+- **Variance analysis**: estimated vs realized (target: within 20%)
+- **Audit evidence**: timestamped chain linking opportunity → approval → execution → measurement
+
+### Implementation Approach
+
+This roadmap is **incremental and honest**:
+
+- Each pillar ships independently as data becomes available
+- No capability is marked "done" until validated against real production data
+- The platform will clearly indicate when data is estimated vs confirmed
+- Confidence scores reflect actual data quality, not optimistic projections
+- Features behind feature flags until validated with beta customer
+
+### Current Honest Assessment
+
+| What works today | What doesn't yet |
+|-----------------|------------------|
+| Cost ingestion from Azure (actual billing) | No usage/performance metrics collection |
+| Opportunity scoring with composite algorithm | Limited real savings calculation (no baseline comparison) |
+| Initiative tracking (kanban workflow) | No realized savings measurement |
+| Basic reconciliation checks | No resource-level drill-down beyond subscription |
+| Dashboard with trend and anomaly detection | No executive export/PDF |
+| Multi-subscription support | No tag-based cost allocation |
+
+> **Principle**: It is better to show 3 validated opportunities with real numbers than 50 hypothetical ones with inflated estimates. Credibility compounds; hype erodes trust.
 | **PulseLab** | Módulo de criação e tracking de experimentos de otimização (state machine 7 estados) |
