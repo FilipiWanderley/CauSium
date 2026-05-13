@@ -606,6 +606,86 @@ export interface Translations {
     operationalMetric: string
     subscriptionScoped: string
     billingContext: string
+    executiveReady: string
+    exportReadinessTitle: string
+    exportReadinessSubtitle: string
+    exportCsvReady: string
+    exportPdfReady: string
+    executiveSnapshotReady: string
+    presentationModeReady: string
+    exportReadinessNote: string
+    executiveSummaryTitle: string
+    executiveSummarySubtitle: string
+    confidenceCoverageTitle: string
+    confidenceCoverageSubtitle: string
+    savingsOverviewTitle: string
+    savingsOverviewSubtitle: string
+    savingsOverviewFilteredSubtitle: string
+    operationalScopeNote: string
+    topOpportunitiesTitle: string
+    topOpportunitiesSubtitle: string
+    colRecommendation: string
+    colSavings: string
+    riskTableLabel: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
+    confidenceHigh: string
+    confidenceMedium: string
+    confidenceLow: string
+    confidenceInsufficient: string
+    noTopOpportunitiesTitle: string
+    noTopOpportunitiesBody: string
+    topSavingsTitle: string
+    topSavingsSubtitle: string
+    realizedAwaitingDate: string
+    noTopSavingsTitle: string
+    noTopSavingsBody: string
+    optimizationProgressTitle: string
+    optimizationProgressSubtitle: string
+    identifiedRecommendations: string
+    overdueInitiatives: string
+    executionRiskSubtitle: string
+    forecastSubtitle: string
+    topImpactAreasTitle: string
+    topImpactAreasSubtitle: string
+    noImpactAreasTitle: string
+    noImpactAreasBody: string
+    riskGovernanceTitle: string
+    riskGovernanceSubtitle: string
+    highRiskRecommendations: string
+    highRiskRecommendationsSubtitle: string
+    lowConfidenceRecommendations: string
+    lowConfidenceRecommendationsSubtitle: string
+    overdueInitiativesSubtitle: string
+    priorityWatchlistTitle: string
+    priorityWatchlistSubtitle: string
+    watchlistOpportunity: string
+    watchlistInitiativeDue: string
+    watchlistInitiativeNoDate: string
+    watchlistHighRisk: string
+    watchlistExecutionRisk: string
+    noPriorityWatchlistTitle: string
+    noPriorityWatchlistBody: string
+    coverageEvidenceTitle: string
+    coverageEvidenceSubtitle: string
+    evidenceCoverageTitle: string
+    evidenceCoverageSubtitleValue: string
+    resourceContextCoverageTitle: string
+    resourceContextCoverageSubtitle: string
+    highConfidenceCoverageTitle: string
+    highConfidenceCoverageSubtitle: string
+    dataSourceCoverageTitle: string
+    dataSourceCoverageSubtitle: string
+    bestEvidenceTitle: string
+    bestEvidenceSubtitle: string
+    evidenceSavings: string
+    evidenceFinancial: string
+    evidencePartial: string
+    evidenceContext: string
+    evidenceNoContext: string
+    noBestEvidenceTitle: string
+    noBestEvidenceBody: string
     overviewTitle: string
     overviewSubtitle: string
     optimizationTitle: string
@@ -1869,6 +1949,86 @@ export const en: Translations = {
     operationalMetric: 'Operational metric',
     subscriptionScoped: 'Subscription scoped',
     billingContext: 'Billing context',
+    executiveReady: 'Executive-ready reporting workspace',
+    exportReadinessTitle: 'Reporting & Export Readiness',
+    exportReadinessSubtitle: 'Prepare executive snapshots, board reviews, and export workflows without generating files yet.',
+    exportCsvReady: 'CSV export',
+    exportPdfReady: 'PDF export',
+    executiveSnapshotReady: 'Executive snapshot',
+    presentationModeReady: 'Presentation mode',
+    exportReadinessNote: 'Export actions remain intentionally disabled in this phase. The workspace now exposes the structure needed for future CSV, PDF, and presentation flows.',
+    executiveSummaryTitle: 'Executive Summary',
+    executiveSummarySubtitle: 'Board-ready financial summary with savings posture, billing context, and confidence coverage.',
+    confidenceCoverageTitle: 'Confidence Coverage',
+    confidenceCoverageSubtitle: '{{high}} high confidence · {{medium}} medium confidence',
+    savingsOverviewTitle: 'Savings Overview',
+    savingsOverviewSubtitle: 'Potential and realized savings with prioritized recommendations and concise operational evidence.',
+    savingsOverviewFilteredSubtitle: 'Savings reporting keeps the financial scope filtered, while recommendation evidence remains organization-wide.',
+    operationalScopeNote: 'Operational evidence remains organization-wide',
+    topOpportunitiesTitle: 'Top Opportunities',
+    topOpportunitiesSubtitle: 'Highest estimated monthly savings with confidence and risk context.',
+    colRecommendation: 'Recommendation',
+    colSavings: 'Savings',
+    riskTableLabel: 'Risk',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
+    confidenceHigh: 'High',
+    confidenceMedium: 'Medium',
+    confidenceLow: 'Low',
+    confidenceInsufficient: 'Insufficient',
+    noTopOpportunitiesTitle: 'No prioritized opportunities yet.',
+    noTopOpportunitiesBody: 'Generate recommendations to populate the executive opportunity shortlist.',
+    topSavingsTitle: 'Top Realized Savings',
+    topSavingsSubtitle: 'Completed initiatives with realized monthly savings evidence.',
+    realizedAwaitingDate: 'Awaiting completion date',
+    noTopSavingsTitle: 'No realized savings recorded yet.',
+    noTopSavingsBody: 'Completed initiatives with realized values will appear here when available.',
+    optimizationProgressTitle: 'Optimization Progress',
+    optimizationProgressSubtitle: 'Execution progress, forecast posture, and the areas carrying the largest financial impact.',
+    identifiedRecommendations: 'Identified Recommendations',
+    overdueInitiatives: 'Overdue Initiatives',
+    executionRiskSubtitle: 'Execution items requiring follow-up',
+    forecastSubtitle: 'Forward view of next-month spend with current execution load.',
+    topImpactAreasTitle: 'Top Impact Areas',
+    topImpactAreasSubtitle: 'Teams with the highest spend exposure and operational optimization pressure.',
+    noImpactAreasTitle: 'No impact areas available yet.',
+    noImpactAreasBody: 'Team-level reporting will appear here when scorecard data is available.',
+    riskGovernanceTitle: 'Risk & Governance Highlights',
+    riskGovernanceSubtitle: 'Operational risk, low-confidence recommendations, and items requiring governance review.',
+    highRiskRecommendations: 'High-Risk Recommendations',
+    highRiskRecommendationsSubtitle: 'Require extra validation before execution',
+    lowConfidenceRecommendations: 'Low-Confidence Recommendations',
+    lowConfidenceRecommendationsSubtitle: 'Need stronger evidence before executive sign-off',
+    overdueInitiativesSubtitle: 'Execution items past expected timeline',
+    priorityWatchlistTitle: 'Priority Watchlist',
+    priorityWatchlistSubtitle: 'Items that deserve executive attention before approval or escalation.',
+    watchlistOpportunity: '{{value}} estimated monthly savings at risk',
+    watchlistInitiativeDue: 'Execution due {{date}}',
+    watchlistInitiativeNoDate: 'Execution item without due date',
+    watchlistHighRisk: 'High risk',
+    watchlistExecutionRisk: 'Execution risk',
+    noPriorityWatchlistTitle: 'No priority watchlist items right now.',
+    noPriorityWatchlistBody: 'High-risk recommendations and overdue initiatives will surface here when they require attention.',
+    coverageEvidenceTitle: 'Coverage / Evidence Summary',
+    coverageEvidenceSubtitle: 'How much of the recommendation set is backed by financial evidence, resource context, and data lineage.',
+    evidenceCoverageTitle: 'Savings Evidence Coverage',
+    evidenceCoverageSubtitleValue: '{{count}} of {{total}} recommendations',
+    resourceContextCoverageTitle: 'Resource Context Coverage',
+    resourceContextCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    highConfidenceCoverageTitle: 'High Confidence Coverage',
+    highConfidenceCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    dataSourceCoverageTitle: 'Data Source Coverage',
+    dataSourceCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    bestEvidenceTitle: 'Best-Evidenced Recommendations',
+    bestEvidenceSubtitle: 'Recommendations with the strongest combination of savings evidence and resource lineage.',
+    evidenceSavings: '{{amount}} potential monthly savings',
+    evidenceFinancial: 'Financial evidence available',
+    evidencePartial: 'Partial evidence',
+    evidenceContext: 'Resource context available',
+    evidenceNoContext: 'Resource context pending',
+    noBestEvidenceTitle: 'No evidence-rich recommendations yet.',
+    noBestEvidenceBody: 'Recommendations with stronger financial evidence and resource lineage will appear here.',
     overviewTitle: 'Financial Overview',
     overviewSubtitle: 'Spend, forecast and savings performance for the selected scope.',
     optimizationTitle: 'Optimization',
