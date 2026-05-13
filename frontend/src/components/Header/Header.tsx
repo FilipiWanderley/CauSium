@@ -93,7 +93,13 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           : 'flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm lg:px-6'
       }
     >
-      <div className={enterpriseShellEnabled ? 'flex items-start justify-between gap-4' : 'flex items-center justify-between'}>
+      <div
+        className={
+          enterpriseShellEnabled
+            ? 'flex w-full min-w-0 flex-wrap items-start gap-3 sm:flex-nowrap sm:gap-4'
+            : 'flex w-full min-w-0 items-center justify-between'
+        }
+      >
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <button
             type="button"
@@ -134,7 +140,13 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
         {!enterpriseShellEnabled && <div className="flex min-w-0 items-center gap-2" />}
 
-        <div className="flex min-w-0 items-center gap-2 md:gap-4">
+        <div
+          className={
+            enterpriseShellEnabled
+              ? 'ml-auto flex w-full min-w-0 shrink-0 items-center justify-end gap-2 sm:w-auto md:gap-4'
+              : 'flex min-w-0 items-center gap-2 md:gap-4'
+          }
+        >
           {user && (
             <div className="flex min-w-0 items-center gap-2.5">
               <UserAvatar name={user.full_name} />
