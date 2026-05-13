@@ -162,6 +162,7 @@ def generate_csv_content(opportunities: Iterable["OptimizationOpportunity"]) -> 
     writer = csv.DictWriter(
         output,
         fieldnames=CSV_COLUMNS,
+        delimiter=";",
         quoting=csv.QUOTE_MINIMAL,
         extrasaction="ignore",
     )
