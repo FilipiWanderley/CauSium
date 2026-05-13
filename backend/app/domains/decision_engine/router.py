@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Annotated, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,6 +14,7 @@ from app.domains.decision_engine.models import OpportunityCategory, OpportunityS
 from app.domains.decision_engine.savings_evidence_builder import build_savings_evidence
 from app.domains.decision_engine.resource_context_builder import build_resource_context
 from app.domains.decision_engine.performance_context_builder import build_performance_context
+from app.domains.decision_engine.csv_export_service import generate_csv_content
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
     OpportunityOut,
@@ -146,3 +147,31 @@ async def generate_opportunities(
     service = DecisionEngineService(db)
     opps = await service.generate_opportunities_for_account(current_user.org_id, account_id)
     return [_enrich_opportunity(OpportunityOut.model_validate(o), o) for o in opps]
+
+
+@router.get("/export/csv")
+async def export_opportunities_csv(
+    status_filter: Optional[OpportunityStatus] = Query(None, alias="status"),
+    category: Optional[OpportunityCategory] = None,
+    owner_team: Optional[str] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+):
+    """Export opportunities as CSV. Tenant-isolated, auditable."""
+    service = DecisionEngineService(db)
+    opps, _ = await service.list_opportunities(
+        current_user.org_id,
+        status=status_filter,
+        category=category,
+        owner_team=owner_team,
+        limit=5000,
+        offset=0,
+    )
+    csv_content = generate_csv_content(opps)
+    return Response(
+        content=csv_content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": "attachment; filename=opportunities_export.csv",
+        },
+    )
