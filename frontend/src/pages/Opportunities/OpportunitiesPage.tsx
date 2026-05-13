@@ -89,7 +89,17 @@ function getOpportunityRiskLevel(opportunity: Opportunity): RiskLevel {
   return opportunity.savings_evidence?.risk_level ?? opportunity.decision_evidence?.risk_level ?? opportunity.risk_level
 }
 
+function normalizeProviderKey(value: string | null | undefined): ProviderKey {
+  const normalized = value?.trim().toLowerCase()
+  if (normalized === 'azure') return 'azure'
+  if (normalized === 'aws') return 'aws'
+  if (normalized === 'gcp' || normalized === 'google' || normalized === 'google_cloud') return 'gcp'
+  return 'unknown'
+}
+
 function inferOpportunityProvider(opportunity: Opportunity): ProviderKey {
+  const contextProvider = normalizeProviderKey(opportunity.resource_context?.provider)
+  if (contextProvider !== 'unknown') return contextProvider
   const resourceId = opportunity.resource_id?.toLowerCase() ?? ''
   const service = opportunity.service?.toLowerCase() ?? ''
   const resourceType = opportunity.decision_evidence?.resource_type?.toLowerCase() ?? ''
@@ -112,14 +122,25 @@ function inferOpportunityProvider(opportunity: Opportunity): ProviderKey {
 }
 
 function getOpportunityScope(opportunity: Opportunity, unknownLabel: string) {
+  const resourceContext = opportunity.resource_context
   const parsedResource = parseAzureResourceId(opportunity.resource_id)
   return {
-    primary: parsedResource?.resourceName ?? opportunity.resource_name ?? opportunity.service ?? unknownLabel,
+    primary:
+      resourceContext?.resource_name ??
+      parsedResource?.resourceName ??
+      opportunity.resource_name ??
+      opportunity.service ??
+      unknownLabel,
     secondary:
+      resourceContext?.subscription_name ??
+      resourceContext?.resource_group ??
       parsedResource?.resourceGroup ??
-      opportunity.owner_team ??
       opportunity.environment ??
       (opportunity.resource_id ? truncateMiddle(opportunity.resource_id) : null),
+    resourceGroup: resourceContext?.resource_group ?? parsedResource?.resourceGroup ?? null,
+    resourceType: resourceContext?.resource_type ?? opportunity.decision_evidence?.resource_type ?? null,
+    subscription: resourceContext?.subscription_name ?? null,
+    sku: resourceContext?.sku ?? opportunity.sku_name ?? null,
   }
 }
 
@@ -190,6 +211,7 @@ export function OpportunitiesPage() {
 
   const selectedParsedResource = parseAzureResourceId(selectedOpp?.resource_id)
   const selectedAzurePortalUrl = buildAzurePortalResourceUrl(selectedOpp?.resource_id)
+  const selectedResourceContext = selectedOpp?.resource_context
   const selectedMachineName = selectedParsedResource?.resourceName ?? o.unknownResource
   const selectedResourceGroup =
     selectedParsedResource?.resourceGroup ?? selectedOpp?.resource_name ?? o.unknownResource
@@ -227,6 +249,15 @@ export function OpportunitiesPage() {
     gcp: o.providerGcp,
     unknown: o.providerUnknown,
   }
+  const granularityLabels = {
+    resource: o.granularityResource,
+    service: o.granularityCluster,
+    subscription: o.granularitySubscription,
+    unknown: o.granularityUnknown,
+  } as const
+  const selectedProviderKey = normalizeProviderKey(selectedResourceContext?.provider)
+  const selectedProviderLabel =
+    providerLabels[selectedProviderKey === 'unknown' ? (selectedOpp ? inferOpportunityProvider(selectedOpp) : 'unknown') : selectedProviderKey]
 
   return (
     <div className="space-y-6">
@@ -391,11 +422,19 @@ export function OpportunitiesPage() {
                         </span>
                       </td>
                       <td className="hidden px-4 py-3 align-top xl:table-cell">
-                        <div className="min-w-[180px]">
-                          <p className="text-gray-800">{scope.primary}</p>
-                          {scope.secondary && (
-                            <p className="mt-1 text-xs text-gray-500">{scope.secondary}</p>
-                          )}
+                        <div className="min-w-[240px]">
+                          <p className="text-gray-900">{scope.primary}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+                            {scope.subscription && <span>{scope.subscription}</span>}
+                            {scope.subscription && scope.resourceGroup && <span className="text-gray-300">•</span>}
+                            {scope.resourceGroup && <span>{scope.resourceGroup}</span>}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+                            {scope.resourceType && <span>{scope.resourceType}</span>}
+                            {scope.resourceType && scope.sku && <span className="text-gray-300">•</span>}
+                            {scope.sku && <span>{scope.sku}</span>}
+                            {!scope.resourceType && !scope.sku && scope.secondary && <span>{scope.secondary}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
@@ -589,6 +628,103 @@ export function OpportunitiesPage() {
                       {o.openInAzure}
                     </a>
                   )}
+                </div>
+              )}
+
+              {(selectedResourceContext || selectedOpp.resource_id || selectedOpp.resource_name) && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">{o.resourceContextTitle}</h4>
+                      <p className="mt-1 text-xs text-gray-500">{o.resourceContextSubtitle}</p>
+                    </div>
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                      {granularityLabels[selectedResourceContext?.granularity_tier ?? 'unknown']}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <MetadataField
+                      label={o.resourceContextProvider}
+                      value={selectedProviderLabel}
+                    />
+                    <MetadataField
+                      label={o.resourceContextSubscription}
+                      value={selectedResourceContext?.subscription_name ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextResourceGroup}
+                      value={selectedResourceContext?.resource_group ?? selectedParsedResource?.resourceGroup ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextResource}
+                      value={selectedResourceContext?.resource_name ?? selectedMachineName}
+                    />
+                    <MetadataField
+                      label={o.resourceContextResourceType}
+                      value={selectedResourceContext?.resource_type ?? selectedEvidence?.resource_type ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextSku}
+                      value={selectedResourceContext?.sku ?? selectedOpp.sku_name ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextRegion}
+                      value={selectedResourceContext?.region ?? selectedOpp.region ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextWorkload}
+                      value={selectedResourceContext?.workload ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextEnvironment}
+                      value={selectedResourceContext?.environment ?? selectedOpp.environment ?? undefined}
+                    />
+                    <MetadataField
+                      label={o.resourceContextOwner}
+                      value={selectedResourceContext?.owner ?? undefined}
+                    />
+                  </div>
+
+                  {(selectedResourceContext?.tags_summary && Object.keys(selectedResourceContext.tags_summary).length > 0) ||
+                  selectedResourceContext?.data_sources.length ? (
+                    <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                      {selectedResourceContext?.tags_summary && Object.keys(selectedResourceContext.tags_summary).length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                            {o.resourceContextTagsSummary}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {Object.entries(selectedResourceContext.tags_summary).map(([key, value]) => (
+                              <span
+                                key={`${key}-${value}`}
+                                className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-gray-600"
+                              >
+                                {key}: {value}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {selectedResourceContext?.data_sources.length ? (
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                            {o.resourceContextDataSources}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedResourceContext.data_sources.map((source) => (
+                              <span
+                                key={source}
+                                className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700"
+                              >
+                                {humanizeToken(source)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -854,6 +990,16 @@ function EvidenceBlock({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
       <p className="mt-1 text-sm leading-relaxed text-gray-700">{value}</p>
+    </div>
+  )
+}
+
+function MetadataField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-gray-900">{value}</p>
     </div>
   )
 }

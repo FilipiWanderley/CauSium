@@ -301,6 +301,24 @@ export interface Translations {
     evidenceWindowDays: string
     calculationBasisLabel: string
     evidenceSummaryLabel: string
+    resourceContextTitle: string
+    resourceContextSubtitle: string
+    resourceContextProvider: string
+    resourceContextSubscription: string
+    resourceContextResourceGroup: string
+    resourceContextResource: string
+    resourceContextResourceType: string
+    resourceContextSku: string
+    resourceContextRegion: string
+    resourceContextWorkload: string
+    resourceContextEnvironment: string
+    resourceContextOwner: string
+    resourceContextTagsSummary: string
+    resourceContextDataSources: string
+    granularityResource: string
+    granularityCluster: string
+    granularitySubscription: string
+    granularityUnknown: string
     rightsizingEvidenceTitle: string
     currentLabel: string
     recommendedLabel: string
@@ -1546,6 +1564,24 @@ export const en: Translations = {
     evidenceWindowDays: '{{days}} days',
     calculationBasisLabel: 'Calculation basis',
     evidenceSummaryLabel: 'Evidence summary',
+    resourceContextTitle: 'Resource Context',
+    resourceContextSubtitle: 'Resource lineage and scope metadata for operational execution.',
+    resourceContextProvider: 'Provider',
+    resourceContextSubscription: 'Subscription',
+    resourceContextResourceGroup: 'Resource group',
+    resourceContextResource: 'Resource',
+    resourceContextResourceType: 'Resource type',
+    resourceContextSku: 'SKU',
+    resourceContextRegion: 'Region',
+    resourceContextWorkload: 'Workload',
+    resourceContextEnvironment: 'Environment',
+    resourceContextOwner: 'Owner',
+    resourceContextTagsSummary: 'Tags summary',
+    resourceContextDataSources: 'Data sources',
+    granularityResource: 'Resource',
+    granularityCluster: 'Cluster',
+    granularitySubscription: 'Subscription',
+    granularityUnknown: 'Unknown',
     rightsizingEvidenceTitle: 'Rightsizing Evidence',
     currentLabel: 'Current',
     recommendedLabel: 'Recommended',
