@@ -50,7 +50,7 @@ type SidebarProps = {
 }
 
 type NavGroup = {
-  id: 'economics' | 'optimization' | 'governance' | 'platform'
+  id: 'financial' | 'optimization' | 'governance' | 'sustainability' | 'operations' | 'administration'
   label: string
   items: NavItem[]
 }
@@ -61,7 +61,7 @@ const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
 const ENTERPRISE_NAV_LINK_CLASS =
   'flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150'
 const ENTERPRISE_ACTIVE_CLASS = 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700/80'
-const ENTERPRISE_INACTIVE_CLASS = 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+const ENTERPRISE_INACTIVE_CLASS = 'text-slate-300 hover:bg-slate-900/80 hover:text-white'
 
 function pathMatches(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`)
@@ -94,14 +94,14 @@ function getEnterpriseGroups(
 ): NavGroup[] {
   return [
     {
-      id: 'economics',
-      label: nav.sectionEconomics,
+      id: 'financial',
+      label: nav.sectionFinancial,
       items: [
         { to: '/app/economics', icon: LayoutDashboard, label: nav.economics },
         { to: '/app/economics/costs', icon: Receipt, label: nav.economicsCosts },
         { to: '/app/economics/usage', icon: BarChart3, label: nav.economicsUsage },
-        { to: '/app/economics/skus', icon: Boxes, label: nav.economicsSkus },
         { to: '/app/economics/reports', icon: FileSpreadsheet, label: nav.economicsReports },
+        { to: '/app/economics/skus', icon: Boxes, label: nav.economicsSkus },
       ],
     },
     {
@@ -110,8 +110,8 @@ function getEnterpriseGroups(
       items: [
         { to: '/app/intel', icon: Lightbulb, label: nav.opportunities },
         { to: '/app/optimization-plan', icon: ListTodo, label: nav.optimizationPlan },
-        { to: '/app/lab', icon: FlaskConical, label: nav.experiments },
         { to: '/app/initiatives', icon: ListTodo, label: nav.initiatives },
+        { to: '/app/lab', icon: FlaskConical, label: nav.experiments },
       ],
     },
     {
@@ -122,17 +122,29 @@ function getEnterpriseGroups(
         { to: '/app/change-events', icon: Activity, label: nav.changeEvents },
         { to: '/app/executive', icon: BarChart3, label: nav.executive },
         { to: '/app/gov', icon: Landmark, label: nav.gov },
+      ],
+    },
+    {
+      id: 'sustainability',
+      label: nav.sectionSustainability,
+      items: [
         { to: '/app/green', icon: Leaf, label: nav.green },
       ],
     },
     {
-      id: 'platform',
-      label: nav.sectionPlatform,
+      id: 'operations',
+      label: nav.sectionOperations,
       items: [
-        { to: '/app/notifications', icon: Bell, label: nav.notifications },
         { to: '/app/cloud', icon: Cloud, label: nav.settingsCloud, hidden: !isAdmin },
-        { to: '/app/members', icon: Users, label: nav.members, hidden: !isAdmin },
+        { to: '/app/notifications', icon: Bell, label: nav.notifications },
+      ],
+    },
+    {
+      id: 'administration',
+      label: nav.sectionAdministration,
+      items: [
         { to: '/app/settings/team', icon: Settings, label: nav.settingsTeam, hidden: !isAdmin },
+        { to: '/app/members', icon: Users, label: nav.members, hidden: !isAdmin },
         { to: '/app/settings/security', icon: Settings, label: nav.settingsSecurity, hidden: !isAdmin },
         { to: '/app/settings', icon: Settings, label: nav.settings },
         { to: '/app/admin/reconciliation', icon: ClipboardCheck, label: nav.adminReconciliation, hidden: !isPlatformAdmin },
@@ -208,10 +220,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const enterpriseShellEnabled = featureFlags.enterpriseShell
   const [sidebarDense, setSidebarDense] = usePersistentBoolean('enterprise-shell:sidebar:dense', true)
-  const [economicsOpen, setEconomicsOpen] = usePersistentBoolean('enterprise-shell:group:economics', true)
+  const [financialOpen, setFinancialOpen] = usePersistentBoolean('enterprise-shell:group:financial', true)
   const [optimizationOpen, setOptimizationOpen] = usePersistentBoolean('enterprise-shell:group:optimization', true)
   const [governanceOpen, setGovernanceOpen] = usePersistentBoolean('enterprise-shell:group:governance', true)
-  const [platformOpen, setPlatformOpen] = usePersistentBoolean('enterprise-shell:group:platform', true)
+  const [sustainabilityOpen, setSustainabilityOpen] = usePersistentBoolean('enterprise-shell:group:sustainability', true)
+  const [operationsOpen, setOperationsOpen] = usePersistentBoolean('enterprise-shell:group:operations', true)
+  const [administrationOpen, setAdministrationOpen] = usePersistentBoolean('enterprise-shell:group:administration', true)
   const navRef = useRef<HTMLDivElement>(null)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
@@ -234,10 +248,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   }, [])
 
   const groupState = {
-    economics: [economicsOpen, setEconomicsOpen] as const,
+    financial: [financialOpen, setFinancialOpen] as const,
     optimization: [optimizationOpen, setOptimizationOpen] as const,
     governance: [governanceOpen, setGovernanceOpen] as const,
-    platform: [platformOpen, setPlatformOpen] as const,
+    sustainability: [sustainabilityOpen, setSustainabilityOpen] as const,
+    operations: [operationsOpen, setOperationsOpen] as const,
+    administration: [administrationOpen, setAdministrationOpen] as const,
   }
 
   return (
@@ -289,7 +305,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <div
           ref={navRef}
           className={clsx(
-            'h-full overflow-y-auto space-y-1 px-2 py-4 scrollbar-dark',
+            'h-full overflow-y-auto space-y-2 px-2 py-4 scrollbar-dark',
             enterpriseShellEnabled && (sidebarDense ? 'px-3 py-3' : 'px-3 py-4'),
           )}
         >
@@ -336,6 +352,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             enterpriseGroups.map((group) => {
               const [open, setOpen] = groupState[group.id]
               const visibleItems = group.items.filter((item) => !item.hidden)
+              if (visibleItems.length === 0) return null
               const hasActiveItem = visibleItems.some((item) => pathMatches(location.pathname, item.to))
               const expanded = open || hasActiveItem
 
@@ -343,18 +360,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 <section
                   key={group.id}
                   className={clsx(
-                    'rounded-2xl border border-transparent px-1 py-1',
-                    hasActiveItem && 'border-slate-800 bg-slate-900/50',
+                    'rounded-2xl border border-slate-900/70 bg-slate-950/30 px-1.5 py-1.5',
+                    hasActiveItem && 'border-slate-800 bg-slate-900/60 shadow-sm',
                   )}
                 >
                   <button
                     type="button"
                     onClick={() => setOpen(!open)}
                     className={clsx(
-                      'flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors',
+                      'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors',
                       hasActiveItem
                         ? 'text-white'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200',
+                        : 'text-slate-500 hover:bg-slate-900 hover:text-slate-200',
                     )}
                   >
                     <span className="flex-1 truncate">{group.label}</span>
@@ -362,7 +379,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   </button>
 
                   {expanded && (
-                    <div className={clsx('mt-1 space-y-1', sidebarDense ? 'pb-1' : 'pb-2')}>
+                    <div className={clsx('mt-1.5 space-y-1', sidebarDense ? 'pb-1' : 'pb-2')}>
                       {visibleItems.map((item) => (
                         <div key={item.to} className={clsx(sidebarDense ? '' : 'px-1')}>
                           <SideNavLink

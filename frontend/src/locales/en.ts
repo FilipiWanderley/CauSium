@@ -2,6 +2,7 @@ export interface Translations {
   nav: {
     economics: string
     sectionEconomics: string
+    sectionFinancial: string
     economicsCosts: string
     economicsUsage: string
     economicsSkus: string
@@ -12,6 +13,9 @@ export interface Translations {
     experiments: string
     notifications: string
     sectionGovernance: string
+    sectionSustainability: string
+    sectionOperations: string
+    sectionAdministration: string
     gov: string
     green: string
     initiatives: string
@@ -1174,18 +1178,22 @@ export interface Translations {
 
 export const en: Translations = {
   nav: {
-    economics: 'Economics',
+    economics: 'Dashboard',
     sectionEconomics: 'Economics',
+    sectionFinancial: 'Financial',
     economicsCosts: 'Costs',
     economicsUsage: 'Usage',
     economicsSkus: 'SKUs',
     economicsReports: 'Reports',
     sectionOptimization: 'Optimization',
-    opportunities: 'PulseIntel',
+    opportunities: 'Opportunities',
     optimizationPlan: 'Optimization Plan',
-    experiments: 'PulseLab',
+    experiments: 'Experiments',
     notifications: 'Notifications',
     sectionGovernance: 'Governance',
+    sectionSustainability: 'Sustainability',
+    sectionOperations: 'Operations',
+    sectionAdministration: 'Administration',
     gov: 'PulseGov',
     green: 'PulseGreen',
     initiatives: 'Initiatives',
@@ -1196,7 +1204,7 @@ export const en: Translations = {
     members: 'Members',
     settings: 'Settings',
     settingsTeam: 'Team',
-    settingsCloud: 'Cloud',
+    settingsCloud: 'Cloud Accounts',
     settingsSecurity: 'Security',
     platformWorkspaces: 'Workspaces',
     platformSync: 'Sync',
