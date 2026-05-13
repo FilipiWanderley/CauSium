@@ -50,43 +50,90 @@ function dominantType(events: ChangeEvent[]): ChangeEventType {
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label }: any) {
+const formatMoney = (value: number, currency: string) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: value >= 100 ? 0 : 2,
+  }).format(value)
+
+const formatAxisValue = (value: number, currency: string) => {
+  if (Math.abs(value) >= 1000) {
+    return `${formatMoney(value / 1000, currency).replace(/\.00(?=\D|$)/, '')}k`
+  }
+  return formatMoney(value, currency).replace(/\.00(?=\D|$)/, '')
+}
+
+function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const point = payload[0]?.payload
   const cost: number = point?.cost_usd ?? 0
   const events: ChangeEvent[] = point?.events ?? []
+  const currency: string = point?.currency ?? 'USD'
+  const previousCost: number | null = typeof point?.previous_cost_usd === 'number' ? point.previous_cost_usd : null
+  const delta = previousCost == null ? null : cost - previousCost
+  const deltaPct = previousCost == null || previousCost === 0 ? null : (delta! / previousCost) * 100
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg text-xs min-w-[180px]">
-      <p className="font-semibold text-gray-700 mb-1">{label}</p>
-      <p className="text-gray-500 mb-2">
-        Cost:{' '}
-        <span className="font-bold text-gray-800">${cost.toLocaleString()}</span>
-      </p>
+    <div className="min-w-[240px] rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Cost trend</p>
+          <p className="mt-1 text-sm font-semibold text-slate-800">{point?.dateFullLabel ?? point?.dateLabel}</p>
+        </div>
+        {events.length > 0 && (
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
+            {events.length} event{events.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Daily cost</div>
+        <div className="mt-1 text-xl font-semibold text-slate-900">{formatMoney(cost, currency)}</div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-lg border border-slate-100 px-3 py-2">
+          <div className="text-slate-400">Prior point</div>
+          <div className="mt-1 font-semibold text-slate-700">
+            {previousCost == null ? '—' : formatMoney(previousCost, currency)}
+          </div>
+        </div>
+        <div className="rounded-lg border border-slate-100 px-3 py-2">
+          <div className="text-slate-400">Delta</div>
+          <div className={delta == null ? 'mt-1 font-semibold text-slate-700' : delta >= 0 ? 'mt-1 font-semibold text-rose-600' : 'mt-1 font-semibold text-emerald-600'}>
+            {delta == null
+              ? '—'
+              : `${delta > 0 ? '+' : ''}${formatMoney(delta, currency)}${deltaPct == null ? '' : ` · ${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%`}`}
+          </div>
+        </div>
+      </div>
+
       {events.length > 0 && (
-        <div className="border-t border-gray-100 pt-2 space-y-1.5">
-          <p className="text-gray-400 font-medium uppercase tracking-wide" style={{ fontSize: 10 }}>
+        <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
             Events on this day
           </p>
           {events.map((ev) => (
-            <div key={ev.id} className="flex items-start gap-1.5">
+            <div key={ev.id} className="flex items-start gap-2">
               <span
-                className="mt-0.5 h-2 w-2 rounded-full shrink-0"
+                className="mt-1 h-2 w-2 rounded-full shrink-0"
                 style={{ backgroundColor: EVENT_COLOR[ev.event_type] }}
               />
               <div>
-                <span style={{ color: EVENT_COLOR[ev.event_type] }} className="font-medium">
+                <span style={{ color: EVENT_COLOR[ev.event_type] }} className="text-[11px] font-semibold">
                   {EVENT_LABEL[ev.event_type]}
                 </span>
-                <p className="text-gray-500 leading-tight">{ev.title}</p>
+                <p className="text-xs leading-tight text-slate-600">{ev.title}</p>
                 {ev.cost_impact_usd != null && (
                   <p
                     className={
-                      ev.cost_impact_usd > 0 ? 'text-red-500 font-semibold' : 'text-green-600 font-semibold'
+                      ev.cost_impact_usd > 0 ? 'text-xs font-semibold text-rose-600' : 'text-xs font-semibold text-emerald-600'
                     }
                   >
-                    {ev.cost_impact_usd > 0 ? '+' : ''}$
-                    {Math.abs(ev.cost_impact_usd).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    {ev.cost_impact_usd > 0 ? '+' : ''}
+                    {formatMoney(ev.cost_impact_usd, currency)}
                   </p>
                 )}
               </div>
@@ -110,15 +157,16 @@ function EventDot(props: any) {
 
   return (
     <g>
-      {/* Pulse ring */}
-      <circle cx={cx} cy={cy} r={10} fill={color} fillOpacity={0.15} />
-      {/* Solid dot */}
-      <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={1.5} />
-      {/* Count badge if > 1 */}
+      <circle cx={cx} cy={cy} r={11} fill={color} fillOpacity={0.08} />
+      <circle cx={cx} cy={cy} r={7} fill="#fff" fillOpacity={0.95} />
+      <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="#fff" strokeWidth={1.5} />
       {count > 1 && (
-        <text x={cx + 7} y={cy - 7} fontSize={9} fill={color} fontWeight={700}>
-          {count}
-        </text>
+        <g transform={`translate(${cx + 7}, ${cy - 10})`}>
+          <circle r={7} fill="#111827" />
+          <text textAnchor="middle" dominantBaseline="central" fontSize={8} fill="#fff" fontWeight={700}>
+            {count}
+          </text>
+        </g>
       )}
     </g>
   )
@@ -155,12 +203,10 @@ interface Props {
   data: CostTrend[]
   events?: ChangeEvent[]
   height?: number
+  currency?: string
 }
 
-const formatUSD = (v: number) =>
-  v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`
-
-export function CostTrendChart({ data, events = [], height = 220 }: Props) {
+export function CostTrendChart({ data, events = [], height = 248, currency = 'USD' }: Props) {
   // Group events by YYYY-MM-DD
   const eventsByDate: Record<string, ChangeEvent[]> = {}
   for (const ev of events) {
@@ -170,72 +216,117 @@ export function CostTrendChart({ data, events = [], height = 220 }: Props) {
   }
 
   // Merge into trend data
-  const formatted = data.map((d) => {
+  const formatted = data.map((d, index) => {
     const dateStr = (d.date as unknown as string).slice(0, 10)
     return {
       ...d,
       dateLabel: format(parseISO(dateStr), 'MMM d'),
+      dateFullLabel: format(parseISO(dateStr), 'MMM d, yyyy'),
+      previous_cost_usd: index > 0 ? data[index - 1].cost_usd : null,
+      currency,
       events: eventsByDate[dateStr] ?? [],
     }
   })
 
   const refEvents = formatted.filter((f) => f.events.length > 0)
+  const averageCost =
+    formatted.length > 0
+      ? formatted.reduce((sum, point) => sum + (point.cost_usd ?? 0), 0) / formatted.length
+      : 0
+  const latestPoint = formatted[formatted.length - 1]
+  const firstPoint = formatted[0]
+  const periodDelta = latestPoint && firstPoint ? latestPoint.cost_usd - firstPoint.cost_usd : 0
+  const periodDeltaPct =
+    latestPoint && firstPoint && firstPoint.cost_usd !== 0
+      ? (periodDelta / firstPoint.cost_usd) * 100
+      : null
 
   return (
-    <>
+    <div className="space-y-3">
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={formatted} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+        <AreaChart data={formatted} margin={{ top: 14, right: 8, left: -10, bottom: 6 }}>
           <defs>
             <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+              <stop offset="0%" stopColor="#2563eb" stopOpacity={0.26} />
+              <stop offset="55%" stopColor="#3b82f6" stopOpacity={0.1} />
               <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="#e5e7eb" />
           <XAxis
             dataKey="dateLabel"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
             interval="preserveStartEnd"
+            minTickGap={24}
+            tickMargin={10}
           />
           <YAxis
-            tickFormatter={formatUSD}
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tickFormatter={(value) => formatAxisValue(value, currency)}
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
-            width={50}
+            width={72}
+            tickMargin={10}
           />
           <Tooltip content={<CustomTooltip />} />
+          {averageCost > 0 && (
+            <ReferenceLine
+              y={averageCost}
+              stroke="#94a3b8"
+              strokeDasharray="4 4"
+              strokeOpacity={0.6}
+            />
+          )}
           {buildRefLines(refEvents)}
           <Area
             type="monotone"
             dataKey="cost_usd"
-            stroke="#3b82f6"
-            strokeWidth={2}
+            stroke="#2563eb"
+            strokeWidth={2.5}
             fill="url(#costGradient)"
             dot={<EventDot />}
-            activeDot={{ r: 5, fill: '#3b82f6' }}
+            activeDot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>
 
-      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs">
+        {latestPoint && (
+          <span className="font-medium text-slate-700">
+            Latest: <span className="text-slate-900">{formatMoney(latestPoint.cost_usd, currency)}</span>
+          </span>
+        )}
+        {formatted.length > 0 && (
+          <span className="text-slate-500">
+            Average: <span className="font-medium text-slate-700">{formatMoney(averageCost, currency)}</span>
+          </span>
+        )}
+        {latestPoint && firstPoint && (
+          <span className={periodDelta >= 0 ? 'text-rose-600' : 'text-emerald-600'}>
+            Period delta: {periodDelta > 0 ? '+' : ''}
+            {formatMoney(periodDelta, currency)}
+            {periodDeltaPct == null ? '' : ` · ${periodDeltaPct > 0 ? '+' : ''}${periodDeltaPct.toFixed(1)}%`}
+          </span>
+        )}
+      </div>
+
       {events.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-slate-100 pt-3">
           {(Object.keys(EVENT_COLOR) as ChangeEventType[])
             .filter((t) => events.some((e) => e.event_type === t))
             .map((t) => (
               <div key={t} className="flex items-center gap-1.5">
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2 w-2 rounded-full"
                   style={{ backgroundColor: EVENT_COLOR[t] }}
                 />
-                <span className="text-xs text-gray-500">{EVENT_LABEL[t]}</span>
+                <span className="text-[11px] text-slate-500">{EVENT_LABEL[t]}</span>
               </div>
             ))}
         </div>
       )}
-    </>
+    </div>
   )
 }

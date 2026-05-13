@@ -5,7 +5,6 @@ import { Activity, Cloud, DollarSign, TrendingUp, AlertTriangle, RefreshCw, Sett
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
-import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
 import { ReconciliationBadge } from '../../components/UX/ReconciliationBadge'
 import { ledgerApi } from '../../api/ledger'
@@ -526,7 +525,7 @@ export function DashboardPage() {
     : undefined
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {explainOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl">
@@ -616,17 +615,9 @@ export function DashboardPage() {
           {/* Left: Title + contextual metadata */}
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-gray-900">{d.title}</h1>
-            <p className="text-xs text-gray-500 mt-0.5">{d.subtitle}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
-              <span className="inline-flex items-center gap-1">
-                <Cloud className="h-3 w-3" />
-                {providerLabelMap[providerFilter]}
-              </span>
               {(subscriptionsData?.subscription_count ?? 0) > 0 && (
-                <>
-                  <span className="text-gray-300">·</span>
-                  <span>{d.consolidatedScope.replace('{{count}}', String(subscriptionsData?.subscription_count ?? 0))}</span>
-                </>
+                <span>{d.consolidatedScope.replace('{{count}}', String(subscriptionsData?.subscription_count ?? 0))}</span>
               )}
               {(() => {
                 const syncTimes = (accounts ?? [])
@@ -637,7 +628,7 @@ export function DashboardPage() {
                   : null
                 return latest ? (
                   <>
-                    <span className="text-gray-300">·</span>
+                    {(subscriptionsData?.subscription_count ?? 0) > 0 && <span className="text-gray-300">·</span>}
                     <FreshnessIndicator label={latest.toLocaleString()} variant="muted" />
                   </>
                 ) : null
@@ -784,18 +775,17 @@ export function DashboardPage() {
       )}
 
       {/* KPI cards */}
-      <div className="space-y-4">
-        <SectionIntro
-          title={d.financialOverview}
-          subtitle={d.financialOverviewSubtitle}
-          freshness={ux.freshnessSnapshot}
-          badges={[
-            { label: d.financialMetric, tone: 'financial' },
-            { label: subscriptionId ? d.subscriptionScoped : d.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
-            { label: d.billingContext, tone: 'billing' },
-          ]}
-        />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">{d.financialOverview}</h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {subscriptionId ? d.subscriptionScoped : d.organizationWide}
+            </p>
+          </div>
+          {ux.freshnessSnapshot && <FreshnessIndicator label={ux.freshnessSnapshot} />}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             title={d.currentMonthCost}
             value={fmtCost(metrics?.current_month_cost ?? 0)}
@@ -848,29 +838,13 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* Billing transparency context */}
-        {metrics && (metrics.data_min_date || metrics.data_max_date) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-2">
-            {metrics.data_min_date && metrics.data_max_date && (
-              <span>{ux.billingDataRange.replace('{{start}}', metrics.data_min_date).replace('{{end}}', metrics.data_max_date)}</span>
-            )}
-            {(metrics.subscriptions_included ?? 0) > 0 && (
-              <span>{ux.billingSubscriptions.replace('{{count}}', String(metrics.subscriptions_included))}</span>
-            )}
-            <span>{ux.costBasisActualPreTax}</span>
-            {metrics.billing_currency && (
-              <span>{ux.billingCurrency.replace('{{currency}}', metrics.billing_currency)}</span>
-            )}
-          </div>
-        )}
-
-        {/* Sync visibility & reconciliation health */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs text-gray-500">
           <ReconciliationBadge status={reconciliationStatus} />
+          {metrics && metrics.data_min_date && metrics.data_max_date && (
+            <span>{ux.billingDataRange.replace('{{start}}', metrics.data_min_date).replace('{{end}}', metrics.data_max_date)}</span>
+          )}
           {metrics?.data_max_date && (
-            <span className="text-xs text-gray-500">
-              {ux.integrityDataThrough.replace('{{date}}', metrics.data_max_date)}
-            </span>
+            <span>{ux.integrityDataThrough.replace('{{date}}', metrics.data_max_date)}</span>
           )}
           {(() => {
             const syncTimes = (accounts ?? [])
@@ -880,12 +854,10 @@ export function DashboardPage() {
               ? new Date(Math.max(...syncTimes.map((t) => new Date(t).getTime())))
               : null
             return latest ? (
-              <span className="text-xs text-gray-500">
-                {ux.integrityLastSync.replace('{{time}}', latest.toLocaleString())}
-              </span>
+              <span>{ux.integrityLastSync.replace('{{time}}', latest.toLocaleString())}</span>
             ) : null
           })()}
-          <span className="text-xs text-gray-500">{ux.integrityBillingPeriod}</span>
+          {metrics?.billing_currency && <span>{ux.billingCurrency.replace('{{currency}}', metrics.billing_currency)}</span>}
         </div>
 
         {/* Contextual integrity alerts */}
@@ -909,29 +881,26 @@ export function DashboardPage() {
         )}
       </div>
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={d.operationsSection}
-          subtitle={d.operationsSectionSubtitle}
-          freshness={ux.freshnessRecent}
-          badges={[
-            { label: d.operationalMetric, tone: 'operational' },
-            { label: d.organizationWide, tone: 'organization' },
-          ]}
-        />
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">{d.operationsSection}</h2>
+          </div>
+          {ux.freshnessRecent && <FreshnessIndicator label={ux.freshnessRecent} />}
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">{d.monitoringVsBaseline}</h2>
               <p className="mt-1 text-xs text-gray-500">{d.partialUntilLastSync}</p>
             </div>
             {!todayHasData && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+              <span className="text-xs font-medium text-amber-700">
                 {d.billingProcessingPending}
               </span>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
               <div className="text-xs uppercase tracking-wide text-gray-500">{d.todayCost}</div>
               <div className="mt-1 text-xl font-semibold text-gray-900">{fmtCost(todayCost)}</div>
@@ -974,17 +943,13 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={d.optimizationSection}
-          subtitle={d.optimizationSectionSubtitle}
-          freshness={ux.freshnessRefreshes}
-          badges={[
-            { label: d.financialMetric, tone: 'financial' },
-            { label: d.billingContext, tone: 'billing' },
-            { label: subscriptionId ? d.subscriptionScoped : d.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
-          ]}
-        />
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">{d.optimizationSection}</h2>
+          </div>
+          {ux.freshnessRefreshes && <FreshnessIndicator label={ux.freshnessRefreshes} />}
+        </div>
 
         {/* Budget widget — SP-EC01 */}
         <div ref={budgetSectionRef}>
@@ -992,63 +957,10 @@ export function DashboardPage() {
         </div>
 
         {/* AI Insights + Cost Anomalies */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-3">
-              <h2 className="text-sm font-semibold text-gray-900">{d.insightsTitle}</h2>
-              <p className="mt-1 text-xs text-gray-500">{d.insightsSubtitle}</p>
-            </div>
-
-            {intelInsightsLoading ? (
-              <div className="flex h-40 items-center justify-center">
-                <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-              </div>
-            ) : intelInsightsError || !insightsDisplayData ? (
-              <div className="flex h-40 items-center justify-center text-sm text-gray-400">
-                {d.insightsUnavailable}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {d.insightsTopSaving}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.top_saving_opportunity}</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {d.insightsMainRisk}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.main_risk}</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {d.insightsTrend}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.cost_trend_summary}</p>
-                </div>
-                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
-                    {d.insightsAction}
-                  </p>
-                  <p className="mt-1 text-sm text-violet-900">{insightsDisplayData.recommended_action}</p>
-                  <p className="mt-2 text-xs text-violet-700">
-                    {d.insightsConfidence}: {Math.round(insightsDisplayData.confidence * 100)}%
-                    {insightsDisplayData.model && !['mock', 'rules', 'rule-based'].includes(insightsDisplayData.model)
-                      ? ` · ${insightsDisplayData.model}`
-                      : ` · ${d.insightsModelRuleBased}`}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:col-span-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">{d.anomaliesTitle}</h2>
-                <p className="mt-1 text-xs text-gray-500">{d.anomaliesSubtitle}</p>
-              </div>
+              <h2 className="text-sm font-semibold text-gray-900">{d.anomaliesTitle}</h2>
               <button
                 type="button"
                 className="text-xs text-brand-600 hover:underline"
@@ -1096,11 +1008,60 @@ export function DashboardPage() {
               </div>
             )}
           </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:col-span-8">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">{d.insightsTitle}</h2>
+            </div>
+
+            {intelInsightsLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+              </div>
+            ) : intelInsightsError || !insightsDisplayData ? (
+              <div className="flex h-40 items-center justify-center text-sm text-gray-400">
+                {d.insightsUnavailable}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsTopSaving}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.top_saving_opportunity}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsMainRisk}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.main_risk}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {d.insightsTrend}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-800">{insightsDisplayData.cost_trend_summary}</p>
+                </div>
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                    {d.insightsAction}
+                  </p>
+                  <p className="mt-1 text-sm text-violet-900">{insightsDisplayData.recommended_action}</p>
+                  <p className="mt-2 text-xs text-violet-700">
+                    {d.insightsConfidence}: {Math.round(insightsDisplayData.confidence * 100)}%
+                    {insightsDisplayData.model && !['mock', 'rules', 'rule-based'].includes(insightsDisplayData.model)
+                      ? ` · ${insightsDisplayData.model}`
+                      : ` · ${d.insightsModelRuleBased}`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">        {/* Cost trend + change events overlay */}
-        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">        {/* Cost trend + change events overlay */}
+        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">{d.costTrend}</h2>
             {recentEvents.length > 0 && (
@@ -1112,7 +1073,7 @@ export function DashboardPage() {
             )}
           </div>
           {metrics?.daily_trend && metrics.daily_trend.length > 0 ? (
-            <CostTrendChart data={metrics.daily_trend} events={recentEvents} />
+            <CostTrendChart data={metrics.daily_trend} events={recentEvents} currency={effectiveCurrency} height={264} />
           ) : (
             <div className="flex h-48 items-center justify-center text-sm text-gray-400">
               {d.noCostData}
@@ -1121,7 +1082,7 @@ export function DashboardPage() {
         </div>
 
         {/* Top services */}
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-900">{d.topServices}</h2>
           {metrics?.top_services && metrics.top_services.length > 0 ? (
             <ul className="space-y-3">
@@ -1150,14 +1111,14 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold text-gray-900">{d.reservationsTitle}</h2>
               {highPriorityCount > 0 && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                <span className="text-xs font-medium text-red-700">
                   {d.reservationsHighBadge.replace('{{count}}', String(highPriorityCount))}
                 </span>
               )}
@@ -1211,7 +1172,7 @@ export function DashboardPage() {
         </div>
 
         {/* Recent change events feed */}
-        <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="col-span-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-900">{d.recentChanges}</h2>
             <button
@@ -1236,7 +1197,7 @@ export function DashboardPage() {
         </div>
 
         {/* Accounts table */}
-        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-900">{d.connectedAccounts}</h2>
           {filteredAccounts.length > 0 ? (
             <div className="relative overflow-hidden rounded-lg">
