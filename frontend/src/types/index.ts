@@ -280,6 +280,30 @@ export type RiskLevel = 'low' | 'medium' | 'high'
 export type EffortLevel = 'low' | 'medium' | 'high'
 export type OpportunityStatus = 'open' | 'in_progress' | 'resolved' | 'dismissed' | 'validated'
 
+export type SavingsMethodology =
+  | 'deterministic_sku_ratio'
+  | 'deterministic_node_reduction'
+  | 'deterministic_autoscaler'
+  | 'heuristic_category_rate'
+
+export type ConfidenceTier = 'high' | 'medium' | 'low' | 'insufficient'
+
+export interface SavingsEvidence {
+  current_monthly_cost_estimate: number
+  projected_monthly_cost_estimate: number | null
+  estimated_monthly_savings: number
+  estimated_annual_savings: number
+  savings_confidence: number
+  confidence_tier: ConfidenceTier
+  calculation_basis: string
+  evidence_summary: string
+  evidence_window_days: number | null
+  risk_level: RiskLevel
+  safety_margin_applied: boolean
+  methodology: SavingsMethodology
+  limitations: string[]
+}
+
 export interface Opportunity {
   id: string
   org_id: string
@@ -309,6 +333,7 @@ export interface Opportunity {
   score_rationale: string | null
   playbook: string | null
   decision_evidence: OpportunityDecisionEvidence | null
+  savings_evidence: SavingsEvidence | null
   created_at: string
 }
 

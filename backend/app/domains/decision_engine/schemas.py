@@ -13,6 +13,29 @@ from app.domains.decision_engine.models import (
 )
 
 
+class SavingsEvidence(BaseModel):
+    """Structured savings evidence projection — computed at read time, no DB storage."""
+
+    current_monthly_cost_estimate: float
+    projected_monthly_cost_estimate: float | None = None
+    estimated_monthly_savings: float
+    estimated_annual_savings: float
+    savings_confidence: float  # 0.0–1.0
+    confidence_tier: Literal["high", "medium", "low", "insufficient"]
+    calculation_basis: str
+    evidence_summary: str
+    evidence_window_days: int | None = None
+    risk_level: RiskLevel
+    safety_margin_applied: bool
+    methodology: Literal[
+        "deterministic_sku_ratio",
+        "deterministic_node_reduction",
+        "deterministic_autoscaler",
+        "heuristic_category_rate",
+    ]
+    limitations: list[str]
+
+
 class OpportunityDecisionEvidence(BaseModel):
     cpu_p95: float | None = None
     memory_p95: float | None = None
@@ -84,6 +107,7 @@ class OpportunityOut(BaseModel):
     score_rationale: str | None
     playbook: str | None
     decision_evidence: OpportunityDecisionEvidence | None
+    savings_evidence: SavingsEvidence | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
