@@ -1290,6 +1290,8 @@ export interface Translations {
     refresh: string
     readOnlyBannerTitle: string
     readOnlyBannerBody: string
+    integrationHealthTitle: string
+    integrationHealthSubtitle: string
   }
   ux: {
     freshnessRecent: string
@@ -2576,6 +2578,8 @@ export const en: Translations = {
     refresh: 'Refresh',
     readOnlyBannerTitle: 'Read-only platform mode',
     readOnlyBannerBody: 'CauSium only reads tenant data and suggests actions. Nothing is executed automatically.',
+    integrationHealthTitle: 'Cloud Integration Health',
+    integrationHealthSubtitle: 'Real-time assessment of telemetry coverage and recommendation engine readiness.',
   },
   login: {
     back: 'Back',

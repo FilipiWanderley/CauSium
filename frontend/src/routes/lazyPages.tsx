@@ -91,6 +91,9 @@ export const SloPage = lazyWithPreload(() =>
 export const ReconciliationPage = lazyWithPreload(() =>
   import('../pages/Reconciliation/ReconciliationPage').then((m) => ({ default: m.ReconciliationPage }))
 )
+export const IntegrationHealthPage = lazyWithPreload(() =>
+  import('../pages/Platform/IntegrationHealthPage').then((m) => ({ default: m.IntegrationHealthPage }))
+)
 
 const PRELOAD_BY_PATH: Array<[string, () => Promise<unknown>]> = [
   ['/login', LoginPage.preload],
@@ -126,6 +129,7 @@ const PRELOAD_BY_PATH: Array<[string, () => Promise<unknown>]> = [
   ['/app/platform/sync', SyncStatusPage.preload],
   ['/app/platform/slo', SloPage.preload],
   ['/app/admin/reconciliation', ReconciliationPage.preload],
+  ['/app/platform/integration-health', IntegrationHealthPage.preload],
 ]
 
 export function preloadRoute(path: string): void {

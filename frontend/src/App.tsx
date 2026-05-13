@@ -16,6 +16,7 @@ import {
   GovPage,
   GreenPage,
   InitiativesPage,
+  IntegrationHealthPage,
   LoginPage,
   MembersPage,
   NotificationsPage,
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="settings/security" element={lazyRoute(<SettingsPage />)} />
           <Route path="platform/workspaces" element={lazyRoute(<WorkspacesPage />)} />
           <Route path="platform/sync" element={lazyRoute(<SyncStatusPage />)} />
+          <Route path="platform/integration-health" element={lazyRoute(<IntegrationHealthPage />)} />
           <Route path="platform/slo" element={lazyRoute(<SloPage />)} />
           <Route path="admin/reconciliation" element={lazyRoute(<ReconciliationPage />)} />
         </Route>

@@ -1235,6 +1235,8 @@ export const pt: Translations = {
     refresh: 'Atualizar',
     readOnlyBannerTitle: 'Plataforma em modo somente leitura',
     readOnlyBannerBody: 'A CauSium apenas lê dados do tenant e sugere ações. Nada é executado automaticamente.',
+    integrationHealthTitle: 'Saúde da Integração Cloud',
+    integrationHealthSubtitle: 'Avaliação em tempo real da cobertura de telemetria e prontidão dos engines de recomendação.',
   },
   login: {
     back: 'Voltar',
