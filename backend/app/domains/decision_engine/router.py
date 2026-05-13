@@ -72,6 +72,34 @@ async def get_summary(
     return await service.get_summary(current_user.org_id)
 
 
+@router.get("/export/csv")
+async def export_opportunities_csv(
+    status_filter: Optional[OpportunityStatus] = Query(None, alias="status"),
+    category: Optional[OpportunityCategory] = None,
+    owner_team: Optional[str] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+):
+    """Export opportunities as CSV. Tenant-isolated, auditable."""
+    service = DecisionEngineService(db)
+    opps, _ = await service.list_opportunities(
+        current_user.org_id,
+        status=status_filter,
+        category=category,
+        owner_team=owner_team,
+        limit=5000,
+        offset=0,
+    )
+    csv_content = generate_csv_content(opps)
+    return Response(
+        content=csv_content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": "attachment; filename=opportunities_export.csv",
+        },
+    )
+
+
 @router.post("", response_model=OpportunityOut, status_code=status.HTTP_201_CREATED)
 async def create_opportunity(
     req: OpportunityCreate,
@@ -147,31 +175,3 @@ async def generate_opportunities(
     service = DecisionEngineService(db)
     opps = await service.generate_opportunities_for_account(current_user.org_id, account_id)
     return [_enrich_opportunity(OpportunityOut.model_validate(o), o) for o in opps]
-
-
-@router.get("/export/csv")
-async def export_opportunities_csv(
-    status_filter: Optional[OpportunityStatus] = Query(None, alias="status"),
-    category: Optional[OpportunityCategory] = None,
-    owner_team: Optional[str] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
-    current_user=Depends(get_current_user),
-):
-    """Export opportunities as CSV. Tenant-isolated, auditable."""
-    service = DecisionEngineService(db)
-    opps, _ = await service.list_opportunities(
-        current_user.org_id,
-        status=status_filter,
-        category=category,
-        owner_team=owner_team,
-        limit=5000,
-        offset=0,
-    )
-    csv_content = generate_csv_content(opps)
-    return Response(
-        content=csv_content.encode("utf-8"),
-        media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": "attachment; filename=opportunities_export.csv",
-        },
-    )
