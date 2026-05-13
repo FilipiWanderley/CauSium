@@ -279,11 +279,28 @@ export interface Translations {
     riskLow: string
     riskMedium: string
     riskHigh: string
+    confidenceHigh: string
+    confidenceMedium: string
+    confidenceLow: string
+    confidenceInsufficient: string
+    notAvailable: string
     executionOwnershipHint: string
     markInReview: string
     markApproved: string
     markValidated: string
     markDismissed: string
+    savingsEvidenceTitle: string
+    savingsEvidenceSubtitle: string
+    savingsEvidenceUnavailable: string
+    currentMonthlyCostEstimate: string
+    projectedMonthlyCostEstimate: string
+    estimatedSavingsEvidence: string
+    confidenceTierLabel: string
+    riskLevelEvidence: string
+    evidenceWindowLabel: string
+    evidenceWindowDays: string
+    calculationBasisLabel: string
+    evidenceSummaryLabel: string
     rightsizingEvidenceTitle: string
     currentLabel: string
     recommendedLabel: string
@@ -1507,11 +1524,28 @@ export const en: Translations = {
     riskLow: 'Low',
     riskMedium: 'Medium',
     riskHigh: 'High',
+    confidenceHigh: 'High',
+    confidenceMedium: 'Medium',
+    confidenceLow: 'Low',
+    confidenceInsufficient: 'Insufficient',
+    notAvailable: 'Not available',
     executionOwnershipHint: 'Execution is external to the platform and owned by the client team.',
     markInReview: 'Mark as under review',
     markApproved: 'Mark as approved/executed',
     markValidated: 'Mark as validated',
     markDismissed: 'Mark as dismissed',
+    savingsEvidenceTitle: 'Savings Evidence',
+    savingsEvidenceSubtitle: 'Deterministic financial evidence for recommendation auditability.',
+    savingsEvidenceUnavailable: 'Financial evidence is not available for this recommendation yet.',
+    currentMonthlyCostEstimate: 'Current monthly cost',
+    projectedMonthlyCostEstimate: 'Projected monthly cost',
+    estimatedSavingsEvidence: 'Estimated savings',
+    confidenceTierLabel: 'Confidence tier',
+    riskLevelEvidence: 'Risk level',
+    evidenceWindowLabel: 'Evidence window',
+    evidenceWindowDays: '{{days}} days',
+    calculationBasisLabel: 'Calculation basis',
+    evidenceSummaryLabel: 'Evidence summary',
     rightsizingEvidenceTitle: 'Rightsizing Evidence',
     currentLabel: 'Current',
     recommendedLabel: 'Recommended',

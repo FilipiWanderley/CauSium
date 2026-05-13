@@ -6,7 +6,7 @@ import { OpportunityCard } from '../../components/Cards/OpportunityCard'
 import { opportunitiesApi } from '../../api/opportunities'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { useI18n } from '../../contexts/I18nContext'
-import type { Opportunity, OpportunityStatus, RiskLevel } from '../../types'
+import type { ConfidenceTier, Opportunity, OpportunityStatus, RiskLevel } from '../../types'
 import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
 import { usePersistentString } from '../../hooks/usePersistentBoolean'
 
@@ -32,6 +32,13 @@ const RISK_COLORS: Record<RiskLevel, string> = {
   high: 'bg-red-50 text-red-700',
 }
 
+const CONFIDENCE_COLORS: Record<ConfidenceTier, string> = {
+  high: 'bg-slate-100 text-slate-700',
+  medium: 'bg-slate-50 text-slate-600',
+  low: 'bg-amber-50 text-amber-700',
+  insufficient: 'bg-gray-100 text-gray-600',
+}
+
 function humanizeToken(value: string) {
   return value
     .split('_')
@@ -54,6 +61,32 @@ function formatOpportunityTimestamp(value: string, lang: 'pt' | 'en') {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`
+}
+
+function getFallbackConfidenceTier(value: number | null | undefined): ConfidenceTier {
+  if (value == null) return 'insufficient'
+  if (value >= 0.8) return 'high'
+  if (value >= 0.55) return 'medium'
+  return 'low'
+}
+
+function getOpportunityConfidenceTier(opportunity: Opportunity): ConfidenceTier {
+  return (
+    opportunity.savings_evidence?.confidence_tier ??
+    getFallbackConfidenceTier(opportunity.savings_evidence?.savings_confidence ?? opportunity.decision_evidence?.confidence)
+  )
+}
+
+function getOpportunityConfidenceScore(opportunity: Opportunity) {
+  return opportunity.savings_evidence?.savings_confidence ?? opportunity.decision_evidence?.confidence ?? null
+}
+
+function getOpportunityRiskLevel(opportunity: Opportunity): RiskLevel {
+  return opportunity.savings_evidence?.risk_level ?? opportunity.decision_evidence?.risk_level ?? opportunity.risk_level
 }
 
 function inferOpportunityProvider(opportunity: Opportunity): ProviderKey {
@@ -163,6 +196,7 @@ export function OpportunitiesPage() {
   const selectedMachineSku = selectedOpp?.sku_name ?? o.unknownResource
   const selectedMachineFamily = selectedOpp?.machine_family ?? o.unknownResource
   const selectedEvidence = selectedOpp?.decision_evidence
+  const selectedSavingsEvidence = selectedOpp?.savings_evidence
   const selectedIsAksAutoscaler = selectedOpp?.category === 'aks_autoscaler_recommendation'
   const selectedIsAksEvidence =
     selectedEvidence?.resource_type === 'aks_node_pool' ||
@@ -180,6 +214,12 @@ export function OpportunitiesPage() {
     low: o.riskLow,
     medium: o.riskMedium,
     high: o.riskHigh,
+  }
+  const confidenceTierLabels: Record<ConfidenceTier, string> = {
+    high: o.confidenceHigh,
+    medium: o.confidenceMedium,
+    low: o.confidenceLow,
+    insufficient: o.confidenceInsufficient,
   }
   const providerLabels: Record<ProviderKey, string> = {
     azure: o.providerAzure,
@@ -319,10 +359,11 @@ export function OpportunitiesPage() {
                 {opportunities.map((op) => {
                   const provider = inferOpportunityProvider(op)
                   const scope = getOpportunityScope(op, o.unknownResource)
-                  const confidencePct = op.decision_evidence?.confidence != null
-                    ? `${Math.round(op.decision_evidence.confidence * 100)}%`
-                    : '—'
+                  const confidenceScore = getOpportunityConfidenceScore(op)
+                  const confidenceTier = getOpportunityConfidenceTier(op)
+                  const riskLevel = getOpportunityRiskLevel(op)
                   const categoryLabel = categoryLabels[op.category] ?? humanizeToken(op.category)
+                  const savingsEvidence = op.savings_evidence
 
                   return (
                     <tr
@@ -339,7 +380,7 @@ export function OpportunitiesPage() {
                             <span className="text-gray-300">•</span>
                             <span>{providerLabels[provider]}</span>
                             <span className="text-gray-300">•</span>
-                            <span>{riskLabels[op.risk_level]}</span>
+                            <span>{riskLabels[riskLevel]}</span>
                           </div>
                         </div>
                       </td>
@@ -359,16 +400,31 @@ export function OpportunitiesPage() {
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold text-emerald-700">
-                          {fmt(op.estimated_monthly_savings_usd)}
+                          {fmt(savingsEvidence?.estimated_monthly_savings ?? op.estimated_monthly_savings_usd)}
                         </div>
-                        <div className="mt-1 text-xs text-gray-400">
-                          {fmt(op.estimated_annual_savings_usd)}/yr
+                        {savingsEvidence?.current_monthly_cost_estimate != null && savingsEvidence.projected_monthly_cost_estimate != null ? (
+                          <div className="mt-1 text-xs text-gray-400">
+                            {fmt(savingsEvidence.current_monthly_cost_estimate)} {'->'} {fmt(savingsEvidence.projected_monthly_cost_estimate)}
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-xs text-gray-400">
+                            {fmt(op.estimated_annual_savings_usd)}/yr
+                          </div>
+                        )}
+                      </td>
+                      <td className="hidden px-4 py-3 align-top lg:table-cell">
+                        <div className="flex min-w-[120px] flex-col gap-1">
+                          <span className={clsx('inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium', CONFIDENCE_COLORS[confidenceTier])}>
+                            {confidenceTierLabels[confidenceTier]}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {confidenceScore != null ? formatPercent(confidenceScore) : o.notAvailable}
+                          </span>
                         </div>
                       </td>
-                      <td className="hidden px-4 py-3 align-top text-gray-700 lg:table-cell">{confidencePct}</td>
                       <td className="hidden px-4 py-3 align-top md:table-cell">
-                        <span className={clsx('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', RISK_COLORS[op.risk_level])}>
-                          {riskLabels[op.risk_level]}
+                        <span className={clsx('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', RISK_COLORS[riskLevel])}>
+                          {riskLabels[riskLevel]}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-top">
@@ -540,7 +596,7 @@ export function OpportunitiesPage() {
                 <div className="rounded-lg bg-green-50 p-3">
                   <p className="text-xs text-gray-500">{o.monthlySavings}</p>
                   <p className="text-lg font-bold text-green-700">
-                    {fmt(selectedOpp.estimated_monthly_savings_usd)}
+                    {fmt(selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}
                   </p>
                 </div>
                 <div className="rounded-lg bg-blue-50 p-3">
@@ -549,6 +605,83 @@ export function OpportunitiesPage() {
                     {selectedOpp.composite_score.toFixed(1)}/100
                   </p>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900">{o.savingsEvidenceTitle}</h4>
+                    <p className="mt-1 text-xs text-gray-500">{o.savingsEvidenceSubtitle}</p>
+                  </div>
+                  {selectedSavingsEvidence && (
+                    <span
+                      className={clsx(
+                        'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                        CONFIDENCE_COLORS[getOpportunityConfidenceTier(selectedOpp)],
+                      )}
+                    >
+                      {confidenceTierLabels[getOpportunityConfidenceTier(selectedOpp)]}
+                    </span>
+                  )}
+                </div>
+
+                {selectedSavingsEvidence ? (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <EvidenceMetric
+                        label={o.currentMonthlyCostEstimate}
+                        value={fmt(selectedSavingsEvidence.current_monthly_cost_estimate)}
+                      />
+                      <EvidenceMetric
+                        label={o.projectedMonthlyCostEstimate}
+                        value={
+                          selectedSavingsEvidence.projected_monthly_cost_estimate != null
+                            ? fmt(selectedSavingsEvidence.projected_monthly_cost_estimate)
+                            : o.notAvailable
+                        }
+                      />
+                      <EvidenceMetric
+                        label={o.estimatedSavingsEvidence}
+                        value={fmt(selectedSavingsEvidence.estimated_monthly_savings)}
+                      />
+                      <EvidenceMetric
+                        label={o.confidenceTierLabel}
+                        value={`${confidenceTierLabels[selectedSavingsEvidence.confidence_tier]}${
+                          selectedSavingsEvidence.savings_confidence != null
+                            ? ` · ${formatPercent(selectedSavingsEvidence.savings_confidence)}`
+                            : ''
+                        }`}
+                      />
+                      <EvidenceMetric
+                        label={o.riskLevelEvidence}
+                        value={riskLabels[selectedSavingsEvidence.risk_level]}
+                      />
+                      <EvidenceMetric
+                        label={o.evidenceWindowLabel}
+                        value={
+                          selectedSavingsEvidence.evidence_window_days != null
+                            ? o.evidenceWindowDays.replace('{{days}}', String(selectedSavingsEvidence.evidence_window_days))
+                            : o.notAvailable
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-3 border-t border-slate-200 pt-4">
+                      <EvidenceBlock
+                        label={o.calculationBasisLabel}
+                        value={selectedSavingsEvidence.calculation_basis}
+                      />
+                      <EvidenceBlock
+                        label={o.evidenceSummaryLabel}
+                        value={selectedSavingsEvidence.evidence_summary}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-white p-3 text-sm text-gray-500">
+                    {o.savingsEvidenceUnavailable}
+                  </div>
+                )}
               </div>
 
               {selectedOpp.score_rationale && (
@@ -592,14 +725,14 @@ export function OpportunitiesPage() {
                       </p>
                       <p>
                         {o.monthlySavingsLabel}:{' '}
-                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
+                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
                         {'  '}·{'  '}
                         {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
                       </p>
                       <p>
-                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
+                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? selectedSavingsEvidence?.savings_confidence ?? 0) * 100)}%</strong>
                         {'  '}·{'  '}
-                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
+                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedSavingsEvidence?.risk_level ?? selectedOpp.risk_level}</strong>
                       </p>
                       {selectedEvidence.reason && (
                         <p>
@@ -642,14 +775,14 @@ export function OpportunitiesPage() {
                       </p>
                       <p>
                         {o.monthlySavingsLabel}:{' '}
-                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
+                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
                         {'  '}·{'  '}
                         {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
                       </p>
                       <p>
-                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? 0) * 100)}%</strong>
+                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? selectedSavingsEvidence?.savings_confidence ?? 0) * 100)}%</strong>
                         {'  '}·{'  '}
-                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedOpp.risk_level}</strong>
+                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedSavingsEvidence?.risk_level ?? selectedOpp.risk_level}</strong>
                       </p>
                       {selectedIsAksAutoscaler && (
                         <p>
@@ -703,6 +836,24 @@ export function OpportunitiesPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function EvidenceMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-gray-900">{value}</p>
+    </div>
+  )
+}
+
+function EvidenceBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-sm leading-relaxed text-gray-700">{value}</p>
     </div>
   )
 }
