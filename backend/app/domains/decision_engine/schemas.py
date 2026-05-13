@@ -36,6 +36,26 @@ class SavingsEvidence(BaseModel):
     limitations: list[str]
 
 
+class ResourceContext(BaseModel):
+    """Normalized resource granularity projection — computed at read time, no DB storage."""
+
+    provider: str | None = None
+    subscription_id: str | None = None
+    subscription_name: str | None = None
+    resource_group: str | None = None
+    resource_type: str | None = None
+    resource_name: str | None = None
+    sku: str | None = None
+    sku_tier: str | None = None
+    region: str | None = None
+    environment: str | None = None
+    owner: str | None = None
+    workload: str | None = None
+    tags_summary: dict[str, str] | None = None
+    granularity_tier: Literal["resource", "service", "subscription", "unknown"]
+    data_sources: list[str]
+
+
 class OpportunityDecisionEvidence(BaseModel):
     cpu_p95: float | None = None
     memory_p95: float | None = None
@@ -108,6 +128,7 @@ class OpportunityOut(BaseModel):
     playbook: str | None
     decision_evidence: OpportunityDecisionEvidence | None
     savings_evidence: SavingsEvidence | None = None
+    resource_context: ResourceContext | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

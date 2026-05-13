@@ -288,6 +288,8 @@ export type SavingsMethodology =
 
 export type ConfidenceTier = 'high' | 'medium' | 'low' | 'insufficient'
 
+export type GranularityTier = 'resource' | 'service' | 'subscription' | 'unknown'
+
 export interface SavingsEvidence {
   current_monthly_cost_estimate: number
   projected_monthly_cost_estimate: number | null
@@ -302,6 +304,24 @@ export interface SavingsEvidence {
   safety_margin_applied: boolean
   methodology: SavingsMethodology
   limitations: string[]
+}
+
+export interface ResourceContext {
+  provider: string | null
+  subscription_id: string | null
+  subscription_name: string | null
+  resource_group: string | null
+  resource_type: string | null
+  resource_name: string | null
+  sku: string | null
+  sku_tier: string | null
+  region: string | null
+  environment: string | null
+  owner: string | null
+  workload: string | null
+  tags_summary: Record<string, string> | null
+  granularity_tier: GranularityTier
+  data_sources: string[]
 }
 
 export interface Opportunity {
@@ -334,6 +354,7 @@ export interface Opportunity {
   playbook: string | null
   decision_evidence: OpportunityDecisionEvidence | null
   savings_evidence: SavingsEvidence | null
+  resource_context: ResourceContext | null
   created_at: string
 }
 

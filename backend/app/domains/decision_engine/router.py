@@ -12,6 +12,7 @@ from app.domains.auth.models import UserRole
 from app.domains.decision_engine.explanation_service import OpportunityExplanationService
 from app.domains.decision_engine.models import OpportunityCategory, OpportunityStatus
 from app.domains.decision_engine.savings_evidence_builder import build_savings_evidence
+from app.domains.decision_engine.resource_context_builder import build_resource_context
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
     OpportunityOut,
@@ -24,11 +25,14 @@ from app.domains.intel.schemas import ExplainRecommendationOut
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
-def _enrich_with_savings_evidence(opp_out: OpportunityOut, opp_model) -> OpportunityOut:
-    """Attach computed savings_evidence to the response object."""
+def _enrich_opportunity(opp_out: OpportunityOut, opp_model) -> OpportunityOut:
+    """Attach computed savings_evidence and resource_context to the response."""
     evidence = build_savings_evidence(opp_model)
     if evidence is not None:
         opp_out.savings_evidence = evidence
+    context = build_resource_context(opp_model)
+    if context is not None:
+        opp_out.resource_context = context
     return opp_out
 
 
@@ -50,7 +54,7 @@ async def list_opportunities(
         limit=page_params.limit,
         offset=page_params.offset,
     )
-    items = [_enrich_with_savings_evidence(OpportunityOut.model_validate(o), o) for o in opps]
+    items = [_enrich_opportunity(OpportunityOut.model_validate(o), o) for o in opps]
     return Page.of(items, total, page_params)
 
 
@@ -71,7 +75,7 @@ async def create_opportunity(
 ):
     service = DecisionEngineService(db)
     op = await service.create_opportunity(current_user.org_id, req)
-    return _enrich_with_savings_evidence(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
 
 
 @router.get("/{opp_id}", response_model=OpportunityOut)
@@ -84,7 +88,7 @@ async def get_opportunity(
     op = await service.get_opportunity(current_user.org_id, opp_id)
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
-    return _enrich_with_savings_evidence(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
 
 
 @router.patch("/{opp_id}/status", response_model=OpportunityOut)
@@ -103,7 +107,7 @@ async def update_status(
     )
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
-    return _enrich_with_savings_evidence(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
 
 
 @router.get("/{opp_id}/explain", response_model=ExplainRecommendationOut)
@@ -137,4 +141,4 @@ async def generate_opportunities(
 ):
     service = DecisionEngineService(db)
     opps = await service.generate_opportunities_for_account(current_user.org_id, account_id)
-    return [_enrich_with_savings_evidence(OpportunityOut.model_validate(o), o) for o in opps]
+    return [_enrich_opportunity(OpportunityOut.model_validate(o), o) for o in opps]
