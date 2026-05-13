@@ -375,8 +375,11 @@ export interface Translations {
   initiatives: {
     title: string
     subtitle: string
+    viewTable: string
+    viewBoard: string
     newInitiative: string
     createInitiative: string
+    createInitiativeHint: string
     titlePlaceholder: string
     create: string
     cancel: string
@@ -385,10 +388,54 @@ export interface Translations {
     inProgress: string
     review: string
     done: string
+    cancelled: string
     empty: string
     moveTo: string
+    advanceAction: string
     sla: string
     overdue: string
+    summaryExecutionQueue: string
+    summaryActive: string
+    summaryLinkedOpportunities: string
+    summaryEstimatedSavings: string
+    summaryRealizedSavings: string
+    summaryCompleted: string
+    summaryExecutionRisk: string
+    summaryOverdue: string
+    summaryOnTrack: string
+    emptyWorkspaceTitle: string
+    emptyWorkspaceBody: string
+    emptyPhaseTitle: string
+    emptyPhaseBody: string
+    colInitiative: string
+    colOwner: string
+    colRelatedOpportunities: string
+    colEstimatedSavings: string
+    colStatus: string
+    colPhase: string
+    colRisk: string
+    colDueDate: string
+    colLastActivity: string
+    colProgress: string
+    colAction: string
+    phaseIntake: string
+    phasePlanning: string
+    phaseExecution: string
+    phaseValidation: string
+    phaseCompleted: string
+    phaseCancelled: string
+    ownerUnassigned: string
+    ownerIdPrefix: string
+    initiativeIdPrefix: string
+    noLinkedOpportunity: string
+    noDueDate: string
+    notAvailable: string
+    estimatedMonthly: string
+    openExternal: string
+    noAction: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
   }
   experiments: {
     title: string
@@ -1555,9 +1602,12 @@ export const en: Translations = {
   },
   initiatives: {
     title: 'Initiatives',
-    subtitle: 'Execution board — track optimization initiatives',
+    subtitle: 'Execution workspace for savings delivery, accountability, and operational follow-through.',
+    viewTable: 'Table',
+    viewBoard: 'Board',
     newInitiative: 'New Initiative',
     createInitiative: 'Create Initiative',
+    createInitiativeHint: 'Create a tracked execution item with an accountable owner and due date when available.',
     titlePlaceholder: 'Initiative title...',
     create: 'Create',
     cancel: 'Cancel',
@@ -1566,10 +1616,54 @@ export const en: Translations = {
     inProgress: 'In Progress',
     review: 'Review',
     done: 'Done',
+    cancelled: 'Cancelled',
     empty: 'Empty',
     moveTo: 'Move to {{status}} →',
+    advanceAction: 'Advance to {{status}}',
     sla: 'SLA: {{date}}',
     overdue: 'OVERDUE',
+    summaryExecutionQueue: 'Execution queue',
+    summaryActive: '{{count}} active initiatives',
+    summaryLinkedOpportunities: 'Linked opportunities',
+    summaryEstimatedSavings: '{{amount}} est. monthly savings',
+    summaryRealizedSavings: 'Realized savings',
+    summaryCompleted: '{{count}} completed initiatives',
+    summaryExecutionRisk: 'Execution risk',
+    summaryOverdue: 'Overdue work requires review',
+    summaryOnTrack: 'No overdue initiatives',
+    emptyWorkspaceTitle: 'No initiatives in the execution workspace.',
+    emptyWorkspaceBody: 'Create the first initiative to start tracking savings execution, ownership, and delivery cadence.',
+    emptyPhaseTitle: 'No initiatives in {{phase}}',
+    emptyPhaseBody: 'Work items move here when execution advances to this phase.',
+    colInitiative: 'Initiative',
+    colOwner: 'Owner',
+    colRelatedOpportunities: 'Related opportunities',
+    colEstimatedSavings: 'Estimated savings',
+    colStatus: 'Status',
+    colPhase: 'Phase',
+    colRisk: 'Risk',
+    colDueDate: 'Due date',
+    colLastActivity: 'Last activity',
+    colProgress: 'Progress',
+    colAction: 'Action',
+    phaseIntake: 'Intake',
+    phasePlanning: 'Planning',
+    phaseExecution: 'Execution',
+    phaseValidation: 'Validation',
+    phaseCompleted: 'Completed',
+    phaseCancelled: 'Cancelled',
+    ownerUnassigned: 'Unassigned',
+    ownerIdPrefix: 'Owner',
+    initiativeIdPrefix: 'Initiative',
+    noLinkedOpportunity: 'No linked opportunity',
+    noDueDate: 'No due date',
+    notAvailable: 'Not available',
+    estimatedMonthly: 'Monthly estimate',
+    openExternal: 'Open external',
+    noAction: 'No action',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
   },
   experiments: {
     title: 'Experiments',
