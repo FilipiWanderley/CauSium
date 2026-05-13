@@ -56,6 +56,26 @@ class ResourceContext(BaseModel):
     data_sources: list[str]
 
 
+class PerformanceContext(BaseModel):
+    """Performance and usage evidence projection — computed at read time, no DB storage."""
+
+    cpu_p95: float | None = None
+    memory_p95: float | None = None
+    avg_cpu: float | None = None
+    avg_memory: float | None = None
+    utilization_trend: Literal["stable", "variable", "volatile", "unknown"]
+    idle_days: int | None = None
+    requested_cpu: float | None = None
+    allocated_cpu: float | None = None
+    requested_memory: float | None = None
+    allocated_memory: float | None = None
+    aks_pressure: Literal["low", "moderate", "high"] | None = None
+    observation_window_days: int | None = None
+    evidence_quality: Literal["high", "medium", "low", "insufficient"]
+    data_sources: list[str]
+    limitations: list[str]
+
+
 class OpportunityDecisionEvidence(BaseModel):
     cpu_p95: float | None = None
     memory_p95: float | None = None
@@ -129,6 +149,7 @@ class OpportunityOut(BaseModel):
     decision_evidence: OpportunityDecisionEvidence | None
     savings_evidence: SavingsEvidence | None = None
     resource_context: ResourceContext | None = None
+    performance_context: PerformanceContext | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

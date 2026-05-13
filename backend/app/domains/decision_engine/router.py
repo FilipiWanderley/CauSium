@@ -13,6 +13,7 @@ from app.domains.decision_engine.explanation_service import OpportunityExplanati
 from app.domains.decision_engine.models import OpportunityCategory, OpportunityStatus
 from app.domains.decision_engine.savings_evidence_builder import build_savings_evidence
 from app.domains.decision_engine.resource_context_builder import build_resource_context
+from app.domains.decision_engine.performance_context_builder import build_performance_context
 from app.domains.decision_engine.schemas import (
     OpportunityCreate,
     OpportunityOut,
@@ -26,13 +27,16 @@ router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
 def _enrich_opportunity(opp_out: OpportunityOut, opp_model) -> OpportunityOut:
-    """Attach computed savings_evidence and resource_context to the response."""
+    """Attach computed savings_evidence, resource_context, and performance_context."""
     evidence = build_savings_evidence(opp_model)
     if evidence is not None:
         opp_out.savings_evidence = evidence
     context = build_resource_context(opp_model)
     if context is not None:
         opp_out.resource_context = context
+    perf = build_performance_context(opp_model)
+    if perf is not None:
+        opp_out.performance_context = perf
     return opp_out
 
 

@@ -324,6 +324,28 @@ export interface ResourceContext {
   data_sources: string[]
 }
 
+export type UtilizationTrend = 'stable' | 'variable' | 'volatile' | 'unknown'
+export type AksPressure = 'low' | 'moderate' | 'high'
+export type EvidenceQuality = 'high' | 'medium' | 'low' | 'insufficient'
+
+export interface PerformanceContext {
+  cpu_p95: number | null
+  memory_p95: number | null
+  avg_cpu: number | null
+  avg_memory: number | null
+  utilization_trend: UtilizationTrend
+  idle_days: number | null
+  requested_cpu: number | null
+  allocated_cpu: number | null
+  requested_memory: number | null
+  allocated_memory: number | null
+  aks_pressure: AksPressure | null
+  observation_window_days: number | null
+  evidence_quality: EvidenceQuality
+  data_sources: string[]
+  limitations: string[]
+}
+
 export interface Opportunity {
   id: string
   org_id: string
@@ -355,6 +377,7 @@ export interface Opportunity {
   decision_evidence: OpportunityDecisionEvidence | null
   savings_evidence: SavingsEvidence | null
   resource_context: ResourceContext | null
+  performance_context: PerformanceContext | null
   created_at: string
 }
 
