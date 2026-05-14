@@ -243,6 +243,7 @@ async def process_account(raw_payload: str) -> None:
 async def run_ingestion_worker() -> None:
     from app.core.redis import DisabledRedis
 
+    log.info("ingestion_worker.initializing")
     redis = get_redis_pool()
     settings = get_settings()
 
@@ -254,20 +255,36 @@ async def run_ingestion_worker() -> None:
         )
         return
 
+    # Verify Redis connectivity before entering the main loop
+    try:
+        pong = await redis.ping()
+        log.info("ingestion_worker.redis_connected", ping=pong)
+    except Exception as exc:
+        log.error(
+            "ingestion_worker.redis_connection_failed",
+            error=type(exc).__name__,
+            reason=str(exc)[:200],
+        )
+        return
+
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
     next_periodic_run_at = 0.0
     log.info(
         "ingestion_worker.started",
         periodic_interval_seconds=interval_seconds,
         smart_lookback="per_account_last_sync_at",
+        queue_key=QUEUE_KEY,
     )
 
+    tick_count = 0
     while True:
         try:
             now = time.monotonic()
             if now >= next_periodic_run_at:
+                log.info("ingestion_worker.scheduler_tick", tick=tick_count)
                 await enqueue_periodic_sync_jobs(interval_seconds)
                 next_periodic_run_at = now + interval_seconds
+                tick_count += 1
 
             item = await redis.brpop(QUEUE_KEY, timeout=5)
             if item:

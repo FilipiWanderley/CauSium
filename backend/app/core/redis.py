@@ -74,6 +74,16 @@ def get_redis_pool() -> aioredis.Redis | DisabledRedis:
             _redis_pool_loop_id = current_loop_id
             return _redis_pool
 
+        # Log connection attempt without exposing credentials
+        url_scheme = redis_url.split("://")[0] if "://" in redis_url else "unknown"
+        url_host = redis_url.split("@")[-1].split("/")[0] if "@" in redis_url else "(no-auth-segment)"
+        log.info(
+            "redis.connecting",
+            scheme=url_scheme,
+            host=url_host,
+            ssl_verify=settings.redis_ssl_verify,
+        )
+
         kwargs: dict = {
             "encoding": "utf-8",
             "decode_responses": True,
@@ -93,6 +103,7 @@ def get_redis_pool() -> aioredis.Redis | DisabledRedis:
             )
         _redis_pool = aioredis.from_url(redis_url, **kwargs)
         _redis_pool_loop_id = current_loop_id
+        log.info("redis.pool_created", scheme=url_scheme, host=url_host)
     return _redis_pool
 
 

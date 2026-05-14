@@ -26,6 +26,16 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
 
+    log.info(
+        "app.lifespan.init",
+        app_env=settings.app_env,
+        redis_url_configured=settings.redis_enabled,
+        ingestion_worker_enabled=settings.ingestion_worker_enabled,
+        ingestion_interval_hours=settings.ingestion_interval_hours,
+        database_url_set=bool(os.getenv("DATABASE_URL", "").strip()),
+        clickhouse_host=settings.clickhouse_host,
+    )
+
     if not os.getenv("DATABASE_URL", "").strip():
         log.error(
             "database_url.missing_env_using_sqlite_fallback",
@@ -55,11 +65,19 @@ async def lifespan(app: FastAPI):
                        "No cost/usage data will be collected until Redis is available.",
             )
         else:
+            log.info("ingestion_worker.startup_requested")
             from app.workers.ingestion_worker import run_ingestion_worker
-            worker_task = asyncio.create_task(run_ingestion_worker())
-            log.info("ingestion_worker.started")
+            try:
+                worker_task = asyncio.create_task(run_ingestion_worker())
+                log.info("ingestion_worker.task_created")
+            except Exception as exc:
+                log.error(
+                    "ingestion_worker.startup_failed",
+                    error=type(exc).__name__,
+                    reason=str(exc)[:200],
+                )
     else:
-        log.info("ingestion_worker.disabled", reason="INGESTION_WORKER_ENABLED=false")
+        log.warning("ingestion_worker.disabled", reason="INGESTION_WORKER_ENABLED=false")
 
     yield
 
