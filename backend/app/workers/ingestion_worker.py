@@ -34,10 +34,15 @@ async def enqueue_periodic_sync_jobs(interval_seconds: int) -> int:
     async with async_session_factory() as db:
         result = await db.execute(
             select(CloudAccount.id, CloudAccount.org_id, CloudAccount.last_sync_at).where(
-                CloudAccount.status.in_([ConnectorStatus.ACTIVE, ConnectorStatus.ERROR])
+                CloudAccount.status.in_([ConnectorStatus.ACTIVE, ConnectorStatus.ERROR, ConnectorStatus.PENDING])
             )
         )
         accounts = result.all()
+
+    if not accounts:
+        log.info("ingestion.periodic_sync.no_eligible_accounts")
+    else:
+        log.info("ingestion.periodic_sync.eligible_accounts", count=len(accounts))
 
     now_utc = datetime.now(timezone.utc)
 
