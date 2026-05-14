@@ -264,8 +264,8 @@ async def run_ingestion_worker() -> None:
             "ingestion_worker.redis_connection_failed",
             error=type(exc).__name__,
             reason=str(exc)[:200],
+            hint="Will retry on first queue poll. Check REDIS_URL, TLS settings, and network access.",
         )
-        return
 
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
     next_periodic_run_at = 0.0

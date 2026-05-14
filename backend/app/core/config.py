@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Redis — TLS params are passed to redis.asyncio.from_url when using rediss://.
     redis_ssl_verify: bool = True
     redis_ssl_ca_file: str = ""
-    redis_ssl_min_version: str = "TLSv1.3"
+    redis_ssl_min_version: str = "TLSv1.2"
 
     # ClickHouse — ca_cert pins the server certificate.
     # TLS minimum version is enforced server-side via ClickHouse config.xml
