@@ -645,6 +645,7 @@ class AzureConnectorClient(BaseConnector):
         end: date,
     ) -> list[CanonicalCostRecord]:
         try:
+            import pyarrow as pa
             import pyarrow.parquet as pq
         except ImportError:
             log.error("azure.blob_ingest.parquet.import_failed", hint="pyarrow is not installed")
@@ -664,6 +665,25 @@ class AzureConnectorClient(BaseConnector):
             num_rows=table.num_rows,
         )
 
+        date_columns_normalized: list[str] = []
+        for col_name in columns:
+            col = table.column(col_name)
+            if pa.types.is_timestamp(col.type):
+                if col.type.unit == "ns":
+                    table = table.set_column(
+                        table.schema.get_field_index(col_name),
+                        col_name,
+                        col.cast(pa.timestamp("us"), safe=False),
+                    )
+                    date_columns_normalized.append(col_name)
+
+        if date_columns_normalized:
+            log.info(
+                "azure.blob_ingest.parquet.date_columns_normalized",
+                columns=date_columns_normalized,
+                action="cast timestamp[ns] -> timestamp[us]",
+            )
+
         rows: list[CanonicalCostRecord] = []
         for batch in table.to_batches(max_chunksize=5000):
             batch_dict = batch.to_pydict()
@@ -681,6 +701,12 @@ class AzureConnectorClient(BaseConnector):
                 normalized = AzureConnectorClient._normalize_blob_cost_row(row, subscription_id, start, end)
                 if normalized:
                     rows.append(normalized)
+
+        log.info(
+            "azure.blob_ingest.parquet.parsed",
+            records_parsed=len(rows),
+            date_columns_normalized=date_columns_normalized,
+        )
 
         return rows
 

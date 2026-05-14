@@ -245,6 +245,81 @@ def test_parse_blob_cost_parquet_handles_date_typed_columns() -> None:
     assert rows[0].date == date(2026, 4, 10)
 
 
+def test_parse_blob_cost_parquet_handles_nanosecond_timestamps() -> None:
+    pyarrow = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    pa = pyarrow
+    ns_timestamps = pa.array(
+        [1714300800000000000, 1714300800000000000],  # 2024-04-28T16:00:00 in nanoseconds
+        type=pa.timestamp("ns"),
+    )
+    table = pa.table(
+        {
+            "Date": ns_timestamps,
+            "SubscriptionId": ["sub-001", "sub-001"],
+            "ServiceName": ["Compute", "Storage"],
+            "PreTaxCost": [5.0, 3.0],
+            "UsageQuantity": [1.0, 2.0],
+            "Currency": ["USD", "USD"],
+        }
+    )
+
+    import io
+    buf = io.BytesIO()
+    pq.write_table(table, buf)
+    raw_bytes = buf.getvalue()
+
+    rows = AzureConnectorClient._parse_blob_cost_parquet(
+        raw_bytes,
+        subscription_id="sub-001",
+        start=date(2024, 4, 1),
+        end=date(2024, 4, 30),
+    )
+
+    assert len(rows) == 2
+    assert rows[0].cost_usd == 5.0
+    assert rows[0].date == date(2024, 4, 28)
+    assert rows[1].service == "Storage"
+
+
+def test_parse_blob_cost_parquet_handles_nanosecond_timestamps_with_nulls() -> None:
+    pyarrow = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    pa = pyarrow
+    ns_timestamps = pa.array(
+        [1714300800000000000, None],
+        type=pa.timestamp("ns"),
+    )
+    table = pa.table(
+        {
+            "Date": ns_timestamps,
+            "SubscriptionId": ["sub-001", "sub-001"],
+            "ServiceName": ["Compute", "Storage"],
+            "PreTaxCost": [5.0, 3.0],
+            "UsageQuantity": [1.0, 2.0],
+            "Currency": ["USD", "USD"],
+        }
+    )
+
+    import io
+    buf = io.BytesIO()
+    pq.write_table(table, buf)
+    raw_bytes = buf.getvalue()
+
+    rows = AzureConnectorClient._parse_blob_cost_parquet(
+        raw_bytes,
+        subscription_id="sub-001",
+        start=date(2024, 4, 1),
+        end=date(2024, 4, 30),
+    )
+
+    # Only the first row has a valid date; the null-date row is skipped by normalizer
+    assert len(rows) == 1
+    assert rows[0].cost_usd == 5.0
+
+
 def test_parse_blob_cost_parquet_returns_empty_on_invalid_bytes() -> None:
     rows = AzureConnectorClient._parse_blob_cost_parquet(
         b"not a parquet file",
