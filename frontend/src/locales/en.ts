@@ -594,13 +594,15 @@ export interface Translations {
     consolidatedAcross: string
     filteredScope: string
     consolidatedScope: string
-    azureLabel: string
     scoreLabel: string
     topSavings: string
     completedDate: string
     perMonth: string
-    azureSubscriptionsConnected: string
-    monitoredHistoricalDays: string
+    historicalCostCoverageTitle: string
+    historicalCostCoverageSubtitle: string
+    billingRecordsLabel: string
+    historicalBaselineLabel: string
+    providerNotFilteredLabel: string
     financialValuesBrl: string
     consolidated: string
     filtered: string
@@ -1942,13 +1944,15 @@ export const en: Translations = {
     consolidatedAcross: 'Consolidated across {{count}} subscriptions.',
     filteredScope: 'Filtered: {{scope}}',
     consolidatedScope: 'Consolidated · {{count}} subscriptions',
-    azureLabel: 'Azure',
     scoreLabel: 'Score',
     topSavings: 'Top Realized Savings',
     completedDate: 'Completed {{date}}',
     perMonth: '/mo',
-    azureSubscriptionsConnected: 'Azure real data — {{count}} connected subscription(s)',
-    monitoredHistoricalDays: 'monitored over the last {{days}} days (historical baseline)',
+    historicalCostCoverageTitle: 'Historical cost coverage — {{count}} subscription scope(s) detected',
+    historicalCostCoverageSubtitle: 'aggregated from ingested billing records over the last {{days}} days',
+    billingRecordsLabel: 'Billing records',
+    historicalBaselineLabel: 'Historical baseline',
+    providerNotFilteredLabel: 'Provider not filtered',
     financialValuesBrl: 'Displayed using tenant billing context',
     consolidated: 'Consolidated',
     filtered: 'Filtered',

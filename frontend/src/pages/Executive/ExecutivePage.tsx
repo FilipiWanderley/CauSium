@@ -241,15 +241,24 @@ export function ExecutivePage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-blue-900">
-                {e.azureSubscriptionsConnected.replace('{{count}}', String(subscriptionSummary.subscription_count))}
+                {e.historicalCostCoverageTitle.replace('{{count}}', String(subscriptionSummary.subscription_count))}
               </p>
               <p className="text-xs text-blue-700">
                 {formatMoney(subscriptionSummary.total_cost_usd)}{' '}
-                {e.monitoredHistoricalDays.replace('{{days}}', String(subscriptionSummary.days))}
+                {e.historicalCostCoverageSubtitle.replace('{{days}}', String(subscriptionSummary.days))}
               </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-blue-600">
+                <span>{e.billingRecordsLabel}</span>
+                <span className="text-blue-300">•</span>
+                <span>{e.historicalBaselineLabel}</span>
+                <span className="text-blue-300">•</span>
+                <span>{subscriptionId ? e.subscriptionScoped : e.providerNotFilteredLabel}</span>
+              </div>
             </div>
           </div>
-          <div className="text-xs text-blue-500 hidden sm:block">{e.azureLabel}</div>
+          <div className="text-xs text-blue-500 hidden sm:block">
+            {subscriptionId ? e.filtered : e.consolidated}
+          </div>
         </div>
       )}
 
