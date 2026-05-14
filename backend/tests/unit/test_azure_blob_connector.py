@@ -167,3 +167,89 @@ def test_from_account_rejects_mock_fallback_in_production_without_credentials(mo
             AzureConnectorClient.from_account(SimpleNamespace(id="acc-prod"), creds=None)
     finally:
         get_settings.cache_clear()
+
+
+def test_parse_blob_cost_parquet_normalizes_and_filters_rows() -> None:
+    pyarrow = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    pa = pyarrow
+    table = pa.table(
+        {
+            "Date": ["2026-04-10", "2026-04-10", "2026-04-20"],
+            "SubscriptionId": ["sub-001", "sub-001", "sub-001"],
+            "ServiceName": ["Virtual Machines", "Azure Storage", "Azure SQL"],
+            "ResourceId": ["/subs/sub-001/rg/vm-a", "/subs/sub-001/rg/stg1", "/subs/sub-001/rg/sql1"],
+            "ResourceGroup": ["rg-a", "rg-b", "rg-c"],
+            "ResourceLocation": ["eastus", "eastus2", "westeurope"],
+            "PreTaxCost": ["12.50", "2.00", "4.00"],
+            "UsageQuantity": ["8", "1", "1"],
+            "UnitOfMeasure": ["hours", "GB", "hours"],
+            "Currency": ["USD", "USD", "USD"],
+            "Tags": ['{"env":"production","team":"platform"}', "{}", "{}"],
+        }
+    )
+
+    import io
+    buf = io.BytesIO()
+    pq.write_table(table, buf)
+    raw_bytes = buf.getvalue()
+
+    rows = AzureConnectorClient._parse_blob_cost_parquet(
+        raw_bytes,
+        subscription_id="sub-001",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 12),
+    )
+
+    assert len(rows) == 2
+    rec = rows[0]
+    assert rec.subscription_id == "sub-001"
+    assert rec.service == "Virtual Machines"
+    assert rec.environment == "production"
+    assert rec.owner_team == "platform"
+    assert rec.cost_usd == 12.5
+    assert rec.usage_quantity == 8.0
+
+
+def test_parse_blob_cost_parquet_handles_date_typed_columns() -> None:
+    pyarrow = pytest.importorskip("pyarrow")
+    import pyarrow.parquet as pq
+
+    pa = pyarrow
+    table = pa.table(
+        {
+            "Date": pa.array([date(2026, 4, 10)], type=pa.date32()),
+            "SubscriptionId": ["sub-001"],
+            "ServiceName": ["Compute"],
+            "PreTaxCost": [7.25],
+            "UsageQuantity": [3.0],
+            "Currency": ["USD"],
+        }
+    )
+
+    import io
+    buf = io.BytesIO()
+    pq.write_table(table, buf)
+    raw_bytes = buf.getvalue()
+
+    rows = AzureConnectorClient._parse_blob_cost_parquet(
+        raw_bytes,
+        subscription_id="sub-001",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 30),
+    )
+
+    assert len(rows) == 1
+    assert rows[0].cost_usd == 7.25
+    assert rows[0].date == date(2026, 4, 10)
+
+
+def test_parse_blob_cost_parquet_returns_empty_on_invalid_bytes() -> None:
+    rows = AzureConnectorClient._parse_blob_cost_parquet(
+        b"not a parquet file",
+        subscription_id="sub-001",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 30),
+    )
+    assert rows == []

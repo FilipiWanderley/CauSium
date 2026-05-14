@@ -474,8 +474,16 @@ class AzureConnectorClient(BaseConnector):
         consumed_checkpoints: list[dict[str, str]] = []
         seen_checkpoints: set[str] = set()
         all_blobs_found: list[str] = []
-        skipped_non_csv: list[str] = []
+        skipped_unsupported: list[str] = []
         skipped_checkpoint: list[str] = []
+
+        def _is_supported_blob(name: str) -> str | None:
+            lower = name.lower()
+            if lower.endswith(".csv"):
+                return "csv"
+            if lower.endswith(".parquet") or lower.endswith(".snappy.parquet"):
+                return "parquet"
+            return None
 
         try:
             blob_service = BlobServiceClient(account_url=self.storage_account_url, credential=cred)
@@ -485,8 +493,9 @@ class AzureConnectorClient(BaseConnector):
                 blob_name = str(getattr(blob, "name", ""))
                 all_blobs_found.append(blob_name)
 
-                if not blob_name.lower().endswith(".csv"):
-                    skipped_non_csv.append(blob_name)
+                blob_format = _is_supported_blob(blob_name)
+                if blob_format is None:
+                    skipped_unsupported.append(blob_name)
                     continue
 
                 blob_etag = str(getattr(blob, "etag", "") or "")
@@ -502,32 +511,50 @@ class AzureConnectorClient(BaseConnector):
                     "azure.blob_ingest.processing",
                     blob_name=blob_name,
                     blob_etag=blob_etag,
+                    format=blob_format,
                 )
                 try:
                     downloader = await container.download_blob(blob_name)
                     payload = await downloader.readall()
-                    text = payload.decode("utf-8-sig", errors="replace")
-                    parsed = self._parse_blob_cost_csv(text, subscription_id, start, end)
+
+                    if blob_format == "csv":
+                        text = payload.decode("utf-8-sig", errors="replace")
+                        parsed = self._parse_blob_cost_csv(text, subscription_id, start, end)
+                    else:
+                        parsed = self._parse_blob_cost_parquet(payload, subscription_id, start, end)
+
                     records.extend(parsed)
                     log.info(
                         "azure.blob_ingest.parsed",
                         blob_name=blob_name,
+                        format=blob_format,
                         rows_parsed=len(parsed),
                         total_records_so_far=len(records),
                         date_range=f"{start} → {end}",
                     )
-                    if not parsed:
-                        # Show first line of CSV to help diagnose schema mismatch
+                    if not parsed and blob_format == "csv":
+                        text = payload.decode("utf-8-sig", errors="replace")
                         first_lines = text.splitlines()[:3]
                         log.warning(
                             "azure.blob_ingest.parsed_zero_rows",
                             blob_name=blob_name,
+                            format=blob_format,
                             csv_header=first_lines[0] if first_lines else "(empty file)",
                             csv_sample_row=first_lines[1] if len(first_lines) > 1 else "(no rows)",
                             expected_date_columns="date | usagedate | usage_date",
                             expected_cost_columns="pretaxcost | cost | costusd | costinbillingcurrency",
                             filter_date_range=f"{start} → {end}",
                             filter_subscription_id=subscription_id,
+                        )
+                    elif not parsed and blob_format == "parquet":
+                        log.warning(
+                            "azure.blob_ingest.parsed_zero_rows",
+                            blob_name=blob_name,
+                            format=blob_format,
+                            payload_bytes=len(payload),
+                            filter_date_range=f"{start} → {end}",
+                            filter_subscription_id=subscription_id,
+                            hint="Parquet file produced 0 records — check date range and column schema.",
                         )
                     consumed_checkpoints.append(
                         {
@@ -542,6 +569,7 @@ class AzureConnectorClient(BaseConnector):
                         "azure.fetch_costs.blob_item.failed",
                         subscription=subscription_id,
                         blob_name=blob_name,
+                        format=blob_format,
                         reason=str(exc),
                     )
                     continue
@@ -555,21 +583,22 @@ class AzureConnectorClient(BaseConnector):
             )
             return [], []
 
+        supported_count = len(all_blobs_found) - len(skipped_unsupported)
         log.info(
             "azure.blob_ingest.summary",
             subscription=subscription_id,
             container=self.cost_export_container,
             prefix=self.cost_export_prefix or "(none)",
             total_blobs_listed=len(all_blobs_found),
-            csv_blobs_found=len(all_blobs_found) - len(skipped_non_csv),
-            skipped_non_csv=len(skipped_non_csv),
+            supported_blobs_found=supported_count,
+            skipped_unsupported_format=len(skipped_unsupported),
             skipped_already_checkpointed=len(skipped_checkpoint),
             blobs_processed=len(consumed_checkpoints),
             total_records_parsed=len(records),
         )
 
         if not all_blobs_found:
-            expected_path = f"{self.storage_account_url}/{self.cost_export_container}/{self.cost_export_prefix or ''}*.csv"
+            expected_path = f"{self.storage_account_url}/{self.cost_export_container}/{self.cost_export_prefix or ''}*.(csv|parquet)"
             log.warning(
                 "azure.blob_ingest.no_blobs_found",
                 subscription=subscription_id,
@@ -606,6 +635,53 @@ class AzureConnectorClient(BaseConnector):
             normalized = AzureConnectorClient._normalize_blob_cost_row(row, subscription_id, start, end)
             if normalized:
                 rows.append(normalized)
+        return rows
+
+    @staticmethod
+    def _parse_blob_cost_parquet(
+        raw_bytes: bytes,
+        subscription_id: str,
+        start: date,
+        end: date,
+    ) -> list[CanonicalCostRecord]:
+        try:
+            import pyarrow.parquet as pq
+        except ImportError:
+            log.error("azure.blob_ingest.parquet.import_failed", hint="pyarrow is not installed")
+            return []
+
+        try:
+            table = pq.read_table(io.BytesIO(raw_bytes))
+        except Exception as exc:
+            log.warning("azure.blob_ingest.parquet.read_failed", error=type(exc).__name__, reason=str(exc)[:200])
+            return []
+
+        columns = [str(c) for c in table.column_names]
+        log.info(
+            "azure.blob_ingest.parquet.schema",
+            columns=columns[:30],
+            num_columns=len(columns),
+            num_rows=table.num_rows,
+        )
+
+        rows: list[CanonicalCostRecord] = []
+        for batch in table.to_batches(max_chunksize=5000):
+            batch_dict = batch.to_pydict()
+            num_rows_in_batch = len(next(iter(batch_dict.values()))) if batch_dict else 0
+            for i in range(num_rows_in_batch):
+                row = {}
+                for col in columns:
+                    val = batch_dict[col][i]
+                    if val is None:
+                        row[col] = ""
+                    elif isinstance(val, (date, datetime)):
+                        row[col] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+                    else:
+                        row[col] = str(val)
+                normalized = AzureConnectorClient._normalize_blob_cost_row(row, subscription_id, start, end)
+                if normalized:
+                    rows.append(normalized)
+
         return rows
 
     @staticmethod
