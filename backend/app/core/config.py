@@ -474,8 +474,11 @@ class Settings(BaseSettings):
         if self.db_ssl_min_version != "TLSv1.3":
             raise ValueError("DB_SSL_MIN_VERSION must be TLSv1.3 in production")
 
-        if redis_url_raw and self.redis_ssl_min_version != "TLSv1.3":
-            raise ValueError("REDIS_SSL_MIN_VERSION must be TLSv1.3 in production")
+        if redis_url_raw and self.redis_ssl_min_version not in ("TLSv1.2", "TLSv1.3"):
+            raise ValueError(
+                "REDIS_SSL_MIN_VERSION must be TLSv1.2 or TLSv1.3 in production "
+                "(Azure Cache for Redis Basic/Standard supports TLS 1.2)"
+            )
 
         if not self.clickhouse_verify:
             raise ValueError("CLICKHOUSE_VERIFY must be true in production")

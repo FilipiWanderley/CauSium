@@ -82,6 +82,7 @@ def get_redis_pool() -> aioredis.Redis | DisabledRedis:
             scheme=url_scheme,
             host=url_host,
             ssl_verify=settings.redis_ssl_verify,
+            tls_min_version=settings.redis_ssl_min_version if redis_url.startswith("rediss://") else "n/a",
         )
 
         kwargs: dict = {
