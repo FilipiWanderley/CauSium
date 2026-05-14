@@ -24,6 +24,8 @@ log = get_logger(__name__)
 QUEUE_KEY = "ingestion:queue"
 LOCK_TTL = 3600  # 1 hour
 SCHEDULED_SYNC_LOCK_PREFIX = "ingestion:scheduled"
+LEADER_LOCK_KEY = "ingestion:leader"
+LEADER_LOCK_TTL = 120  # seconds — must be renewed before expiry
 
 
 async def enqueue_periodic_sync_jobs(interval_seconds: int) -> int:
@@ -272,8 +274,26 @@ async def run_ingestion_worker() -> None:
             hint="Will retry on first queue poll. Check REDIS_URL, TLS settings, and network access.",
         )
 
+    # Leader election: only one gunicorn/uvicorn worker should run the ingestion loop.
+    # Acquire a distributed lock with TTL. If another process already holds it, exit gracefully.
+    import os
+    leader_id = f"{os.getpid()}-{id(asyncio.get_event_loop())}"
+    acquired = await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, nx=True)
+    if not acquired:
+        log.info(
+            "ingestion_worker.skipped_not_leader",
+            leader_lock_key=LEADER_LOCK_KEY,
+            pid=os.getpid(),
+            hint="Another process holds the ingestion leader lock. Only one worker runs the scheduler.",
+        )
+        return
+
+    log.info("ingestion_worker.leader_acquired", leader_id=leader_id, ttl=LEADER_LOCK_TTL)
+
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
     next_periodic_run_at = 0.0
+    leader_renew_interval = max(30, LEADER_LOCK_TTL // 3)
+    next_leader_renew_at = time.monotonic() + leader_renew_interval
     log.info(
         "ingestion_worker.started",
         periodic_interval_seconds=interval_seconds,
@@ -282,20 +302,43 @@ async def run_ingestion_worker() -> None:
     )
 
     tick_count = 0
-    while True:
-        try:
-            now = time.monotonic()
-            if now >= next_periodic_run_at:
-                log.info("ingestion_worker.scheduler_tick", tick=tick_count)
-                await enqueue_periodic_sync_jobs(interval_seconds)
-                next_periodic_run_at = now + interval_seconds
-                tick_count += 1
+    try:
+        while True:
+            try:
+                now = time.monotonic()
 
-            item = await redis.brpop(QUEUE_KEY, timeout=5)
-            if item:
-                _, raw_payload = item
-                log.info("ingestion.dequeued", payload=raw_payload)
-                await process_account(raw_payload)
-        except Exception as e:
-            log.error("ingestion_worker.error", error=str(e))
-            await asyncio.sleep(5)
+                # Renew leader lock periodically
+                if now >= next_leader_renew_at:
+                    try:
+                        await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, xx=True)
+                        next_leader_renew_at = now + leader_renew_interval
+                    except Exception as renew_exc:
+                        log.error(
+                            "ingestion_worker.leader_heartbeat_failed",
+                            error=type(renew_exc).__name__,
+                            reason=str(renew_exc)[:200],
+                        )
+
+                if now >= next_periodic_run_at:
+                    log.info("ingestion_worker.scheduler_tick", tick=tick_count)
+                    await enqueue_periodic_sync_jobs(interval_seconds)
+                    next_periodic_run_at = now + interval_seconds
+                    tick_count += 1
+
+                item = await redis.brpop(QUEUE_KEY, timeout=5)
+                if item:
+                    _, raw_payload = item
+                    log.info("ingestion.dequeued", payload=raw_payload)
+                    await process_account(raw_payload)
+            except Exception as e:
+                log.error("ingestion_worker.error", error=str(e))
+                await asyncio.sleep(5)
+    finally:
+        # Release leader lock on shutdown
+        try:
+            current_holder = await redis.get(LEADER_LOCK_KEY)
+            if current_holder == leader_id:
+                await redis.delete(LEADER_LOCK_KEY)
+                log.info("ingestion_worker.leader_released", leader_id=leader_id)
+        except Exception:
+            pass
