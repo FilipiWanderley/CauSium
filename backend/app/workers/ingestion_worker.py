@@ -271,14 +271,23 @@ async def run_ingestion_worker() -> None:
             "ingestion_worker.redis_connection_failed",
             error=type(exc).__name__,
             reason=str(exc)[:200],
-            hint="Will retry on first queue poll. Check REDIS_URL, TLS settings, and network access.",
+            hint="Cannot proceed without Redis. Check REDIS_URL, TLS settings, and network access.",
         )
+        return
 
     # Leader election: only one gunicorn/uvicorn worker should run the ingestion loop.
-    # Acquire a distributed lock with TTL. If another process already holds it, exit gracefully.
     import os
-    leader_id = f"{os.getpid()}-{id(asyncio.get_event_loop())}"
-    acquired = await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, nx=True)
+    leader_id = f"{os.getpid()}-{time.monotonic_ns()}"
+    try:
+        acquired = await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, nx=True)
+    except Exception as exc:
+        log.error(
+            "ingestion_worker.leader_lock_failed",
+            error=type(exc).__name__,
+            reason=str(exc)[:200],
+        )
+        return
+
     if not acquired:
         log.info(
             "ingestion_worker.skipped_not_leader",

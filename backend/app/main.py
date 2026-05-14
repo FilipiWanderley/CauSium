@@ -69,6 +69,21 @@ async def lifespan(app: FastAPI):
             from app.workers.ingestion_worker import run_ingestion_worker
             try:
                 worker_task = asyncio.create_task(run_ingestion_worker())
+
+                def _worker_done_callback(task: asyncio.Task) -> None:
+                    exc = task.exception() if not task.cancelled() else None
+                    if exc:
+                        log.error(
+                            "ingestion_worker.task_crashed",
+                            error=type(exc).__name__,
+                            reason=str(exc)[:300],
+                        )
+                    elif task.cancelled():
+                        log.info("ingestion_worker.task_cancelled")
+                    else:
+                        log.info("ingestion_worker.task_exited")
+
+                worker_task.add_done_callback(_worker_done_callback)
                 log.info("ingestion_worker.task_created")
             except Exception as exc:
                 log.error(
