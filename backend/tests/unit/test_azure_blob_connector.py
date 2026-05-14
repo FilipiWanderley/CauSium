@@ -320,6 +320,45 @@ def test_parse_blob_cost_parquet_handles_nanosecond_timestamps_with_nulls() -> N
     assert rows[0].cost_usd == 5.0
 
 
+def test_normalize_blob_cost_row_handles_iso_datetime_without_z() -> None:
+    """Regression test: datetime.isoformat() produces '2026-04-10T16:00:00' (no Z).
+    The normalizer must parse this correctly."""
+    row = AzureConnectorClient._normalize_blob_cost_row(
+        {
+            "Date": "2026-04-10T16:00:00",
+            "SubscriptionId": "sub-001",
+            "ServiceName": "Compute",
+            "PreTaxCost": "10.0",
+            "Currency": "BRL",
+        },
+        fallback_subscription_id="sub-001",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 30),
+    )
+    assert row is not None
+    assert row.date == date(2026, 4, 10)
+    assert row.cost_usd == 10.0
+
+
+def test_normalize_blob_cost_row_handles_iso_datetime_with_offset() -> None:
+    """Regression test: timezone-aware datetime produces '2026-04-10T00:00:00+00:00'."""
+    row = AzureConnectorClient._normalize_blob_cost_row(
+        {
+            "Date": "2026-04-10T00:00:00+00:00",
+            "SubscriptionId": "sub-001",
+            "ServiceName": "Storage",
+            "PreTaxCost": "5.0",
+            "Currency": "USD",
+        },
+        fallback_subscription_id="sub-001",
+        start=date(2026, 4, 1),
+        end=date(2026, 4, 30),
+    )
+    assert row is not None
+    assert row.date == date(2026, 4, 10)
+    assert row.cost_usd == 5.0
+
+
 def test_parse_blob_cost_parquet_returns_empty_on_invalid_bytes() -> None:
     rows = AzureConnectorClient._parse_blob_cost_parquet(
         b"not a parquet file",

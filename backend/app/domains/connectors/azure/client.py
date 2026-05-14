@@ -730,12 +730,18 @@ class AzureConnectorClient(BaseConnector):
             return None
 
         usage_date = None
-        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%SZ"):
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S+00:00"):
             try:
                 usage_date = datetime.strptime(usage_date_raw, fmt).date()
                 break
             except ValueError:
                 continue
+        if usage_date is None:
+            # Last resort: try parsing just the date prefix (handles any ISO variant)
+            try:
+                usage_date = datetime.strptime(usage_date_raw[:10], "%Y-%m-%d").date()
+            except (ValueError, IndexError):
+                pass
         if usage_date is None:
             return None
         if usage_date < start or usage_date > end:
