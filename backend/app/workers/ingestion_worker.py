@@ -24,8 +24,6 @@ log = get_logger(__name__)
 QUEUE_KEY = "ingestion:queue"
 LOCK_TTL = 3600  # 1 hour
 SCHEDULED_SYNC_LOCK_PREFIX = "ingestion:scheduled"
-LEADER_LOCK_KEY = "ingestion:leader"
-LEADER_LOCK_TTL = 120  # seconds — must be renewed before expiry
 
 
 async def enqueue_periodic_sync_jobs(interval_seconds: int) -> int:
@@ -249,6 +247,7 @@ async def process_account(raw_payload: str) -> None:
 
 async def run_ingestion_worker() -> None:
     from app.core.redis import DisabledRedis
+    import os
 
     log.info("ingestion_worker.initializing")
     redis = get_redis_pool()
@@ -275,36 +274,39 @@ async def run_ingestion_worker() -> None:
         )
         return
 
-    # Leader election: only one gunicorn/uvicorn worker should run the ingestion loop.
-    import os
-    leader_id = f"{os.getpid()}-{time.monotonic_ns()}"
-    try:
-        acquired = await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, nx=True)
-    except Exception as exc:
-        log.error(
-            "ingestion_worker.leader_lock_failed",
-            error=type(exc).__name__,
-            reason=str(exc)[:200],
-        )
-        return
+    # Process ownership: only one process should run the ingestion loop.
+    # In Azure App Service with gunicorn, each worker forks and runs lifespan().
+    # We use INGESTION_PROCESS env var to gate which process runs the worker.
+    # The dedicated worker (startup-worker.sh) always sets this.
+    # For gunicorn API processes, only the first worker (lowest PID) runs it.
+    ingestion_process_env = os.environ.get("INGESTION_PROCESS", "").strip().lower()
+    pid = os.getpid()
 
-    if not acquired:
-        log.info(
-            "ingestion_worker.skipped_not_leader",
-            leader_lock_key=LEADER_LOCK_KEY,
-            pid=os.getpid(),
-            hint="Another process holds the ingestion leader lock. Only one worker runs the scheduler.",
-        )
+    if ingestion_process_env == "true":
+        log.info("ingestion_worker.enabled_for_process", pid=pid, reason="INGESTION_PROCESS=true")
+    elif ingestion_process_env == "false":
+        log.info("ingestion_worker.disabled_for_process", pid=pid, reason="INGESTION_PROCESS=false")
         return
-
-    log.info("ingestion_worker.leader_acquired", leader_id=leader_id, ttl=LEADER_LOCK_TTL)
+    else:
+        # No explicit env var — use PID-file based single-process gate via Redis.
+        # First process to register wins; others exit.
+        gate_key = "ingestion:process_gate"
+        gate_value = str(pid)
+        acquired = await redis.set(gate_key, gate_value, ex=30, nx=True)
+        if not acquired:
+            log.info(
+                "ingestion_worker.disabled_for_process",
+                pid=pid,
+                reason="Another process already registered as ingestion owner via Redis gate.",
+            )
+            return
+        log.info("ingestion_worker.enabled_for_process", pid=pid, reason="won process gate (first to register)")
 
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
     next_periodic_run_at = 0.0
-    leader_renew_interval = max(30, LEADER_LOCK_TTL // 3)
-    next_leader_renew_at = time.monotonic() + leader_renew_interval
     log.info(
         "ingestion_worker.started",
+        pid=pid,
         periodic_interval_seconds=interval_seconds,
         smart_lookback="per_account_last_sync_at",
         queue_key=QUEUE_KEY,
@@ -316,20 +318,15 @@ async def run_ingestion_worker() -> None:
             try:
                 now = time.monotonic()
 
-                # Renew leader lock periodically
-                if now >= next_leader_renew_at:
+                # Renew process gate if using auto-detection mode
+                if not ingestion_process_env:
                     try:
-                        await redis.set(LEADER_LOCK_KEY, leader_id, ex=LEADER_LOCK_TTL, xx=True)
-                        next_leader_renew_at = now + leader_renew_interval
-                    except Exception as renew_exc:
-                        log.error(
-                            "ingestion_worker.leader_heartbeat_failed",
-                            error=type(renew_exc).__name__,
-                            reason=str(renew_exc)[:200],
-                        )
+                        await redis.set("ingestion:process_gate", str(pid), ex=30, xx=True)
+                    except Exception:
+                        pass
 
                 if now >= next_periodic_run_at:
-                    log.info("ingestion_worker.scheduler_tick", tick=tick_count)
+                    log.info("ingestion_worker.scheduler_tick", tick=tick_count, pid=pid)
                     await enqueue_periodic_sync_jobs(interval_seconds)
                     next_periodic_run_at = now + interval_seconds
                     tick_count += 1
@@ -343,11 +340,10 @@ async def run_ingestion_worker() -> None:
                 log.error("ingestion_worker.error", error=str(e))
                 await asyncio.sleep(5)
     finally:
-        # Release leader lock on shutdown
-        try:
-            current_holder = await redis.get(LEADER_LOCK_KEY)
-            if current_holder == leader_id:
-                await redis.delete(LEADER_LOCK_KEY)
-                log.info("ingestion_worker.leader_released", leader_id=leader_id)
-        except Exception:
-            pass
+        if not ingestion_process_env:
+            try:
+                current = await redis.get("ingestion:process_gate")
+                if current and current.decode() == str(pid):
+                    await redis.delete("ingestion:process_gate")
+            except Exception:
+                pass
