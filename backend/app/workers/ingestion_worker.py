@@ -241,8 +241,19 @@ async def process_account(raw_payload: str) -> None:
 
 
 async def run_ingestion_worker() -> None:
+    from app.core.redis import DisabledRedis
+
     redis = get_redis_pool()
     settings = get_settings()
+
+    if isinstance(redis, DisabledRedis):
+        log.error(
+            "ingestion_worker.redis_unavailable",
+            reason="REDIS_URL is not configured. The ingestion worker requires Redis for job queuing and distributed locks. "
+                   "Configure REDIS_URL in the environment to enable data ingestion.",
+        )
+        return
+
     interval_seconds = max(300, int(settings.ingestion_interval_hours) * 3600)
     next_periodic_run_at = 0.0
     log.info(

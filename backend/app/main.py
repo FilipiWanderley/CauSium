@@ -48,9 +48,16 @@ async def lifespan(app: FastAPI):
 
     worker_task = None
     if settings.ingestion_worker_enabled:
-        from app.workers.ingestion_worker import run_ingestion_worker
-        worker_task = asyncio.create_task(run_ingestion_worker())
-        log.info("ingestion_worker.started")
+        if not settings.redis_enabled:
+            log.error(
+                "ingestion_worker.skipped",
+                reason="REDIS_URL not configured — ingestion pipeline is non-functional. "
+                       "No cost/usage data will be collected until Redis is available.",
+            )
+        else:
+            from app.workers.ingestion_worker import run_ingestion_worker
+            worker_task = asyncio.create_task(run_ingestion_worker())
+            log.info("ingestion_worker.started")
     else:
         log.info("ingestion_worker.disabled", reason="INGESTION_WORKER_ENABLED=false")
 
