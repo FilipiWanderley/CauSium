@@ -221,16 +221,41 @@ export function DashboardPage() {
     },
   })
 
-  const { data: subscriptionsData } = useQuery<SubscriptionCostSummary>({
+  const {
+    data: subscriptionsData,
+    isLoading: subscriptionsLoading,
+    isError: subscriptionsError,
+  } = useQuery<SubscriptionCostSummary>({
     queryKey: ['ledger', 'subscriptions', 30],
     queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
   })
 
+  const hasMultipleSubscriptions = (subscriptionsData?.subscription_count ?? 0) > 1
+  const getSubscriptionDisplayName = (subscriptionName: string | null | undefined, subscriptionKey: string | null | undefined) => {
+    const normalizedName = subscriptionName?.trim()
+    if (normalizedName) return normalizedName
+    return subscriptionKey ? `${subscriptionKey.slice(0, 8)}…` : d.subscriptionNone
+  }
+  const singleSubscriptionName =
+    getSubscriptionDisplayName(subscriptionsData?.items[0]?.subscription_name, subscriptionsData?.items[0]?.subscription_id)
+  const selectedSubscription = subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)
+  const selectedSubscriptionName = getSubscriptionDisplayName(selectedSubscription?.subscription_name, subscriptionId)
+  const subscriptionContextMessage = subscriptionsLoading
+    ? d.subscriptionLoading
+    : subscriptionsError
+      ? d.subscriptionUnavailable
+      : subscriptionId
+        ? d.subscriptionScopedView.replace('{{name}}', selectedSubscriptionName)
+        : hasMultipleSubscriptions
+          ? d.consolidatedViewAcross.replace('{{count}}', String(subscriptionsData?.subscription_count ?? 0))
+          : singleSubscriptionName
+            ? d.subscriptionSingleScope.replace('{{name}}', singleSubscriptionName)
+            : d.subscriptionNone
+
   const scopeLabel = subscriptionId
     ? d.filteredScope.replace(
         '{{scope}}',
-        subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
-          `${subscriptionId.slice(0, 8)}…`,
+        selectedSubscriptionName,
       )
     : subscriptionsData && subscriptionsData.subscription_count > 1
       ? d.consolidatedScope.replace('{{count}}', String(subscriptionsData.subscription_count))
@@ -678,22 +703,33 @@ export function DashboardPage() {
             </div>
 
             {/* Subscription filter */}
-            {(subscriptionsData?.subscription_count ?? 0) > 1 && (
-              <select
-                value={subscriptionId}
-                onChange={(e) => setSubscriptionId(e.target.value)}
-                className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              >
-                <option value="">{d.allSubscriptionsConsolidated}</option>
-                {subscriptionsData?.items.map((s) => (
-                  <option key={s.subscription_id} value={s.subscription_id}>
-                    {s.subscription_name
-                      ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
-                      : `${s.subscription_id.slice(0, 8)}…`}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              value={hasMultipleSubscriptions ? subscriptionId : ''}
+              onChange={(e) => setSubscriptionId(e.target.value)}
+              disabled={!hasMultipleSubscriptions || subscriptionsLoading || subscriptionsError}
+              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              {subscriptionsLoading ? (
+                <option value="">{d.subscriptionLoading}</option>
+              ) : subscriptionsError ? (
+                <option value="">{d.subscriptionUnavailable}</option>
+              ) : hasMultipleSubscriptions ? (
+                <>
+                  <option value="">{d.allSubscriptionsConsolidated}</option>
+                  {subscriptionsData?.items.map((s) => (
+                    <option key={s.subscription_id} value={s.subscription_id}>
+                      {s.subscription_name
+                        ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                        : `${s.subscription_id.slice(0, 8)}…`}
+                    </option>
+                  ))}
+                </>
+              ) : singleSubscriptionName ? (
+                <option value="">{singleSubscriptionName}</option>
+              ) : (
+                <option value="">{d.subscriptionNone}</option>
+              )}
+            </select>
 
             {/* Separator */}
             <div className="hidden sm:block h-5 w-px bg-gray-200" />
@@ -734,15 +770,11 @@ export function DashboardPage() {
         </div>
 
         {/* Contextual info + action messages */}
-        {(subscriptionId || actionMessage) && (
+        {(subscriptionContextMessage || actionMessage) && (
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-gray-100 pt-2">
-            {subscriptionId && (
+            {subscriptionContextMessage && (
               <p className="text-xs text-gray-400">
-                {d.subscriptionScopedView.replace(
-                  '{{name}}',
-                  subscriptionsData?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
-                    `${subscriptionId.slice(0, 8)}…`,
-                )}
+                {subscriptionContextMessage}
               </p>
             )}
             {actionMessage && (

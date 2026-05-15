@@ -91,6 +91,10 @@ export interface Translations {
     allSubscriptionsConsolidated: string
     subscriptionScopedView: string
     consolidatedViewAcross: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionSingleScope: string
+    subscriptionNone: string
     syncHint: string
     filteredScope: string
     consolidatedScope: string
@@ -592,6 +596,10 @@ export interface Translations {
     allSubscriptionsConsolidated: string
     subscriptionViewing: string
     consolidatedAcross: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionSingleScope: string
+    subscriptionNone: string
     filteredScope: string
     consolidatedScope: string
     scoreLabel: string
@@ -818,6 +826,9 @@ export interface Translations {
     teamFilterPlaceholder: string
     subscriptionLabel: string
     allSubscriptionsCount: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionNone: string
     visibleCost: string
     exportReport: string
     format: string
@@ -1438,6 +1449,10 @@ export const en: Translations = {
     allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
     subscriptionScopedView: 'Subscription-scoped view: {{name}}. Applies to cost metrics only.',
     consolidatedViewAcross: 'Consolidated view across {{count}} subscriptions.',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionSingleScope: '1 subscription in scope: {{name}}.',
+    subscriptionNone: 'No subscriptions discovered.',
     syncHint: 'When syncing cloud data, new provider usage and costs may take a few minutes to appear.',
     filteredScope: 'Filtered: {{scope}}',
     consolidatedScope: 'Consolidated · {{count}} subscriptions',
@@ -1942,6 +1957,10 @@ export const en: Translations = {
     allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
     subscriptionViewing: 'Viewing: {{scope}}. Financial metrics only.',
     consolidatedAcross: 'Consolidated across {{count}} subscriptions.',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionSingleScope: '1 subscription in scope: {{scope}}.',
+    subscriptionNone: 'No subscriptions discovered.',
     filteredScope: 'Filtered: {{scope}}',
     consolidatedScope: 'Consolidated · {{count}} subscriptions',
     scoreLabel: 'Score',
@@ -2168,6 +2187,9 @@ export const en: Translations = {
     teamFilterPlaceholder: 'owner team',
     subscriptionLabel: 'Subscription',
     allSubscriptionsCount: 'All ({{count}})',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionNone: 'No subscriptions discovered.',
     visibleCost: 'Visible Spend',
     exportReport: 'Export Report',
     format: 'Format',

@@ -181,6 +181,14 @@ export function EconomicsCostsPage() {
     queryKey: ['ledger', 'subscriptions', days],
     queryFn: () => ledgerApi.subscriptionCostSummary(days).then((r) => r.data),
   })
+  const hasMultipleSubscriptions = (subscriptionsQuery.data?.subscription_count ?? 0) > 1
+  const getSubscriptionDisplayName = (subscriptionName: string | null | undefined, subscriptionKey: string | null | undefined) => {
+    const normalizedName = subscriptionName?.trim()
+    if (normalizedName) return normalizedName
+    return subscriptionKey ? `${subscriptionKey.slice(0, 8)}…` : ec.subscriptionNone
+  }
+  const singleSubscriptionName =
+    getSubscriptionDisplayName(subscriptionsQuery.data?.items[0]?.subscription_name, subscriptionsQuery.data?.items[0]?.subscription_id)
 
   const servicesQuery = useQuery<PageResponse<ServiceBreakdown>>({
     queryKey: ['economics-costs-services', days, servicePage],
@@ -301,28 +309,39 @@ export function EconomicsCostsPage() {
               />
             </label>
 
-            {(subscriptionsQuery.data?.subscription_count ?? 0) > 1 && (
-              <label className="text-sm text-gray-600">
-                {ec.subscriptionLabel}
-                <select
-                  value={subscriptionFilter}
-                  onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1) }}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="">
-                    {ec.allSubscriptionsCount.replace('{{count}}', String(subscriptionsQuery.data?.subscription_count ?? 0))}
-                  </option>
-                  {subscriptionsQuery.data?.items.map((s) => (
-                    <option key={s.subscription_id} value={s.subscription_id}>
-                      {s.subscription_name
-                        ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
-                        : `${s.subscription_id.slice(0, 8)}…`
-                      } · {formatMoney(s.total_cost_usd)}
+            <label className="text-sm text-gray-600">
+              {ec.subscriptionLabel}
+              <select
+                value={hasMultipleSubscriptions ? subscriptionFilter : ''}
+                onChange={(e) => { setSubscriptionFilter(e.target.value); setPage(1) }}
+                disabled={!hasMultipleSubscriptions || subscriptionsQuery.isLoading || subscriptionsQuery.isError}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                {subscriptionsQuery.isLoading ? (
+                  <option value="">{ec.subscriptionLoading}</option>
+                ) : subscriptionsQuery.isError ? (
+                  <option value="">{ec.subscriptionUnavailable}</option>
+                ) : hasMultipleSubscriptions ? (
+                  <>
+                    <option value="">
+                      {ec.allSubscriptionsCount.replace('{{count}}', String(subscriptionsQuery.data?.subscription_count ?? 0))}
                     </option>
-                  ))}
-                </select>
-              </label>
-            )}
+                    {subscriptionsQuery.data?.items.map((s) => (
+                      <option key={s.subscription_id} value={s.subscription_id}>
+                        {s.subscription_name
+                          ? `${s.subscription_name} (${s.subscription_id.slice(0, 8)}…)`
+                          : `${s.subscription_id.slice(0, 8)}…`
+                        } · {formatMoney(s.total_cost_usd)}
+                      </option>
+                    ))}
+                  </>
+                ) : singleSubscriptionName ? (
+                  <option value="">{singleSubscriptionName}</option>
+                ) : (
+                  <option value="">{ec.subscriptionNone}</option>
+                )}
+              </select>
+            </label>
 
             <div className="rounded-xl border border-slate-900 bg-slate-900 px-4 py-3 text-white shadow-sm xl:col-span-1">
               <div className="text-xs uppercase tracking-wide text-slate-300">{ec.visibleCost}</div>

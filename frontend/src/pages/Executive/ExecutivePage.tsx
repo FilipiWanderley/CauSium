@@ -63,7 +63,11 @@ export function ExecutivePage() {
 
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
-  const { data: subscriptionSummary } = useQuery({
+  const {
+    data: subscriptionSummary,
+    isLoading: subscriptionSummaryLoading,
+    isError: subscriptionSummaryError,
+  } = useQuery({
     queryKey: ['ledger', 'subscriptions', 30],
     queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
   })
@@ -99,9 +103,27 @@ export function ExecutivePage() {
 
   const displayCurrency = dashboardMeta?.billing_currency || DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
-  const selectedSubscriptionScope =
-    subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)?.subscription_name ||
-    `${subscriptionId.slice(0, 8)}…`
+  const hasMultipleSubscriptions = (subscriptionSummary?.subscription_count ?? 0) > 1
+  const getSubscriptionDisplayName = (subscriptionName: string | null | undefined, subscriptionKey: string | null | undefined) => {
+    const normalizedName = subscriptionName?.trim()
+    if (normalizedName) return normalizedName
+    return subscriptionKey ? `${subscriptionKey.slice(0, 8)}…` : e.subscriptionNone
+  }
+  const singleSubscriptionName =
+    getSubscriptionDisplayName(subscriptionSummary?.items[0]?.subscription_name, subscriptionSummary?.items[0]?.subscription_id)
+  const selectedSubscription = subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)
+  const selectedSubscriptionScope = getSubscriptionDisplayName(selectedSubscription?.subscription_name, subscriptionId)
+  const subscriptionContextMessage = subscriptionSummaryLoading
+    ? e.subscriptionLoading
+    : subscriptionSummaryError
+      ? e.subscriptionUnavailable
+      : subscriptionId
+        ? e.subscriptionViewing.replace('{{scope}}', selectedSubscriptionScope)
+        : hasMultipleSubscriptions
+          ? e.consolidatedAcross.replace('{{count}}', String(subscriptionSummary?.subscription_count ?? 0))
+          : singleSubscriptionName
+            ? e.subscriptionSingleScope.replace('{{scope}}', singleSubscriptionName)
+            : e.subscriptionNone
   const allInitiatives = useMemo(
     () => INITIATIVE_COLUMNS.flatMap((column) => initiativesBoard?.[column] ?? []),
     [initiativesBoard],
@@ -208,28 +230,35 @@ export function ExecutivePage() {
         <div className="mt-3 text-xs text-gray-500">{e.exportReadinessNote}</div>
       </div>
 
-      {subscriptionSummary && subscriptionSummary.subscription_count > 1 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{e.subscriptionLabel}</label>
-          <select
-            value={subscriptionId}
-            onChange={(ev) => setSubscriptionId(ev.target.value)}
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
-          >
-            <option value="">{e.allSubscriptionsConsolidated}</option>
-            {subscriptionSummary.items.map((item) => (
-              <option key={item.subscription_id} value={item.subscription_id}>
-                {item.subscription_name || item.subscription_id.slice(0, 8) + '…'}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-gray-400">
-            {subscriptionId
-              ? e.subscriptionViewing.replace('{{scope}}', selectedSubscriptionScope)
-              : e.consolidatedAcross.replace('{{count}}', String(subscriptionSummary.subscription_count))}
-          </span>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{e.subscriptionLabel}</label>
+        <select
+          value={hasMultipleSubscriptions ? subscriptionId : ''}
+          onChange={(ev) => setSubscriptionId(ev.target.value)}
+          disabled={!hasMultipleSubscriptions || subscriptionSummaryLoading || subscriptionSummaryError}
+          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+        >
+          {subscriptionSummaryLoading ? (
+            <option value="">{e.subscriptionLoading}</option>
+          ) : subscriptionSummaryError ? (
+            <option value="">{e.subscriptionUnavailable}</option>
+          ) : hasMultipleSubscriptions ? (
+            <>
+              <option value="">{e.allSubscriptionsConsolidated}</option>
+              {subscriptionSummary?.items.map((item) => (
+                <option key={item.subscription_id} value={item.subscription_id}>
+                  {item.subscription_name || item.subscription_id.slice(0, 8) + '…'}
+                </option>
+              ))}
+            </>
+          ) : singleSubscriptionName ? (
+            <option value="">{singleSubscriptionName}</option>
+          ) : (
+            <option value="">{e.subscriptionNone}</option>
+          )}
+        </select>
+        <span className="text-xs text-gray-400">{subscriptionContextMessage}</span>
+      </div>
 
       {subscriptionSummary && subscriptionSummary.subscription_count > 0 && (
         <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 flex items-center justify-between">
