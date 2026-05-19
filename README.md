@@ -35,7 +35,7 @@
 - [Módulos do Produto](#-módulos-do-produto)
 - [Status por Módulo](#-status-por-módulo)
 - [Segurança](#-segurança)
-- [LGPD — LGPD BASIC READY](#-lgpd--lgpd-basic-ready)
+- [LGPD — Compliance Operacional](#-lgpd--compliance-operacional)
 - [Platform Admin e Support Access](#-platform-admin-e-support-access)
 - [Modelo de Dados](#-modelo-de-dados)
 - [Workers e Processamento](#-workers-e-processamento)
@@ -64,6 +64,7 @@
 - [Testes](#-testes)
 - [Métricas de Sucesso](#-métricas-de-sucesso)
 - [Glossário](#-glossário)
+- [Enterprise Readiness](#-enterprise-readiness)
 - [Operational Credibility Roadmap](#-operational-credibility-roadmap)
 
 ---
@@ -263,8 +264,8 @@ CauSium
 | Confidence Calibration / Adaptive Decision Engine | ⚠️ | Base implementada; ARI completo Wave 3 |
 | Platform Admin (/admin) | ✅ | Org lifecycle, DLQ, support access auditado |
 | Support Access | ✅ | Sessões time-bounded (≤60 min), reason obrigatório, read-only, auditado |
-| LGPD | ✅ | **LGPD BASIC READY** — ver seção LGPD |
-| Security Guardrails | ✅ | CI guardrail, /health/metrics protegidos, Azure mock bloqueado em prod |
+| LGPD | ✅ | **LGPD Operacional** — ver seção LGPD |
+| Security Guardrails | ✅ | CI guardrail, production startup guards, worker healthcheck, Prometheus alerting rules |
 | Cloud Read-only Model | ✅ | Todos os conectores read-only; zero create/update/delete cloud |
 | PulseGov (governança) | ⚠️ | Backend domain + frontend page existem; features Wave 3 |
 | PulseGreen (carbono) | ⚠️ | Carbon worker + modelo + frontend page; features Wave 3 |
@@ -357,6 +358,7 @@ sequenceDiagram
 | Ponto | Detalhe |
 |-------|---------|
 | `/health/detailed` e `/metrics` | Protegidos por `_require_internal_monitoring_key` — não são públicos em produção |
+| Production startup guards | App recusa iniciar com `secret_key` ou `encryption_key` padrão em `APP_ENV=production` |
 | Azure Mock fallback | Bloqueado quando `APP_ENV=production` — sem dados simulados silenciosos |
 | Azure Owner/Contributor | `validate_cost_management_scope` detecta e emite warning; role recomendada: `Cost Management Reader` |
 | Payloads de auditoria | Operações administrativas usam `target_user_id` — sem email/nome nos eventos de audit |
@@ -387,9 +389,9 @@ Integridade verificável via `GET /audit/verify`. Checkpoints periódicos HMAC-a
 
 ---
 
-## 🛡️ LGPD — LGPD BASIC READY
+## 🛡️ LGPD — Compliance Operacional
 
-> **Status: LGPD BASIC READY** — Os dois bloqueadores críticos (exclusão real + retenção automática) foram resolvidos no Sprint 12.
+> **Status: LGPD Operacional** — Consentimento, re-consent, exclusão, retenção automática, DPO endpoint, e ROPA documentado. Auditoria pendente de revisão jurídica formal.
 
 ### Fluxo de Anonimização (Art. 18 LGPD)
 
@@ -433,14 +435,17 @@ Pode ser solicitado pelo próprio usuário ou por admin/platform_admin.
 | Categoria LGPD | Status | Detalhe |
 |----------------|:------:|---------|
 | Consentimento (Art. 7/8) | ✅ | `terms_accepted_at` + `terms_version` no modelo User |
+| Re-consent (Art. 8 §5) | ✅ | Fluxo de re-aceitação quando `current_terms_version` é incrementado |
 | Criptografia de segredos | ✅ | Fernet org-scoped (TOTP, credenciais cloud), rotação 30d |
 | Controle de acesso | ✅ | RBAC + support access auditado ≤60 min |
 | Auditoria | ✅ | AuditChain SHA-256; payloads admin sem PII |
 | Exclusão real (Art. 18) | ✅ | `anonymize_user_identity` + `lgpd_purge_user` |
 | Retenção automática (Art. 15) | ✅ | `maintenance_worker` anonimiza 30 dias após `deleted_at` |
+| DPO / Encarregado (Art. 41) | ✅ | `GET /legal/dpo-contact` — endpoint público com direitos e instruções |
+| ROPA (Art. 37) | ✅ | `docs/lgpd-ropa.md` — registro de atividades de tratamento |
 | Compartilhamento (OpenAI) | ⚠️ | Contexto de custos apenas (sem PII); DPA formal pendente |
 | Audit chain HMAC por evento | ⚠️ | Apenas checkpoints HMAC-assinados; eventos individuais SHA-256 puro |
-| LGPD FULL | 🧭 | Catálogo de bases legais, automação de prazos, relatórios de conformidade |
+| LGPD FULL | 🧭 | Revisão jurídica formal, automação de prazos ANPD, relatórios de conformidade |
 
 ---
 
@@ -915,6 +920,7 @@ flowchart LR
     APP[FastAPI] -->|OTLP gRPC| COLL[OTel Collector]
     COLL -->|traces| JAEGER[Jaeger :16686]
     COLL -->|metrics| PROM[Prometheus :9090]
+    PROM -->|alerting rules| ALERT[Alerting Module]
     PROM --> GRAF[Grafana :3001\nDashboards + SLO]
 ```
 
@@ -927,6 +933,40 @@ flowchart LR
 | Grafana | `http://localhost:3001` | admin / admin |
 
 **SLO endpoint:** `GET /metrics/slo` → `{api_availability_7d, p95_latency_ms, error_rate_1h, ingestion_success_rate_24h}`
+
+### Prometheus Alerting Rules (`monitoring/rules.yml`)
+
+9 recording and alerting rules across 4 groups:
+
+| Rule | Severity | Condition |
+|------|----------|-----------|
+| `CauSiumAPIErrorBudgetBreach` | critical | 5xx error rate > 1% for 2 min |
+| `CauSiumAPILatencySLOBreach` | warning | p95 latency > 500ms for 3 min |
+| `CauSiumBackendDown` | critical | Backend unreachable for 1 min |
+| `CauSiumHealthDegraded` | high | Health check degraded for 2 min |
+| `CauSiumWorkerHeartbeatStale` | critical | Worker heartbeat > 90s old |
+| `CauSiumDLQAccumulating` | high | > 10 unresolved DLQ messages |
+| `CauSiumBackupOverdue` | high | No backup in 25 hours |
+
+### Worker Health Signal
+
+The worker process writes a heartbeat timestamp to `/tmp/worker_heartbeat` every 15 seconds. Docker healthcheck monitors file freshness (60s stale threshold). If the event loop is blocked or the process crashes, the file goes stale and the container is restarted.
+
+### Operational Alerting Module (`app/core/alerting.py`)
+
+```python
+send_alert(
+    subject="Worker 'ingestion' crashed",
+    body="Details...",
+    severity=AlertSeverity.CRITICAL,
+    source="worker.ingestion",
+)
+```
+
+- All severities → structured log (`ops.alert` event)
+- CRITICAL + HIGH → async email to ops team (if SMTP configured)
+- Wired into: worker crash handler, DLQ push events
+- Designed for future PagerDuty/OpsGenie integration without vendor lock-in
 
 ---
 
@@ -957,11 +997,35 @@ docker compose up -d
 - Frontend via **nginx** (porta 80) com build de produção
 - Jaeger e ferramentas de observabilidade em `profiles: [dev]`
 - Sem bind-mounts de código
+- Worker healthcheck via heartbeat file (60s stale threshold)
+- Prometheus alerting rules mounted (`monitoring/rules.yml`)
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml --profile dev up -d  # com observabilidade
 ```
+
+### Operational Makefile
+
+```bash
+make backup              # Full backup (PostgreSQL + ClickHouse + Redis)
+make restore BACKUP=...  # Restore from specific backup directory
+make dr-drill            # Full DR drill (backup → restore → RTO/RPO measurement)
+make dr-drill-dry        # Backup only (no restore)
+make verify-backup       # Verify backup structure
+make health              # Check all service health
+make dev-up              # Start all services
+make dev-down            # Stop all services
+```
+
+### Backup & Disaster Recovery
+
+Automated scripts under `scripts/`:
+- `backup.sh` — full backup of all 3 datastores with JSON report
+- `restore.sh` — full restore with RTO measurement and health verification
+- `rto_rpo_test.sh` — automated DR drill with pass/fail against targets
+
+Runbook: [`docs/runbooks/backup-restore.md`](docs/runbooks/backup-restore.md) — includes DR drill checklist, verification procedures, and restore commands for both managed (Azure) and self-managed deployments.
 
 ### Target: Azure Enterprise (Wave 1)
 
@@ -2050,15 +2114,34 @@ CauSium/
 │   └── nginx.prod.conf                # nginx prod (CSP, HSTS, gzip)
 ├── docker-compose.yml                 # Dev local + observabilidade
 ├── docker-compose.prod.yml            # Produção (4 workers, nginx)
+├── Makefile                           # Operational targets (backup, restore, dr-drill, health)
 ├── .env.example
+├── monitoring/
+│   ├── prometheus.yml                 # Prometheus scrape config
+│   ├── rules.yml                      # Alerting rules (9 rules, 4 groups)
+│   └── grafana/                       # Grafana provisioning
 ├── scripts/
 │   ├── cloud_mutation_guardrail.py    # CI mutation guardrail
+│   ├── backup.sh                      # Full backup (PG + CH + Redis)
+│   ├── restore.sh                     # Full restore + RTO measurement
+│   ├── rto_rpo_test.sh                # Automated DR drill
+│   ├── security_baseline.py           # Security baseline check
 │   └── clickhouse_init.sql
 └── docs/
     ├── security/
     │   ├── cloud-read-only-onboarding.md
     │   └── OP08_Security_Gates_Policy.md
-    └── operations/
+    ├── operations/
+    │   ├── Release_Runbook.md
+    │   ├── Rollback_Runbook.md
+    │   └── Go_No_Go_Checklist.md
+    ├── runbooks/
+    │   ├── backup-restore.md          # DR runbook + drill checklist
+    │   └── worker-dedicated.md
+    ├── pentest-plan.md                # Penetration test scope and methodology
+    ├── soc2-readiness.md              # SOC 2 Type I self-assessment
+    ├── lgpd-ropa.md                   # LGPD Record of Processing Activities
+    └── security-whitepaper.md         # Customer-facing security document
 ```
 
 ---
@@ -2094,6 +2177,8 @@ npm test
 | `test_cloud_accounts.py` | Integration | Health checks, ingestion queue |
 | `test_audit_chain.py` | Integration | Hash chain verification, checkpoints |
 | `test_idempotency_keys.py` | Integration | Replay e fingerprint SHA-256 |
+| `test_lgpd_endpoints.py` | Integration | LGPD export + purge/anonymize |
+| `test_lgpd_reconsent.py` | Integration | Re-consent flow, DPO endpoint, terms version bump |
 | `LoginPage.test.tsx` | Component | Login form, passkey button, error states |
 | `MembersPage.test.tsx` | Component | Members CRUD |
 | `SettingsPage.test.tsx` | Component | MFA TOTP setup, passkey management |
@@ -2168,6 +2253,52 @@ npm test
 | **TotpBackupCode** | Código one-time de recuperação de conta MFA (10 por usuário) |
 | **SCA** | Stratum Causal Attribution — engine de atribuição causal de variações de custo (Wave 3) |
 | **ARI** | Adaptive Recommendation Index — ranking adaptativo de oportunidades (Wave 3) |
+
+---
+
+## 🏛️ Enterprise Readiness
+
+> Summary of security, compliance, and operational hardening completed beyond product features.
+
+### Security Hardening
+
+| Control | Status | Evidence |
+|---------|:------:|----------|
+| CI strict gates (no continue-on-error) | ✅ | `.github/workflows/ci.yml` — tests, security, frontend are blocking |
+| Production startup guards | ✅ | `config.py` — rejects default `secret_key` and `encryption_key` in production |
+| Worker heartbeat healthcheck | ✅ | `runner.py` — 15s heartbeat; Docker healthcheck with 60s stale threshold |
+| Prometheus alerting rules | ✅ | `monitoring/rules.yml` — 9 rules covering SLO, infra, workers, backups |
+| Operational alerting module | ✅ | `app/core/alerting.py` — `send_alert()` with log + email dispatch |
+| Backup/restore automation | ✅ | `scripts/backup.sh`, `scripts/restore.sh`, `scripts/rto_rpo_test.sh` |
+| DR drill checklist | ✅ | `docs/runbooks/backup-restore.md` — executable drill with success criteria |
+| LGPD re-consent flow | ✅ | `POST /auth/accept-terms` + frontend guard + `current_terms_version` config |
+| DPO contact endpoint | ✅ | `GET /legal/dpo-contact` — public, no auth required |
+| Cloud mutation guardrail | ✅ | `scripts/cloud_mutation_guardrail.py` — CI-enforced |
+| Per-workspace key rotation | ✅ | `keyring_rotation_worker` — automatic Fernet key rotation |
+
+### Audit-Readiness Documentation
+
+| Document | Purpose | Status |
+|----------|---------|:------:|
+| [`docs/pentest-plan.md`](docs/pentest-plan.md) | Scope, methodology, and rules of engagement for formal penetration test | Prepared (not yet executed) |
+| [`docs/soc2-readiness.md`](docs/soc2-readiness.md) | SOC 2 Type I self-assessment with control mapping and gap analysis | Self-assessed (auditor not yet engaged) |
+| [`docs/lgpd-ropa.md`](docs/lgpd-ropa.md) | LGPD Art. 37 Record of Processing Activities | Drafted (pending DPO review) |
+| [`docs/security-whitepaper.md`](docs/security-whitepaper.md) | Customer-facing security architecture and controls document | Drafted (ready for publication) |
+
+### What This Means
+
+- The platform is **operationally hardened** for production deployment
+- LGPD compliance is **implemented in code** (consent, re-consent, export, purge, DPO, ROPA)
+- Observability is **active** (Prometheus scraping, alerting rules, structured logging, tracing)
+- Disaster recovery is **scripted and measurable** (automated RTO/RPO drills)
+- Security posture is **documented and auditable** (SOC 2 mapping, pentest scope ready)
+
+### What This Does NOT Mean
+
+- SOC 2 certification has NOT been obtained (requires formal audit)
+- Penetration test has NOT been executed (plan is ready for vendor engagement)
+- LGPD ROPA has NOT been reviewed by legal counsel
+- No external compliance attestation exists yet
 
 ---
 
