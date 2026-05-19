@@ -8,6 +8,7 @@ import {
   type EmissionsMonthRow,
 } from '../../api/green'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
@@ -31,6 +32,7 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 }
 
 export function GreenPage() {
+  usePageTitle('Green')
   const { t } = useI18n()
   const gr = t.green
   const ux = t.ux

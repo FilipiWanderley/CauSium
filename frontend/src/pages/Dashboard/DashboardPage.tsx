@@ -13,6 +13,7 @@ import { opportunitiesApi } from '../../api/opportunities'
 import { changeEventsApi } from '../../api/changeEvents'
 import { intelApi } from '../../api/intel'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import type {
   ChangeEvent,
   ChangeEventType,
@@ -160,6 +161,7 @@ function EventFeedRow({ ev, eventLabels }: { ev: ChangeEvent; eventLabels: Recor
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
+  usePageTitle('Dashboard')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const d = t.dashboard
@@ -226,8 +228,8 @@ export function DashboardPage() {
     isLoading: subscriptionsLoading,
     isError: subscriptionsError,
   } = useQuery<SubscriptionCostSummary>({
-    queryKey: ['ledger', 'subscriptions', 30],
-    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
+    queryKey: ['ledger', 'subscriptions', 90],
+    queryFn: () => ledgerApi.subscriptionCostSummary(90).then((r) => r.data),
   })
 
   const hasMultipleSubscriptions = (subscriptionsData?.subscription_count ?? 0) > 1

@@ -1,6 +1,8 @@
-import { Suspense, type ReactNode } from 'react'
+import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/Layout/AppLayout'
+import { SessionExpired } from './components/UX/SessionExpired'
+import { SESSION_EXPIRED_EVENT } from './api/client'
 import {
   ActivateInvitePage,
   ChangeEventsPage,
@@ -36,6 +38,18 @@ function lazyRoute(node: ReactNode) {
 }
 
 export default function App() {
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setSessionExpired(true)
+    window.addEventListener(SESSION_EXPIRED_EVENT, handler)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
+  }, [])
+
+  if (sessionExpired) {
+    return <SessionExpired />
+  }
+
   return (
     <BrowserRouter>
       <Routes>

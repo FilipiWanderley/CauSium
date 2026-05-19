@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, Info, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { ledgerApi } from '../../api/ledger'
 import type { ReconciliationReport, ReconciliationSubscriptionRow } from '../../types'
 import clsx from 'clsx'
@@ -169,6 +170,7 @@ function SubscriptionTable({ rows, currency }: { rows: ReconciliationSubscriptio
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export function ReconciliationPage() {
+  usePageTitle('Reconciliation')
   const { user } = useAuth()
 
   // Role guard — redirect non-admin/engineer users

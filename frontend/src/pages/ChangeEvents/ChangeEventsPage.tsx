@@ -5,6 +5,8 @@ import { changeEventsApi } from '../../api/changeEvents'
 import type { ChangeEvent, ChangeEventType } from '../../types'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
+import { formatDateFull } from '../../utils/format'
 
 const ALL_TYPES: ChangeEventType[] = [
   'deploy',
@@ -16,12 +18,7 @@ const ALL_TYPES: ChangeEventType[] = [
 ]
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateFull(iso)
 }
 
 function EventRow({ ev, typeMeta }: {
@@ -76,6 +73,7 @@ function EventRow({ ev, typeMeta }: {
 }
 
 export function ChangeEventsPage() {
+  usePageTitle('Change Events')
   const { t } = useI18n()
   const ce = t.changeEvents
   const common = t.common

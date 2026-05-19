@@ -5,6 +5,7 @@ import { riskBudgetsApi } from '../../api/riskBudgets'
 import type { RiskBudget, BudgetType, BudgetPeriod } from '../../types'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 // ── Meta ──────────────────────────────────────────────────────────────────────
 
@@ -160,6 +161,7 @@ const EMPTY_FORM = {
 }
 
 export function RiskBudgetsPage() {
+  usePageTitle('Risk Budgets')
   const { t } = useI18n()
   const rb = t.riskBudgets
   const common = t.common

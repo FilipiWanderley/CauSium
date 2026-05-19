@@ -18,6 +18,7 @@ import {
 } from 'recharts'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 import type { ConfidenceTier, Initiative, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
 
@@ -57,6 +58,7 @@ function formatDate(value: string | null, locale: string) {
 }
 
 export function ExecutivePage() {
+  usePageTitle('Executive')
   const { t, lang } = useI18n()
   const e = t.executive
   const ux = t.ux
@@ -68,8 +70,8 @@ export function ExecutivePage() {
     isLoading: subscriptionSummaryLoading,
     isError: subscriptionSummaryError,
   } = useQuery({
-    queryKey: ['ledger', 'subscriptions', 30],
-    queryFn: () => ledgerApi.subscriptionCostSummary(30).then((r) => r.data),
+    queryKey: ['ledger', 'subscriptions', 90],
+    queryFn: () => ledgerApi.subscriptionCostSummary(90).then((r) => r.data),
   })
 
   const { data: dashboardMeta } = useQuery({

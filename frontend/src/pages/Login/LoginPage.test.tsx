@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { I18nProvider } from '../../contexts/I18nContext'
 
 const loginMock = vi.fn()
 const loginWithPasskeyMock = vi.fn()
@@ -13,16 +14,21 @@ vi.mock('../../hooks/useAuth', () => ({
   }),
 }))
 
-// lucide-react SVG icons fail in jsdom — stub them
 vi.mock('lucide-react', () => ({
   Cloud: () => null,
+  ArrowLeft: () => null,
+  Cpu: () => null,
+  Eye: () => null,
+  EyeOff: () => null,
 }))
 
 async function renderPage(search = '') {
   const { LoginPage } = await import('./LoginPage')
   return render(
     <MemoryRouter initialEntries={[`/login${search}`]}>
-      <LoginPage />
+      <I18nProvider>
+        <LoginPage />
+      </I18nProvider>
     </MemoryRouter>
   )
 }
@@ -38,8 +44,8 @@ describe('LoginPage', () => {
 
   it('renders sign-in form', async () => {
     await renderPage()
-    expect(screen.getByPlaceholderText('you@company.com')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('customer@causium.io')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('••••••••••••')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in$/i })).toBeInTheDocument()
   })
 
@@ -47,10 +53,10 @@ describe('LoginPage', () => {
     loginMock.mockResolvedValue(undefined)
     await renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
+    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
       target: { value: 'user@company.com' },
     })
-    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
       target: { value: 'secret123' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
@@ -61,18 +67,18 @@ describe('LoginPage', () => {
   })
 
   it('shows error message on login failure', async () => {
-    loginMock.mockRejectedValue(new Error('401'))
+    loginMock.mockRejectedValue({ response: { status: 401 } })
     await renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
+    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
       target: { value: 'bad@company.com' },
     })
-    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
       target: { value: 'wrongpass' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
 
-    expect(await screen.findByText('Invalid email or password')).toBeInTheDocument()
+    expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument()
   })
 
   it('disables submit button while loading', async () => {
@@ -80,10 +86,10 @@ describe('LoginPage', () => {
     loginMock.mockImplementation(() => new Promise((r) => { resolve = r }))
     await renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
+    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
       target: { value: 'user@company.com' },
     })
-    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
       target: { value: 'password' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
@@ -100,7 +106,7 @@ describe('LoginPage', () => {
     loginWithPasskeyMock.mockResolvedValue(undefined)
     await renderPage()
 
-    fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
+    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
       target: { value: 'passkey@company.com' },
     })
     fireEvent.click(screen.getByRole('button', { name: /sign in with passkey/i }))
@@ -110,11 +116,11 @@ describe('LoginPage', () => {
     })
   })
 
-  it('shows error when passkey is clicked without email', async () => {
+  it('disables passkey button when email is empty', async () => {
     vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'true')
     await renderPage()
-    fireEvent.click(screen.getByRole('button', { name: /sign in with passkey/i }))
-    expect(await screen.findByText(/informe seu e-mail/i)).toBeInTheDocument()
+    const btn = screen.getByRole('button', { name: /sign in with passkey/i })
+    expect(btn).toBeDisabled()
     expect(loginWithPasskeyMock).not.toHaveBeenCalled()
   })
 

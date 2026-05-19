@@ -9,6 +9,7 @@ import {
   type UnownedCostRow,
 } from '../../api/gov'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
@@ -108,6 +109,7 @@ type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GovPage() {
+  usePageTitle('Governance')
   const { t } = useI18n()
   const g = t.gov
   const ux = t.ux

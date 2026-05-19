@@ -20,6 +20,7 @@ import {
   notificationsApi,
 } from '../../api/notifications'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import {
   isNotificationSoundEnabled,
   setNotificationSoundEnabled,
@@ -206,6 +207,7 @@ function AlertCard({
 }
 
 export function NotificationsPage() {
+  usePageTitle('Notifications')
   const { t } = useI18n()
   const n = t.notifications
 

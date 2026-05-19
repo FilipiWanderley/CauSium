@@ -19,6 +19,9 @@ export const apiClient = axios.create({
 
 let _isRefreshing = false
 
+/** Custom event dispatched when session refresh fails and user must re-authenticate. */
+export const SESSION_EXPIRED_EVENT = 'causium:session-expired'
+
 apiClient.interceptors.response.use(
   (r) => r,
   async (error) => {
@@ -47,7 +50,7 @@ apiClient.interceptors.response.use(
         return apiClient.request(originalRequest)
       } catch {
         _isRefreshing = false
-        window.location.href = '/login'
+        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
       }
     }
     return Promise.reject(error)
