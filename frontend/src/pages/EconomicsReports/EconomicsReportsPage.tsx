@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Download } from 'lucide-react'
+import { Download, FileSpreadsheet, FileText } from 'lucide-react'
 import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
+import { SkeletonMetricCards, SkeletonTable } from '../../components/UX/Skeleton'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsReportsPage() {
+  usePageTitle('Economics — Reports')
   const { t } = useI18n()
   const er = t.economicsReports
   const ux = t.ux
@@ -21,16 +26,22 @@ export function EconomicsReportsPage() {
   const dashboardQuery = useQuery({
     queryKey: ['economics-reports-dashboard'],
     queryFn: () => ledgerApi.dashboard().then((r) => r.data),
+    staleTime: 30_000,
+    retry: 2,
   })
 
   const servicesQuery = useQuery({
     queryKey: ['economics-reports-services', days],
     queryFn: () => ledgerApi.topServicesPaginated(days, 1, 15).then((r) => r.data.items),
+    staleTime: 30_000,
+    retry: 2,
   })
 
   const teamsQuery = useQuery({
     queryKey: ['economics-reports-teams', days],
     queryFn: () => ledgerApi.topTeamsPaginated(days, 1, 15).then((r) => r.data.items),
+    staleTime: 30_000,
+    retry: 2,
   })
 
   const exportJobQuery = useQuery({
@@ -93,6 +104,7 @@ export function EconomicsReportsPage() {
   }, [downloadedJobId, exportJobId, exportJobQuery.data])
 
   const isLoading = dashboardQuery.isLoading || servicesQuery.isLoading || teamsQuery.isLoading
+  const isError = dashboardQuery.isError || servicesQuery.isError || teamsQuery.isError
   const exportStatus = exportJobQuery.data?.status
   const isExporting = createExportMutation.isPending || exportStatus === 'queued' || exportStatus === 'running'
   const displayCurrency = dashboardQuery.data?.currency ?? DEFAULT_DISPLAY_CURRENCY
@@ -104,29 +116,32 @@ export function EconomicsReportsPage() {
 
   function renderExportStatus() {
     if (createExportMutation.isError) {
-      return er.errorEnqueue
+      return <span className="text-red-600">{er.errorEnqueue}</span>
     }
     if (!exportJobQuery.data) {
-      return er.asyncNote
+      return <span className="text-gray-400">{er.asyncNote}</span>
     }
     if (exportJobQuery.data.status === 'queued') {
-      return er.queued
+      return <span className="animate-pulse text-amber-600">{er.queued}</span>
     }
     if (exportJobQuery.data.status === 'running') {
-      return er.running
+      return <span className="animate-pulse text-blue-600">{er.running}</span>
     }
     if (exportJobQuery.data.status === 'completed') {
-      return downloadedJobId === exportJobId ? er.completedDownload : er.completed
+      return <span className="text-emerald-600">{downloadedJobId === exportJobId ? er.completedDownload : er.completed}</span>
     }
-    return exportJobQuery.data.error_message || 'Export failed.'
+    return <span className="text-red-600">{exportJobQuery.data.error_message || 'Export failed.'}</span>
   }
 
+  const momPct = dashboardQuery.data?.mom_change_pct ?? 0
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{er.title}</h1>
-        <p className="mt-1 text-sm text-gray-500">{er.subtitle}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+    <div className="space-y-8">
+      {/* Page header */}
+      <header>
+        <h1 className="text-2xl font-semibold text-gray-900">{er.title}</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{er.subtitle}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
             {er.financialValuesBrl}
           </span>
@@ -134,16 +149,17 @@ export function EconomicsReportsPage() {
             {er.consolidated}
           </span>
         </div>
-      </div>
+      </header>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <label className="text-sm text-gray-600">
+      {/* Export controls */}
+      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
             {er.reportWindow}
             <select
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mt-1.5 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500 md:w-48"
             >
               <option value={30}>{er.last30}</option>
               <option value={60}>{er.last60}</option>
@@ -156,26 +172,27 @@ export function EconomicsReportsPage() {
               <button
                 onClick={() => handleExport('csv')}
                 disabled={isLoading || isExporting}
-                className="inline-flex items-center gap-2 rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
               >
-                <Download className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
                 {isExporting ? er.processing : er.exportCsv}
               </button>
               <button
                 onClick={() => handleExport('xlsx')}
                 disabled={isLoading || isExporting}
-                className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
               >
-                <Download className="h-4 w-4" />
+                <FileSpreadsheet className="h-4 w-4" />
                 {isExporting ? er.processing : er.exportExcel}
               </button>
             </div>
-            <div className="text-right text-xs text-gray-500">{renderExportStatus()}</div>
+            <div className="text-right text-xs">{renderExportStatus()}</div>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4">
+      {/* Financial overview KPIs */}
+      <section>
         <SectionIntro
           title={er.overviewTitle}
           subtitle={er.overviewSubtitle}
@@ -185,103 +202,132 @@ export function EconomicsReportsPage() {
             { label: er.consolidated, tone: 'organization' },
           ]}
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <MetricCard title={er.currentMonth} value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)} emphasis="primary" />
-          <MetricCard title={er.previousMonth} value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)} emphasis="secondary" />
-          <MetricCard
-            title={er.momChange}
-            value={`${(dashboardQuery.data?.mom_change_pct ?? 0).toFixed(1)}%`}
-            valueClassName={
-              (dashboardQuery.data?.mom_change_pct ?? 0) > 0
-                ? 'text-red-600'
-                : (dashboardQuery.data?.mom_change_pct ?? 0) < 0
-                  ? 'text-green-600'
-                  : undefined
-            }
-          />
+        <div className="mt-4">
+          {isLoading ? (
+            <SkeletonMetricCards count={3} />
+          ) : isError ? (
+            <ErrorState
+              title={er.noData}
+              description="Could not load report data."
+              onRetry={() => { dashboardQuery.refetch(); servicesQuery.refetch(); teamsQuery.refetch() }}
+              retryLabel={t.common.reset}
+              compact
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {/* Current month — primary emphasis */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{er.currentMonth}</div>
+                <div className="mt-2 text-2xl font-bold tabular-nums text-white">
+                  {formatMoney(dashboardQuery.data?.current_month_cost ?? 0)}
+                </div>
+              </div>
+
+              {/* Previous month */}
+              <div className="rounded-xl border border-gray-200 bg-slate-50 p-5 shadow-sm">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{er.previousMonth}</div>
+                <div className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+                  {formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)}
+                </div>
+              </div>
+
+              {/* Month-over-month change */}
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{er.momChange}</div>
+                <div className={`mt-2 text-2xl font-bold tabular-nums ${
+                  momPct > 0 ? 'text-red-600' : momPct < 0 ? 'text-emerald-600' : 'text-gray-900'
+                }`}>
+                  {momPct > 0 ? '+' : ''}{momPct.toFixed(1)}%
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {momPct > 0 ? 'Cost increase' : momPct < 0 ? 'Cost reduction' : 'No change'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BreakdownCard title={er.topServices} rows={servicesQuery.data ?? []} loading={servicesQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} currency={displayCurrency} />
-        <BreakdownCard title={er.topTeams} rows={teamsQuery.data ?? []} loading={teamsQuery.isLoading} loadingLabel={er.loading} noDataLabel={er.noData} currency={displayCurrency} />
+      {/* Breakdown cards */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <BreakdownCard
+          title={er.topServices}
+          rows={servicesQuery.data ?? []}
+          loading={servicesQuery.isLoading}
+          noDataLabel={er.noData}
+          currency={displayCurrency}
+        />
+        <BreakdownCard
+          title={er.topTeams}
+          rows={teamsQuery.data ?? []}
+          loading={teamsQuery.isLoading}
+          noDataLabel={er.noData}
+          currency={displayCurrency}
+        />
       </div>
     </div>
   )
 }
 
-function MetricCard({
-  title,
-  value,
-  valueClassName,
-  emphasis = 'default',
-}: {
-  title: string
-  value: string
-  valueClassName?: string
-  emphasis?: 'default' | 'primary' | 'secondary'
-}) {
-  return (
-    <div className={`rounded-xl border p-4 shadow-sm ${
-      emphasis === 'primary'
-        ? 'border-slate-900 bg-slate-900'
-        : emphasis === 'secondary'
-          ? 'border-gray-200 bg-slate-50'
-          : 'border-gray-200 bg-white'
-    }`}>
-      <div className={`text-xs uppercase tracking-wide ${emphasis === 'primary' ? 'text-slate-300' : 'text-gray-500'}`}>{title}</div>
-      <div className={`mt-1 text-xl font-semibold ${
-        emphasis === 'primary'
-          ? 'text-white'
-          : valueClassName ?? 'text-gray-900'
-      }`}>{value}</div>
-    </div>
-  )
-}
+// ─── Breakdown Card ──────────────────────────────────────────────────────────
 
 function BreakdownCard({
   title,
   rows,
   loading,
-  loadingLabel,
   noDataLabel,
   currency,
 }: {
   title: string
   rows: Array<{ service: string; cost_usd: number; percentage: number }>
   loading: boolean
-  loadingLabel: string
   noDataLabel: string
   currency: string
 }) {
   const formatMoney = (value: number) => formatCurrency(value, currency)
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-gray-900">{title}</h2>
-      {loading ? (
-        <div className="py-8 text-center text-sm text-gray-500">{loadingLabel}</div>
-      ) : !rows.length ? (
-        <div className="py-8 text-center text-sm text-gray-500">{noDataLabel}</div>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((row) => (
-            <div key={`${title}-${row.service}`} className="flex items-center justify-between rounded border border-gray-100 px-3 py-2">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-gray-800">{row.service}</div>
-                <div className="text-xs text-gray-500">{formatMoney(row.cost_usd)}</div>
-                <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="border-b border-gray-100 px-5 py-4">
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+      </div>
+      <div className="p-5">
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-lg border border-gray-100 px-3 py-3">
+                <div className="h-4 w-2/3 rounded bg-gray-200" />
+                <div className="mt-1.5 h-3 w-1/3 rounded bg-gray-100" />
+                <div className="mt-2.5 h-1.5 w-full rounded-full bg-gray-100" />
+              </div>
+            ))}
+          </div>
+        ) : !rows.length ? (
+          <div className="rounded-lg border-2 border-dashed border-gray-200 py-10 text-center">
+            <p className="text-sm text-gray-500">{noDataLabel}</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {rows.map((row) => (
+              <div key={`${title}-${row.service}`} className="rounded-lg border border-gray-100 px-4 py-3 transition hover:border-gray-200 hover:bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-gray-900">{row.service}</div>
+                    <div className="mt-0.5 text-xs tabular-nums text-gray-500">{formatMoney(row.cost_usd)}</div>
+                  </div>
+                  <div className="ml-3 text-sm font-semibold tabular-nums text-gray-700">{row.percentage.toFixed(1)}%</div>
+                </div>
+                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
                   <div
-                    className="h-1.5 rounded-full bg-blue-500"
+                    className="h-full rounded-full bg-brand-500 transition-all"
                     style={{ width: `${Math.max(0, Math.min(100, row.percentage))}%` }}
                   />
                 </div>
               </div>
-              <div className="text-sm font-semibold text-gray-700">{row.percentage.toFixed(1)}%</div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
