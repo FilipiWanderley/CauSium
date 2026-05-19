@@ -348,6 +348,31 @@ export interface Translations {
     explainImpact: string
     explainRisks: string
     explainSteps: string
+    // Hardening additions
+    searchPlaceholder: string
+    searchClear: string
+    sortBy: string
+    sortSavingsDesc: string
+    sortScoreDesc: string
+    sortRiskDesc: string
+    sortNewest: string
+    errorTitle: string
+    errorDescription: string
+    errorRetry: string
+    emptyFilteredTitle: string
+    emptyFilteredDescription: string
+    emptyFilteredAction: string
+    safeDssFooter: string
+    performanceContextTitle: string
+    performanceContextSubtitle: string
+    performanceContextCpuP95: string
+    performanceContextMemP95: string
+    performanceContextTrend: string
+    performanceContextIdleDays: string
+    performanceContextQuality: string
+    decisionEvidenceTitle: string
+    decisionEvidenceShow: string
+    decisionEvidenceHide: string
   }
   optimizationPlan: {
     title: string
@@ -379,6 +404,7 @@ export interface Translations {
     targetEnvironment: string
     targetCriticality: string
     sendToPulseLab: string
+    handoffNotice: string
     handoffSuccess: string
     handoffError: string
     handoffExperimentId: string
@@ -413,6 +439,31 @@ export interface Translations {
     statusScheduled: string
     statusRejected: string
     statusUnknown: string
+    // Hardening additions
+    safeDssNotice: string
+    emptyTitle: string
+    emptyDescription: string
+    emptyAction: string
+    errorRetry: string
+    quickWinsTitle: string
+    quickWinsSubtitle: string
+    quickWinNextStep: string
+    confidenceLabel: string
+    riskLabel: string
+    effortLabel: string
+    whyNow: string
+    nextStep: string
+    categoryLabel: string
+    generatingPlan: string
+    generateSuccess: string
+    generateError: string
+    confirmApproveTitle: string
+    confirmApproveDesc: string
+    confirmRejectTitle: string
+    confirmRejectDesc: string
+    gatesTriggered: string
+    noRecommendations: string
+    noRecommendationsHint: string
   }
   initiatives: {
     title: string
@@ -1637,9 +1688,9 @@ export const en: Translations = {
     colStatus: 'Status',
     colDetectedAt: 'Detected',
     colAction: 'Action',
-    readOnlyNoticeTitle: 'Read-only analysis mode',
-    readOnlyNoticeDesc: 'The platform only reads tenant data and generates recommendations. Execution always happens after explicit client decision.',
-    openDetail: 'Open detail',
+    readOnlyNoticeTitle: 'Decision Support Mode',
+    readOnlyNoticeDesc: 'CauSium analyzes your cloud environment and generates prioritized recommendations. All execution decisions remain with your team.',
+    openDetail: 'Review',
     providerAzure: 'Azure',
     providerAws: 'AWS',
     providerGcp: 'GCP',
@@ -1652,11 +1703,11 @@ export const en: Translations = {
     confidenceLow: 'Low',
     confidenceInsufficient: 'Insufficient',
     notAvailable: 'Not available',
-    executionOwnershipHint: 'Execution is external to the platform and owned by the client team.',
-    markInReview: 'Mark as under review',
-    markApproved: 'Mark as approved/executed',
-    markValidated: 'Mark as validated',
-    markDismissed: 'Mark as dismissed',
+    executionOwnershipHint: 'All changes are executed by your team. CauSium provides recommendations only.',
+    markInReview: 'Start review',
+    markApproved: 'Approve recommendation',
+    markValidated: 'Confirm validated',
+    markDismissed: 'Dismiss',
     savingsEvidenceTitle: 'Savings Evidence',
     savingsEvidenceSubtitle: 'Deterministic financial evidence for recommendation auditability.',
     savingsEvidenceUnavailable: 'Financial evidence is not available for this recommendation yet.',
@@ -1709,6 +1760,31 @@ export const en: Translations = {
     explainImpact: 'Expected impact',
     explainRisks: 'Risks',
     explainSteps: 'Recommended steps',
+    // Hardening additions
+    searchPlaceholder: 'Search opportunities...',
+    searchClear: 'Clear search',
+    sortBy: 'Sort by',
+    sortSavingsDesc: 'Highest savings',
+    sortScoreDesc: 'Highest score',
+    sortRiskDesc: 'Highest risk',
+    sortNewest: 'Newest first',
+    errorTitle: 'Could not load opportunities',
+    errorDescription: 'There was a problem loading your optimization opportunities. Please try again.',
+    errorRetry: 'Try again',
+    emptyFilteredTitle: 'No matching opportunities',
+    emptyFilteredDescription: 'No opportunities match your current filters or search. Try adjusting your criteria.',
+    emptyFilteredAction: 'Clear filters',
+    safeDssFooter: 'This is a recommendation only. No automatic changes will be made to your infrastructure.',
+    performanceContextTitle: 'Performance Context',
+    performanceContextSubtitle: 'Resource utilization evidence from monitoring data.',
+    performanceContextCpuP95: 'CPU p95',
+    performanceContextMemP95: 'Memory p95',
+    performanceContextTrend: 'Utilization trend',
+    performanceContextIdleDays: 'Idle days',
+    performanceContextQuality: 'Evidence quality',
+    decisionEvidenceTitle: 'Technical Evidence',
+    decisionEvidenceShow: 'Show technical details',
+    decisionEvidenceHide: 'Hide technical details',
   },
   optimizationPlan: {
     title: 'Optimization Plan',
@@ -1724,7 +1800,7 @@ export const en: Translations = {
     score: 'Priority score',
     savings: 'Savings',
     governanceTitle: 'Execution Governance',
-    governanceSubtitle: 'Approval workflow for execution plans with audit trail',
+    governanceSubtitle: 'Governed approval workflow with audit trail. No changes without explicit authorization.',
     noExecutionPlan: 'No execution plan available yet. Create one to enable approval workflow.',
     generateExecutionPlan: 'Generate Execution Plan',
     generateExecutionPlanSoon: 'Coming soon',
@@ -1740,6 +1816,7 @@ export const en: Translations = {
     targetEnvironment: 'Target Environment',
     targetCriticality: 'Target Criticality',
     sendToPulseLab: 'Send to PulseLab',
+    handoffNotice: 'This creates a handoff record for PulseLab. No infrastructure changes are executed automatically. Your team retains full control over implementation.',
     handoffSuccess: 'PulseLab handoff created. Experiment ID:',
     handoffError: 'Could not create PulseLab handoff.',
     handoffExperimentId: 'PulseLab Experiment',
@@ -1774,6 +1851,31 @@ export const en: Translations = {
     statusScheduled: 'Scheduled',
     statusRejected: 'Rejected',
     statusUnknown: 'Unknown',
+    // Hardening additions
+    safeDssNotice: 'CauSium operates in Decision Support mode. All recommendations require human review and explicit approval before any action is taken. No infrastructure changes are made automatically.',
+    emptyTitle: 'No recommendations available',
+    emptyDescription: 'Optimization recommendations will appear here once opportunities are detected and scored. Check the Opportunities page for current detections.',
+    emptyAction: 'View Opportunities',
+    errorRetry: 'Try again',
+    quickWinsTitle: 'Quick Wins',
+    quickWinsSubtitle: 'Low-risk, high-confidence recommendations ready for review',
+    quickWinNextStep: 'Next step',
+    confidenceLabel: 'Confidence',
+    riskLabel: 'Risk',
+    effortLabel: 'Effort',
+    whyNow: 'Why now',
+    nextStep: 'Next step',
+    categoryLabel: 'Category',
+    generatingPlan: 'Generating...',
+    generateSuccess: 'Execution plan created successfully.',
+    generateError: 'Could not generate execution plan.',
+    confirmApproveTitle: 'Approve Execution Plan',
+    confirmApproveDesc: 'This will mark the plan as approved for manual execution. No automatic changes will be made to your infrastructure.',
+    confirmRejectTitle: 'Reject Execution Plan',
+    confirmRejectDesc: 'This will reject the plan. You can provide a reason in the comment field.',
+    gatesTriggered: 'Gates triggered',
+    noRecommendations: 'No recommendations yet',
+    noRecommendationsHint: 'Recommendations appear when opportunities are detected and scored by the decision engine.',
   },
   initiatives: {
     title: 'Initiatives',

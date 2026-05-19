@@ -76,20 +76,20 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
 
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-300 cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-600">
               {CATEGORY_LABELS[op.category] || op.category}
             </span>
-            <span className={clsx('rounded-full px-2.5 py-0.5 text-xs font-medium', statusColors[op.status])}>
+            <span className={clsx('rounded-full px-2.5 py-0.5 text-[11px] font-medium', statusColors[op.status])}>
               {statusLabels[op.status]}
             </span>
             {op.environment && (
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600">
                 {op.environment}
               </span>
             )}
@@ -102,37 +102,37 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
         <div className="flex-shrink-0 flex flex-col items-center">
           <div
             className={clsx(
-              'flex h-12 w-12 items-center justify-center rounded-full text-white font-bold text-sm',
-              op.composite_score >= 70 ? 'bg-green-500' :
-              op.composite_score >= 40 ? 'bg-yellow-500' : 'bg-gray-400'
+              'flex h-11 w-11 items-center justify-center rounded-xl text-white font-bold text-sm shadow-sm',
+              op.composite_score >= 70 ? 'bg-emerald-600' :
+              op.composite_score >= 40 ? 'bg-amber-500' : 'bg-gray-400'
             )}
           >
             {op.composite_score.toFixed(0)}
           </div>
-          <span className="mt-1 text-xs text-gray-400">score</span>
+          <span className="mt-1 text-[10px] font-medium text-gray-400 uppercase tracking-wide">score</span>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={clsx('rounded px-2 py-0.5 text-xs font-medium', RISK_COLORS[op.risk_level])}>
+      <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', RISK_COLORS[op.risk_level])}>
             {op.risk_level} risk
           </span>
-          <span className={clsx('rounded px-2 py-0.5 text-xs font-medium', EFFORT_COLORS[op.effort_level])}>
+          <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', EFFORT_COLORS[op.effort_level])}>
             {op.effort_level} effort
           </span>
           {evidence?.confidence != null && (
-            <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
               {Math.round(evidence.confidence * 100)}% conf
             </span>
           )}
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-green-600">
-            ${op.estimated_monthly_savings_usd.toLocaleString()}/mo
+          <p className="text-sm font-bold tabular-nums text-emerald-700">
+            {fmtMoney(op.estimated_monthly_savings_usd)}/mo
           </p>
-          <p className="text-xs text-gray-400">
-            ${op.estimated_annual_savings_usd.toLocaleString()}/yr
+          <p className="text-[11px] tabular-nums text-gray-400">
+            {fmtMoney(op.estimated_annual_savings_usd)}/yr
           </p>
         </div>
       </div>

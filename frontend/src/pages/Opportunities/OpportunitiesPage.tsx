@@ -1,22 +1,29 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Download, Filter } from 'lucide-react'
+import { Download, Filter, Search, X } from 'lucide-react'
 import clsx from 'clsx'
 import { OpportunityCard } from '../../components/Cards/OpportunityCard'
 import { opportunitiesApi } from '../../api/opportunities'
 import { MetricCard } from '../../components/Cards/MetricCard'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import type { ConfidenceTier, Opportunity, OpportunityStatus, RiskLevel } from '../../types'
 import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
 import { usePersistentString } from '../../hooks/usePersistentBoolean'
+import { SkeletonMetricCards, SkeletonTable } from '../../components/UX/Skeleton'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
 type OpportunityViewMode = 'table' | 'cards'
 type ProviderKey = 'azure' | 'aws' | 'gcp' | 'unknown'
+type SortKey = 'savings_desc' | 'score_desc' | 'risk_desc' | 'newest'
 
 const VIEW_MODES: OpportunityViewMode[] = ['table', 'cards']
+
+const RISK_ORDER: Record<RiskLevel, number> = { high: 3, medium: 2, low: 1 }
 
 const STATUS_COLORS: Record<OpportunityStatus, string> = {
   open: 'bg-sky-100 text-sky-700',
@@ -170,6 +177,7 @@ async function getExportErrorMessage(error: unknown, fallback: string) {
 
 export function OpportunitiesPage() {
   const { t, lang } = useI18n()
+  usePageTitle('Opportunities')
   const o = t.opportunities
   const queryClient = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -177,6 +185,8 @@ export function OpportunitiesPage() {
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
   const [explainOpp, setExplainOpp] = useState<Opportunity | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('savings_desc')
   const [viewModeRaw, setViewModeRaw] = usePersistentString('sp.opportunities.view', 'table')
   const viewMode: OpportunityViewMode = VIEW_MODES.includes(viewModeRaw as OpportunityViewMode)
     ? (viewModeRaw as OpportunityViewMode)
@@ -202,9 +212,11 @@ export function OpportunitiesPage() {
   const { data: summary } = useQuery({
     queryKey: ['opportunities', 'summary'],
     queryFn: () => opportunitiesApi.summary().then((r) => r.data),
+    staleTime: 30_000,
+    retry: 2,
   })
 
-  const { data: opportunities, isLoading } = useQuery({
+  const { data: opportunities, isLoading, isError, refetch } = useQuery({
     queryKey: ['opportunities', selectedCategory, selectedStatus],
     queryFn: () =>
       opportunitiesApi
@@ -213,7 +225,49 @@ export function OpportunitiesPage() {
           status: selectedStatus === 'all' ? undefined : selectedStatus,
         })
         .then((r) => r.data.items),
+    staleTime: 30_000,
+    retry: 2,
   })
+
+  // Client-side search filtering
+  const filteredOpportunities = useMemo(() => {
+    if (!opportunities) return []
+    if (!searchQuery.trim()) return opportunities
+    const q = searchQuery.toLowerCase().trim()
+    return opportunities.filter(
+      (op) =>
+        op.title.toLowerCase().includes(q) ||
+        op.description.toLowerCase().includes(q) ||
+        (op.resource_name ?? '').toLowerCase().includes(q) ||
+        (op.service ?? '').toLowerCase().includes(q) ||
+        (op.owner_team ?? '').toLowerCase().includes(q) ||
+        (op.resource_id ?? '').toLowerCase().includes(q),
+    )
+  }, [opportunities, searchQuery])
+
+  // Client-side sorting
+  const sortedOpportunities = useMemo(() => {
+    const items = [...filteredOpportunities]
+    switch (sortKey) {
+      case 'savings_desc':
+        return items.sort((a, b) => b.estimated_monthly_savings_usd - a.estimated_monthly_savings_usd)
+      case 'score_desc':
+        return items.sort((a, b) => b.composite_score - a.composite_score)
+      case 'risk_desc':
+        return items.sort((a, b) => RISK_ORDER[b.risk_level] - RISK_ORDER[a.risk_level])
+      case 'newest':
+        return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      default:
+        return items
+    }
+  }, [filteredOpportunities, sortKey])
+
+  const hasActiveFilters = selectedCategory !== '' || selectedStatus !== 'open' || searchQuery.trim() !== ''
+  const clearAllFilters = () => {
+    setSelectedCategory('')
+    setSelectedStatus('open')
+    setSearchQuery('')
+  }
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OpportunityStatus }) =>
@@ -315,96 +369,167 @@ export function OpportunitiesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{o.title}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{o.title}</h1>
           <p className="text-sm text-gray-500 mt-1">{o.subtitle}</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-        <p className="text-sm font-semibold text-blue-800">{o.readOnlyNoticeTitle}</p>
-        <p className="mt-1 text-sm text-blue-800">{o.readOnlyNoticeDesc}</p>
+      <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50/50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100">
+            <span className="text-xs font-bold text-blue-700">DSS</span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-900">{o.readOnlyNoticeTitle}</p>
+            <p className="mt-0.5 text-xs text-blue-700/80">{o.readOnlyNoticeDesc}</p>
+          </div>
+        </div>
       </div>
 
+      {isLoading && !summary && <SkeletonMetricCards count={4} />}
       {summary && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <MetricCard title={o.open} value={summary.open} />
-          <MetricCard title={o.inProgress} value={summary.in_progress} />
-          <MetricCard title={o.resolved} value={summary.resolved} />
           <MetricCard
             title={o.totalSavings}
             value={fmt(summary.total_potential_savings_usd)}
+            subtitle={`${summary.total} ${o.summaryOpportunities.replace('{{count}}', String(summary.total)).split(' ').slice(1).join(' ')}`}
+            variant="success"
+            emphasis="primary"
+          />
+          <MetricCard
+            title={o.open}
+            value={String(summary.open)}
+            subtitle={o.statusOpenSuggestion}
+            variant="default"
+          />
+          <MetricCard
+            title={o.inProgress}
+            value={String(summary.in_progress)}
+            subtitle={o.statusInProgressReview}
+            variant="default"
+          />
+          <MetricCard
+            title={o.resolved}
+            value={String(summary.resolved)}
+            subtitle={o.statusResolvedApproved}
             variant="success"
           />
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Filter className="h-4 w-4 text-gray-400" />
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none"
-        >
-          {categories.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value as OpportunityStatus | 'all')}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none"
-        >
-          <option value="all">{o.statusAll}</option>
-          <option value="open">{o.statusOpenSuggestion}</option>
-          <option value="in_progress">{o.statusInProgressReview}</option>
-          <option value="resolved">{o.statusResolvedApproved}</option>
-          <option value="dismissed">{o.statusDismissed}</option>
-          <option value="validated">{o.statusValidated}</option>
-        </select>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => exportCsvMutation.mutate()}
-            disabled={exportCsvMutation.isPending}
-            className={clsx(
-              'inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors',
-              exportCsvMutation.isPending
-                ? 'cursor-wait border-gray-200 bg-gray-50 text-gray-400'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50',
-            )}
+      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <Filter className="h-4 w-4 text-gray-400" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+            aria-label="Filter by category"
           >
-            {exportCsvMutation.isPending ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            <span>{exportCsvMutation.isPending ? o.exportCsvLoading : o.exportCsv}</span>
-          </button>
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setViewModeRaw('table')}
-            className={clsx(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              viewMode === 'table'
-                ? 'bg-slate-900 text-white'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-            )}
+            {categories.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as OpportunityStatus | 'all')}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+            aria-label="Filter by status"
           >
-            {o.viewTable}
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewModeRaw('cards')}
-            className={clsx(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              viewMode === 'cards'
-                ? 'bg-slate-900 text-white'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-            )}
+            <option value="all">{o.statusAll}</option>
+            <option value="open">{o.statusOpenSuggestion}</option>
+            <option value="in_progress">{o.statusInProgressReview}</option>
+            <option value="resolved">{o.statusResolvedApproved}</option>
+            <option value="dismissed">{o.statusDismissed}</option>
+            <option value="validated">{o.statusValidated}</option>
+          </select>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+            aria-label="Sort opportunities"
           >
-            {o.viewCards}
-          </button>
+            <option value="savings_desc">{o.sortSavingsDesc}</option>
+            <option value="score_desc">{o.sortScoreDesc}</option>
+            <option value="risk_desc">{o.sortRiskDesc}</option>
+            <option value="newest">{o.sortNewest}</option>
+          </select>
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={o.searchPlaceholder}
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-9 pr-8 text-sm text-gray-700 placeholder:text-gray-400 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              aria-label={o.searchPlaceholder}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:text-gray-600"
+                aria-label={o.searchClear}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+            >
+              <X className="h-3 w-3" />
+              {o.emptyFilteredAction}
+            </button>
+          )}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => exportCsvMutation.mutate()}
+              disabled={exportCsvMutation.isPending}
+              className={clsx(
+                'inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium shadow-sm transition-colors',
+                exportCsvMutation.isPending
+                  ? 'cursor-wait border-gray-200 bg-gray-50 text-gray-400'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
+              )}
+            >
+              {exportCsvMutation.isPending ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span>{exportCsvMutation.isPending ? o.exportCsvLoading : o.exportCsv}</span>
+            </button>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewModeRaw('table')}
+                className={clsx(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+                  viewMode === 'table'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                {o.viewTable}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewModeRaw('cards')}
+                className={clsx(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+                  viewMode === 'cards'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                {o.viewCards}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -415,43 +540,66 @@ export function OpportunitiesPage() {
         </div>
       )}
 
-      {opportunities && opportunities.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-          <span className="font-medium text-gray-600">
-            {o.summaryOpportunities.replace('{{count}}', String(opportunities.length))}
+      {sortedOpportunities && sortedOpportunities.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5">
+          <span className="text-sm font-semibold text-gray-900">
+            {o.summaryOpportunities.replace('{{count}}', String(sortedOpportunities.length))}
           </span>
-          <span className="font-medium text-gray-600">
+          <span className="h-4 w-px bg-gray-200" />
+          <span className="text-sm font-semibold text-emerald-700">
             {o.summaryPerMonth.replace(
               '{{amount}}',
-              fmt(opportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0))
+              fmt(sortedOpportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0))
             )}
           </span>
-          {opportunities.some((op) => op.risk_level === 'high') && (
-            <span className="font-medium text-red-700">
-              {o.summaryHighRisk.replace(
-                '{{count}}',
-                String(opportunities.filter((op) => op.risk_level === 'high').length)
-              )}
-            </span>
+          {sortedOpportunities.some((op) => op.risk_level === 'high') && (
+            <>
+              <span className="h-4 w-px bg-gray-200" />
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700">
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                {o.summaryHighRisk.replace(
+                  '{{count}}',
+                  String(sortedOpportunities.filter((op) => op.risk_level === 'high').length)
+                )}
+              </span>
+            </>
           )}
         </div>
       )}
 
       {isLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+        <div className="space-y-6">
+          <SkeletonMetricCards count={4} />
+          <SkeletonTable rows={8} columns={7} />
         </div>
-      ) : !opportunities?.length ? (
-        <div className="rounded-xl border-2 border-dashed border-gray-200 bg-white p-12 text-center">
-          <p className="text-sm font-medium text-gray-700">{o.noOpportunities}</p>
-          <p className="mt-1 text-xs text-gray-500">{o.noOpportunitiesHint}</p>
-        </div>
+      ) : isError ? (
+        <ErrorState
+          title={o.errorTitle}
+          description={o.errorDescription}
+          onRetry={() => refetch()}
+          retryLabel={o.errorRetry}
+        />
+      ) : !sortedOpportunities?.length ? (
+        hasActiveFilters ? (
+          <EmptyState
+            icon="search"
+            title={o.emptyFilteredTitle}
+            description={o.emptyFilteredDescription}
+            action={{ label: o.emptyFilteredAction, onClick: clearAllFilters }}
+          />
+        ) : (
+          <EmptyState
+            icon="lightbulb"
+            title={o.noOpportunities}
+            description={o.noOpportunitiesHint}
+          />
+        )
       ) : viewMode === 'table' ? (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-gray-200 bg-gray-50/50 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3">{o.colOpportunity}</th>
                   <th className="hidden px-4 py-3 lg:table-cell">{o.colCategory}</th>
                   <th className="hidden px-4 py-3 md:table-cell">{o.colProvider}</th>
@@ -465,7 +613,7 @@ export function OpportunitiesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {opportunities.map((op) => {
+                {sortedOpportunities.map((op) => {
                   const provider = inferOpportunityProvider(op)
                   const scope = getOpportunityScope(op, o.unknownResource)
                   const confidenceScore = getOpportunityConfidenceScore(op)
@@ -559,7 +707,7 @@ export function OpportunitiesPage() {
                             event.stopPropagation()
                             setSelectedOpp(op)
                           }}
-                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
                         >
                           {o.openDetail}
                         </button>
@@ -573,7 +721,7 @@ export function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {opportunities.map((op) => (
+          {sortedOpportunities.map((op) => (
             <OpportunityCard
               key={op.id}
               opportunity={op}
@@ -659,12 +807,20 @@ export function OpportunitiesPage() {
 
       {selectedOpp && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setSelectedOpp(null)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOpp(null)} />
           <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">{o.detailTitle}</h2>
-              <button onClick={() => setSelectedOpp(null)} className="text-gray-400 hover:text-gray-600">
-                ✕
+            <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+                  {selectedOpp.composite_score.toFixed(0)}
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-900">{o.detailTitle}</h2>
+                  <p className="text-xs text-gray-500">{statusLabels[selectedOpp.status]}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedOpp(null)} className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600">
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="p-6 space-y-5">
@@ -807,16 +963,22 @@ export function OpportunitiesPage() {
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-green-50 p-3">
-                  <p className="text-xs text-gray-500">{o.monthlySavings}</p>
-                  <p className="text-lg font-bold text-green-700">
+                <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50/50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">{o.monthlySavings}</p>
+                  <p className="mt-1.5 text-xl font-bold tabular-nums text-emerald-700">
                     {fmt(selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}
                   </p>
+                  <p className="mt-1 text-xs text-emerald-600/70">
+                    {fmt(selectedSavingsEvidence?.estimated_monthly_savings != null ? selectedSavingsEvidence.estimated_monthly_savings * 12 : selectedOpp.estimated_annual_savings_usd)}/yr
+                  </p>
                 </div>
-                <div className="rounded-lg bg-blue-50 p-3">
-                  <p className="text-xs text-gray-500">{o.compositeScore}</p>
-                  <p className="text-lg font-bold text-blue-700">
-                    {selectedOpp.composite_score.toFixed(1)}/100
+                <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-gray-50/50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">{o.compositeScore}</p>
+                  <p className="mt-1.5 text-xl font-bold tabular-nums text-slate-800">
+                    {selectedOpp.composite_score.toFixed(1)}<span className="text-sm font-medium text-slate-400">/100</span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {riskLabels[getOpportunityRiskLevel(selectedOpp)]} · {confidenceTierLabels[getOpportunityConfidenceTier(selectedOpp)]}
                   </p>
                 </div>
               </div>
@@ -899,152 +1061,109 @@ export function OpportunitiesPage() {
               </div>
 
               {selectedOpp.score_rationale && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">{o.scoreRationale}</h4>
-                  <p className="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 leading-relaxed">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{o.scoreRationale}</h4>
+                  <p className="mt-2 text-sm text-gray-700 leading-relaxed">
                     {selectedOpp.score_rationale}
                   </p>
                 </div>
               )}
 
               {selectedOpp.playbook && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">{o.playbook}</h4>
-                  <pre className="text-xs text-gray-600 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap font-sans">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{o.playbook}</h4>
+                  <pre className="mt-2 text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
                     {selectedOpp.playbook}
                   </pre>
                 </div>
               )}
 
-              <div className="border-t pt-4 space-y-2">
-                <p className="text-xs text-gray-500">{o.executionOwnershipHint}</p>
-              </div>
-
               {selectedEvidence && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                  <h4 className="text-sm font-semibold text-gray-800">
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                     {selectedIsAksEvidence ? o.aksEvidenceTitle : o.rightsizingEvidenceTitle}
                   </h4>
-                  {!selectedIsAksEvidence && (
-                    <div className="mt-2 space-y-1 text-xs text-gray-700">
-                      <p>
-                        {o.currentLabel}: <strong>{selectedEvidence.current_sku ?? selectedMachineSku}</strong>
-                        {'  '}→{'  '}
-                        {o.recommendedLabel}: <strong>{selectedEvidence.recommended_sku ?? o.unknownResource}</strong>
-                      </p>
-                      <p>
-                        CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
-                        {'  '}·{'  '}
-                        {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
-                      </p>
-                      <p>
-                        {o.monthlySavingsLabel}:{' '}
-                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
-                        {'  '}·{'  '}
-                        {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
-                      </p>
-                      <p>
-                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? selectedSavingsEvidence?.savings_confidence ?? 0) * 100)}%</strong>
-                        {'  '}·{'  '}
-                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedSavingsEvidence?.risk_level ?? selectedOpp.risk_level}</strong>
-                      </p>
-                      {selectedEvidence.reason && (
-                        <p>
-                          {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {selectedIsAksEvidence && (
-                    <div className="mt-2 space-y-1 text-xs text-gray-700">
-                      <p>
-                        {o.clusterLabel}: <strong>{selectedEvidence.cluster_name ?? o.unknownResource}</strong>
-                        {'  '}·{'  '}
-                        {o.nodePoolLabel}: <strong>{selectedEvidence.node_pool ?? o.unknownResource}</strong>
-                      </p>
-                      {!selectedIsAksAutoscaler && (
-                        <p>
-                          {o.nodesLabel}: <strong>{selectedEvidence.current_node_count ?? '-'}</strong>
-                          {'  '}→{'  '}
-                          {o.recommendedLabel}: <strong>{selectedEvidence.recommended_node_count ?? '-'}</strong>
-                        </p>
-                      )}
-                      {selectedIsAksAutoscaler && (
-                        <p>
-                          {o.currentLabel}: <strong>{selectedEvidence.current_node_count ?? '-'} nodes fixos</strong>
-                          {'  '}·{'  '}
-                          {o.recommendedLabel}:{' '}
-                          <strong>
-                            min={selectedEvidence.recommended_min_count ?? '-'}, max={selectedEvidence.recommended_max_count ?? '-'}
-                          </strong>
-                        </p>
-                      )}
-                      <p>
-                        {o.skuLabel}: <strong>{selectedEvidence.node_sku ?? selectedMachineSku}</strong>
-                      </p>
-                      <p>
-                        CPU p95: <strong>{selectedEvidence.cpu_p95 ?? '-'}%</strong>
-                        {'  '}·{'  '}
-                        {o.memoryP95Label}: <strong>{selectedEvidence.memory_p95 ?? '-'}%</strong>
-                      </p>
-                      <p>
-                        {o.monthlySavingsLabel}:{' '}
-                        <strong>{fmt(selectedEvidence.estimated_savings ?? selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}</strong>
-                        {'  '}·{'  '}
-                        {o.savingsPctLabel}: <strong>{selectedEvidence.estimated_savings_pct ?? '-'}%</strong>
-                      </p>
-                      <p>
-                        {o.confidenceLabel}: <strong>{Math.round((selectedEvidence.confidence ?? selectedSavingsEvidence?.savings_confidence ?? 0) * 100)}%</strong>
-                        {'  '}·{'  '}
-                        {o.riskLabel}: <strong>{selectedEvidence.risk_level ?? selectedSavingsEvidence?.risk_level ?? selectedOpp.risk_level}</strong>
-                      </p>
-                      {selectedIsAksAutoscaler && (
-                        <p>
-                          Variability: <strong>{selectedEvidence.variability_score ?? '-'}</strong>
-                        </p>
-                      )}
-                      {selectedEvidence.reason && (
-                        <p>
-                          {o.reasonLabel}: <strong>{selectedEvidence.reason}</strong>
-                        </p>
-                      )}
-                    </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {!selectedIsAksEvidence && (
+                      <>
+                        <EvidenceMetric label={o.currentLabel} value={selectedEvidence.current_sku ?? selectedMachineSku} />
+                        <EvidenceMetric label={o.recommendedLabel} value={selectedEvidence.recommended_sku ?? o.unknownResource} />
+                        <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
+                        <EvidenceMetric label={o.memoryP95Label} value={`${selectedEvidence.memory_p95 ?? '-'}%`} />
+                        <EvidenceMetric label={o.monthlySavingsLabel} value={fmt(selectedEvidence.estimated_savings ?? selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)} />
+                        <EvidenceMetric label={o.savingsPctLabel} value={`${selectedEvidence.estimated_savings_pct ?? '-'}%`} />
+                      </>
+                    )}
+                    {selectedIsAksEvidence && (
+                      <>
+                        <EvidenceMetric label={o.clusterLabel} value={selectedEvidence.cluster_name ?? o.unknownResource} />
+                        <EvidenceMetric label={o.nodePoolLabel} value={selectedEvidence.node_pool ?? o.unknownResource} />
+                        <EvidenceMetric label={o.skuLabel} value={selectedEvidence.node_sku ?? selectedMachineSku} />
+                        <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
+                        <EvidenceMetric label={o.memoryP95Label} value={`${selectedEvidence.memory_p95 ?? '-'}%`} />
+                        {!selectedIsAksAutoscaler && (
+                          <>
+                            <EvidenceMetric label={o.nodesLabel} value={String(selectedEvidence.current_node_count ?? '-')} />
+                            <EvidenceMetric label={o.recommendedLabel} value={String(selectedEvidence.recommended_node_count ?? '-')} />
+                          </>
+                        )}
+                        {selectedIsAksAutoscaler && (
+                          <>
+                            <EvidenceMetric label={o.currentLabel} value={`${selectedEvidence.current_node_count ?? '-'} nodes`} />
+                            <EvidenceMetric label={o.recommendedLabel} value={`min=${selectedEvidence.recommended_min_count ?? '-'}, max=${selectedEvidence.recommended_max_count ?? '-'}`} />
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {selectedEvidence.reason && (
+                    <p className="mt-3 text-xs text-gray-600">
+                      <span className="font-medium">{o.reasonLabel}:</span> {selectedEvidence.reason}
+                    </p>
                   )}
                   <button
                     type="button"
                     onClick={() => openExplain(selectedOpp)}
-                    className="mt-3 rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50"
                   >
                     {o.explainWithAI}
                   </button>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'in_progress' })}
-                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-                >
-                  {o.markInReview}
-                </button>
-                <button
-                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'resolved' })}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
-                >
-                  {o.markApproved}
-                </button>
-                <button
-                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'validated' })}
-                  className="rounded-lg border border-blue-300 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
-                >
-                  {o.markValidated}
-                </button>
-                <button
-                  onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'dismissed' })}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  {o.markDismissed}
-                </button>
+              <div className="border-t border-gray-200 pt-4 space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{o.currentStatus}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'in_progress' })}
+                    disabled={updateStatus.isPending || selectedOpp.status === 'in_progress'}
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {o.markInReview}
+                  </button>
+                  <button
+                    onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'resolved' })}
+                    disabled={updateStatus.isPending || selectedOpp.status === 'resolved'}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {o.markApproved}
+                  </button>
+                  <button
+                    onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'validated' })}
+                    disabled={updateStatus.isPending || selectedOpp.status === 'validated'}
+                    className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {o.markValidated}
+                  </button>
+                  <button
+                    onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'dismissed' })}
+                    disabled={updateStatus.isPending || selectedOpp.status === 'dismissed'}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {o.markDismissed}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 italic">{o.safeDssFooter}</p>
               </div>
             </div>
           </div>
