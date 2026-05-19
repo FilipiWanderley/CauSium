@@ -367,3 +367,152 @@ def test_parse_blob_cost_parquet_returns_empty_on_invalid_bytes() -> None:
         end=date(2026, 4, 30),
     )
     assert rows == []
+
+
+# --- Checkpoint poisoning prevention tests ---
+
+
+@pytest.mark.asyncio
+async def test_zero_rows_blob_does_not_produce_checkpoint(monkeypatch) -> None:
+    """A blob that parses to 0 rows must NOT appear in consumed_checkpoints."""
+    client = AzureConnectorClient(
+        tenant_id="tenant",
+        client_id="client",
+        client_secret="secret",
+        storage_account_url="https://example.blob.core.windows.net",
+        cost_export_container="exports",
+        cost_export_prefix="cost/",
+    )
+
+    csv_payload = "Date,SubscriptionId,ServiceName,PreTaxCost,Currency\n"
+
+    class FakeBlob:
+        name = "cost/empty.csv"
+        etag = '"etag-empty"'
+
+    class FakeDownloader:
+        async def readall(self):
+            return csv_payload.encode("utf-8")
+
+    class FakeContainer:
+        async def list_blobs(self, name_starts_with=None):
+            for b in [FakeBlob()]:
+                yield b
+
+        async def download_blob(self, name):
+            return FakeDownloader()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+    class FakeBlobService:
+        def __init__(self, **kw):
+            pass
+
+        def get_container_client(self, name):
+            return FakeContainer()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+    monkeypatch.setattr(
+        "azure.storage.blob.aio.BlobServiceClient",
+        FakeBlobService,
+    )
+
+    records, checkpoints = await client._fetch_costs_from_blob_exports(
+        "sub-001", date(2026, 4, 1), date(2026, 4, 30),
+    )
+
+    assert records == []
+    assert checkpoints == [], "Zero-row blob must NOT produce a checkpoint"
+
+
+@pytest.mark.asyncio
+async def test_successful_blob_produces_checkpoint(monkeypatch) -> None:
+    """A blob that parses rows successfully MUST produce a checkpoint."""
+    client = AzureConnectorClient(
+        tenant_id="tenant",
+        client_id="client",
+        client_secret="secret",
+        storage_account_url="https://example.blob.core.windows.net",
+        cost_export_container="exports",
+        cost_export_prefix="cost/",
+    )
+
+    csv_payload = (
+        "Date,SubscriptionId,ServiceName,PreTaxCost,UsageQuantity,Currency\n"
+        "2026-04-10,sub-001,Compute,10.0,1,USD\n"
+    )
+
+    class FakeBlob:
+        name = "cost/good.csv"
+        etag = '"etag-good"'
+
+    class FakeDownloader:
+        async def readall(self):
+            return csv_payload.encode("utf-8")
+
+    class FakeContainer:
+        async def list_blobs(self, name_starts_with=None):
+            for b in [FakeBlob()]:
+                yield b
+
+        async def download_blob(self, name):
+            return FakeDownloader()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+    class FakeBlobService:
+        def __init__(self, **kw):
+            pass
+
+        def get_container_client(self, name):
+            return FakeContainer()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+    monkeypatch.setattr(
+        "azure.storage.blob.aio.BlobServiceClient",
+        FakeBlobService,
+    )
+
+    records, checkpoints = await client._fetch_costs_from_blob_exports(
+        "sub-001", date(2026, 4, 1), date(2026, 4, 30),
+    )
+
+    assert len(records) == 1
+    assert len(checkpoints) == 1
+    assert checkpoints[0]["blob_name"] == "cost/good.csv"
+    assert checkpoints[0]["rows_parsed"] == "1"
+
+
+def test_delete_overlap_requires_nonempty_cost_rows() -> None:
+    """_delete_azure_cost_overlap must be a no-op when called with empty subscription_id."""
+    from unittest.mock import patch
+    from uuid import uuid4
+
+    from app.domains.cloud_ledger.service import CloudLedgerService
+
+    with patch("app.core.clickhouse.execute_command") as mock_cmd:
+        svc = object.__new__(CloudLedgerService)
+        svc._delete_azure_cost_overlap(
+            org_id=uuid4(),
+            account_id=uuid4(),
+            cost_rows=[{"subscription_id": "", "date": date(2026, 5, 1)}],
+        )
+        mock_cmd.assert_not_called()

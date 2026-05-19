@@ -300,8 +300,21 @@ class CloudLedgerService:
 
                 try:
                     insert_rows("cost_facts", cost_rows)
+                    log.info(
+                        "ledger.clickhouse.cost_insert_ok",
+                        org_id=str(org_id),
+                        account_id=str(account_id),
+                        provider=account.provider.value if account.provider else "unknown",
+                        rows_inserted=len(cost_rows),
+                    )
                 except Exception as e:
-                    log.warning("ledger.clickhouse.cost_insert_failed", error=str(e))
+                    log.warning(
+                        "ledger.clickhouse.cost_insert_failed",
+                        org_id=str(org_id),
+                        account_id=str(account_id),
+                        rows_attempted=len(cost_rows),
+                        error=str(e),
+                    )
                     account.status = ConnectorStatus.ERROR
                     account.last_sync_at = datetime.now(timezone.utc)
                     await self.db.flush()
@@ -312,6 +325,14 @@ class CloudLedgerService:
                         status="error",
                         message=f"Cost insert failed: {e}",
                     )
+            elif blob_checkpoints:
+                log.warning(
+                    "ledger.ingest.zero_cost_rows_with_blobs",
+                    org_id=str(org_id),
+                    account_id=str(account_id),
+                    blob_count=len(blob_checkpoints),
+                    hint="Blobs were processed but produced 0 cost rows — checkpoints will NOT be saved",
+                )
 
             # Write events
             event_rows = [
@@ -344,12 +365,14 @@ class CloudLedgerService:
                     events=events,
                 )
 
-            if blob_checkpoints:
+            if blob_checkpoints and cost_rows:
                 existing_keys = await self._get_blob_checkpoint_keys(account_id)
+                checkpoints_saved = 0
                 for item in blob_checkpoints:
                     key = item.get("checkpoint_key", "")
                     if not key or key in existing_keys:
                         continue
+                    rows_parsed = int(item.get("rows_parsed", 0))
                     self.db.add(
                         BlobIngestionCheckpoint(
                             org_id=org_id,
@@ -358,17 +381,26 @@ class CloudLedgerService:
                             checkpoint_key=key,
                             blob_name=item.get("blob_name", ""),
                             blob_etag=item.get("blob_etag") or None,
-                            records_ingested=len(cost_rows),
+                            records_ingested=rows_parsed,
                         )
                     )
                     existing_keys.add(key)
+                    checkpoints_saved += 1
+                log.info(
+                    "ledger.checkpoint.saved",
+                    org_id=str(org_id),
+                    account_id=str(account_id),
+                    checkpoints_saved=checkpoints_saved,
+                    total_rows_inserted=len(cost_rows),
+                )
 
-            if aws_cur_checkpoints:
+            if aws_cur_checkpoints and cost_rows:
                 existing_keys = await self._get_aws_cur_checkpoint_keys(account_id)
                 for item in aws_cur_checkpoints:
                     key = item.get("checkpoint_key", "")
                     if not key or key in existing_keys:
                         continue
+                    rows_parsed = int(item.get("rows_parsed", 0))
                     self.db.add(
                         AwsCurIngestionCheckpoint(
                             org_id=org_id,
@@ -377,7 +409,7 @@ class CloudLedgerService:
                             checkpoint_key=key,
                             object_key=item.get("object_key", ""),
                             object_etag=item.get("object_etag") or None,
-                            records_ingested=len(cost_rows),
+                            records_ingested=rows_parsed,
                         )
                     )
                     existing_keys.add(key)
@@ -403,12 +435,16 @@ class CloudLedgerService:
 
             log.info(
                 "ledger.ingest.done",
+                org_id=str(org_id),
                 account_id=str(account_id),
+                provider=account.provider.value if account.provider else "unknown",
                 costs=len(costs),
+                cost_rows_inserted=len(cost_rows),
                 events=len(events),
                 recommendations=recommendation_count,
                 inventory=inventory_count,
                 usage=usage_count,
+                blob_checkpoints_received=len(blob_checkpoints),
             )
             return IngestResult(
                 account_id=account_id,

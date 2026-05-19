@@ -527,17 +527,20 @@ class AzureConnectorClient(BaseConnector):
                     log.info(
                         "azure.blob_ingest.parsed",
                         blob_name=blob_name,
+                        blob_etag=blob_etag,
                         format=blob_format,
                         rows_parsed=len(parsed),
                         total_records_so_far=len(records),
                         date_range=f"{start} → {end}",
+                        subscription_id=subscription_id,
                     )
                     if not parsed and blob_format == "csv":
                         text = payload.decode("utf-8-sig", errors="replace")
                         first_lines = text.splitlines()[:3]
                         log.warning(
-                            "azure.blob_ingest.parsed_zero_rows",
+                            "azure.blob_ingest.zero_rows_skipped_checkpoint",
                             blob_name=blob_name,
+                            blob_etag=blob_etag,
                             format=blob_format,
                             csv_header=first_lines[0] if first_lines else "(empty file)",
                             csv_sample_row=first_lines[1] if len(first_lines) > 1 else "(no rows)",
@@ -545,25 +548,38 @@ class AzureConnectorClient(BaseConnector):
                             expected_cost_columns="pretaxcost | cost | costusd | costinbillingcurrency",
                             filter_date_range=f"{start} → {end}",
                             filter_subscription_id=subscription_id,
+                            action="checkpoint_NOT_recorded",
                         )
                     elif not parsed and blob_format == "parquet":
                         log.warning(
-                            "azure.blob_ingest.parsed_zero_rows",
+                            "azure.blob_ingest.zero_rows_skipped_checkpoint",
                             blob_name=blob_name,
+                            blob_etag=blob_etag,
                             format=blob_format,
                             payload_bytes=len(payload),
                             filter_date_range=f"{start} → {end}",
                             filter_subscription_id=subscription_id,
+                            action="checkpoint_NOT_recorded",
                             hint="Parquet file produced 0 records — check date range and column schema.",
                         )
-                    consumed_checkpoints.append(
-                        {
-                            "checkpoint_key": checkpoint_key,
-                            "blob_name": blob_name,
-                            "blob_etag": blob_etag,
-                        }
-                    )
-                    seen_checkpoints.add(checkpoint_key)
+                    if parsed:
+                        consumed_checkpoints.append(
+                            {
+                                "checkpoint_key": checkpoint_key,
+                                "blob_name": blob_name,
+                                "blob_etag": blob_etag,
+                                "rows_parsed": str(len(parsed)),
+                            }
+                        )
+                        seen_checkpoints.add(checkpoint_key)
+                    else:
+                        log.warning(
+                            "azure.blob_ingest.checkpoint_poisoning_prevented",
+                            blob_name=blob_name,
+                            blob_etag=blob_etag,
+                            subscription_id=subscription_id,
+                            reason="zero rows parsed — blob will be retried on next sync",
+                        )
                 except Exception as exc:
                     log.warning(
                         "azure.fetch_costs.blob_item.failed",
