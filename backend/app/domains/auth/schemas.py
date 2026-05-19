@@ -38,6 +38,7 @@ class UserOut(BaseModel):
     passkey_enabled: bool
     totp_enabled: bool
     must_change_password: bool
+    must_accept_terms: bool
     created_at: datetime
     org_name: str = ""
 

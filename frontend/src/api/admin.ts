@@ -44,6 +44,7 @@ export interface AdminResetMFAResponse {
     is_active: boolean
     passkey_enabled: boolean
     must_change_password: boolean
+    must_accept_terms: boolean
     created_at: string
     org_name: string
   }
@@ -60,6 +61,7 @@ export interface AdminResetPasswordResponse {
     is_active: boolean
     passkey_enabled: boolean
     must_change_password: boolean
+    must_accept_terms: boolean
     created_at: string
     org_name: string
   }

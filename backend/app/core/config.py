@@ -99,6 +99,18 @@ class Settings(BaseSettings):
     # Microsoft's well-known endpoint while still picking up key rotations promptly.
     oidc_jwks_cache_ttl_seconds: int = 300
 
+    # LGPD / Terms of Service
+    # Increment this value when terms change — users with an older version
+    # will be required to re-accept before accessing the application.
+    current_terms_version: str = "1.0"
+    # DPO (Data Protection Officer) contact information
+    dpo_email: str = "dpo@causium.io"
+    dpo_instructions: str = (
+        "To exercise your data protection rights (access, correction, deletion, portability), "
+        "send an email to the DPO address above with your registered email and a description "
+        "of your request. We will respond within 15 business days as required by LGPD Art. 18."
+    )
+
     # Frontend
     frontend_url: str = "http://localhost:5174"
     auth_cookie_access_name: str = "sp_access_token"
@@ -390,17 +402,33 @@ class Settings(BaseSettings):
         return raw
 
     def validate_production_security(self) -> None:
-        if not self.is_production or not self.force_secure_datastores_in_production:
+        if not self.is_production:
             return
 
-        if self.secret_key == "change-me-in-production-at-least-32-chars":
-            raise ValueError("SECRET_KEY must be changed from the default value in production")
+        # --- Critical key material checks (unconditional in production) ---
+        # These MUST NOT be bypassed by any flag — running production with
+        # known default keys is an unacceptable security risk.
+        _default_secret = "change-me-in-production-at-least-32-chars"
+        if self.secret_key == _default_secret:
+            raise RuntimeError(
+                "CRITICAL: Refusing to start in production with default SECRET_KEY. "
+                "Configure a secure, random value (>=32 chars) via the SECRET_KEY environment variable."
+            )
         if len(self.secret_key) < 32:
-            raise ValueError("SECRET_KEY must be at least 32 characters in production")
+            raise RuntimeError(
+                "CRITICAL: SECRET_KEY must be at least 32 characters in production. "
+                "Current length: %d." % len(self.secret_key)
+            )
 
         _default_enc_key = "dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItZGV2ZWxvcA=="
         if self.encryption_key == _default_enc_key:
-            raise ValueError("ENCRYPTION_KEY must be changed from the default value in production")
+            raise RuntimeError(
+                "CRITICAL: Refusing to start in production with default ENCRYPTION_KEY. "
+                "Configure a secure Fernet-compatible key via the ENCRYPTION_KEY environment variable."
+            )
+
+        if not self.force_secure_datastores_in_production:
+            return
 
         if not self.security_headers_enabled:
             raise ValueError("SECURITY_HEADERS_ENABLED must be true in production")

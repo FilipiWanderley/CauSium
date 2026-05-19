@@ -91,6 +91,12 @@ async def admin_delete_user(
 def _user_out(user, org_name: str) -> UserOut:
     from datetime import datetime, timezone
 
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    # User must re-accept terms if their recorded version differs from current
+    must_accept_terms = (user.terms_version or "") != settings.current_terms_version
+
     return UserOut(
         id=user.id,
         org_id=user.org_id,
@@ -101,6 +107,7 @@ def _user_out(user, org_name: str) -> UserOut:
         passkey_enabled=user.passkey_enabled,
         totp_enabled=getattr(user, "totp_enabled", False),
         must_change_password=getattr(user, "must_change_password", False),
+        must_accept_terms=must_accept_terms,
         created_at=user.created_at or datetime.now(timezone.utc),
         org_name=org_name,
     )
@@ -228,6 +235,32 @@ async def logout():
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookies(response)
     return response
+
+
+@router.post(
+    "/accept-terms",
+    response_model=UserOut,
+    summary="LGPD — Re-accept updated terms of service",
+    description=(
+        "Records the user's acceptance of the current terms version. "
+        "Must be called when must_accept_terms is true in the user profile."
+    ),
+)
+async def accept_terms(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    """Update the user's terms_version and terms_accepted_at to the current version."""
+    from datetime import datetime, timezone
+
+    settings = get_settings()
+    current_user.terms_version = settings.current_terms_version
+    current_user.terms_accepted_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.commit()
+    await db.refresh(current_user)
+    org_name = await AuthService(db).get_org_name(current_user.org_id)
+    return _user_out(current_user, org_name)
 
 
 @router.get(

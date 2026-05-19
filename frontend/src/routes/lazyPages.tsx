@@ -27,6 +27,9 @@ export const ActivateInvitePage = lazyWithPreload(() =>
 export const ChangePasswordPage = lazyWithPreload(() =>
   import('../pages/ChangePassword/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage }))
 )
+export const AcceptTermsPage = lazyWithPreload(() =>
+  import('../pages/AcceptTerms/AcceptTermsPage').then((m) => ({ default: m.AcceptTermsPage }))
+)
 
 export const DashboardPage = lazyWithPreload(() =>
   import('../pages/Dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage }))

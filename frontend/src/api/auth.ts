@@ -87,6 +87,9 @@ export const authApi = {
   changePassword: (current_password: string, new_password: string) =>
     apiClient.post<User>('/auth/change-password', { current_password, new_password }),
 
+  acceptTerms: () =>
+    apiClient.post<User>('/auth/accept-terms', {}),
+
   getTotpStatus: () =>
     apiClient.get<{ enabled: boolean }>('/auth/mfa/totp/status'),
 

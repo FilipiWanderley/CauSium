@@ -33,6 +33,11 @@ export function AppLayout() {
     return <Navigate to="/app/change-password" replace />
   }
 
+  // LGPD: Block access until updated terms are accepted.
+  if (user?.must_accept_terms && location.pathname !== '/app/accept-terms') {
+    return <Navigate to="/app/accept-terms" replace />
+  }
+
   return (
     <div className={enterpriseShellEnabled ? 'flex h-screen overflow-hidden bg-slate-100' : 'flex h-screen overflow-hidden bg-gray-50'}>
       <NotificationsRealtimeBridge />

@@ -4,6 +4,7 @@ import { AppLayout } from './components/Layout/AppLayout'
 import { SessionExpired } from './components/UX/SessionExpired'
 import { SESSION_EXPIRED_EVENT } from './api/client'
 import {
+  AcceptTermsPage,
   ActivateInvitePage,
   ChangeEventsPage,
   ChangePasswordPage,
@@ -61,6 +62,9 @@ export default function App() {
 
         {/* ── SP-A01: Change-password — outside AppLayout ── */}
         <Route path="/app/change-password" element={lazyRoute(<ChangePasswordPage />)} />
+
+        {/* ── LGPD: Accept-terms — outside AppLayout (re-consent flow) ── */}
+        <Route path="/app/accept-terms" element={lazyRoute(<AcceptTermsPage />)} />
 
         {/* ── Authenticated app shell ───────────────────────────────────── */}
         <Route path="/app" element={<AppLayout />}>

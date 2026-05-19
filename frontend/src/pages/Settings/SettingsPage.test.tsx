@@ -25,6 +25,7 @@ const user = {
   passkey_enabled: false,
   totp_enabled: false,
   must_change_password: false,
+  must_accept_terms: false,
   created_at: '',
   org_id: 'org-1',
   org_name: 'Org',

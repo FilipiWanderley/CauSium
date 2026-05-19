@@ -25,6 +25,7 @@ vi.mock('../../hooks/useAuth', () => ({
       is_active: true,
       passkey_enabled: false,
       must_change_password: false,
+      must_accept_terms: false,
       created_at: '2026-01-01T00:00:00Z',
       org_name: 'Acme',
     },

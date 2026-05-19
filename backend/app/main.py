@@ -140,6 +140,31 @@ install_middlewares(app)
 app.include_router(api_router)
 
 
+@app.get("/legal/dpo-contact", tags=["legal"], summary="LGPD — DPO contact information")
+async def dpo_contact():
+    """Public endpoint exposing Data Protection Officer contact details.
+
+    Available without authentication so that any data subject can discover
+    how to exercise their LGPD rights (Art. 41).
+    """
+    s = get_settings()
+    return {
+        "dpo_email": s.dpo_email,
+        "instructions": s.dpo_instructions,
+        "rights": [
+            "Access to your personal data (Art. 18 II)",
+            "Correction of incomplete or inaccurate data (Art. 18 III)",
+            "Anonymization, blocking, or deletion of unnecessary data (Art. 18 IV)",
+            "Data portability (Art. 18 V)",
+            "Deletion of data processed with consent (Art. 18 VI)",
+            "Information about shared data (Art. 18 VII)",
+            "Revocation of consent (Art. 18 IX)",
+        ],
+        "response_time": "Up to 15 business days",
+        "legislation": "Lei Geral de Proteção de Dados (LGPD) — Lei nº 13.709/2018",
+    }
+
+
 if not settings.is_production:
     @app.get("/docs", include_in_schema=False)
     async def custom_swagger_ui() -> HTMLResponse:
