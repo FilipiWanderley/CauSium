@@ -1463,7 +1463,7 @@ version = "26.3.0"
 description = "Faker is a Python package that generates fake data for you."
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "dev"]
+groups = ["dev"]
 files = [
     {file = "Faker-26.3.0-py3-none-any.whl", hash = "sha256:97fe1e7e953dd640ca2cd4dfac4db7c4d2432dd1b7a244a3313517707f3b54e9"},
     {file = "Faker-26.3.0.tar.gz", hash = "sha256:7c10ebdf74aaa0cc4fe6ec6db5a71e8598ec33503524bd4b5f4494785a5670dd"},
@@ -5274,4 +5274,4 @@ celery = ["celery"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "c8a1027f231f79b528fb51086accacfbcedf462270d1a14c65e2e25ae23d830c"
+content-hash = "90d0e76d9a4fe5e3a844d08129122d3eeb48c070c646d86e683cc0e157c6f0ee"
