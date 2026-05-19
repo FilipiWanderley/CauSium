@@ -26,7 +26,6 @@ jobs:
   security:
     name: Security Gates (SAST + SCA + Secrets)
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
       security-events: write
@@ -108,7 +107,6 @@ jobs:
   backend:
     name: Backend (lint + typecheck + tests)
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -189,7 +187,6 @@ jobs:
   frontend:
     name: Frontend (typecheck + build)
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: frontend
