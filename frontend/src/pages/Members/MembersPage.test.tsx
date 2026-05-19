@@ -272,7 +272,7 @@ describe('MembersPage UX state safety', () => {
     })
 
     expect(screen.getByPlaceholderText('Search by invited email')).toBeDisabled()
-    expect(screen.getByDisplayValue('all')).toBeDisabled()
+    expect(screen.getByDisplayValue('All')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Prev' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
 
