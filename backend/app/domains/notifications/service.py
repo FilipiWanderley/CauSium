@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -285,8 +285,8 @@ class NotificationsService:
             .where(
                 AlertRecord.org_id == org_id,
                 AlertRecord.created_at >= cutoff,
-                AlertRecord.extra_metadata["event_type"].astext == event_type,
-                AlertRecord.extra_metadata["account_id"].astext == account_id,
+                cast(AlertRecord.extra_metadata["event_type"], String) == event_type,
+                cast(AlertRecord.extra_metadata["account_id"], String) == account_id,
             )
             .order_by(AlertRecord.created_at.desc())
             .limit(1)
@@ -399,10 +399,10 @@ class NotificationsService:
         filters = [
             AlertRecord.org_id == org_id,
             AlertRecord.category == category,
-            AlertRecord.extra_metadata["event_type"].astext == event_type,
+            cast(AlertRecord.extra_metadata["event_type"], String) == event_type,
         ]
         for key, value in signature.items():
-            filters.append(AlertRecord.extra_metadata[key].astext == value)
+            filters.append(cast(AlertRecord.extra_metadata[key], String) == value)
 
         result = await self.db.execute(
             select(AlertRecord)
