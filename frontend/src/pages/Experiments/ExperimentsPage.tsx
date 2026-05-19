@@ -3,6 +3,7 @@ import { Plus, FlaskConical, ChevronRight, X } from 'lucide-react'
 import { useState } from 'react'
 import { experimentsApi } from '../../api/experiments'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import type { Experiment, ExperimentStatus } from '../../types'
 import clsx from 'clsx'
 
@@ -99,6 +100,7 @@ function ExperimentCard({
 }
 
 export function ExperimentsPage() {
+  usePageTitle('PulseLab')
   const { t } = useI18n()
   const e = t.experiments
   const queryClient = useQueryClient()

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { initiativesApi } from '../../api/initiatives'
 import { opportunitiesApi } from '../../api/opportunities'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import type { Initiative, InitiativeStatus, Opportunity, RiskLevel } from '../../types'
 import clsx from 'clsx'
 import { usePersistentString } from '../../hooks/usePersistentBoolean'
@@ -70,6 +71,7 @@ function truncateId(value: string, max = 10) {
 }
 
 export function InitiativesPage() {
+  usePageTitle('Initiatives')
   const { t, lang } = useI18n()
   const i = t.initiatives
   const queryClient = useQueryClient()
