@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.alerting import AlertSeverity, send_alert
 from app.core.logging import get_logger
 from app.domains.admin.models import DlqMessage
 
@@ -94,5 +95,16 @@ async def push_to_dlq(
         org_id=str(org_id) if org_id else None,
         account_id=str(account_id) if account_id else None,
         retry_count=retry_count,
+    )
+    send_alert(
+        subject=f"Job moved to DLQ: {queue_name}",
+        body=(
+            f"A job in queue '{queue_name}' exhausted retries ({retry_count}) and was moved to the DLQ.\n"
+            f"Error: {error_message[:300]}\n"
+            f"Org: {org_id}, Account: {account_id}"
+        ),
+        severity=AlertSeverity.HIGH,
+        source=f"worker.dlq.{queue_name}",
+        context={"queue_name": queue_name, "dlq_id": str(msg.id), "retry_count": retry_count},
     )
     return msg
