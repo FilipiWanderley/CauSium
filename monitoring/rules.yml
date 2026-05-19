@@ -1,0 +1,157 @@
+# =============================================================================
+# CauSium — Prometheus Alerting Rules
+#
+# These rules define conditions under which Prometheus should fire alerts.
+# In production, connect these to Alertmanager → PagerDuty/OpsGenie/Slack.
+#
+# To enable: add this file to prometheus.yml under rule_files:
+#   rule_files:
+#     - /etc/prometheus/rules.yml
+#
+# Mount in docker-compose:
+#   volumes:
+#     - ./monitoring/rules.yml:/etc/prometheus/rules.yml:ro
+# =============================================================================
+
+groups:
+  # ---------------------------------------------------------------------------
+  # API SLO Rules
+  # ---------------------------------------------------------------------------
+  - name: causium_api_slo
+    interval: 30s
+    rules:
+      # Recording rule: 5-minute error rate across all API endpoints
+      - record: causium:api_error_rate_5m
+        expr: |
+          (
+            sum(rate(http_requests_total{job="causium_backend", status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="causium_backend"}[5m]))
+          ) * 100
+
+      # Recording rule: p95 latency over 5 minutes
+      - record: causium:api_p95_latency_5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="causium_backend"}[5m])) by (le)
+          ) * 1000
+
+      # ALERT: API error rate exceeds 1% over 5 minutes (error budget breach)
+      - alert: CauSiumAPIErrorBudgetBreach
+        expr: causium:api_error_rate_5m > 1.0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "API error rate {{ $value | printf \"%.2f\" }}% exceeds 1% budget"
+          description: |
+            The CauSium API 5xx error rate has exceeded the 1% error budget
+            for more than 2 minutes. Current rate: {{ $value | printf "%.2f" }}%.
+            Check /metrics/slo for per-path breakdown and recent traces in Jaeger.
+          runbook_url: "https://github.com/your-org/causium/blob/main/docs/runbooks/backup-restore.md"
+
+      # ALERT: API p95 latency exceeds 500ms
+      - alert: CauSiumAPILatencySLOBreach
+        expr: causium:api_p95_latency_5m > 500
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API p95 latency {{ $value | printf \"%.0f\" }}ms exceeds 500ms target"
+          description: |
+            The CauSium API p95 response time has exceeded the 500ms SLO target
+            for more than 3 minutes. Profile slow queries and check database
+            connection pool saturation.
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure Health Rules
+  # ---------------------------------------------------------------------------
+  - name: causium_infrastructure
+    interval: 30s
+    rules:
+      # ALERT: Backend service is down (health endpoint unreachable)
+      - alert: CauSiumBackendDown
+        expr: up{job="causium_backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "CauSium backend is unreachable"
+          description: |
+            Prometheus cannot reach the CauSium backend /metrics endpoint.
+            The service may have crashed or the container may be restarting.
+            Check: docker compose ps backend && docker compose logs backend --tail=50
+
+      # ALERT: Health check reports degraded status
+      # (Requires a custom metric exported by the /metrics endpoint)
+      - alert: CauSiumHealthDegraded
+        expr: causium_health_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "CauSium health check reports degraded status"
+          description: |
+            One or more backend dependencies (PostgreSQL, Redis, ClickHouse)
+            are failing their health checks. Run GET /health/detailed for specifics.
+
+  # ---------------------------------------------------------------------------
+  # Worker Health Rules
+  # ---------------------------------------------------------------------------
+  - name: causium_workers
+    interval: 60s
+    rules:
+      # ALERT: Worker heartbeat file is stale (>90s old)
+      # This requires a node_exporter textfile collector or custom metric.
+      # Example: export via a sidecar that reads /tmp/worker_heartbeat
+      - alert: CauSiumWorkerHeartbeatStale
+        expr: (time() - causium_worker_heartbeat_timestamp_seconds) > 90
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "CauSium worker heartbeat is stale ({{ $value | printf \"%.0f\" }}s old)"
+          description: |
+            The worker process has not updated its heartbeat file in over 90 seconds.
+            The worker may be deadlocked, crashed, or the event loop is blocked.
+            Check: docker compose logs worker --tail=100
+
+      # ALERT: DLQ messages accumulating (more than 10 unresolved in 1 hour)
+      - alert: CauSiumDLQAccumulating
+        expr: causium_dlq_open_count > 10
+        for: 5m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "{{ $value }} unresolved DLQ messages"
+          description: |
+            More than 10 messages are sitting in the Dead Letter Queue without
+            resolution. This indicates a persistent failure in one or more
+            ingestion/processing pipelines. Review via GET /api/v1/admin/dlq.
+
+  # ---------------------------------------------------------------------------
+  # Backup Monitoring Rules
+  # ---------------------------------------------------------------------------
+  - name: causium_backups
+    interval: 300s
+    rules:
+      # ALERT: No successful backup in the last 25 hours
+      # Requires a push from backup.sh (e.g., via pushgateway or textfile)
+      - alert: CauSiumBackupOverdue
+        expr: (time() - causium_last_backup_success_timestamp_seconds) > 90000
+        for: 5m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "No successful backup in the last 25 hours"
+          description: |
+            The last successful backup was {{ $value | humanizeDuration }} ago.
+            Expected: at least one backup every 24 hours.
+            Run: ./scripts/backup.sh and check backups/ for the report.
