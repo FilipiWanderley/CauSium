@@ -3,9 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, XCircle, ServerCog, Activity, Database, Cpu, HardDrive } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { integrationHealthApi } from '../../api/integrationHealth'
 import type { FinOpsReadinessResponse, RecommendationReadiness } from '../../api/integrationHealth'
 import { useI18n } from '../../contexts/I18nContext'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonMetricCards } from '../../components/UX/Skeleton'
 
 type HealthStatus = 'healthy' | 'warning' | 'blocked' | 'not_configured'
 
@@ -43,7 +46,7 @@ function StatusBadge({ status }: { status: HealthStatus }) {
 
 function ReadinessIndicator({ ready, label }: { ready: boolean; label: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-4 py-3">
+    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
       <span className="text-sm text-gray-700">{label}</span>
       {ready ? (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
@@ -71,7 +74,7 @@ function MetricRow({ label, value, status }: { label: string; value: string; sta
         <span className={clsx('h-2 w-2 rounded-full', dot[status])} />
         <span className="text-sm text-gray-600">{label}</span>
       </div>
-      <span className="text-sm font-medium text-gray-900">{value}</span>
+      <span className="text-sm font-medium tabular-nums text-gray-900">{value}</span>
     </div>
   )
 }
@@ -79,10 +82,10 @@ function MetricRow({ label, value, status }: { label: string; value: string; sta
 function SummaryBanner({ data }: { data: FinOpsReadinessResponse }) {
   const status = getOverallStatus(data)
   const messages: Record<HealthStatus, string> = {
-    healthy: 'All recommendation engines are operational. Telemetry coverage is sufficient.',
-    warning: 'Recommendations partially available. Some telemetry coverage is limited.',
-    blocked: 'Recommendations blocked. Critical telemetry data is missing.',
-    not_configured: 'Cloud integration not configured. Connect a cloud account to begin.',
+    healthy: 'All readiness checks are passing. Telemetry coverage is sufficient for the recommendation engines.',
+    warning: 'Readiness is partial. Some telemetry coverage is limited.',
+    blocked: 'Readiness is blocked. Critical telemetry data is missing.',
+    not_configured: 'No cloud integration is configured for this workspace yet.',
   }
   const bannerColors: Record<HealthStatus, string> = {
     healthy: 'bg-green-50 border-green-200 text-green-900',
@@ -91,7 +94,7 @@ function SummaryBanner({ data }: { data: FinOpsReadinessResponse }) {
     not_configured: 'bg-gray-50 border-gray-200 text-gray-700',
   }
   return (
-    <div className={clsx('rounded-lg border px-4 py-3', bannerColors[status])}>
+    <div className={clsx('rounded-xl border px-4 py-3', bannerColors[status])}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <StatusBadge status={status} />
@@ -115,7 +118,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
   return (
     <div className="space-y-3">
       {readiness.blockers.length > 0 && (
-        <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4">
           <h4 className="text-sm font-medium text-red-800 mb-2">Blockers</h4>
           <ul className="space-y-2">
             {readiness.blockers.map((b, i) => (
@@ -133,7 +136,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
         </div>
       )}
       {readiness.warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
           <h4 className="text-sm font-medium text-amber-800 mb-2">Warnings</h4>
           <ul className="space-y-2">
             {readiness.warnings.map((w, i) => (
@@ -150,6 +153,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
 }
 
 export function IntegrationHealthPage() {
+  usePageTitle('Integration Health')
   const { user } = useAuth()
   const { t } = useI18n()
 
@@ -166,32 +170,27 @@ export function IntegrationHealthPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 w-64 bg-gray-200 rounded" />
-          <div className="h-4 w-96 bg-gray-100 rounded" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-lg" />
-            ))}
-          </div>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+          <div className="h-6 w-56 rounded bg-gray-200 animate-pulse" />
+          <div className="mt-2 h-4 w-96 rounded bg-gray-100 animate-pulse" />
         </div>
+        <SkeletonMetricCards count={4} />
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">{t.platform.integrationHealthTitle}</h1>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 mt-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <span className="text-sm text-amber-800">
-              Unable to retrieve integration health data. The diagnostics endpoint may not be available yet.
-            </span>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold text-gray-900">{t.platform.integrationHealthTitle}</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{t.platform.integrationHealthSubtitle}</p>
+        </header>
+        <ErrorState
+          title="Could not load integration health"
+          description="Diagnostics are temporarily unavailable for this workspace. Please try again."
+        />
       </div>
     )
   }
@@ -208,12 +207,11 @@ export function IntegrationHealthPage() {
     val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">{t.platform.integrationHealthTitle}</h1>
-        <p className="text-sm text-gray-500 mt-1">{t.platform.integrationHealthSubtitle}</p>
-      </div>
+    <div className="max-w-6xl mx-auto space-y-8">
+      <header>
+        <h1 className="text-2xl font-semibold text-gray-900">{t.platform.integrationHealthTitle}</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{t.platform.integrationHealthSubtitle}</p>
+      </header>
 
       {/* Summary Banner */}
       <SummaryBanner data={data} />
@@ -221,13 +219,13 @@ export function IntegrationHealthPage() {
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Cost Coverage */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
             <Database className="h-4 w-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-900">Cost Coverage</h3>
             <StatusBadge status={costStatus} />
           </div>
-          <div className="space-y-0">
+          <div className="px-5 py-4">
             <MetricRow
               label="Cost records (30d)"
               value={data.cost_coverage.total_cost_facts_30d.toLocaleString()}
@@ -257,13 +255,13 @@ export function IntegrationHealthPage() {
         </div>
 
         {/* Usage Coverage */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
             <Activity className="h-4 w-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-900">Usage Coverage</h3>
             <StatusBadge status={usageStatus} />
           </div>
-          <div className="space-y-0">
+          <div className="px-5 py-4">
             <MetricRow
               label="Usage records (30d)"
               value={data.usage_coverage.total_usage_facts_30d.toLocaleString()}
@@ -295,12 +293,12 @@ export function IntegrationHealthPage() {
         </div>
 
         {/* Recommendation Readiness */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
             <Cpu className="h-4 w-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-900">Recommendation Engines</h3>
           </div>
-          <div className="space-y-2">
+          <div className="p-5 space-y-2">
             <ReadinessIndicator ready={data.recommendation_readiness.vm_rightsizing_ready} label="VM Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.aks_rightsizing_ready} label="AKS Nodepool Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.autoscaler_ready} label="AKS Autoscaler" />
@@ -308,12 +306,12 @@ export function IntegrationHealthPage() {
         </div>
 
         {/* Opportunities & Export */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
             <HardDrive className="h-4 w-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-900">Opportunities & Export</h3>
           </div>
-          <div className="space-y-0">
+          <div className="px-5 py-4">
             <MetricRow
               label="Total opportunities"
               value={String(data.opportunities.total_opportunities)}

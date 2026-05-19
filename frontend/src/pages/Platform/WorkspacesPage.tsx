@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
@@ -8,6 +8,10 @@ import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useI18n } from '../../contexts/I18nContext'
+import { usePageTitle } from '../../hooks/usePageTitle'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonTable } from '../../components/UX/Skeleton'
 
 const STATE_BADGE: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -46,6 +50,7 @@ const AUDIT_WINDOW_OPTIONS: AuditWindow[] = ['24h', '7d', '30d', 'all']
 const PAGE_SIZE = 20
 
 export function WorkspacesPage() {
+  usePageTitle('Workspaces')
   const { user } = useAuth()
   const { t, lang } = useI18n()
   const p = t.platform
@@ -77,7 +82,7 @@ export function WorkspacesPage() {
     return <Navigate to="/app/dashboard" replace />
   }
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-orgs', page, searchQuery, stateFilter],
     queryFn: () =>
       adminApi
@@ -317,14 +322,14 @@ export function WorkspacesPage() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <Shield className="h-6 w-6 text-brand-600" />
+    <div className="space-y-8 max-w-6xl">
+      <header className="flex items-start gap-3">
+        <Shield className="mt-0.5 h-6 w-6 text-brand-600" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{p.workspacesTitle}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{p.workspacesSubtitle}</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{p.workspacesTitle}</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{p.workspacesSubtitle}</p>
         </div>
-      </div>
+      </header>
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
@@ -336,12 +341,12 @@ export function WorkspacesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={p.workspacesSearch}
-              className="w-56 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value as 'all' | 'active' | 'suspended' | 'archived')}
-              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             >
               <option value="all">{p.workspacesAllStates}</option>
               <option value="active">{p.workspacesStateActive}</option>
@@ -371,25 +376,38 @@ export function WorkspacesPage() {
         </div>
 
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">{p.workspacesLoading}</div>
+          <div className="p-5">
+            <SkeletonTable rows={8} columns={6} />
+          </div>
+        ) : isError ? (
+          <div className="p-5">
+            <ErrorState
+              title="Could not load workspaces"
+              description="Workspace inventory is temporarily unavailable. Please try again."
+              onRetry={() => refetch()}
+              retryLabel="Retry"
+            />
+          </div>
         ) : !data?.items.length ? (
-          <div className="py-12 text-center text-sm text-gray-500">{p.workspacesNoOrgs}</div>
+          <div className="p-5">
+            <EmptyState icon="search" title={p.workspacesNoOrgs} />
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-5 py-3">{p.workspacesColOrg}</th>
-                <th className="px-4 py-3">{p.workspacesColPlan}</th>
-                <th className="px-4 py-3">{p.workspacesColMembers}</th>
-                <th className="px-4 py-3">{p.workspacesColState}</th>
-                <th className="px-4 py-3">{p.workspacesColCreated}</th>
-                <th className="px-4 py-3 text-right">{p.workspacesColActions}</th>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColOrg}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColPlan}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColMembers}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColState}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColCreated}</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColActions}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {data.items.map((org) => (
-                <>
-                  <tr key={org.id} className="hover:bg-gray-50 transition-colors">
+                <Fragment key={org.id}>
+                  <tr className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3.5">
                       <p className="font-semibold text-gray-900">{org.name}</p>
                       <p className="text-xs text-gray-400 font-mono">{org.slug}</p>
@@ -454,7 +472,7 @@ export function WorkspacesPage() {
                     </td>
                   </tr>
                   {expandedOrgId === org.id && (
-                    <tr key={`${org.id}-users`}>
+                    <tr>
                       <td colSpan={6} className="bg-gray-50 px-8 py-4">
                         {usersLoading ? (
                           <p className="text-xs text-gray-400">{p.workspacesLoadingUsers}</p>
@@ -580,7 +598,7 @@ export function WorkspacesPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

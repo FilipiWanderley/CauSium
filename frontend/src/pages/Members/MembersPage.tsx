@@ -6,7 +6,11 @@ import { membersApi, type MemberCreatePayload, type MemberItem } from '../../api
 import { invitesApi, type InviteOut, type InviteRole, type InviteStatus } from '../../api/invites'
 import { adminApi } from '../../api/admin'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useI18n } from '../../contexts/I18nContext'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonTable } from '../../components/UX/Skeleton'
 import type { UserRole } from '../../types'
 
 type MembersTab = 'members' | 'invites'
@@ -31,9 +35,11 @@ type DeleteModalState = { member: MemberItem; reason: string }
 
 export function MembersPage() {
   const { user } = useAuth()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  usePageTitle('Members')
   const m = t.members
   const queryClient = useQueryClient()
+  const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
 
   const [tab, setTab] = useState<MembersTab>('members')
   const [feedback, setFeedback] = useState<{ tone: FeedbackTone; message: string } | null>(null)
@@ -290,34 +296,36 @@ export function MembersPage() {
       await navigator.clipboard.writeText(link)
       showSuccess(m.toastInviteCreated.replace('{{email}}', invite.invited_email).replace('{{link}}', link))
     } catch {
-      showError(`Copy failed. Link: ${link}`)
+      showError(`Could not copy invite link. Link: ${link}`)
     }
   }
 
   // Helper: render invite status label from translation keys
   const inviteStatusLabel = (status: 'all' | InviteStatus): string => {
-    if (status === 'all') return 'all'
+    if (status === 'all') return t.common.all
     if (status === 'pending') return m.statusPending
     if (status === 'accepted') return m.statusAccepted
     if (status === 'expired') return m.statusExpired
     return m.statusRevoked
   }
 
-  return (
-    <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{m.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{m.subtitle}</p>
-      </div>
+  const formatDateTime = (value: string) => new Date(value).toLocaleString(locale)
 
-      <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+  return (
+    <div className="space-y-8 max-w-6xl">
+      <header>
+        <h1 className="text-2xl font-semibold text-gray-900">{m.title}</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{m.subtitle}</p>
+      </header>
+
+      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTab('members')}
             disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
             className={clsx(
-              'rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
-              tab === 'members' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+              tab === 'members' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
             )}
           >
             {m.tabMembers}
@@ -326,8 +334,8 @@ export function MembersPage() {
             onClick={() => setTab('invites')}
             disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
             className={clsx(
-              'rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50',
-              tab === 'invites' ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+              tab === 'invites' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
             )}
           >
             {m.tabInvites}
@@ -338,7 +346,7 @@ export function MembersPage() {
       {feedback && (
         <div
           className={clsx(
-            'rounded px-3 py-2 text-sm',
+            'rounded-xl border px-4 py-3 text-sm',
             feedback.tone === 'success' && 'border border-green-200 bg-green-50 text-green-700',
             feedback.tone === 'error' && 'border border-red-200 bg-red-50 text-red-700',
             feedback.tone === 'info' && 'border border-blue-200 bg-blue-50 text-blue-700'
@@ -350,68 +358,72 @@ export function MembersPage() {
 
       {tab === 'members' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">{m.createMember}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <input
-                type="email"
-                value={memberForm.email}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder={m.emailPlaceholder}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-              <input
-                type="text"
-                value={memberForm.full_name}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                placeholder={m.fullNamePlaceholder}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-              <input
-                type="password"
-                value={memberForm.password}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder={m.tempPasswordPlaceholder}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-              <select
-                value={memberForm.role}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              >
-                {ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-semibold text-gray-900">{m.createMember}</h2>
             </div>
-            <div className="mt-3">
-              <button
-                onClick={() => createMemberMutation.mutate()}
-                disabled={!canCreateMember || hasMemberMutationInFlight}
-                className="rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-              >
-                {createMemberMutation.isPending ? m.creating : m.createMember}
-              </button>
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  type="email"
+                  value={memberForm.email}
+                  onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder={m.emailPlaceholder}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                />
+                <input
+                  type="text"
+                  value={memberForm.full_name}
+                  onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                  placeholder={m.fullNamePlaceholder}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                />
+                <input
+                  type="password"
+                  value={memberForm.password}
+                  onChange={(e) => setMemberForm((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder={m.tempPasswordPlaceholder}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                />
+                <select
+                  value={memberForm.role}
+                  onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => createMemberMutation.mutate()}
+                  disabled={!canCreateMember || hasMemberMutationInFlight}
+                  className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
+                >
+                  {createMemberMutation.isPending ? m.creating : m.createMember}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-gray-900">
                 {m.workspaceMembers.replace('{{count}}', String(allMembers.length))}
               </h2>
               {totalMemberPages > 1 && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
                   <button
                     onClick={() => setMembersPage((p) => Math.max(1, p - 1))}
                     disabled={membersPage <= 1 || hasMemberMutationInFlight}
-                    className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
                   >
                     {m.prev}
                   </button>
-                  <span>
+                  <span className="text-xs text-gray-500">
                     {m.pageOf
                       .replace('{{page}}', String(membersPage))
                       .replace('{{total}}', String(totalMemberPages))}
@@ -419,77 +431,115 @@ export function MembersPage() {
                   <button
                     onClick={() => setMembersPage((p) => Math.min(totalMemberPages, p + 1))}
                     disabled={membersPage >= totalMemberPages || hasMemberMutationInFlight}
-                    className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
                   >
                     {m.next}
                   </button>
                 </div>
               )}
             </div>
-            {membersQuery.isLoading ? (
-              <div className="text-sm text-gray-500">{m.loadingMembers}</div>
-            ) : !allMembers.length ? (
-              <div className="text-sm text-gray-500">{m.noMembers}</div>
-            ) : (
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between rounded border border-gray-200 px-3 py-2">
-                    <div>
-                      <div className="text-sm font-medium text-gray-800">{member.full_name}</div>
-                      <div className="text-xs text-gray-500">
-                        {member.email} · {member.role} · {member.is_active ? 'active' : 'inactive'}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => resetMfaMutation.mutate(member)}
-                        disabled={hasMemberMutationInFlight}
-                        className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
-                      </button>
-                      <button
-                        onClick={() => resetPasswordMutation.mutate(member)}
-                        disabled={hasMemberMutationInFlight}
-                        className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
-                      </button>
-                      <button
-                        onClick={() => handleDeactivate(member)}
-                        disabled={!member.is_active || hasMemberMutationInFlight}
-                        className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(member)}
-                        disabled={!member.is_active || hasMemberMutationInFlight}
-                        className="rounded border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60"
-                      >
-                        {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(member)}
-                        disabled={hasMemberMutationInFlight}
-                        className="rounded border border-red-400 px-2 py-1 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-60"
-                      >
-                        {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="p-5">
+              {membersQuery.isLoading ? (
+                <SkeletonTable rows={6} columns={5} />
+              ) : membersQuery.isError ? (
+                <ErrorState
+                  title="Could not load members"
+                  description="Workspace members are currently unavailable. Please try again."
+                  onRetry={() => membersQuery.refetch()}
+                  retryLabel="Retry"
+                />
+              ) : !allMembers.length ? (
+                <EmptyState icon="document" title={m.noMembers} />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-left">
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.name}</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
+                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.edit}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {members.map((member) => (
+                        <tr key={member.id} className="transition hover:bg-gray-50/50">
+                          <td className="py-3 pr-4 font-medium text-gray-900">{member.full_name}</td>
+                          <td className="py-3 pr-4 text-gray-700">{member.email}</td>
+                          <td className="py-3 pr-4">
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span
+                              className={clsx(
+                                'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                                member.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                              )}
+                            >
+                              {member.is_active ? 'active' : 'inactive'}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => resetMfaMutation.mutate(member)}
+                                disabled={hasMemberMutationInFlight}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                              >
+                                {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
+                              </button>
+                              <button
+                                onClick={() => resetPasswordMutation.mutate(member)}
+                                disabled={hasMemberMutationInFlight}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                              >
+                                {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
+                              </button>
+                              <button
+                                onClick={() => handleEdit(member)}
+                                disabled={!member.is_active || hasMemberMutationInFlight}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                              >
+                                {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
+                              </button>
+                              <button
+                                onClick={() => handleDeactivate(member)}
+                                disabled={!member.is_active || hasMemberMutationInFlight}
+                                className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                              >
+                                {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(member)}
+                                disabled={hasMemberMutationInFlight}
+                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                              >
+                                {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {tab === 'invites' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">{m.createInvite}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-semibold text-gray-900">{m.createInvite}</h2>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <input
                 type="email"
                 value={inviteForm.email}
@@ -497,12 +547,12 @@ export function MembersPage() {
                 placeholder={m.emailPlaceholder}
                 pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
                 required
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               />
               <select
                 value={inviteForm.role}
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value as InviteRole }))}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               >
                 {ROLES.map((role) => (
                   <option key={role} value={role}>
@@ -513,7 +563,7 @@ export function MembersPage() {
               <select
                 value={inviteForm.expiresInDays}
                 onChange={(e) => setInviteForm((prev) => ({ ...prev, expiresInDays: Number(e.target.value) }))}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               >
                 <option value={3}>{m.days3}</option>
                 <option value={7}>{m.days7}</option>
@@ -523,96 +573,126 @@ export function MembersPage() {
               <button
                 onClick={() => createInviteMutation.mutate()}
                 disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim()) || hasInviteMutationInFlight}
-                className="rounded bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
               >
                 {createInviteMutation.isPending ? m.creating : m.createInvite}
               </button>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-              <input
-                type="text"
-                value={inviteQuery}
-                disabled={hasInviteMutationInFlight}
-                onChange={(e) => {
-                  setInviteQuery(e.target.value)
-                  setInvitePage(1)
-                }}
-                placeholder={m.searchInvite}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              />
-              <select
-                value={inviteStatusFilter}
-                disabled={hasInviteMutationInFlight}
-                onChange={(e) => {
-                  setInviteStatusFilter(e.target.value as 'all' | InviteStatus)
-                  setInvitePage(1)
-                }}
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-              >
-                {INVITE_STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {inviteStatusLabel(status)}
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
-                <button
-                  onClick={() => setInvitePage((p) => Math.max(1, p - 1))}
-                  disabled={invitePage <= 1 || hasInviteMutationInFlight}
-                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  value={inviteQuery}
+                  disabled={hasInviteMutationInFlight}
+                  onChange={(e) => {
+                    setInviteQuery(e.target.value)
+                    setInvitePage(1)
+                  }}
+                  placeholder={m.searchInvite}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                />
+                <select
+                  value={inviteStatusFilter}
+                  disabled={hasInviteMutationInFlight}
+                  onChange={(e) => {
+                    setInviteStatusFilter(e.target.value as 'all' | InviteStatus)
+                    setInvitePage(1)
+                  }}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                 >
-                  {m.prev}
-                </button>
-                <span>
-                  {m.pageOf
-                    .replace('{{page}}', String(invitePage))
-                    .replace('{{total}}', String(totalInvitePages))}
-                </span>
-                <button
-                  onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
-                  disabled={invitePage >= totalInvitePages || hasInviteMutationInFlight}
-                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {m.next}
-                </button>
+                  {INVITE_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {inviteStatusLabel(status)}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setInvitePage((p) => Math.max(1, p - 1))}
+                    disabled={invitePage <= 1 || hasInviteMutationInFlight}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {m.prev}
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    {m.pageOf
+                      .replace('{{page}}', String(invitePage))
+                      .replace('{{total}}', String(totalInvitePages))}
+                  </span>
+                  <button
+                    onClick={() => setInvitePage((p) => Math.min(totalInvitePages, p + 1))}
+                    disabled={invitePage >= totalInvitePages || hasInviteMutationInFlight}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {m.next}
+                  </button>
+                </div>
               </div>
             </div>
-
-            {!invites.length ? (
-              <div className="text-sm text-gray-500">{m.noInvites}</div>
-            ) : (
-              <div className="space-y-2">
-                {invites.map((invite) => (
-                  <div key={invite.id} className="flex items-center justify-between rounded border border-gray-200 px-3 py-2">
-                    <div>
-                      <div className="text-sm font-medium text-gray-800">{invite.invited_email}</div>
-                      <div className="text-xs text-gray-500">
-                        {invite.role} · {invite.status} · expires {new Date(invite.expires_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => copyInviteLink(invite)}
-                        disabled={hasInviteMutationInFlight}
-                        className="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        {m.copyLink}
-                      </button>
-                      <button
-                        onClick={() => revokeInviteMutation.mutate(invite)}
-                        disabled={invite.status !== 'pending' || hasInviteMutationInFlight}
-                        className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        {revokeInviteMutation.isPending && inviteActionId === invite.id ? m.revoking : m.revoke}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="p-5">
+              {invitesQuery.isLoading ? (
+                <SkeletonTable rows={6} columns={5} />
+              ) : invitesQuery.isError ? (
+                <ErrorState
+                  title="Could not load invites"
+                  description="Workspace invites are currently unavailable. Please try again."
+                  onRetry={() => invitesQuery.refetch()}
+                  retryLabel="Retry"
+                />
+              ) : !invites.length ? (
+                <EmptyState icon="document" title={m.noInvites} />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-left">
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
+                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Expires</th>
+                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.copy}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {invites.map((invite) => (
+                        <tr key={invite.id} className="transition hover:bg-gray-50/50">
+                          <td className="py-3 pr-4 font-medium text-gray-900">{invite.invited_email}</td>
+                          <td className="py-3 pr-4">
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                              {invite.role}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-gray-700">{inviteStatusLabel(invite.status)}</td>
+                          <td className="py-3 pr-4 text-gray-700">{formatDateTime(invite.expires_at)}</td>
+                          <td className="py-3">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => copyInviteLink(invite)}
+                                disabled={hasInviteMutationInFlight}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                              >
+                                {m.copyLink}
+                              </button>
+                              <button
+                                onClick={() => revokeInviteMutation.mutate(invite)}
+                                disabled={invite.status !== 'pending' || hasInviteMutationInFlight}
+                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                              >
+                                {revokeInviteMutation.isPending && inviteActionId === invite.id ? m.revoking : m.revoke}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
 import { authApi } from '../../api/auth'
+import { useI18n } from '../../contexts/I18nContext'
 
 type Step = 'status' | 'setup' | 'enable' | 'backup_codes' | 'enabled' | 'disable' | 'regenerate'
 
 export function MfaTotpSettings() {
+  const { t } = useI18n()
   const queryClient = useQueryClient()
   const [code, setCode] = useState('')
   const [step, setStep] = useState<Step>('status')
@@ -42,7 +44,7 @@ export function MfaTotpSettings() {
       setCode('')
       setStep('enable')
     },
-    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Erro ao iniciar setup.', ok: false }),
+    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Could not start setup.', ok: false }),
   })
 
   const enableMutation = useMutation({
@@ -54,18 +56,18 @@ export function MfaTotpSettings() {
       refetchStatus()
       queryClient.invalidateQueries({ queryKey: ['totp-backup-count'] })
     },
-    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Código inválido.', ok: false }),
+    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Invalid code.', ok: false }),
   })
 
   const disableMutation = useMutation({
     mutationFn: () => authApi.disableTotp({ code }).then((r) => r.data),
     onSuccess: () => {
       setCode('')
-      setFeedback({ text: 'MFA desativado.', ok: true })
+      setFeedback({ text: 'Two-factor authentication disabled.', ok: true })
       refetchStatus()
       setStep('status')
     },
-    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Erro ao desativar MFA.', ok: false }),
+    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Could not disable two-factor authentication.', ok: false }),
   })
 
   const regenerateMutation = useMutation({
@@ -76,45 +78,53 @@ export function MfaTotpSettings() {
       setStep('backup_codes')
       refetchCount()
     },
-    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Código inválido.', ok: false }),
+    onError: (e) => setFeedback({ text: (e as Error)?.message ?? 'Invalid code.', ok: false }),
   })
 
   return (
     <div className="space-y-4 max-w-lg">
-      <h2 className="text-sm font-semibold text-gray-900">Autenticação em Dois Fatores (MFA TOTP)</h2>
+      <h2 className="text-sm font-semibold text-gray-900">Two-factor authentication (TOTP)</h2>
 
       {feedback && (
-        <div className={`text-sm ${feedback.ok ? 'text-green-600' : 'text-red-600'}`}>{feedback.text}</div>
+        <div
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            feedback.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {feedback.text}
+        </div>
       )}
 
       {step === 'status' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-500">MFA TOTP não está ativado. Recomendado para maior segurança.</p>
+          <p className="text-sm text-gray-600">
+            Two-factor authentication is not enabled. Enable it to strengthen access security.
+          </p>
           <button
-            className="rounded bg-brand-600 px-4 py-2 text-sm text-white font-medium hover:bg-brand-700 disabled:opacity-60"
+            className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
             onClick={() => { setFeedback(null); setupMutation.mutate() }}
             disabled={setupMutation.isPending}
           >
-            {setupMutation.isPending ? 'Carregando...' : 'Ativar MFA'}
+            {setupMutation.isPending ? t.common.loading : 'Enable 2FA'}
           </button>
         </div>
       )}
 
       {step === 'setup' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-500">Preparando configuração...</p>
+          <p className="text-sm text-gray-600">Preparing setup…</p>
         </div>
       )}
 
       {step === 'enable' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Escaneie o QR code no Google Authenticator, Authy ou similar. Ou insira o segredo manualmente.
+            Scan this QR code with Google Authenticator, Authy, or a compatible app. You can also enter the secret manually.
           </p>
           <div>
             <QRCodeSVG value={otpauthUrl} size={160} />
           </div>
-          <div className="rounded bg-gray-50 border border-gray-200 px-3 py-1.5">
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
             <span className="font-mono text-xs text-gray-700 break-all">{secret}</span>
           </div>
           <div className="flex gap-2">
@@ -123,16 +133,16 @@ export function MfaTotpSettings() {
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Código do app (6 dígitos)"
-              className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              placeholder="Authenticator code (6 digits)"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               maxLength={8}
             />
             <button
-              className="rounded bg-brand-600 px-4 py-2 text-sm text-white font-medium hover:bg-brand-700 disabled:opacity-60"
+              className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
               onClick={() => { setFeedback(null); enableMutation.mutate() }}
               disabled={code.length < 6 || enableMutation.isPending}
             >
-              {enableMutation.isPending ? 'Ativando...' : 'Ativar'}
+              {enableMutation.isPending ? 'Enabling…' : 'Enable'}
             </button>
           </div>
         </div>
@@ -140,11 +150,10 @@ export function MfaTotpSettings() {
 
       {step === 'backup_codes' && (
         <div className="space-y-3">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-800 mb-1">Guarde estes códigos de recuperação</p>
-            <p className="text-xs text-amber-700 mb-3">
-              Cada código pode ser usado uma única vez se você perder acesso ao seu app autenticador.
-              Eles não serão mostrados novamente.
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-semibold text-amber-900 mb-1">Save your recovery codes</p>
+            <p className="text-xs text-amber-800 mb-3">
+              Each code can be used once if you lose access to your authenticator app. They won’t be shown again.
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {backupCodes.map((c) => (
@@ -155,46 +164,46 @@ export function MfaTotpSettings() {
             </div>
             <button
               onClick={() => navigator.clipboard.writeText(backupCodes.join('\n'))}
-              className="mt-3 text-xs text-amber-700 underline"
+              className="mt-3 text-xs text-amber-800 underline"
             >
-              Copiar todos
+              Copy all
             </button>
           </div>
           <button
-            className="rounded bg-brand-600 px-4 py-2 text-sm text-white font-medium hover:bg-brand-700"
+            className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             onClick={() => { setBackupCodes([]); setStep('enabled') }}
           >
-            Confirmar que salvei os códigos
+            I saved these codes
           </button>
         </div>
       )}
 
       {step === 'enabled' && (
         <div className="space-y-3">
-          <p className="text-sm text-green-700 font-medium">MFA TOTP está ativado.</p>
+          <p className="text-sm text-emerald-700 font-medium">Two-factor authentication is enabled.</p>
           {backupCountData && (
             <p className="text-xs text-gray-500">
-              Códigos de recuperação restantes:{' '}
+              Recovery codes remaining:{' '}
               <span className={`font-semibold ${backupCountData.backup_codes_remaining === 0 ? 'text-red-600' : 'text-gray-700'}`}>
                 {backupCountData.backup_codes_remaining}
               </span>
               {backupCountData.backup_codes_remaining === 0 && (
-                <span className="text-red-600"> — regenere agora!</span>
+                <span className="text-red-600"> — regenerate now</span>
               )}
             </p>
           )}
           <div className="flex gap-2">
             <button
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
               onClick={() => { setFeedback(null); setCode(''); setStep('regenerate') }}
             >
-              Regenerar códigos de recuperação
+              Regenerate recovery codes
             </button>
             <button
-              className="rounded border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
+              className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-700 hover:bg-red-50"
               onClick={() => { setFeedback(null); setCode(''); setStep('disable') }}
             >
-              Desativar MFA
+              Disable 2FA
             </button>
           </div>
         </div>
@@ -202,29 +211,29 @@ export function MfaTotpSettings() {
 
       {step === 'regenerate' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">Para regenerar, confirme com um código do seu app autenticador:</p>
+          <p className="text-sm text-gray-600">To regenerate, confirm with a code from your authenticator app:</p>
           <div className="flex gap-2">
             <input
               type="text"
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Código do app"
-              className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              placeholder="Authenticator code"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               maxLength={8}
             />
             <button
-              className="rounded bg-brand-600 px-4 py-2 text-sm text-white font-medium hover:bg-brand-700 disabled:opacity-60"
+              className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
               onClick={() => { setFeedback(null); regenerateMutation.mutate() }}
               disabled={code.length < 6 || regenerateMutation.isPending}
             >
-              {regenerateMutation.isPending ? 'Gerando...' : 'Regenerar'}
+              {regenerateMutation.isPending ? 'Generating…' : 'Regenerate'}
             </button>
             <button
-              className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => setStep('enabled')}
             >
-              Cancelar
+              {t.common.cancel}
             </button>
           </div>
         </div>
@@ -232,29 +241,29 @@ export function MfaTotpSettings() {
 
       {step === 'disable' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">Para desativar, confirme com um código do seu app autenticador:</p>
+          <p className="text-sm text-gray-600">To disable, confirm with a code from your authenticator app:</p>
           <div className="flex gap-2">
             <input
               type="text"
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Código do app"
-              className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              placeholder="Authenticator code"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               maxLength={8}
             />
             <button
-              className="rounded bg-red-600 px-4 py-2 text-sm text-white font-medium hover:bg-red-700 disabled:opacity-60"
+              className="inline-flex items-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-60"
               onClick={() => { setFeedback(null); disableMutation.mutate() }}
               disabled={code.length < 6 || disableMutation.isPending}
             >
-              {disableMutation.isPending ? 'Desativando...' : 'Desativar'}
+              {disableMutation.isPending ? 'Disabling…' : 'Disable'}
             </button>
             <button
-              className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => setStep('enabled')}
             >
-              Cancelar
+              {t.common.cancel}
             </button>
           </div>
         </div>

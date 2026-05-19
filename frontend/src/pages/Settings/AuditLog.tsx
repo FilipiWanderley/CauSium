@@ -4,6 +4,10 @@ import type { AxiosResponse } from 'axios'
 import { auditChainApi } from '../../api/auditChain'
 import type { AuditEventItem, Page } from '../../api/auditChain'
 import { useAuth } from '../../hooks/useAuth'
+import { useI18n } from '../../contexts/I18nContext'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonTable } from '../../components/UX/Skeleton'
 
 const PAGE_SIZE = 25
 
@@ -27,14 +31,16 @@ const EVENT_TYPE_OPTIONS = [
 ]
 
 export function AuditLog() {
+  const { t, lang } = useI18n()
   const { user } = useAuth()
   const orgId = user?.org_id
+  const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
 
   const [page, setPage] = useState(1)
   const [eventTypeFilter, setEventTypeFilter] = useState('')
   const [createdAfter, setCreatedAfter] = useState('')
 
-  const { data, isLoading, error } = useQuery<AxiosResponse<Page<AuditEventItem>>>({
+  const { data, isLoading, error, refetch } = useQuery<AxiosResponse<Page<AuditEventItem>>>({
     queryKey: ['audit-events', orgId, page, eventTypeFilter, createdAfter],
     queryFn: () =>
       auditChainApi.listAuthEvents(orgId!, page, PAGE_SIZE, {
@@ -44,9 +50,9 @@ export function AuditLog() {
     enabled: !!orgId,
   })
 
-  if (!orgId) return <div className="text-sm text-gray-500">Org não encontrada.</div>
-  if (isLoading) return <div className="text-sm text-gray-500">Carregando auditoria...</div>
-  if (error) return <div className="text-sm text-red-600">Erro ao carregar auditoria.</div>
+  if (!orgId) {
+    return <EmptyState icon="document" title="Audit log unavailable" description="Organization context is not available for this session." />
+  }
 
   const items = data?.data.items ?? []
   const total = data?.data.total ?? 0
@@ -61,14 +67,14 @@ export function AuditLog() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Auditoria de Ações Sensíveis</h2>
-        <span className="text-xs text-gray-400">{total} evento{total !== 1 ? 's' : ''} encontrado{total !== 1 ? 's' : ''}</span>
+        <h2 className="text-sm font-semibold text-gray-900">Audit log</h2>
+        <span className="text-xs text-gray-400 tabular-nums">{total.toLocaleString(locale)} events</span>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-        <p className="text-xs font-semibold text-blue-900">Governança de decisões</p>
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+        <p className="text-xs font-semibold text-blue-900">SAFE DSS posture</p>
         <p className="mt-1 text-xs text-blue-800">
-          A IA só gera recomendação. Toda aprovação, descarte ou validação operacional deve ser decisão explícita do cliente e auditável.
+          CauSium provides decision support only. Approvals, dismissals, and operational validation remain explicit human decisions and are auditable.
         </p>
       </div>
 
@@ -76,9 +82,9 @@ export function AuditLog() {
         <select
           value={eventTypeFilter}
           onChange={(e) => { setEventTypeFilter(e.target.value); setPage(1) }}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
         >
-          <option value="">Todos os tipos</option>
+          <option value="">{t.common.all}</option>
           {EVENT_TYPE_OPTIONS.filter(Boolean).map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
@@ -88,47 +94,56 @@ export function AuditLog() {
           type="datetime-local"
           value={createdAfter}
           onChange={(e) => { setCreatedAfter(e.target.value); setPage(1) }}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
         />
 
         <button
           onClick={resetFilters}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
         >
-          Limpar filtros
+          {t.common.reset}
         </button>
       </div>
 
-      {items.length === 0 ? (
-        <div className="text-sm text-gray-500">Nenhum evento encontrado.</div>
+      {isLoading ? (
+        <SkeletonTable rows={8} columns={6} />
+      ) : error ? (
+        <ErrorState
+          title="Could not load audit events"
+          description="The audit log is temporarily unavailable. Please try again."
+          onRetry={() => refetch()}
+          retryLabel="Retry"
+        />
+      ) : items.length === 0 ? (
+        <EmptyState icon="document" title="No events found" description="No audit events match the current filters." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border border-gray-200 rounded">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-600">
-                <th className="p-2 border-b text-left whitespace-nowrap">Data (UTC)</th>
-                <th className="p-2 border-b text-left whitespace-nowrap">Tipo</th>
-                <th className="p-2 border-b text-left">Entidade</th>
-                <th className="p-2 border-b text-left">ID</th>
-                <th className="p-2 border-b text-left">Ator</th>
-                <th className="p-2 border-b text-left">Payload</th>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap">Time (UTC)</th>
+                <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 whitespace-nowrap">Event</th>
+                <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Entity</th>
+                <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Entity ID</th>
+                <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actor</th>
+                <th className="pb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Payload</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {items.map((ev) => (
-                <tr key={ev.id} className="hover:bg-gray-50">
-                  <td className="p-2 border-b whitespace-nowrap">
+                <tr key={ev.id} className="transition hover:bg-gray-50/50">
+                  <td className="py-3 pr-4 whitespace-nowrap tabular-nums text-gray-700">
                     {new Date(ev.created_at).toISOString().replace('T', ' ').slice(0, 19)} UTC
                   </td>
-                  <td className="p-2 border-b font-mono whitespace-nowrap">{ev.event_type}</td>
-                  <td className="p-2 border-b">{ev.entity_type}</td>
-                  <td className="p-2 border-b font-mono text-gray-400 max-w-[8rem] truncate" title={ev.entity_id}>
+                  <td className="py-3 pr-4 font-mono text-xs whitespace-nowrap text-gray-700">{ev.event_type}</td>
+                  <td className="py-3 pr-4 text-gray-700">{ev.entity_type}</td>
+                  <td className="py-3 pr-4 font-mono text-xs text-gray-500 max-w-[10rem] truncate" title={ev.entity_id}>
                     {ev.entity_id}
                   </td>
-                  <td className="p-2 border-b font-mono text-gray-400 max-w-[8rem] truncate" title={ev.actor_user_id ?? ''}>
+                  <td className="py-3 pr-4 font-mono text-xs text-gray-500 max-w-[10rem] truncate" title={ev.actor_user_id ?? ''}>
                     {ev.actor_user_id ?? '—'}
                   </td>
-                  <td className="p-2 border-b max-w-xs truncate text-gray-500" title={JSON.stringify(ev.payload)}>
+                  <td className="py-3 text-gray-600 max-w-[28rem] truncate" title={JSON.stringify(ev.payload)}>
                     {JSON.stringify(ev.payload)}
                   </td>
                 </tr>
@@ -139,21 +154,21 @@ export function AuditLog() {
       )}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
+        <div className="flex items-center justify-end gap-2 text-sm text-gray-600">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50 disabled:opacity-50"
           >
-            Anterior
+            {t.common.previous}
           </button>
-          <span>Página {page} / {totalPages}</span>
+          <span className="text-xs text-gray-500 tabular-nums">Page {page} / {totalPages}</span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50 disabled:opacity-50"
           >
-            Próxima
+            {t.common.next}
           </button>
         </div>
       )}

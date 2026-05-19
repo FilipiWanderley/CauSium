@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { I18nProvider } from '../../contexts/I18nContext'
 import { MembersPage } from './MembersPage'
 
 const listMembersMock = vi.fn()
@@ -64,7 +65,9 @@ function renderPage() {
   return render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
-        <MembersPage />
+        <I18nProvider>
+          <MembersPage />
+        </I18nProvider>
       </QueryClientProvider>
     </MemoryRouter>
   )
@@ -75,20 +78,22 @@ describe('MembersPage UX state safety', () => {
     vi.clearAllMocks()
 
     listMembersMock.mockResolvedValue({
-      data: [
-        {
-          id: 'user-1',
-          org_id: 'org-1',
-          email: 'user@company.com',
-          full_name: 'User One',
-          role: 'viewer',
-          is_active: true,
-          passkey_enabled: false,
-          must_change_password: false,
-          created_at: '2026-01-01T00:00:00Z',
-          org_name: 'Acme',
-        },
-      ],
+      data: {
+        items: [
+          {
+            id: 'user-1',
+            org_id: 'org-1',
+            email: 'user@company.com',
+            full_name: 'User One',
+            role: 'viewer',
+            is_active: true,
+            passkey_enabled: false,
+            must_change_password: false,
+            created_at: '2026-01-01T00:00:00Z',
+            org_name: 'Acme',
+          },
+        ],
+      },
     })
 
     listInvitesMock.mockResolvedValue({

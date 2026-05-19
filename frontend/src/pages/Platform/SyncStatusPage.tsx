@@ -4,9 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw, ServerCog } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import type { CloudProvider, ConnectorStatus } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonTable } from '../../components/UX/Skeleton'
 
 const STATUS_BADGE: Record<ConnectorStatus, string> = {
   active: 'bg-green-100 text-green-700',
@@ -36,6 +40,7 @@ function isInOptions<T extends string>(value: string | null, options: readonly T
 }
 
 export function SyncStatusPage() {
+  usePageTitle('Sync Status')
   const { user } = useAuth()
   const { t, lang } = useI18n()
   const p = t.platform
@@ -68,7 +73,7 @@ export function SyncStatusPage() {
     return <Navigate to="/app/dashboard" replace />
   }
 
-  const { data, isLoading, isRefetching, refetch } = useQuery({
+  const { data, isLoading, isError, isRefetching, refetch } = useQuery({
     queryKey: ['platform-sync-status'],
     queryFn: () => cloudAccountsApi.syncStatus().then((r) => r.data),
     refetchInterval: 30000,
@@ -166,13 +171,13 @@ export function SyncStatusPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-8 max-w-6xl">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerCog className="h-6 w-6 text-brand-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{p.syncTitle}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{p.syncSubtitle}</p>
+            <h1 className="text-2xl font-semibold text-gray-900">{p.syncTitle}</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{p.syncSubtitle}</p>
           </div>
         </div>
         <button
@@ -186,21 +191,21 @@ export function SyncStatusPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">{p.syncAccounts}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{summary.total}</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncAccounts}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{summary.total}</p>
         </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-xs text-red-700 uppercase tracking-wide">{p.syncNeedsAttention}</p>
-          <p className="mt-1 text-2xl font-bold text-red-800">{summary.attention}</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncNeedsAttention}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-red-600">{summary.attention}</p>
         </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <p className="text-xs text-green-700 uppercase tracking-wide">{p.syncHealthy}</p>
-          <p className="mt-1 text-2xl font-bold text-green-800">{summary.healthy}</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncHealthy}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">{summary.healthy}</p>
         </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs text-amber-700 uppercase tracking-wide">{p.syncOpenDlq}</p>
-          <p className="mt-1 text-2xl font-bold text-amber-800">{summary.openDlq}</p>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncOpenDlq}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-amber-700">{summary.openDlq}</p>
         </div>
       </div>
 
@@ -281,26 +286,39 @@ export function SyncStatusPage() {
         )}
 
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">{t.common.loading}</div>
+          <div className="p-5">
+            <SkeletonTable rows={10} columns={8} />
+          </div>
+        ) : isError ? (
+          <div className="p-5">
+            <ErrorState
+              title="Could not load sync status"
+              description="Connector status is temporarily unavailable. Please try again."
+              onRetry={() => refetch()}
+              retryLabel="Retry"
+            />
+          </div>
         ) : !filteredData.length ? (
-          <div className="py-12 text-center text-sm text-gray-500">{p.syncNoAccounts}</div>
+          <div className="p-5">
+            <EmptyState icon="search" title={p.syncNoAccounts} />
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-5 py-3">{p.syncColAccount}</th>
-                <th className="px-4 py-3">{p.syncColProvider}</th>
-                <th className="px-4 py-3">{p.syncColStatus}</th>
-                <th className="px-4 py-3">{p.syncColLastSync}</th>
-                <th className="px-4 py-3">{p.syncColLastHealth}</th>
-                <th className="px-4 py-3">{p.syncColOpenDlq}</th>
-                <th className="px-4 py-3 text-center">{p.syncColAttention}</th>
-                <th className="px-4 py-3 text-right">{p.syncColAction}</th>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAccount}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColProvider}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColStatus}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColLastSync}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColLastHealth}</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColOpenDlq}</th>
+                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAttention}</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAction}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {paginatedData.map((item) => (
-                <tr key={item.account_id} className="hover:bg-gray-50 transition-colors">
+                <tr key={item.account_id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <p className="font-semibold text-gray-900">{item.display_name}</p>
                     <p className="text-xs text-gray-400 font-mono">{item.account_id}</p>
@@ -320,8 +338,8 @@ export function SyncStatusPage() {
                       {item.connector_status}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-gray-600">{formatDate(item.last_sync_at)}</td>
-                  <td className="px-4 py-3.5 text-gray-600">{formatDate(item.last_health_check_at)}</td>
+                  <td className="px-4 py-3.5 tabular-nums text-gray-700">{formatDate(item.last_sync_at)}</td>
+                  <td className="px-4 py-3.5 tabular-nums text-gray-700">{formatDate(item.last_health_check_at)}</td>
                   <td className="px-4 py-3.5">
                     <span
                       className={clsx(
@@ -329,7 +347,7 @@ export function SyncStatusPage() {
                         item.open_dlq_count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                       )}
                     >
-                      {item.open_dlq_count}
+                      <span className="tabular-nums">{item.open_dlq_count}</span>
                     </span>
                   </td>
                   <td className="px-4 py-3.5">

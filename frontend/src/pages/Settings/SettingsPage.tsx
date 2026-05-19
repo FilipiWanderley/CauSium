@@ -5,6 +5,7 @@ import { authApi } from '../../api/auth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import type { CloudAccount } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { useI18n } from '../../contexts/I18nContext'
 import { MfaTotpSettings } from './MfaTotpSettings'
 import { AuditLog } from './AuditLog'
@@ -37,10 +38,13 @@ type ValidationCheckState = 'idle' | 'ok' | 'error'
 
 export function SettingsPage() {
   const { t } = useI18n()
+  usePageTitle('Settings')
   const s = t.settings
+  const p = t.platform
   const { user, registerCurrentPasskey, logoutAll } = useAuth()
   const queryClient = useQueryClient()
   const { pathname } = useLocation()
+  const locale = 'en-US'
 
   const [logoutAllState, setLogoutAllState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [registeringPasskey, setRegisteringPasskey] = useState(false)
@@ -155,12 +159,12 @@ export function SettingsPage() {
         queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] }),
         queryClient.invalidateQueries({ queryKey: ['platform-sync-status'] }),
       ])
-      setCloudActionFeedback({ tone: 'success', message: 'Sincronizacao enfileirada com sucesso.' })
+      setCloudActionFeedback({ tone: 'success', message: p.syncSuccessMsg })
     },
     onError: (error) => {
       const detail =
         (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Falha ao enfileirar sincronizacao. Verifique permissao e tente novamente.'
+        p.syncErrorMsg
       setCloudActionFeedback({ tone: 'error', message: detail })
     },
   })
@@ -168,12 +172,12 @@ export function SettingsPage() {
     mutationFn: (accountId: string) => cloudAccountsApi.delete(accountId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] })
-      setCloudActionFeedback({ tone: 'success', message: 'Conta removida com sucesso.' })
+      setCloudActionFeedback({ tone: 'success', message: 'Cloud account removed.' })
     },
     onError: (error) => {
       const detail =
         (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Falha ao excluir conta cloud.'
+        'Could not remove cloud account.'
       setCloudActionFeedback({ tone: 'error', message: detail })
     },
   })
@@ -208,18 +212,22 @@ export function SettingsPage() {
 
   if (section === 'team') {
     return (
-      <div className="space-y-6 max-w-3xl">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Equipe</h2>
-          <p className="text-sm text-gray-600">
-            O gerenciamento de membros fica na tela de membros do workspace.
-          </p>
-          <Link
-            to="/app/members"
-            className="inline-flex rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Abrir Membros
-          </Link>
+      <div className="space-y-8 max-w-3xl">
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">{t.nav.settingsTeam}</h2>
+          </div>
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-gray-600">
+              Workspace membership is managed on the Members page.
+            </p>
+            <Link
+              to="/app/members"
+              className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            >
+              Open Members
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -795,22 +803,25 @@ export function SettingsPage() {
 
   if (section === 'security') {
     return (
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-8 max-w-3xl">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
           <MfaTotpSettings />
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700">{s.passkeys}</h2>
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">{s.passkeys}</h2>
+          </div>
+          <div className="p-5 space-y-4">
           {passkeys && passkeys.length > 0 ? (
             <ul className="space-y-2">
               {passkeys.map((pk: { id: string; created_at: string }) => (
                 <li key={pk.id} className="flex items-center justify-between text-sm text-gray-600">
-                  <span>{s.registeredAt.replace('{{date}}', new Date(pk.created_at).toLocaleDateString())}</span>
+                  <span>{s.registeredAt.replace('{{date}}', new Date(pk.created_at).toLocaleDateString(locale))}</span>
                   <button
                     onClick={() => revokePasskeyMutation.mutate(pk.id)}
                     disabled={revokePasskeyMutation.isPending}
-                    className="text-red-600 hover:underline text-xs disabled:opacity-50"
+                    className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
                     {s.revoke}
                   </button>
@@ -823,7 +834,7 @@ export function SettingsPage() {
           <button
             onClick={handleRegisterPasskey}
             disabled={registeringPasskey}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white font-medium hover:bg-blue-700 disabled:opacity-60"
+            className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
           >
             {registeringPasskey ? s.registering : s.registerPasskey}
           </button>
@@ -832,14 +843,18 @@ export function SettingsPage() {
               {passkeyMessage}
             </p>
           )}
+          </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700">{s.sessions}</h2>
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">{s.sessions}</h2>
+          </div>
+          <div className="p-5">
           <div className="flex flex-col gap-2">
             <button
               onClick={handleLogoutAll}
-              className="w-fit rounded bg-red-600 px-4 py-2 text-white font-semibold shadow hover:bg-red-700 disabled:opacity-60"
+              className="w-fit rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
               disabled={logoutAllState === 'loading'}
             >
               {logoutAllState === 'loading' ? s.loggingOut : s.logoutAll}
@@ -850,6 +865,7 @@ export function SettingsPage() {
             {logoutAllState === 'error' && (
               <span className="text-red-600 text-xs">{s.logoutError}</span>
             )}
+          </div>
           </div>
         </div>
 
@@ -863,31 +879,35 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-        <h2 className="text-sm font-semibold text-gray-700">Configurações</h2>
-        <p className="text-sm text-gray-600">
-          Escolha uma seção específica para configurar seu workspace.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/app/settings/cloud"
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Cloud
-          </Link>
-          <Link
-            to="/app/settings/security"
-            className="rounded bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-900"
-          >
-            Segurança
-          </Link>
-          <Link
-            to="/app/settings/team"
-            className="rounded bg-gray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Time
-          </Link>
+    <div className="space-y-8 max-w-3xl">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4">
+          <h2 className="text-sm font-semibold text-gray-900">Settings</h2>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-gray-600">
+            Choose a section to manage workspace access, security, or cloud connectivity.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/app/settings/cloud"
+              className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            >
+              {t.nav.settingsCloud}
+            </Link>
+            <Link
+              to="/app/settings/security"
+              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            >
+              {t.nav.settingsSecurity}
+            </Link>
+            <Link
+              to="/app/settings/team"
+              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            >
+              {t.nav.settingsTeam}
+            </Link>
+          </div>
         </div>
       </div>
     </div>

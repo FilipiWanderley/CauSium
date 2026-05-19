@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { SettingsPage } from './SettingsPage'
 import { AuthContext } from '../../contexts/AuthContext'
+import { I18nProvider } from '../../contexts/I18nContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('../../api/auth', () => ({
@@ -33,30 +35,34 @@ function renderPage() {
     defaultOptions: { queries: { retry: false } },
   })
   return render(
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider
-        value={{
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-          login: vi.fn(),
-          loginWithPasskey: vi.fn(),
-          registerCurrentPasskey: vi.fn(),
-          logout: vi.fn(),
-          logoutAll: mockLogoutAll,
-          refreshUser: vi.fn(),
-        }}
-      >
-        <SettingsPage />
-      </AuthContext.Provider>
-    </QueryClientProvider>
+    <MemoryRouter initialEntries={['/app/settings/security']}>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <AuthContext.Provider
+            value={{
+              user,
+              isLoading: false,
+              isAuthenticated: true,
+              login: vi.fn(),
+              loginWithPasskey: vi.fn(),
+              registerCurrentPasskey: vi.fn(),
+              logout: vi.fn(),
+              logoutAll: mockLogoutAll,
+              refreshUser: vi.fn(),
+            }}
+          >
+            <SettingsPage />
+          </AuthContext.Provider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
   )
 }
 
 describe('SettingsPage', () => {
   it('renders global logout button and triggers action', async () => {
     renderPage()
-    const btn = screen.getByText(/encerrar todas as sessões/i)
+    const btn = screen.getByText(/end all sessions/i)
     expect(btn).toBeInTheDocument()
     fireEvent.click(btn)
     await waitFor(() => expect(mockLogoutAll).toHaveBeenCalled())
