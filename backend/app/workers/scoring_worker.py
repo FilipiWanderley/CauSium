@@ -1,7 +1,7 @@
-from __future__ import annotations
 """Scoring worker — regenerates opportunities for accounts after ingestion."""
+from __future__ import annotations
+
 import asyncio
-from uuid import UUID
 
 from app.core.database import async_session_factory
 from app.core.email import EmailService

@@ -12,8 +12,6 @@ from app.core.logging import get_logger
 from app.domains.cloud_accounts.service import CloudAccountService
 from app.domains.connectors.base import CanonicalEventRecord
 from app.domains.cloud_ledger.schemas import (
-    CostRow,
-    CostSummary,
     CostTrend,
     DashboardMetrics,
     DetailedCostRow,
@@ -891,8 +889,6 @@ class CloudLedgerService:
             if field_value:
                 where_parts.append(f"{field_name} = {{{field_name}:String}}")
                 params[field_name] = field_value
-
-        where_clause = " AND ".join(where_parts)
 
         try:
             count_start = perf_counter()

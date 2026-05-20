@@ -153,10 +153,10 @@ class DevSeedService:
 
         # PostgreSQL records
         await self._create_workspace_budget(org_id, cost_rows, req.days)
-        risk_budgets = await self._create_risk_budgets(org_id)
-        experiments  = await self._create_experiments(org_id, rng)
-        anomalies    = await self._create_cost_anomalies(org_id, cost_rows, rng)
-        opportunities = await self._create_opportunities(org_id, accounts, rng)
+        await self._create_risk_budgets(org_id)
+        await self._create_experiments(org_id, rng)
+        await self._create_cost_anomalies(org_id, cost_rows, rng)
+        await self._create_opportunities(org_id, accounts, rng)
         await self._create_change_events(org_id, accounts, rng)
 
         await self.db.commit()

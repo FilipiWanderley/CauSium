@@ -151,7 +151,7 @@ async def test_temporary_password_works_for_login(client):
 async def test_admin_cannot_reset_another_admin(client):
     """SP-U03: admin cannot reset password of another admin (same rank)."""
     ctx_a = await _register_get_token_and_id(client, "u03-aa")  # admin in org A
-    ctx_b = await _register_get_token_and_id(client, "u03-ab")  # admin in org B
+    _ctx_b = await _register_get_token_and_id(client, "u03-ab")  # admin in org B
 
     # Create a second admin in org A by direct DB is complex — instead we test
     # that admin A (ctx_a) cannot reset admin B (ctx_b) — different org → 404.
@@ -256,7 +256,7 @@ async def test_engineer_cannot_reset_password(client):
     engineer = await _create_member(client, ctx["headers"], "engineer", "u01-eng")
 
     # Login as engineer
-    eng_email = f"engineer-u01-eng@reset.com"
+    eng_email = "engineer-u01-eng@reset.com"
     # We need to know the temp password — since the engineer was just created
     # with must_change_password=True, we reset it first so we can log in.
     reset_resp = await client.post(
