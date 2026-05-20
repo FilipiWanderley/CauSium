@@ -4,7 +4,10 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 
+from typing import cast
+
 from sqlalchemy import select
+from sqlalchemy.engine import CursorResult
 
 from app.core.config import get_settings
 from app.core.database import async_session_factory
@@ -40,7 +43,7 @@ async def _run_dlq_cleanup() -> int:
             )
         )
         await db.commit()
-        deleted = result.rowcount
+        deleted = cast(CursorResult, result).rowcount
         if deleted:
             log.info("dlq.cleanup.done", deleted=deleted, cutoff=cutoff.isoformat())
         return deleted
