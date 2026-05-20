@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import require_roles
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import User, UserRole
 from app.domains.auth.schemas import UserOut

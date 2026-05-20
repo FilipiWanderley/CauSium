@@ -126,7 +126,6 @@ def build_savings_evidence(opportunity: "OptimizationOpportunity") -> "SavingsEv
 
     Returns None only if the opportunity has zero cost (nothing to analyze).
     """
-    from app.domains.decision_engine.schemas import SavingsEvidence
 
     current_cost = float(opportunity.current_monthly_cost_usd or 0.0)
     if current_cost <= 0:
@@ -293,7 +292,7 @@ def _build_rightsizing_basis(evidence: dict) -> str:
 
     parts = [
         f"SKU downgrade: {current_sku} -> {recommended_sku}.",
-        f"Cost ratio derived from vCPU count reduction within same family.",
+        "Cost ratio derived from vCPU count reduction within same family.",
     ]
     if cpu_p95 is not None and mem_p95 is not None:
         parts.append(f"Utilization evidence: CPU p95={cpu_p95:.1f}%, memory p95={mem_p95:.1f}%.")

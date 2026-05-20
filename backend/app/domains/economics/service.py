@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import calendar
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import UUID
 

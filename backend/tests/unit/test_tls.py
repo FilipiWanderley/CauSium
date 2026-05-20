@@ -23,7 +23,6 @@ from __future__ import annotations
 import ssl
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -94,7 +93,7 @@ class TestBuildSslContextCaFile:
         # Write a minimal (self-signed) PEM cert so the path exists.
         # We only test that the path check passes and a context is returned;
         # OpenSSL cert validation is trusted to the standard library.
-        import subprocess, sys
+        import subprocess
 
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as tmp:
             pem_path = tmp.name

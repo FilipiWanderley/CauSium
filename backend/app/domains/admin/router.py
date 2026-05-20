@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, status as http_status
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -405,10 +405,10 @@ async def admin_seed_diag(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
 ):
     _check_internal_key(x_internal_key)
-    import traceback, random
+    import traceback
+    import random
     from datetime import date
     from app.domains.dev.service import DevSeedService
-    from app.domains.dev.schemas import SeedRequest
     from fastapi.responses import JSONResponse
 
     steps = {}
@@ -704,7 +704,7 @@ async def admin_force_sync(
         opps = await engine.generate_opportunities_for_account(org_id, account_id)
         opportunities_generated = len(opps)
         await db.commit()
-    except Exception as exc:
+    except Exception:
         pass  # non-fatal
 
     return JSONResponse({

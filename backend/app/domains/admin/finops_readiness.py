@@ -349,7 +349,6 @@ def _assess_readiness(cost: CostCoverage, usage: UsageCoverage) -> Recommendatio
 
 def _assess_freshness(cost: CostCoverage, usage: UsageCoverage) -> DataFreshness:
     """Assess data freshness. Pure function."""
-    today_str = date.today().isoformat()
 
     cost_stale = True
     if cost.last_cost_date:

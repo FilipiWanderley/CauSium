@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional
 import enum
 from datetime import date, datetime
 from uuid import UUID, uuid4

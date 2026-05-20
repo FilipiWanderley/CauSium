@@ -129,7 +129,7 @@ async def platform_admin_headers(client, db) -> dict:
     Register org C, then directly elevate its admin to PLATFORM_ADMIN in the DB,
     and return auth headers.
     """
-    from sqlalchemy import select, update
+    from sqlalchemy import update
 
     from app.domains.auth.models import User, UserRole
 
