@@ -20,9 +20,11 @@ Covers:
 """
 from __future__ import annotations
 
+import os
 import ssl
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -172,8 +174,8 @@ def _prod_settings(**overrides):
         "app_env": "production",
         "secret_key": "a-very-strong-secret-key-for-test-1234",
         "security_headers_enabled": True,
-        "database_url": "postgresql+asyncpg://u:p@host/db?sslmode=verify-full",
-        "redis_url": "rediss://localhost:6380/0",
+        "database_url": "postgresql+asyncpg://u:p@dbhost.postgres.database.azure.com/db?sslmode=verify-full",
+        "redis_url": "rediss://redis-host.redis.cache.windows.net:6380/0",
         "clickhouse_secure": True,
         "clickhouse_verify": True,
         "csp_policy": "default-src 'self'; upgrade-insecure-requests",
@@ -187,6 +189,12 @@ def _prod_settings(**overrides):
     return defaults
 
 
+_PROD_ENV = {
+    "DATABASE_URL": "postgresql+asyncpg://u:p@dbhost.postgres.database.azure.com/db?sslmode=verify-full",
+    "REDIS_URL": "rediss://redis-host.redis.cache.windows.net:6380/0",
+}
+
+
 class TestValidateProductionSecurityTLS:
     def _make_settings(self, **overrides):
         from app.core.config import Settings
@@ -195,25 +203,30 @@ class TestValidateProductionSecurityTLS:
         return Settings(**data)
 
     def test_valid_production_config_does_not_raise(self):
-        s = self._make_settings()
-        s.validate_production_security()  # must not raise
+        with patch.dict(os.environ, _PROD_ENV):
+            s = self._make_settings()
+            s.validate_production_security()  # must not raise
 
     def test_db_ssl_min_version_not_tls13_raises(self):
-        s = self._make_settings(db_ssl_min_version="TLSv1.2")
-        with pytest.raises(ValueError, match="DB_SSL_MIN_VERSION must be TLSv1.3"):
-            s.validate_production_security()
+        with patch.dict(os.environ, _PROD_ENV):
+            s = self._make_settings(db_ssl_min_version="TLSv1.2")
+            with pytest.raises(ValueError, match="DB_SSL_MIN_VERSION must be TLSv1.3"):
+                s.validate_production_security()
 
     def test_redis_ssl_min_version_not_tls13_raises(self):
-        s = self._make_settings(redis_ssl_min_version="TLSv1.2")
-        with pytest.raises(ValueError, match="REDIS_SSL_MIN_VERSION must be TLSv1.3"):
-            s.validate_production_security()
+        with patch.dict(os.environ, _PROD_ENV):
+            s = self._make_settings(redis_ssl_min_version="TLSv1.1")
+            with pytest.raises(ValueError, match="REDIS_SSL_MIN_VERSION must be TLSv1.2 or TLSv1.3"):
+                s.validate_production_security()
 
     def test_clickhouse_verify_false_raises(self):
-        s = self._make_settings(clickhouse_verify=False)
-        with pytest.raises(ValueError, match="CLICKHOUSE_VERIFY must be true"):
-            s.validate_production_security()
+        with patch.dict(os.environ, _PROD_ENV):
+            s = self._make_settings(clickhouse_verify=False)
+            with pytest.raises(ValueError, match="CLICKHOUSE_VERIFY must be true"):
+                s.validate_production_security()
 
     def test_clickhouse_ssl_min_version_not_tls13_raises(self):
-        s = self._make_settings(clickhouse_ssl_min_version="TLSv1.2")
-        with pytest.raises(ValueError, match="CLICKHOUSE_SSL_MIN_VERSION must be TLSv1.3"):
-            s.validate_production_security()
+        with patch.dict(os.environ, _PROD_ENV):
+            s = self._make_settings(clickhouse_ssl_min_version="TLSv1.2")
+            with pytest.raises(ValueError, match="CLICKHOUSE_SSL_MIN_VERSION must be TLSv1.3"):
+                s.validate_production_security()

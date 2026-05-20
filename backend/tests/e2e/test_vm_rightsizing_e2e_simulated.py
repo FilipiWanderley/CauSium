@@ -177,6 +177,7 @@ class _FakeOpportunity:
         self.environment = "production"
         self.owner_team = "platform"
         self.account_id = uuid4()
+        self.decision_evidence = {}
 
 
 @pytest.mark.asyncio
@@ -186,6 +187,9 @@ async def test_e2e_explain_fallback(monkeypatch):
 
     async def _allow_ai(_org_id):
         return None
+
+    async def _fake_get_org_plan(_org_id):
+        return "enterprise"
 
     async def _get_opportunity(*, org_id, opportunity_id):
         return fake_opportunity
@@ -203,6 +207,7 @@ async def test_e2e_explain_fallback(monkeypatch):
         raise RuntimeError("llm down")
 
     monkeypatch.setattr(svc, "_require_ai_feature", _allow_ai)
+    monkeypatch.setattr(svc, "_get_org_plan", _fake_get_org_plan)
     monkeypatch.setattr(svc, "_get_opportunity", _get_opportunity)
     monkeypatch.setattr(svc, "_get_usage_observations", _get_usage_observations)
     monkeypatch.setattr(svc, "_get_recent_events", _get_recent_events)

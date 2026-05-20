@@ -13,7 +13,7 @@ from app.domains.connectors.azure.mock import AzureMockClient
 def test_parse_blob_cost_csv_normalizes_and_filters_rows() -> None:
     csv_payload = """Date,SubscriptionId,ServiceName,ResourceId,ResourceGroup,ResourceLocation,PreTaxCost,UsageQuantity,UnitOfMeasure,Currency,Tags
 2026-04-10,sub-001,Virtual Machines,/subscriptions/sub-001/resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-a,rg-a,eastus,12.50,8,hours,USD,"{""env"":""production"",""team"":""platform""}"
-2026-04-10,sub-other,Azure Storage,/subscriptions/sub-other/resourceGroups/rg-b/providers/Microsoft.Storage/storageAccounts/stg1,rg-b,eastus2,2.00,1,GB,USD,"{}"
+2026-04-15,sub-other,Azure Storage,/subscriptions/sub-other/resourceGroups/rg-b/providers/Microsoft.Storage/storageAccounts/stg1,rg-b,eastus2,2.00,1,GB,USD,"{}"
 2026-04-15,sub-001,Azure SQL,/subscriptions/sub-001/resourceGroups/rg-c/providers/Microsoft.Sql/servers/sql1,rg-c,westeurope,4.00,1,hours,USD,"{}"
 """
 
