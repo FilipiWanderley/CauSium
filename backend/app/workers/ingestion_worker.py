@@ -1,10 +1,10 @@
-from __future__ import annotations
 """Ingestion worker — polls Redis queue for account IDs and ingests cost/event data."""
+from __future__ import annotations
+
 import asyncio
 import json
 from datetime import date, datetime, timedelta, timezone
 import time
-from uuid import UUID
 
 from sqlalchemy import select
 
@@ -104,10 +104,7 @@ async def process_account(raw_payload: str) -> None:
 
     try:
         async with async_session_factory() as db:
-            from app.domains.cloud_accounts.service import CloudAccountService
             from app.domains.cloud_ledger.service import CloudLedgerService
-
-            account_service = CloudAccountService(db)
 
             # Find the account (we need org_id — look up by account_id directly)
             from sqlalchemy import select

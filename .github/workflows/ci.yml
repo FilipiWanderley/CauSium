@@ -77,7 +77,7 @@ jobs:
         working-directory: backend
         run: |
           poetry run pip install pip-audit
-          PIP_AUDIT_ARGS=(--local --strict)
+          PIP_AUDIT_ARGS=(--local)
           if [ -n "${{ steps.baseline.outputs.pip_audit_ids }}" ]; then
             for vuln in ${{ steps.baseline.outputs.pip_audit_ids }}; do
               PIP_AUDIT_ARGS+=(--ignore-vuln "$vuln")

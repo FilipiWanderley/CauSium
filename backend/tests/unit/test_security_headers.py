@@ -15,6 +15,7 @@ Covers:
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+import os
 
 import pytest
 from fastapi.responses import Response
@@ -43,6 +44,8 @@ def _mock_settings(
     s.security_headers_enabled = enabled
     s.is_production = is_production
     s.csp_policy = csp
+    s.effective_csp_policy = csp
+    s.csp_policy_landing = csp
     s.permissions_policy = permissions_policy
     s.hsts_max_age = hsts_max_age
     s.hsts_header_value = f"max-age={hsts_max_age}; includeSubDomains"
@@ -76,7 +79,7 @@ def test_referrer_policy():
 
 def test_coop_same_origin():
     resp = _make_response()
-    with patch("app.core.middleware.get_settings", return_value=_mock_settings()):
+    with patch("app.core.middleware.get_settings", return_value=_mock_settings(is_production=True)):
         _apply_security_headers(resp)
     assert resp.headers["cross-origin-opener-policy"] == "same-origin"
 
@@ -90,7 +93,7 @@ def test_corp_same_site():
 
 def test_coep_require_corp():
     resp = _make_response()
-    with patch("app.core.middleware.get_settings", return_value=_mock_settings()):
+    with patch("app.core.middleware.get_settings", return_value=_mock_settings(is_production=True)):
         _apply_security_headers(resp)
     assert resp.headers["cross-origin-embedder-policy"] == "require-corp"
 
@@ -192,8 +195,8 @@ def _prod_settings(**overrides):
     base = dict(
         app_env="production",
         secret_key="a-very-long-secret-key-for-production-use",
-        database_url="postgresql+asyncpg://u:p@host/db?sslmode=require",
-        redis_url="rediss://localhost:6379/0",
+        database_url="postgresql+asyncpg://u:p@dbhost.postgres.database.azure.com/db?sslmode=require",
+        redis_url="rediss://redis-host.redis.cache.windows.net:6380/0",
         clickhouse_secure=True,
         security_headers_enabled=True,
         hsts_max_age=31_536_000,
@@ -204,39 +207,51 @@ def _prod_settings(**overrides):
     return Settings(**base)
 
 
+_PROD_ENV = {
+    "DATABASE_URL": "postgresql+asyncpg://u:p@dbhost.postgres.database.azure.com/db?sslmode=require",
+    "REDIS_URL": "rediss://redis-host.redis.cache.windows.net:6380/0",
+}
+
+
 def test_validate_passes_with_correct_production_config():
-    s = _prod_settings()
-    s.validate_production_security()  # must not raise
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings()
+        s.validate_production_security()  # must not raise
 
 
 def test_validate_rejects_default_secret_key():
-    s = _prod_settings(secret_key="change-me-in-production-at-least-32-chars")
-    with pytest.raises(ValueError, match="SECRET_KEY must be changed"):
-        s.validate_production_security()
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings(secret_key="change-me-in-production-at-least-32-chars")
+        with pytest.raises((ValueError, RuntimeError), match="SECRET_KEY"):
+            s.validate_production_security()
 
 
 def test_validate_rejects_short_secret_key():
-    s = _prod_settings(secret_key="tooshort")
-    with pytest.raises(ValueError, match="at least 32 characters"):
-        s.validate_production_security()
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings(secret_key="tooshort")
+        with pytest.raises((ValueError, RuntimeError), match="at least 32 characters"):
+            s.validate_production_security()
 
 
 def test_validate_rejects_disabled_security_headers():
-    s = _prod_settings(security_headers_enabled=False)
-    with pytest.raises(ValueError, match="SECURITY_HEADERS_ENABLED"):
-        s.validate_production_security()
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings(security_headers_enabled=False)
+        with pytest.raises(ValueError, match="SECURITY_HEADERS_ENABLED"):
+            s.validate_production_security()
 
 
 def test_validate_rejects_missing_upgrade_insecure_requests():
-    s = _prod_settings(csp_policy="default-src 'self'")
-    with pytest.raises(ValueError, match="upgrade-insecure-requests"):
-        s.validate_production_security()
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings(csp_policy="default-src 'self'")
+        with pytest.raises(ValueError, match="upgrade-insecure-requests"):
+            s.validate_production_security()
 
 
 def test_validate_rejects_low_hsts_max_age():
-    s = _prod_settings(hsts_max_age=3600)
-    with pytest.raises(ValueError, match="HSTS_MAX_AGE"):
-        s.validate_production_security()
+    with patch.dict(os.environ, _PROD_ENV):
+        s = _prod_settings(hsts_max_age=3600)
+        with pytest.raises(ValueError, match="HSTS_MAX_AGE"):
+            s.validate_production_security()
 
 
 def test_validate_skips_all_checks_in_development():

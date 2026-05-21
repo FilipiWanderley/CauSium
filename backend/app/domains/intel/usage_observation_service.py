@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import delete, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clickhouse import execute_query
@@ -83,7 +84,7 @@ class UsageObservationService:
                 .where(UsageObservation.window_end == window_end)
             )
             delete_result = await self.db.execute(delete_stmt)
-            deleted_rows += int(delete_result.rowcount or 0)
+            deleted_rows += int(cast(CursorResult, delete_result).rowcount or 0)
 
             for row in stats:
                 self.db.add(

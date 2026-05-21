@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { I18nProvider } from '../../contexts/I18nContext'
 
 vi.mock('../../api/auth', async () => {
   const getTotpStatus = vi.fn()
@@ -46,9 +47,11 @@ describe('MfaTotpSettings', () => {
       },
     })
     render(
-      <QueryClientProvider client={client}>
-        <MfaTotpSettings />
-      </QueryClientProvider>
+      <I18nProvider>
+        <QueryClientProvider client={client}>
+          <MfaTotpSettings />
+        </QueryClientProvider>
+      </I18nProvider>
     )
   }
 
@@ -68,10 +71,10 @@ describe('MfaTotpSettings', () => {
     mocks.getBackupCodesCount.mockResolvedValue({ data: { backup_codes_remaining: 8 } })
   })
 
-  it('shows disabled status and Ativar MFA button', async () => {
+  it('shows disabled status and Enable 2FA button', async () => {
     setup()
-    expect(await screen.findByText(/não está ativado/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /ativar mfa/i })).toBeInTheDocument()
+    expect(await screen.findByText(/not enabled/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /enable 2fa/i })).toBeInTheDocument()
   })
 
   it('activates MFA: goes through setup → enable → backup codes → enabled', async () => {
@@ -90,26 +93,26 @@ describe('MfaTotpSettings', () => {
     setup()
 
     // Step: status
-    fireEvent.click(await screen.findByRole('button', { name: /ativar mfa/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /enable 2fa/i }))
 
     // Step: enable — wait for QR / secret / code input
-    const codeInput = await screen.findByPlaceholderText(/código do app/i)
-    expect(screen.getByText(/escaneie o qr code/i)).toBeInTheDocument()
+    const codeInput = await screen.findByPlaceholderText(/authenticator code/i)
+    expect(screen.getByText(/scan this qr code/i)).toBeInTheDocument()
 
     fireEvent.change(codeInput, { target: { value: '123456' } })
-    fireEvent.click(screen.getByRole('button', { name: /^ativar$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^enable$/i }))
 
     // Step: backup_codes — should show codes
     for (const code of BACKUP_CODES) {
       expect(await screen.findByText(code)).toBeInTheDocument()
     }
-    expect(screen.getByText(/guarde estes códigos/i)).toBeInTheDocument()
+    expect(screen.getByText(/save your recovery codes/i)).toBeInTheDocument()
 
     // Confirm backup codes saved
-    fireEvent.click(screen.getByRole('button', { name: /confirmar que salvei/i }))
+    fireEvent.click(screen.getByRole('button', { name: /i saved these codes/i }))
 
     // Step: enabled
-    expect(await screen.findByText(/mfa totp está ativado/i)).toBeInTheDocument()
+    expect(await screen.findByText(/two-factor authentication is enabled/i)).toBeInTheDocument()
   })
 
   it('disables MFA with a TOTP code', async () => {
@@ -120,36 +123,36 @@ describe('MfaTotpSettings', () => {
     setup()
 
     // Wait for enabled state
-    expect(await screen.findByText(/mfa totp está ativado/i)).toBeInTheDocument()
+    expect(await screen.findByText(/two-factor authentication is enabled/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /desativar mfa/i }))
+    fireEvent.click(screen.getByRole('button', { name: /disable 2fa/i }))
 
     // Step: disable — code input
-    const codeInput = await screen.findByPlaceholderText(/código do app/i)
+    const codeInput = await screen.findByPlaceholderText(/authenticator code/i)
     fireEvent.change(codeInput, { target: { value: '654321' } })
-    fireEvent.click(screen.getByRole('button', { name: /^desativar$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^disable$/i }))
 
     await waitFor(() => {
       expect(mocks.disableTotp).toHaveBeenCalledWith({ code: '654321' })
     })
 
-    expect(await screen.findByText(/mfa desativado/i)).toBeInTheDocument()
+    expect(await screen.findByText(/disabled/i)).toBeInTheDocument()
   })
 
   it('shows error when enable fails', async () => {
     mocks.setupTotp.mockResolvedValue({
       data: { secret: 'SECRET', otpauth_url: 'otpauth://totp/test?secret=SECRET' },
     })
-    mocks.enableTotp.mockRejectedValue(new Error('Código inválido.'))
+    mocks.enableTotp.mockRejectedValue(new Error('Invalid code.'))
 
     setup()
 
-    fireEvent.click(await screen.findByRole('button', { name: /ativar mfa/i }))
-    const codeInput = await screen.findByPlaceholderText(/código do app/i)
+    fireEvent.click(await screen.findByRole('button', { name: /enable 2fa/i }))
+    const codeInput = await screen.findByPlaceholderText(/authenticator code/i)
     fireEvent.change(codeInput, { target: { value: '000000' } })
-    fireEvent.click(screen.getByRole('button', { name: /^ativar$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^enable$/i }))
 
-    expect(await screen.findByText(/código inválido/i)).toBeInTheDocument()
+    expect(await screen.findByText(/invalid code/i)).toBeInTheDocument()
   })
 
   it('regenerates backup codes', async () => {
@@ -162,13 +165,13 @@ describe('MfaTotpSettings', () => {
 
     setup()
 
-    expect(await screen.findByText(/mfa totp está ativado/i)).toBeInTheDocument()
+    expect(await screen.findByText(/two-factor authentication is enabled/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /regenerar códigos/i }))
+    fireEvent.click(screen.getByRole('button', { name: /regenerate recovery codes/i }))
 
-    const codeInput = await screen.findByPlaceholderText(/código do app/i)
+    const codeInput = await screen.findByPlaceholderText(/authenticator code/i)
     fireEvent.change(codeInput, { target: { value: '111111' } })
-    fireEvent.click(screen.getByRole('button', { name: /regenerar/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^regenerate$/i }))
 
     for (const code of NEW_CODES) {
       expect(await screen.findByText(code)).toBeInTheDocument()

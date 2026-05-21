@@ -268,7 +268,6 @@ class IntelInsightsService:
         *,
         language: str,
     ) -> str:
-        trend_up = (trend.get("delta_usd") or 0.0) > 0
         if risk is not None and risk.get("severity") == "high":
             service = risk.get("service") or "unknown service"
             if language == "pt":

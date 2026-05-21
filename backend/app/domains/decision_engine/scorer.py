@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 Decision Engine scorer.
 
@@ -10,9 +9,9 @@ inverse_risk      : 100 - risk_score (lower risk = higher score)
 inverse_effort    : 100 - effort_score (lower effort = higher score)
 criticality       : service criticality weight
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from app.domains.decision_engine.models import (
     EffortLevel,

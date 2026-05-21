@@ -228,8 +228,6 @@ class AdminDeactivateUserRequest(BaseModel):
 
 
 # --- CRUD PATCH/DELETE ---
-from app.domains.auth.models import UserRole
-from pydantic import EmailStr
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=2, max_length=255)

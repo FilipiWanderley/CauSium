@@ -28,6 +28,9 @@ async def test_ingest_carbon_account_persists_rows(db, monkeypatch):
                 "client_id": "client",
                 "client_secret": "secret",
                 "subscription_id": "sub-carbon-001",
+                "storage_account_url": "https://example.blob.core.windows.net",
+                "cost_export_container": "exports",
+                "cost_export_prefix": "carbon/",
             }
         ),
     )

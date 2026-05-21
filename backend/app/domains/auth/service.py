@@ -166,7 +166,8 @@ class AuthService:
             if not totp_code:
                 raise ValueError("MFA code required")
             if not await self._verify_totp_code_for_user(user, totp_code):
-                raise ValueError("Invalid MFA code")
+                if not await self.use_backup_code(user, totp_code):
+                    raise ValueError("Invalid MFA code")
 
         user.last_login = datetime.now(timezone.utc)
         if user.org_id is not None:
@@ -469,7 +470,6 @@ class AuthService:
         from sqlalchemy import delete as sa_delete
         from app.domains.auth.models import PasskeyCredential
         from app.domains.auth.token_blacklist import RevokedToken
-        from app.core.security import get_password_hash
         import secrets
 
         target = await self.get_user_by_id(target_user_id)
@@ -482,7 +482,7 @@ class AuthService:
 
         # Anonimizar dados pessoais
         anonymize_user_identity(target, secret_key=get_settings().secret_key)
-        target.hashed_password = get_password_hash(secrets.token_urlsafe(32))
+        target.hashed_password = hash_password(secrets.token_urlsafe(32))
         target.totp_secret_encrypted = None
         target.totp_enabled = False
         target.totp_verified_at = None
@@ -669,7 +669,8 @@ class AuthService:
         if actor.role != UserRole.PLATFORM_ADMIN and target.org_id != actor.org_id:
             raise ValueError("User not found")
 
-        if not self._can_manage(actor, target):
+        is_self = actor.id == target.id
+        if not is_self and not self._can_manage(actor, target):
             raise PermissionError(
                 f"Role '{actor.role.value}' cannot reset MFA for a user "
                 f"with role '{target.role.value}'"
@@ -688,6 +689,7 @@ class AuthService:
         target.totp_enabled = False
         target.totp_secret_encrypted = None
         target.totp_verified_at = None
+        await self._clear_backup_codes(target.id)
 
         await self.audit_chain.append_event(
             org_id=target.org_id,

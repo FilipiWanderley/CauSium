@@ -12,8 +12,6 @@ from app.core.logging import get_logger
 from app.domains.cloud_accounts.service import CloudAccountService
 from app.domains.connectors.base import CanonicalEventRecord
 from app.domains.cloud_ledger.schemas import (
-    CostRow,
-    CostSummary,
     CostTrend,
     DashboardMetrics,
     DetailedCostRow,
@@ -892,8 +890,6 @@ class CloudLedgerService:
                 where_parts.append(f"{field_name} = {{{field_name}:String}}")
                 params[field_name] = field_value
 
-        where_clause = " AND ".join(where_parts)
-
         try:
             count_start = perf_counter()
             count_rows = execute_query(
@@ -1729,6 +1725,7 @@ class CloudLedgerService:
         # - m5.large
         # - t3.micro
         normalized = value.replace("Standard_", "").replace("standard_", "")
+        normalized = re.sub(r"_(?:v\d+)$", "", normalized, flags=re.IGNORECASE)
         direct_match = re.search(r"\b([A-Za-z]+\d+[A-Za-z0-9.]*)\b", normalized)
         if direct_match:
             return direct_match.group(1)

@@ -161,6 +161,22 @@ async def detailed_costs(
     subscription_id: str | None = Query(default=None),
     page_params: PageParams = Depends(PageParams),
 ):
+    svc = CloudLedgerService(db)
+    items, total = svc.get_detailed_costs(
+        current_user.org_id,
+        days=days,
+        service=service,
+        provider=provider,
+        owner_team=owner_team,
+        environment=environment,
+        region=region,
+        resource_id=resource_id,
+        resource_name=resource_name,
+        account_id=account_id,
+        subscription_id=subscription_id,
+        limit=page_params.page_size,
+        offset=(page_params.page - 1) * page_params.page_size,
+    )
     return Page.of(items, total, page_params)
 
 

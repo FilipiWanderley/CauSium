@@ -9,10 +9,10 @@ def test_summary_prefers_real_carbon_data(monkeypatch) -> None:
     org_id = uuid4()
 
     def fake_safe_query(query: str, params: dict):
-        if "FROM carbon_facts" in query and "count() AS total" in query:
-            return [{"total": 2}]
         if "FROM carbon_facts" in query and "GROUP BY provider" in query:
             return [{"provider": "azure", "total": 2}]
+        if "FROM carbon_facts" in query and "count() AS total" in query:
+            return [{"total": 2}]
         if "FROM carbon_facts" in query and "sum(kg_co2e) AS kg" in query:
             return [{"year_month": "2026-03", "kg": 100.0}, {"year_month": "2026-04", "kg": 120.0}]
         if "FROM cost_facts" in query:
@@ -56,10 +56,10 @@ def test_summary_marks_mixed_source_when_aws_and_azure_present(monkeypatch) -> N
     org_id = uuid4()
 
     def fake_safe_query(query: str, params: dict):
-        if "FROM carbon_facts" in query and "count() AS total" in query:
-            return [{"total": 3}]
         if "FROM carbon_facts" in query and "GROUP BY provider" in query:
             return [{"provider": "azure", "total": 2}, {"provider": "aws", "total": 1}]
+        if "FROM carbon_facts" in query and "count() AS total" in query:
+            return [{"total": 3}]
         if "FROM carbon_facts" in query and "sum(kg_co2e) AS kg" in query:
             return [{"year_month": "2026-04", "kg": 80.0}]
         if "FROM cost_facts" in query:

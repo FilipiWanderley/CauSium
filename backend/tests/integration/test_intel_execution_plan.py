@@ -469,7 +469,7 @@ async def test_schedule_execution_plan_approved_to_scheduled_ok(client, auth_hea
     scheduled = schedule_resp.json()
     assert scheduled["status"] == "scheduled"
     assert scheduled["maintenance_window"] == "janela_noturna_02_04_utc"
-    assert scheduled["scheduled_for"] == "2026-05-12T02:00:00+00:00"
+    assert scheduled["scheduled_for"] == "2026-05-12T02:00:00Z"
 
 
 @pytest.mark.asyncio

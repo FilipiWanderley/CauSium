@@ -1,4 +1,3 @@
-import pytest
 
 from app.domains.decision_engine.models import EffortLevel, OpportunityCategory, RiskLevel
 from app.domains.decision_engine.scorer import WEIGHTS, compute_score

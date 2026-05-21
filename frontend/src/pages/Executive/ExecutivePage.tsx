@@ -4,72 +4,63 @@ import { executiveApi } from '../../api/executive'
 import { ledgerApi } from '../../api/ledger'
 import { opportunitiesApi } from '../../api/opportunities'
 import { initiativesApi } from '../../api/initiatives'
-import { MetricCard } from '../../components/Cards/MetricCard'
-import { SectionIntro } from '../../components/Layout/SectionIntro'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
+import { PageHeader } from '../../components/Layout/PageHeader'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
+import { axisStyle, gridStyle, tooltipStyle, barDefaults, chartMargin, chartFill } from '../../components/Charts/chartTheme'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
-import type { ConfidenceTier, Initiative, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
+import type { ConfidenceTier, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
 const INITIATIVE_COLUMNS: Array<keyof InitiativeBoard> = ['backlog', 'planned', 'in_progress', 'review', 'done', 'cancelled']
 
-function getOpportunitySavings(opportunity: Opportunity) {
-  return opportunity.savings_evidence?.estimated_monthly_savings ?? opportunity.estimated_monthly_savings_usd
+function getOpportunitySavings(o: Opportunity) {
+  return o.savings_evidence?.estimated_monthly_savings ?? o.estimated_monthly_savings_usd
 }
-
-function getOpportunityConfidenceTier(opportunity: Opportunity): ConfidenceTier {
-  if (opportunity.savings_evidence?.confidence_tier) return opportunity.savings_evidence.confidence_tier
-  const fallback = opportunity.savings_evidence?.savings_confidence ?? opportunity.decision_evidence?.confidence ?? null
-  if (fallback == null) return 'insufficient'
-  if (fallback >= 0.8) return 'high'
-  if (fallback >= 0.55) return 'medium'
+function getOpportunityConfidenceTier(o: Opportunity): ConfidenceTier {
+  if (o.savings_evidence?.confidence_tier) return o.savings_evidence.confidence_tier
+  const f = o.savings_evidence?.savings_confidence ?? o.decision_evidence?.confidence ?? null
+  if (f == null) return 'insufficient'
+  if (f >= 0.8) return 'high'
+  if (f >= 0.55) return 'medium'
   return 'low'
 }
-
-function getOpportunityRiskLevel(opportunity: Opportunity): RiskLevel {
-  return opportunity.savings_evidence?.risk_level ?? opportunity.decision_evidence?.risk_level ?? opportunity.risk_level
+function getOpportunityRiskLevel(o: Opportunity): RiskLevel {
+  return o.savings_evidence?.risk_level ?? o.decision_evidence?.risk_level ?? o.risk_level
 }
-
-function formatPercent(value: number) {
-  return `${Math.round(value)}%`
-}
-
 function formatCoverage(count: number, total: number) {
   if (!total) return '0%'
-  return formatPercent((count / total) * 100)
+  return `${Math.round((count / total) * 100)}%`
 }
-
 function formatDate(value: string | null, locale: string) {
   if (!value) return null
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)
 }
+function capConfidence(v: ConfidenceTier) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' | 'Insufficient' }
+function capRisk(v: RiskLevel) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' }
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ExecutivePage() {
   usePageTitle('Executive')
   const { t, lang } = useI18n()
   const e = t.executive
   const ux = t.ux
-
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
-  const {
-    data: subscriptionSummary,
-    isLoading: subscriptionSummaryLoading,
-    isError: subscriptionSummaryError,
-  } = useQuery({
+  // ─── Queries ─────────────────────────────────────────────────────────────────
+
+  const { data: subscriptionSummary, isLoading: subscriptionSummaryLoading, isError: subscriptionSummaryError } = useQuery({
     queryKey: ['ledger', 'subscriptions', 90],
     queryFn: () => ledgerApi.subscriptionCostSummary(90).then((r) => r.data),
   })
@@ -77,12 +68,7 @@ export function ExecutivePage() {
   const { data: dashboardMeta } = useQuery({
     queryKey: ['ledger', 'dashboard', 'meta', subscriptionId],
     queryFn: () => ledgerApi.dashboard(undefined, subscriptionId || undefined).then((r) => r.data),
-    select: (d) => ({
-      data_min_date: d.data_min_date,
-      data_max_date: d.data_max_date,
-      subscriptions_included: d.subscriptions_included,
-      billing_currency: d.billing_currency,
-    }),
+    select: (d) => ({ data_min_date: d.data_min_date, data_max_date: d.data_max_date, subscriptions_included: d.subscriptions_included, billing_currency: d.billing_currency }),
   })
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
@@ -94,624 +80,391 @@ export function ExecutivePage() {
     queryKey: ['executive', 'scorecard'],
     queryFn: () => executiveApi.scorecard().then((r) => r.data),
   })
+
   const { data: opportunities = [] } = useQuery({
     queryKey: ['executive', 'opportunities-reporting'],
     queryFn: () => opportunitiesApi.list({ limit: 100, offset: 0 }).then((r) => r.data.items),
   })
+
   const { data: initiativesBoard } = useQuery({
     queryKey: ['executive', 'initiatives-board'],
     queryFn: () => initiativesApi.board().then((r) => r.data),
   })
 
+  // ─── Derived data ────────────────────────────────────────────────────────────
+
   const displayCurrency = dashboardMeta?.billing_currency || DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
   const hasMultipleSubscriptions = (subscriptionSummary?.subscription_count ?? 0) > 1
-  const getSubscriptionDisplayName = (subscriptionName: string | null | undefined, subscriptionKey: string | null | undefined) => {
-    const normalizedName = subscriptionName?.trim()
-    if (normalizedName) return normalizedName
-    return subscriptionKey ? `${subscriptionKey.slice(0, 8)}…` : e.subscriptionNone
+  const getSubName = (name: string | null | undefined, key: string | null | undefined) => {
+    const n = name?.trim()
+    return n || (key ? `${key.slice(0, 8)}…` : e.subscriptionNone)
   }
-  const singleSubscriptionName =
-    getSubscriptionDisplayName(subscriptionSummary?.items[0]?.subscription_name, subscriptionSummary?.items[0]?.subscription_id)
-  const selectedSubscription = subscriptionSummary?.items.find((s) => s.subscription_id === subscriptionId)
-  const selectedSubscriptionScope = getSubscriptionDisplayName(selectedSubscription?.subscription_name, subscriptionId)
-  const subscriptionContextMessage = subscriptionSummaryLoading
-    ? e.subscriptionLoading
-    : subscriptionSummaryError
-      ? e.subscriptionUnavailable
-      : subscriptionId
-        ? e.subscriptionViewing.replace('{{scope}}', selectedSubscriptionScope)
-        : hasMultipleSubscriptions
-          ? e.consolidatedAcross.replace('{{count}}', String(subscriptionSummary?.subscription_count ?? 0))
-          : singleSubscriptionName
-            ? e.subscriptionSingleScope.replace('{{scope}}', singleSubscriptionName)
-            : e.subscriptionNone
-  const allInitiatives = useMemo(
-    () => INITIATIVE_COLUMNS.flatMap((column) => initiativesBoard?.[column] ?? []),
-    [initiativesBoard],
-  )
-  const topOpportunities = useMemo(
-    () => [...opportunities].sort((a, b) => getOpportunitySavings(b) - getOpportunitySavings(a)).slice(0, 5),
-    [opportunities],
-  )
-  const bestEvidenceRecommendations = useMemo(
-    () =>
-      [...opportunities]
-        .filter((opportunity) => opportunity.savings_evidence || opportunity.resource_context)
-        .sort((a, b) => {
-          const confidenceOrder: Record<ConfidenceTier, number> = {
-            high: 4,
-            medium: 3,
-            low: 2,
-            insufficient: 1,
-          }
-          const confidenceDelta =
-            confidenceOrder[getOpportunityConfidenceTier(b)] - confidenceOrder[getOpportunityConfidenceTier(a)]
-          if (confidenceDelta !== 0) return confidenceDelta
-          return getOpportunitySavings(b) - getOpportunitySavings(a)
-        })
-        .slice(0, 5),
+  const singleSubscriptionName = getSubName(subscriptionSummary?.items[0]?.subscription_name, subscriptionSummary?.items[0]?.subscription_id)
+
+  const allInitiatives = useMemo(() => INITIATIVE_COLUMNS.flatMap((col) => initiativesBoard?.[col] ?? []), [initiativesBoard])
+  const topOpportunities = useMemo(() => [...opportunities].sort((a, b) => getOpportunitySavings(b) - getOpportunitySavings(a)).slice(0, 5), [opportunities])
+  const bestEvidenceRecs = useMemo(() =>
+    [...opportunities]
+      .filter((o) => o.savings_evidence || o.resource_context)
+      .sort((a, b) => {
+        const order: Record<ConfidenceTier, number> = { high: 4, medium: 3, low: 2, insufficient: 1 }
+        const d = order[getOpportunityConfidenceTier(b)] - order[getOpportunityConfidenceTier(a)]
+        return d !== 0 ? d : getOpportunitySavings(b) - getOpportunitySavings(a)
+      })
+      .slice(0, 5),
     [opportunities],
   )
   const priorityWatchlist = useMemo(() => {
-    const riskyOpportunities = opportunities
-      .filter((opportunity) => getOpportunityRiskLevel(opportunity) === 'high')
-      .sort((a, b) => getOpportunitySavings(b) - getOpportunitySavings(a))
-      .slice(0, 3)
-      .map((opportunity) => ({
-        id: `opportunity-${opportunity.id}`,
-        title: opportunity.title,
-        detail: e.watchlistOpportunity.replace('{{value}}', formatMoney(getOpportunitySavings(opportunity))),
-        badge: e.watchlistHighRisk,
-      }))
+    const risky = opportunities.filter((o) => getOpportunityRiskLevel(o) === 'high').sort((a, b) => getOpportunitySavings(b) - getOpportunitySavings(a)).slice(0, 3)
+      .map((o) => ({ id: `opp-${o.id}`, title: o.title, detail: e.watchlistOpportunity.replace('{{value}}', formatMoney(getOpportunitySavings(o))), badge: e.watchlistHighRisk }))
+    const overdue = allInitiatives.filter((i) => i.is_overdue).slice(0, 3)
+      .map((i) => ({ id: `ini-${i.id}`, title: i.title, detail: i.sla_date ? e.watchlistInitiativeDue.replace('{{date}}', formatDate(i.sla_date, lang === 'pt' ? 'pt-BR' : 'en-US') ?? i.sla_date) : e.watchlistInitiativeNoDate, badge: e.watchlistExecutionRisk }))
+    return [...risky, ...overdue].slice(0, 5)
+  }, [allInitiatives, e, formatMoney, lang, opportunities])
 
-    const overdueInitiatives = allInitiatives
-      .filter((initiative) => initiative.is_overdue)
-      .slice(0, 3)
-      .map((initiative) => ({
-        id: `initiative-${initiative.id}`,
-        title: initiative.title,
-        detail: initiative.sla_date
-          ? e.watchlistInitiativeDue.replace('{{date}}', formatDate(initiative.sla_date, lang === 'pt' ? 'pt-BR' : 'en-US') ?? initiative.sla_date)
-          : e.watchlistInitiativeNoDate,
-        badge: e.watchlistExecutionRisk,
-      }))
-
-    return [...riskyOpportunities, ...overdueInitiatives].slice(0, 5)
-  }, [allInitiatives, e.watchlistExecutionRisk, e.watchlistHighRisk, e.watchlistInitiativeDue, e.watchlistInitiativeNoDate, e.watchlistOpportunity, formatMoney, lang, opportunities])
-
-  const highRiskRecommendations = opportunities.filter((opportunity) => getOpportunityRiskLevel(opportunity) === 'high').length
-  const lowConfidenceRecommendations = opportunities.filter((opportunity) => {
-    const tier = getOpportunityConfidenceTier(opportunity)
-    return tier === 'low' || tier === 'insufficient'
-  }).length
-  const highConfidenceRecommendations = opportunities.filter((opportunity) => getOpportunityConfidenceTier(opportunity) === 'high').length
-  const mediumConfidenceRecommendations = opportunities.filter((opportunity) => getOpportunityConfidenceTier(opportunity) === 'medium').length
-  const evidenceCoverageCount = opportunities.filter((opportunity) => !!opportunity.savings_evidence).length
-  const resourceContextCoverageCount = opportunities.filter((opportunity) => !!opportunity.resource_context).length
-  const dataSourceCoverageCount = opportunities.filter(
-    (opportunity) => (opportunity.resource_context?.data_sources.length ?? 0) > 0,
-  ).length
-  const overdueInitiativesCount = allInitiatives.filter((initiative) => initiative.is_overdue).length
+  const highRiskCount = opportunities.filter((o) => getOpportunityRiskLevel(o) === 'high').length
+  const lowConfidenceCount = opportunities.filter((o) => { const t = getOpportunityConfidenceTier(o); return t === 'low' || t === 'insufficient' }).length
+  const highConfidenceCount = opportunities.filter((o) => getOpportunityConfidenceTier(o) === 'high').length
+  const mediumConfidenceCount = opportunities.filter((o) => getOpportunityConfidenceTier(o) === 'medium').length
+  const evidenceCoverageCount = opportunities.filter((o) => !!o.savings_evidence).length
+  const resourceContextCount = opportunities.filter((o) => !!o.resource_context).length
+  const dataSourceCount = opportunities.filter((o) => (o.resource_context?.data_sources.length ?? 0) > 0).length
+  const overdueCount = allInitiatives.filter((i) => i.is_overdue).length
   const topImpactTeams = [...(scorecard?.teams ?? [])].sort((a, b) => b.current_month_cost_usd - a.current_month_cost_usd).slice(0, 6)
-  const organizationWideOperationalNote = subscriptionId ? e.operationalScopeNote : e.organizationWide
 
   if (summaryLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-      </div>
-    )
+    return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" /></div>
   }
 
+  // ─── Render ────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{e.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{e.subtitle}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-          <span>{e.financialValuesBrl}</span>
-          <span>{subscriptionId ? e.filtered : e.consolidated}</span>
-          <span>{e.executiveReady}</span>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">{e.exportReadinessTitle}</p>
-            <p className="mt-1 text-sm text-gray-500">{e.exportReadinessSubtitle}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <DisabledActionChip label={e.exportCsvReady} />
-            <DisabledActionChip label={e.exportPdfReady} />
-            <DisabledActionChip label={e.executiveSnapshotReady} />
-            <DisabledActionChip label={e.presentationModeReady} />
-          </div>
-        </div>
-        <div className="mt-3 text-xs text-gray-500">{e.exportReadinessNote}</div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{e.subscriptionLabel}</label>
-        <select
-          value={hasMultipleSubscriptions ? subscriptionId : ''}
-          onChange={(ev) => setSubscriptionId(ev.target.value)}
-          disabled={!hasMultipleSubscriptions || subscriptionSummaryLoading || subscriptionSummaryError}
-          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
-        >
-          {subscriptionSummaryLoading ? (
-            <option value="">{e.subscriptionLoading}</option>
-          ) : subscriptionSummaryError ? (
-            <option value="">{e.subscriptionUnavailable}</option>
-          ) : hasMultipleSubscriptions ? (
-            <>
-              <option value="">{e.allSubscriptionsConsolidated}</option>
-              {subscriptionSummary?.items.map((item) => (
-                <option key={item.subscription_id} value={item.subscription_id}>
-                  {item.subscription_name || item.subscription_id.slice(0, 8) + '…'}
-                </option>
-              ))}
-            </>
-          ) : singleSubscriptionName ? (
-            <option value="">{singleSubscriptionName}</option>
-          ) : (
-            <option value="">{e.subscriptionNone}</option>
-          )}
-        </select>
-        <span className="text-xs text-gray-400">{subscriptionContextMessage}</span>
-      </div>
-
-      {subscriptionSummary && subscriptionSummary.subscription_count > 0 && (
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 flex items-center justify-between">
+    <div className="page-container">
+      {/* ═══ A. Page Header ═══ */}
+      <PageHeader
+        title={e.title}
+        subtitle={e.subtitle}
+        actions={
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
-              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h18" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-blue-900">
-                {e.historicalCostCoverageTitle.replace('{{count}}', String(subscriptionSummary.subscription_count))}
-              </p>
-              <p className="text-xs text-blue-700">
-                {formatMoney(subscriptionSummary.total_cost_usd)}{' '}
-                {e.historicalCostCoverageSubtitle.replace('{{days}}', String(subscriptionSummary.days))}
-              </p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-blue-600">
-                <span>{e.billingRecordsLabel}</span>
-                <span className="text-blue-300">•</span>
-                <span>{e.historicalBaselineLabel}</span>
-                <span className="text-blue-300">•</span>
-                <span>{subscriptionId ? e.subscriptionScoped : e.providerNotFilteredLabel}</span>
+            <select value={hasMultipleSubscriptions ? subscriptionId : ''} onChange={(ev) => setSubscriptionId(ev.target.value)}
+              disabled={!hasMultipleSubscriptions || subscriptionSummaryLoading || subscriptionSummaryError}
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
+              {subscriptionSummaryLoading ? <option value="">{e.subscriptionLoading}</option>
+                : subscriptionSummaryError ? <option value="">{e.subscriptionUnavailable}</option>
+                : hasMultipleSubscriptions ? (<><option value="">{e.allSubscriptionsConsolidated}</option>{subscriptionSummary?.items.map((s) => <option key={s.subscription_id} value={s.subscription_id}>{s.subscription_name || `${s.subscription_id.slice(0, 8)}…`}</option>)}</>)
+                : <option value="">{singleSubscriptionName}</option>}
+            </select>
+            {scorecard && (
+              <div className="hidden sm:flex items-center gap-1.5 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1.5">
+                <span className="text-xs font-medium text-brand-700">{e.orgScore.replace('{{score}}', String(scorecard.org_efficiency_score))}</span>
               </div>
-            </div>
+            )}
           </div>
-          <div className="text-xs text-blue-500 hidden sm:block">
-            {subscriptionId ? e.filtered : e.consolidated}
+        }
+        meta={
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{subscriptionId ? e.filtered : e.consolidated}</span>
+            {dashboardMeta?.billing_currency && <span>{ux.billingCurrency.replace('{{currency}}', dashboardMeta.billing_currency)}</span>}
+            {dashboardMeta?.data_max_date && <span>{ux.integrityDataThrough.replace('{{date}}', dashboardMeta.data_max_date)}</span>}
           </div>
-        </div>
-      )}
+        }
+      />
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={e.executiveSummaryTitle}
-          subtitle={e.executiveSummarySubtitle}
-          freshness={ux.freshnessSnapshot}
-          badges={[
-            { label: e.financialMetric, tone: 'financial' },
-            { label: subscriptionId ? e.subscriptionScoped : e.organizationWide, tone: subscriptionId ? 'subscription' : 'organization' },
-            { label: e.billingContext, tone: 'billing' },
-          ]}
+      {/* ═══ B. Executive KPI Row ═══ */}
+      <div className="kpi-grid">
+        <KpiCard
+          title={e.currentMonthCost}
+          value={formatMoney(summary?.current_month_cost_usd ?? 0)}
+          delta={summary?.mom_change_pct}
+          deltaLabel={e.mom}
+          tone={(summary?.mom_change_pct ?? 0) > 10 ? 'warning' : (summary?.mom_change_pct ?? 0) < -5 ? 'positive' : 'neutral'}
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title={e.currentMonthCost}
-            value={formatMoney(summary?.current_month_cost_usd ?? 0)}
-            change={summary?.mom_change_pct}
-            changeLabel={e.mom}
-            subtitle={subscriptionId
-              ? e.filteredScope.replace('{{scope}}', selectedSubscriptionScope)
-              : subscriptionSummary && subscriptionSummary.subscription_count > 1
-                ? e.consolidatedScope.replace('{{count}}', String(subscriptionSummary.subscription_count))
-                : undefined}
-            variant={(summary?.mom_change_pct ?? 0) > 10 ? 'warning' : 'default'}
-            emphasis="primary"
-          />
-          <MetricCard
-            title={e.realizedSavings}
-            value={formatMoney(summary?.total_realized_savings_usd ?? 0)}
-            subtitle={subscriptionId ? e.organizationWide : e.realizedDesc.replace('{{amount}}', formatMoney(summary?.savings_this_month_usd ?? 0))}
-            variant="success"
-            emphasis="secondary"
-          />
-          <MetricCard
-            title={e.potentialSavings}
-            value={formatMoney(summary?.total_potential_savings_usd ?? 0)}
-            subtitle={subscriptionId ? e.organizationWide : e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}
-            variant="success"
-            tooltip={ux.tooltipPotentialSavings}
-          />
-          <MetricCard
-            title={e.confidenceCoverageTitle}
-            value={formatCoverage(highConfidenceRecommendations + mediumConfidenceRecommendations, opportunities.length)}
-            subtitle={e.confidenceCoverageSubtitle
-              .replace('{{high}}', String(highConfidenceRecommendations))
-              .replace('{{medium}}', String(mediumConfidenceRecommendations))
-            }
-            emphasis="secondary"
-          />
-        </div>
-
-        {dashboardMeta && (dashboardMeta.data_min_date || dashboardMeta.data_max_date) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-2">
-            {dashboardMeta.data_min_date && dashboardMeta.data_max_date && (
-              <span>{ux.billingDataRange.replace('{{start}}', dashboardMeta.data_min_date).replace('{{end}}', dashboardMeta.data_max_date)}</span>
-            )}
-            {(dashboardMeta.subscriptions_included ?? 0) > 0 && (
-              <span>{ux.billingSubscriptions.replace('{{count}}', String(dashboardMeta.subscriptions_included))}</span>
-            )}
-            <span>{ux.costBasisActualPreTax}</span>
-            {dashboardMeta.billing_currency && (
-              <span>{ux.billingCurrency.replace('{{currency}}', dashboardMeta.billing_currency)}</span>
-            )}
-          </div>
-        )}
+        <KpiCard
+          title={e.forecastNextMonth}
+          value={formatMoney(summary?.forecast_next_month_usd ?? 0)}
+          tone="neutral"
+          footer={<span className="text-diagnostic">{e.confidence}: {summary?.forecast_confidence ?? e.na}</span>}
+        />
+        <KpiCard
+          title={e.potentialSavings}
+          value={formatMoney(summary?.total_potential_savings_usd ?? 0)}
+          tone="positive"
+          footer={<span>{e.openOpportunities.replace('{{count}}', String(summary?.open_opportunities ?? 0))}</span>}
+        />
+        <KpiCard
+          title={e.realizedSavings}
+          value={formatMoney(summary?.total_realized_savings_usd ?? 0)}
+          tone="positive"
+          footer={<span>{e.realizedDesc.replace('{{amount}}', formatMoney(summary?.savings_this_month_usd ?? 0))}</span>}
+        />
       </div>
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={e.savingsOverviewTitle}
-          subtitle={subscriptionId ? e.savingsOverviewFilteredSubtitle : e.savingsOverviewSubtitle}
-          freshness={ux.freshnessRecent}
-          badges={[
-            { label: e.financialMetric, tone: 'financial' },
-            { label: organizationWideOperationalNote, tone: 'organization' },
-          ]}
-          compact
-        />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">{e.topOpportunitiesTitle}</h2>
-                <p className="mt-1 text-xs text-gray-500">{e.topOpportunitiesSubtitle}</p>
-              </div>
-              <span className="text-xs text-gray-400">{e.organizationWide}</span>
-            </div>
-
-            {!topOpportunities.length ? (
-              <EmptyState title={e.noTopOpportunitiesTitle} body={e.noTopOpportunitiesBody} />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      <th className="px-0 py-2">{e.colRecommendation}</th>
-                      <th className="px-3 py-2">{e.colSavings}</th>
-                      <th className="hidden px-3 py-2 md:table-cell">{e.confidence}</th>
-                      <th className="hidden px-3 py-2 md:table-cell">{e.riskTableLabel}</th>
+      {/* ═══ C. Savings Accountability: Estimated vs Realized ═══ */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr]">
+        {/* Top Opportunities (estimated) */}
+        <Panel>
+          <PanelHeader title={e.topOpportunitiesTitle} subtitle={e.topOpportunitiesSubtitle} />
+          {!topOpportunities.length ? (
+            <EmptyState title={e.noTopOpportunitiesTitle} body={e.noTopOpportunitiesBody} />
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-0 py-2">{e.colRecommendation}</th>
+                    <th className="px-3 py-2 text-right">{e.colSavings}</th>
+                    <th className="hidden px-3 py-2 md:table-cell">{e.confidence}</th>
+                    <th className="hidden px-3 py-2 md:table-cell">{e.riskTableLabel}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {topOpportunities.map((o) => (
+                    <tr key={o.id}>
+                      <td className="px-0 py-2.5 align-top">
+                        <p className="text-xs font-medium text-slate-800">{o.title}</p>
+                        <p className="text-[10px] text-slate-400">{o.category.replace(/_/g, ' ')}</p>
+                      </td>
+                      <td className="px-3 py-2.5 align-top text-right font-semibold tabular-nums text-emerald-700 text-xs">{formatMoney(getOpportunitySavings(o))}</td>
+                      <td className="hidden px-3 py-2.5 align-top md:table-cell">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          {e[`confidence${capConfidence(getOpportunityConfidenceTier(o))}` as 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceInsufficient']}
+                        </span>
+                      </td>
+                      <td className="hidden px-3 py-2.5 align-top md:table-cell">
+                        <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-medium',
+                          getOpportunityRiskLevel(o) === 'high' ? 'bg-rose-50 text-rose-700' : getOpportunityRiskLevel(o) === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>
+                          {e[`risk${capRisk(getOpportunityRiskLevel(o))}` as 'riskHigh' | 'riskMedium' | 'riskLow']}
+                        </span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {topOpportunities.map((opportunity) => (
-                      <tr key={opportunity.id}>
-                        <td className="px-0 py-3 align-top">
-                          <div className="min-w-[240px]">
-                            <p className="font-medium text-gray-900">{opportunity.title}</p>
-                            <p className="mt-1 text-xs text-gray-500">{opportunity.category.replace(/_/g, ' ')}</p>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 align-top font-semibold text-emerald-700">
-                          {formatMoney(getOpportunitySavings(opportunity))}
-                        </td>
-                        <td className="hidden px-3 py-3 align-top md:table-cell">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                            {e[`confidence${capitalizeConfidence(getOpportunityConfidenceTier(opportunity))}` as 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceInsufficient']}
-                          </span>
-                        </td>
-                        <td className="hidden px-3 py-3 align-top md:table-cell">
-                          <span className={clsx(
-                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-                            getOpportunityRiskLevel(opportunity) === 'high'
-                              ? 'bg-red-50 text-red-700'
-                              : getOpportunityRiskLevel(opportunity) === 'medium'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-emerald-50 text-emerald-700',
-                          )}>
-                            {e[`risk${capitalizeRisk(getOpportunityRiskLevel(opportunity))}` as 'riskHigh' | 'riskMedium' | 'riskLow']}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold text-gray-900">{e.topSavingsTitle}</h2>
-              <p className="mt-1 text-xs text-gray-500">{e.topSavingsSubtitle}</p>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {summary?.top_savings && summary.top_savings.length > 0 ? (
-              <ul className="space-y-3">
-                {summary.top_savings.map((saving) => (
-                  <li key={saving.initiative_id} className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">{saving.title}</p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {saving.completed_at
-                          ? e.completedDate.replace('{{date}}', formatDate(saving.completed_at, lang === 'pt' ? 'pt-BR' : 'en-US') ?? saving.completed_at)
-                          : e.realizedAwaitingDate}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-emerald-700">
-                      {formatMoney(saving.realized_savings_usd)}{e.perMonth}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState title={e.noTopSavingsTitle} body={e.noTopSavingsBody} />
-            )}
-          </div>
-        </div>
-      </div>
+          )}
+        </Panel>
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={e.optimizationProgressTitle}
-          subtitle={e.optimizationProgressSubtitle}
-          freshness={ux.freshnessRefreshes}
-          badges={[
-            { label: e.operationalMetric, tone: 'operational' },
-            { label: organizationWideOperationalNote, tone: 'organization' },
-          ]}
-          compact
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard title={e.identifiedRecommendations} value={summary?.open_opportunities ?? 0} subtitle={organizationWideOperationalNote} />
-          <MetricCard title={e.inProgress} value={summary?.in_progress_initiatives ?? 0} subtitle={e.initiatives} />
-          <MetricCard title={e.completed} value={summary?.completed_initiatives ?? 0} subtitle={e.initiatives} variant="success" />
-          <MetricCard title={e.overdueInitiatives} value={overdueInitiativesCount} subtitle={e.executionRiskSubtitle} variant={overdueInitiativesCount > 0 ? 'warning' : 'default'} />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">{e.forecastNextMonth}</h2>
-                <p className="mt-1 text-xs text-gray-500">{e.forecastSubtitle}</p>
-              </div>
-              <ExplainTooltip text={ux.tooltipForecast} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{formatMoney(summary?.forecast_next_month_usd ?? 0)}</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {e.confidence}: {summary?.forecast_confidence ?? e.na} · {e.linearProjection}
-                </p>
-              </div>
-              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <ProgressRow label={e.identifiedRecommendations} value={summary?.open_opportunities ?? 0} />
-                <ProgressRow label={e.inProgress} value={summary?.in_progress_initiatives ?? 0} />
-                <ProgressRow label={e.completed} value={summary?.completed_initiatives ?? 0} />
-                <ProgressRow label={e.overdueInitiatives} value={overdueInitiativesCount} warning={overdueInitiativesCount > 0} />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">{e.topImpactAreasTitle}</h2>
-                <p className="mt-1 text-xs text-gray-500">{e.topImpactAreasSubtitle}</p>
-              </div>
-              {scorecard && (
-                <span className="text-sm font-bold text-brand-600">
-                  {e.orgScore.replace('{{score}}', String(scorecard.org_efficiency_score))}
-                </span>
-              )}
-            </div>
-
-            {topImpactTeams.length > 0 ? (
-              <>
-                <div className="mb-5 h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topImpactTeams} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="team" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v: number) => [`${v}/100`, e.scoreLabel]} />
-                      <Bar dataKey="efficiency_score" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs font-medium text-gray-500">
-                      <th className="pb-2 pr-4">{e.team}</th>
-                      <th className="pb-2 pr-4">{e.currentMonth}</th>
-                      <th className="pb-2 pr-4">{e.openOpps}</th>
-                      <th className="pb-2">{e.efficiency}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {topImpactTeams.map((row) => (
-                      <tr key={row.team}>
-                        <td className="py-2 pr-4 font-medium text-gray-900">{row.team}</td>
-                        <td className="py-2 pr-4 text-gray-700">{formatMoney(row.current_month_cost_usd)}</td>
-                        <td className="py-2 pr-4 text-gray-600">{row.open_opportunities}</td>
-                        <td className="py-2 text-xs font-semibold text-gray-700">{row.efficiency_score}/100</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            ) : (
-              <EmptyState title={e.noImpactAreasTitle} body={e.noImpactAreasBody} />
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <SectionIntro
-          title={e.riskGovernanceTitle}
-          subtitle={e.riskGovernanceSubtitle}
-          freshness={ux.freshnessRecent}
-          badges={[
-            { label: e.operationalMetric, tone: 'operational' },
-            { label: organizationWideOperationalNote, tone: 'organization' },
-          ]}
-          compact
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <MetricCard title={e.highRiskRecommendations} value={highRiskRecommendations} subtitle={e.highRiskRecommendationsSubtitle} variant={highRiskRecommendations > 0 ? 'warning' : 'default'} />
-          <MetricCard title={e.lowConfidenceRecommendations} value={lowConfidenceRecommendations} subtitle={e.lowConfidenceRecommendationsSubtitle} variant={lowConfidenceRecommendations > 0 ? 'warning' : 'default'} />
-          <MetricCard title={e.overdueInitiatives} value={overdueInitiativesCount} subtitle={e.overdueInitiativesSubtitle} variant={overdueInitiativesCount > 0 ? 'warning' : 'default'} />
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">{e.priorityWatchlistTitle}</h2>
-            <p className="mt-1 text-xs text-gray-500">{e.priorityWatchlistSubtitle}</p>
-          </div>
-          {priorityWatchlist.length > 0 ? (
-            <ul className="space-y-3">
-              {priorityWatchlist.map((item) => (
-                <li key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 px-3 py-3">
+        {/* Realized Savings (proven value) */}
+        <Panel>
+          <PanelHeader title={e.topSavingsTitle} subtitle={e.topSavingsSubtitle} />
+          {summary?.top_savings && summary.top_savings.length > 0 ? (
+            <ul className="mt-4 space-y-3">
+              {summary.top_savings.map((s) => (
+                <li key={s.initiative_id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-50 px-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                    <p className="mt-1 text-xs text-gray-500">{item.detail}</p>
+                    <p className="text-xs font-medium text-slate-800 truncate">{s.title}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {s.completed_at ? e.completedDate.replace('{{date}}', formatDate(s.completed_at, lang === 'pt' ? 'pt-BR' : 'en-US') ?? s.completed_at) : e.realizedAwaitingDate}
+                    </p>
                   </div>
-                  <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                    {item.badge}
-                  </span>
+                  <span className="text-xs font-bold tabular-nums text-emerald-700 shrink-0">{formatMoney(s.realized_savings_usd)}{e.perMonth}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <EmptyState title={e.noPriorityWatchlistTitle} body={e.noPriorityWatchlistBody} />
+            <EmptyState title={e.noTopSavingsTitle} body={e.noTopSavingsBody} />
           )}
-        </div>
+
+          {/* Savings summary bar */}
+          <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">{e.potentialSavings}</span>
+              <span className="font-semibold tabular-nums text-slate-700">{formatMoney(summary?.total_potential_savings_usd ?? 0)}</span>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.min(100, ((summary?.total_realized_savings_usd ?? 0) / Math.max(1, summary?.total_potential_savings_usd ?? 1)) * 100)}%` }}
+              />
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+              <span>{e.realizedSavings}: {formatMoney(summary?.total_realized_savings_usd ?? 0)}</span>
+              <span>{Math.round(((summary?.total_realized_savings_usd ?? 0) / Math.max(1, summary?.total_potential_savings_usd ?? 1)) * 100)}% {e.completed.toLowerCase()}</span>
+            </div>
+          </div>
+        </Panel>
       </div>
 
-      <div className="space-y-4">
-        <SectionIntro
-          title={e.coverageEvidenceTitle}
-          subtitle={e.coverageEvidenceSubtitle}
-          freshness={ux.freshnessSnapshot}
-          badges={[
-            { label: e.financialMetric, tone: 'financial' },
-            { label: organizationWideOperationalNote, tone: 'organization' },
-          ]}
-          compact
+      {/* ═══ D. Optimization Funnel ═══ */}
+      <Panel>
+        <PanelHeader
+          title={e.optimizationProgressTitle}
+          subtitle={e.optimizationProgressSubtitle}
+          actions={<ExplainTooltip text={ux.tooltipForecast} />}
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <CoverageCard
-            title={e.evidenceCoverageTitle}
-            value={formatCoverage(evidenceCoverageCount, opportunities.length)}
-            subtitle={e.evidenceCoverageSubtitleValue.replace('{{count}}', String(evidenceCoverageCount)).replace('{{total}}', String(opportunities.length))}
-          />
-          <CoverageCard
-            title={e.resourceContextCoverageTitle}
-            value={formatCoverage(resourceContextCoverageCount, opportunities.length)}
-            subtitle={e.resourceContextCoverageSubtitle.replace('{{count}}', String(resourceContextCoverageCount)).replace('{{total}}', String(opportunities.length))}
-          />
-          <CoverageCard
-            title={e.highConfidenceCoverageTitle}
-            value={formatCoverage(highConfidenceRecommendations, opportunities.length)}
-            subtitle={e.highConfidenceCoverageSubtitle.replace('{{count}}', String(highConfidenceRecommendations)).replace('{{total}}', String(opportunities.length))}
-          />
-          <CoverageCard
-            title={e.dataSourceCoverageTitle}
-            value={formatCoverage(dataSourceCoverageCount, opportunities.length)}
-            subtitle={e.dataSourceCoverageSubtitle.replace('{{count}}', String(dataSourceCoverageCount)).replace('{{total}}', String(opportunities.length))}
-          />
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <FunnelStep label={e.identifiedRecommendations} value={summary?.open_opportunities ?? 0} color="bg-slate-500" />
+          <FunnelStep label={e.inProgress} value={summary?.in_progress_initiatives ?? 0} color="bg-blue-500" />
+          <FunnelStep label={e.completed} value={summary?.completed_initiatives ?? 0} color="bg-emerald-500" />
+          <FunnelStep label={e.overdueInitiatives} value={overdueCount} color={overdueCount > 0 ? 'bg-amber-500' : 'bg-slate-300'} warning={overdueCount > 0} />
         </div>
+        {/* Funnel progress bar */}
+        <div className="mt-4 flex h-3 rounded-full overflow-hidden bg-slate-100">
+          {(() => {
+            const total = (summary?.open_opportunities ?? 0) + (summary?.in_progress_initiatives ?? 0) + (summary?.completed_initiatives ?? 0)
+            if (!total) return null
+            const completedPct = ((summary?.completed_initiatives ?? 0) / total) * 100
+            const inProgressPct = ((summary?.in_progress_initiatives ?? 0) / total) * 100
+            return (
+              <>
+                <div className="bg-emerald-500 transition-all" style={{ width: `${completedPct}%` }} />
+                <div className="bg-blue-400 transition-all" style={{ width: `${inProgressPct}%` }} />
+              </>
+            )
+          })()}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+          <span>{e.completed}: {summary?.completed_initiatives ?? 0}</span>
+          <span>{e.inProgress}: {summary?.in_progress_initiatives ?? 0}</span>
+          <span>{e.identifiedRecommendations}: {summary?.open_opportunities ?? 0}</span>
+        </div>
+      </Panel>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">{e.bestEvidenceTitle}</h2>
-            <p className="mt-1 text-xs text-gray-500">{e.bestEvidenceSubtitle}</p>
+      {/* ═══ E. Risk & Governance ═══ */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.5fr]">
+        {/* Risk KPIs */}
+        <Panel compact>
+          <PanelHeader title={e.riskGovernanceTitle} subtitle={e.riskGovernanceSubtitle} />
+          <div className="mt-3 space-y-2.5">
+            <RiskRow label={e.highRiskRecommendations} value={highRiskCount} warning={highRiskCount > 0} />
+            <RiskRow label={e.lowConfidenceRecommendations} value={lowConfidenceCount} warning={lowConfidenceCount > 0} />
+            <RiskRow label={e.overdueInitiatives} value={overdueCount} warning={overdueCount > 0} />
           </div>
-          {bestEvidenceRecommendations.length > 0 ? (
-            <div className="space-y-3">
-              {bestEvidenceRecommendations.map((opportunity) => (
-                <div key={opportunity.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 px-3 py-3">
+          {/* Coverage summary */}
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">{e.coverageEvidenceTitle}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <CoverageCell label={e.evidenceCoverageTitle} value={formatCoverage(evidenceCoverageCount, opportunities.length)} />
+              <CoverageCell label={e.highConfidenceCoverageTitle} value={formatCoverage(highConfidenceCount, opportunities.length)} />
+              <CoverageCell label={e.resourceContextCoverageTitle} value={formatCoverage(resourceContextCount, opportunities.length)} />
+              <CoverageCell label={e.dataSourceCoverageTitle} value={formatCoverage(dataSourceCount, opportunities.length)} />
+            </div>
+          </div>
+        </Panel>
+
+        {/* Priority Watchlist */}
+        <Panel compact>
+          <PanelHeader title={e.priorityWatchlistTitle} subtitle={e.priorityWatchlistSubtitle} />
+          {priorityWatchlist.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {priorityWatchlist.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{opportunity.title}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
-                      <span>{e.evidenceSavings.replace('{{amount}}', formatMoney(getOpportunitySavings(opportunity)))}</span>
-                      <span className="text-gray-300">•</span>
-                      <span>{opportunity.savings_evidence ? e.evidenceFinancial : e.evidencePartial}</span>
-                      <span className="text-gray-300">•</span>
-                      <span>{opportunity.resource_context ? e.evidenceContext : e.evidenceNoContext}</span>
-                    </div>
+                    <p className="text-xs font-medium text-slate-800">{item.title}</p>
+                    <p className="text-[10px] text-slate-400">{item.detail}</p>
                   </div>
-                  <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                    {e[`confidence${capitalizeConfidence(getOpportunityConfidenceTier(opportunity))}` as 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceInsufficient']}
-                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 shrink-0">{item.badge}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <EmptyState title={e.noBestEvidenceTitle} body={e.noBestEvidenceBody} />
+            <EmptyState title={e.noPriorityWatchlistTitle} body={e.noPriorityWatchlistBody} />
           )}
-        </div>
+        </Panel>
       </div>
+
+      {/* ═══ F. Team Accountability ═══ */}
+      {topImpactTeams.length > 0 && (
+        <Panel>
+          <PanelHeader title={e.topImpactAreasTitle} subtitle={e.topImpactAreasSubtitle} />
+          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
+            {/* Chart */}
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topImpactTeams} margin={chartMargin.compact}>
+                  <CartesianGrid {...gridStyle} />
+                  <XAxis dataKey="team" tick={axisStyle} />
+                  <YAxis domain={[0, 100]} tick={axisStyle} />
+                  <Tooltip formatter={(v: number) => [`${v}/100`, e.scoreLabel]} {...tooltipStyle} />
+                  <Bar dataKey="efficiency_score" fill={chartFill.primary} radius={barDefaults.radius} maxBarSize={barDefaults.maxBarSize} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="pb-2 pr-3">{e.team}</th>
+                    <th className="pb-2 pr-3 text-right">{e.currentMonth}</th>
+                    <th className="pb-2 pr-3 text-right">{e.openOpps}</th>
+                    <th className="pb-2 text-right">{e.efficiency}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {topImpactTeams.map((row) => (
+                    <tr key={row.team}>
+                      <td className="py-2 pr-3 font-medium text-slate-800">{row.team}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{formatMoney(row.current_month_cost_usd)}</td>
+                      <td className="py-2 pr-3 text-right text-slate-600">{row.open_opportunities}</td>
+                      <td className="py-2 text-right">
+                        <span className={clsx('font-semibold tabular-nums', row.efficiency_score >= 70 ? 'text-emerald-700' : row.efficiency_score >= 40 ? 'text-amber-700' : 'text-rose-700')}>
+                          {row.efficiency_score}/100
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {/* ═══ G. Supporting Metadata ═══ */}
+      {dashboardMeta && (dashboardMeta.data_min_date || dashboardMeta.data_max_date) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-diagnostic px-1">
+          {dashboardMeta.data_min_date && dashboardMeta.data_max_date && (
+            <span>{ux.billingDataRange.replace('{{start}}', dashboardMeta.data_min_date).replace('{{end}}', dashboardMeta.data_max_date)}</span>
+          )}
+          {(dashboardMeta.subscriptions_included ?? 0) > 0 && (
+            <span>{ux.billingSubscriptions.replace('{{count}}', String(dashboardMeta.subscriptions_included))}</span>
+          )}
+          <span>{ux.costBasisActualPreTax}</span>
+          <span>{e.confidenceCoverageSubtitle.replace('{{high}}', String(highConfidenceCount)).replace('{{medium}}', String(mediumConfidenceCount))}</span>
+        </div>
+      )}
     </div>
   )
 }
 
-function DisabledActionChip({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500 opacity-80"
-    >
-      {label}
-    </button>
-  )
-}
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      <p className="mt-1 text-xs text-gray-500">{body}</p>
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center mt-4">
+      <p className="text-xs font-medium text-slate-600">{title}</p>
+      <p className="mt-1 text-[10px] text-slate-400">{body}</p>
     </div>
   )
 }
 
-function CoverageCard({ title, value, subtitle }: { title: string; value: string; subtitle: string }) {
+function FunnelStep({ label, value, color, warning = false }: { label: string; value: number; color: string; warning?: boolean }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{title}</p>
-      <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
+    <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-center">
+      <div className={clsx('mx-auto mb-2 h-1.5 w-8 rounded-full', color)} />
+      <p className={clsx('text-xl font-bold tabular-nums', warning ? 'text-amber-700' : 'text-slate-900')}>{value}</p>
+      <p className="mt-0.5 text-[10px] text-slate-500 leading-tight">{label}</p>
     </div>
   )
 }
 
-function ProgressRow({ label, value, warning = false }: { label: string; value: number; warning?: boolean }) {
+function RiskRow({ label, value, warning = false }: { label: string; value: number; warning?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className={clsx('text-sm font-semibold', warning ? 'text-amber-700' : 'text-gray-900')}>{value}</span>
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
+      <span className="text-xs text-slate-600">{label}</span>
+      <span className={clsx('text-sm font-bold tabular-nums', warning ? 'text-amber-700' : 'text-slate-800')}>{value}</span>
     </div>
   )
 }
 
-function capitalizeConfidence(value: ConfidenceTier) {
-  return value.charAt(0).toUpperCase() + value.slice(1) as 'High' | 'Medium' | 'Low' | 'Insufficient'
+function CoverageCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center rounded-md bg-slate-50/80 px-2 py-1.5">
+      <p className="text-sm font-bold tabular-nums text-slate-800">{value}</p>
+      <p className="text-[9px] text-slate-400 leading-tight mt-0.5">{label}</p>
+    </div>
+  )
 }
 
-function capitalizeRisk(value: RiskLevel) {
-  return value.charAt(0).toUpperCase() + value.slice(1) as 'High' | 'Medium' | 'Low'
-}

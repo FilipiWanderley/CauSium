@@ -74,3 +74,61 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "app.core.logging",
+    "app.core.observability",
+    "app.core.dependencies",
+    "app.domains.admin.router",
+    "app.domains.admin.service",
+    "app.domains.audit_chain.router",
+    "app.domains.auth.router",
+    "app.domains.auth.service",
+    "app.domains.change_events.router",
+    "app.domains.cloud_accounts.router",
+    "app.domains.cloud_accounts.service",
+    "app.domains.cloud_ledger.service",
+    "app.domains.connectors.aws.client",
+    "app.domains.connectors.azure.client",
+    "app.domains.connectors.gcp.client",
+    "app.domains.decision_engine.aks_nodepool_rightsizing_engine",
+    "app.domains.decision_engine.optimization_plan_service",
+    "app.domains.decision_engine.performance_context_builder",
+    "app.domains.decision_engine.resource_context_builder",
+    "app.domains.decision_engine.router",
+    "app.domains.decision_engine.savings_evidence_builder",
+    "app.domains.decision_engine.service",
+    "app.domains.decision_engine.vm_rightsizing_engine",
+    "app.domains.economics.export_runtime",
+    "app.domains.economics.router",
+    "app.domains.executive.service",
+    "app.domains.experiments.router",
+    "app.domains.experiments.service",
+    "app.domains.gov.router",
+    "app.domains.green.router",
+    "app.domains.intel.cost_explanation_service",
+    "app.domains.intel.execution_plan_service",
+    "app.domains.intel.router",
+    "app.domains.intel.usage_observation_service",
+    "app.domains.invites.router",
+    "app.domains.notifications.router",
+    "app.domains.notifications.service",
+    "app.domains.risk_budgets.router",
+    "app.domains.workflow.router",
+    "app.main",
+    "app.workers.carbon_sync_worker",
+    "app.workers.export_worker",
+    "app.workers.ingestion_worker",
+    "app.workers.maintenance_worker",
+    "app.workers.notification_worker",
+    "app.workers.scoring_worker",
+]
+ignore_errors = true

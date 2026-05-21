@@ -4,7 +4,42 @@
 
 @layer base {
   body {
-    @apply antialiased text-gray-900;
+    @apply antialiased text-slate-900;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Numeric typography: enable tabular figures for data-heavy UI */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Page layout rhythm */
+  .page-container {
+    @apply space-y-6;
+  }
+
+  /* Section grouping */
+  .section-group {
+    @apply space-y-4;
+  }
+
+  /* KPI grid — responsive, consistent gaps */
+  .kpi-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4;
+  }
+
+  /* Panel grid for 2-column layouts */
+  .panel-grid {
+    @apply grid grid-cols-1 gap-4 lg:grid-cols-2;
+  }
+
+  /* Panel grid for 3-column layouts */
+  .panel-grid-3 {
+    @apply grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3;
   }
 }
 
@@ -34,7 +69,7 @@
   /* Thin light scrollbar for content areas */
   .scrollbar-light {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
   }
   .scrollbar-light::-webkit-scrollbar {
     height: 3px;
@@ -44,13 +79,18 @@
     background: transparent;
   }
   .scrollbar-light::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.08);
     border-radius: 9999px;
   }
   .scrollbar-light::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.18);
   }
   .scrollbar-light::-webkit-scrollbar-button {
     display: none;
+  }
+
+  /* De-emphasize diagnostic/metadata text */
+  .text-diagnostic {
+    @apply text-[11px] text-slate-400 font-normal;
   }
 }

@@ -19,7 +19,7 @@ async def test_detect_and_list_cost_anomalies(client, auth_headers, monkeypatch)
             rows: list[dict] = []
             for i in range(15):
                 day = start_date + timedelta(days=i)
-                ec2_cost = 127.0 if day == target_date else 100.0
+                ec2_cost = 250.0 if day == target_date else 100.0
                 rows.append(
                     {
                         "provider": "aws",
@@ -70,4 +70,4 @@ async def test_detect_and_list_cost_anomalies(client, auth_headers, monkeypatch)
     assert first["provider"] == "aws"
     assert first["service"] == "Amazon EC2"
     assert first["observed_date"] == target_date.isoformat()
-    assert first["deviation_pct"] == 27.0
+    assert first["deviation_pct"] == 150.0

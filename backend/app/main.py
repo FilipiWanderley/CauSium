@@ -207,7 +207,6 @@ async def health():
 
 @app.get("/health/detailed", dependencies=[Depends(_require_internal_monitoring_key)])
 async def health_detailed():
-    import time
 
     from app.core.clickhouse import execute_query
     from app.core.database import engine

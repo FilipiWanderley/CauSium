@@ -72,8 +72,8 @@ def _mock_aks_candidates():
             "autoscaler_max_count": None,
             "has_kube_system_workloads": False,
             "has_critical_workloads": False,
-            "cpu_p95_stddev": 8.0,
-            "memory_p95_stddev": 10.0,
+            "cpu_p95_stddev": 12.0,
+            "memory_p95_stddev": 14.0,
         }
     ]
 

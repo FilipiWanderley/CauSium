@@ -16,6 +16,7 @@ Domains covered:
 from uuid import uuid4
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +41,24 @@ async def _register(client, *, org_name, org_slug, email, name="User", pw="passw
     }
 
 
+def _azure_payload(external_id: str, display_name: str, tenant_id: str) -> dict:
+    return {
+        "provider": "azure",
+        "external_id": external_id,
+        "display_name": display_name,
+        "tenant_id": tenant_id,
+        "azure_credentials": {
+            "tenant_id": tenant_id,
+            "client_id": f"client-{external_id}",
+            "client_secret": "secret-test",
+            "subscription_id": external_id,
+            "storage_account_url": "https://example.blob.core.windows.net",
+            "cost_export_container": "exports",
+            "cost_export_prefix": "cross-workspace/",
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Cloud Accounts isolation
 # ---------------------------------------------------------------------------
@@ -49,18 +68,24 @@ async def test_cloud_account_not_visible_to_other_org(client):
     a = await _register(client, org_name="A1", org_slug="iso-ca-a1", email="iso-ca-a1@test.com")
     b = await _register(client, org_name="B1", org_slug="iso-ca-b1", email="iso-ca-b1@test.com")
 
-    create = await client.post("/api/v1/cloud-accounts", json={
-        "provider": "azure",
-        "external_id": "sub-iso-001",
-        "display_name": "Org A Sub",
-    }, headers=a["headers"])
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
+    ):
+        create = await client.post(
+            "/api/v1/cloud-accounts",
+            json=_azure_payload("sub-iso-001", "Org A Sub", "tenant-iso-a"),
+            headers=a["headers"],
+        )
     assert create.status_code == 201
     account_id = create.json()["id"]
 
     # Org B cannot see Org A's account in the list
     list_b = await client.get("/api/v1/cloud-accounts", headers=b["headers"])
     assert list_b.status_code == 200
-    ids = [item["id"] for item in list_b.json()]
+    ids = [item["id"] for item in list_b.json()["items"]]
     assert account_id not in ids
 
     # Org B cannot fetch Org A's account by ID
@@ -73,11 +98,17 @@ async def test_cloud_account_delete_not_allowed_by_other_org(client):
     a = await _register(client, org_name="A2", org_slug="iso-ca-del-a2", email="iso-ca-del-a2@test.com")
     b = await _register(client, org_name="B2", org_slug="iso-ca-del-b2", email="iso-ca-del-b2@test.com")
 
-    create = await client.post("/api/v1/cloud-accounts", json={
-        "provider": "azure",
-        "external_id": "sub-iso-002",
-        "display_name": "Org A Sub",
-    }, headers=a["headers"])
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
+    ):
+        create = await client.post(
+            "/api/v1/cloud-accounts",
+            json=_azure_payload("sub-iso-002", "Org A Sub", "tenant-iso-a2"),
+            headers=a["headers"],
+        )
     assert create.status_code == 201
     account_id = create.json()["id"]
 

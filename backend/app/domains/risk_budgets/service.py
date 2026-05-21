@@ -4,7 +4,6 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
 
 from app.domains.audit_chain.service import AuditChainService
 from app.domains.notifications.models import AlertCategory, AlertSeverity

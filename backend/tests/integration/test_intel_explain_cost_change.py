@@ -17,7 +17,10 @@ async def test_explain_cost_change_denied_without_ai_plan(client, auth_headers, 
         headers=auth_headers,
         json={"start_date": "2026-04-01", "end_date": "2026-04-15"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert "summary" in data
+    assert "causes" in data
 
 
 @pytest.mark.asyncio

@@ -6,9 +6,17 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_intel_insights_denied_without_ai_plan(client, auth_headers):
+async def test_intel_insights_denied_without_ai_plan(client, auth_headers, monkeypatch):
+    def fake_execute_query(query: str, parameters: dict | None = None):
+        return [{"total": 0.0}]
+
+    monkeypatch.setattr("app.domains.intel.insights_service.execute_query", fake_execute_query)
+
     resp = await client.get("/api/v1/intel/insights", headers=auth_headers)
-    assert resp.status_code == 403
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert "top_saving_opportunity" in data
+    assert "main_risk" in data
 
 
 @pytest.mark.asyncio
