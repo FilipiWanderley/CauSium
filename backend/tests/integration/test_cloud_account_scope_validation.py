@@ -25,7 +25,8 @@ async def test_validate_scope_success_for_mocked_azure_credentials(client, auth_
     """SP-CL03 happy path: /{id}/validate returns validated scopes and timestamp."""
     with patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)), \
          patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)), \
-         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)):
+         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)), \
+         patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
             json=_azure_payload("sub-scope-001", "tenant-test"),
@@ -45,7 +46,11 @@ async def test_validate_scope_success_for_mocked_azure_credentials(client, auth_
     data = validate_resp.json()
     assert data["ok"] is True
     assert data["provider"] == "azure"
-    assert data["validated_scopes"] == ["CostManagementReaderOrHigher"]
+    assert data["validated_scopes"] == [
+        "CredentialsValid",
+        "CostManagementReaderOrHigher",
+        "StorageBlobDataReader",
+    ]
     assert data["scopes_validated_at"] is not None
 
 
@@ -71,7 +76,8 @@ async def test_validate_scope_org_isolation(client, org_a, org_b):
     """Admin from workspace A cannot validate account from workspace B."""
     with patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)), \
          patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)), \
-         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)):
+         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)), \
+         patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
             json=_azure_payload("sub-scope-iso", "tenant-iso"),

@@ -72,6 +72,7 @@ async def test_cloud_account_not_visible_to_other_org(client):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create = await client.post(
             "/api/v1/cloud-accounts",
@@ -84,7 +85,7 @@ async def test_cloud_account_not_visible_to_other_org(client):
     # Org B cannot see Org A's account in the list
     list_b = await client.get("/api/v1/cloud-accounts", headers=b["headers"])
     assert list_b.status_code == 200
-    ids = [item["id"] for item in list_b.json()]
+    ids = [item["id"] for item in list_b.json()["items"]]
     assert account_id not in ids
 
     # Org B cannot fetch Org A's account by ID
@@ -101,6 +102,7 @@ async def test_cloud_account_delete_not_allowed_by_other_org(client):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create = await client.post(
             "/api/v1/cloud-accounts",

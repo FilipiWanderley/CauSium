@@ -29,6 +29,7 @@ async def test_create_and_list_account(client, auth_headers):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         resp = await client.post(
             "/api/v1/cloud-accounts",
@@ -52,6 +53,7 @@ async def test_get_account(client, auth_headers):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
@@ -80,6 +82,7 @@ async def test_health_check_uses_mock(client, auth_headers):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
@@ -157,6 +160,7 @@ async def test_sync_status_returns_operational_fields(client, auth_headers, db):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
@@ -198,6 +202,7 @@ async def test_sync_status_respects_workspace_isolation(client, org_a, org_b):
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
         patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+        patch("app.domains.cloud_accounts.router._run_inline_sync_pipeline", new=AsyncMock(return_value=None)),
     ):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
