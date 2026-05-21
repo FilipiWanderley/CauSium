@@ -1,5 +1,6 @@
 import pytest
 from uuid import uuid4
+from unittest.mock import AsyncMock, patch
 
 
 def _azure_sync_payload() -> dict:
@@ -22,11 +23,16 @@ def _azure_sync_payload() -> dict:
 
 @pytest.mark.asyncio
 async def test_sync_endpoint_is_idempotent_with_same_key(client, auth_headers):
-    create_resp = await client.post(
-        "/api/v1/cloud-accounts",
-        json=_azure_sync_payload(),
-        headers=auth_headers,
-    )
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+    ):
+        create_resp = await client.post(
+            "/api/v1/cloud-accounts",
+            json=_azure_sync_payload(),
+            headers=auth_headers,
+        )
     assert create_resp.status_code == 201, create_resp.text
     account_id = create_resp.json()["id"]
 

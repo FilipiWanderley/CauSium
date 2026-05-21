@@ -16,6 +16,7 @@ Domains covered:
 from uuid import uuid4
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -67,11 +68,16 @@ async def test_cloud_account_not_visible_to_other_org(client):
     a = await _register(client, org_name="A1", org_slug="iso-ca-a1", email="iso-ca-a1@test.com")
     b = await _register(client, org_name="B1", org_slug="iso-ca-b1", email="iso-ca-b1@test.com")
 
-    create = await client.post(
-        "/api/v1/cloud-accounts",
-        json=_azure_payload("sub-iso-001", "Org A Sub", "tenant-iso-a"),
-        headers=a["headers"],
-    )
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+    ):
+        create = await client.post(
+            "/api/v1/cloud-accounts",
+            json=_azure_payload("sub-iso-001", "Org A Sub", "tenant-iso-a"),
+            headers=a["headers"],
+        )
     assert create.status_code == 201
     account_id = create.json()["id"]
 
@@ -91,11 +97,16 @@ async def test_cloud_account_delete_not_allowed_by_other_org(client):
     a = await _register(client, org_name="A2", org_slug="iso-ca-del-a2", email="iso-ca-del-a2@test.com")
     b = await _register(client, org_name="B2", org_slug="iso-ca-del-b2", email="iso-ca-del-b2@test.com")
 
-    create = await client.post(
-        "/api/v1/cloud-accounts",
-        json=_azure_payload("sub-iso-002", "Org A Sub", "tenant-iso-a2"),
-        headers=a["headers"],
-    )
+    with (
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_connection", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)),
+        patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_storage_access", new=AsyncMock(return_value=None)),
+    ):
+        create = await client.post(
+            "/api/v1/cloud-accounts",
+            json=_azure_payload("sub-iso-002", "Org A Sub", "tenant-iso-a2"),
+            headers=a["headers"],
+        )
     assert create.status_code == 201
     account_id = create.json()["id"]
 
