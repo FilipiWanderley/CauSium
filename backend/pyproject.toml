@@ -117,6 +117,7 @@ module = [
     "app.domains.intel.cost_explanation_service",
     "app.domains.intel.execution_plan_service",
     "app.domains.intel.router",
+    "app.domains.intel.usage_observation_service",
     "app.domains.invites.router",
     "app.domains.notifications.router",
     "app.domains.notifications.service",
@@ -126,6 +127,7 @@ module = [
     "app.workers.carbon_sync_worker",
     "app.workers.export_worker",
     "app.workers.ingestion_worker",
+    "app.workers.maintenance_worker",
     "app.workers.notification_worker",
     "app.workers.scoring_worker",
 ]
