@@ -84,6 +84,12 @@ async def test_blob_checkpoint_prevents_reprocessing_across_runs(db, monkeypatch
     async def fake_fetch_events(self, subscription_id, start, end):
         return []
 
+    async def fake_fetch_recommendations(self, subscription_id):
+        return []
+
+    async def fake_fetch_inventory(self, subscription_id):
+        return []
+
     inserted_cost_batches: list[int] = []
 
     def fake_insert_rows(table: str, rows: list[dict]):
@@ -92,6 +98,8 @@ async def test_blob_checkpoint_prevents_reprocessing_across_runs(db, monkeypatch
 
     monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_costs", fake_fetch_costs)
     monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_events", fake_fetch_events)
+    monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_recommendations", fake_fetch_recommendations)
+    monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_inventory", fake_fetch_inventory)
     monkeypatch.setattr("app.domains.cloud_ledger.service.insert_rows", fake_insert_rows)
     monkeypatch.setattr("app.domains.cloud_ledger.service.CloudLedgerService._delete_azure_cost_overlap", lambda *args, **kwargs: None)
 
