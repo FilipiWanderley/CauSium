@@ -1725,6 +1725,7 @@ class CloudLedgerService:
         # - m5.large
         # - t3.micro
         normalized = value.replace("Standard_", "").replace("standard_", "")
+        normalized = re.sub(r"_(?:v\d+)$", "", normalized, flags=re.IGNORECASE)
         direct_match = re.search(r"\b([A-Za-z]+\d+[A-Za-z0-9.]*)\b", normalized)
         if direct_match:
             return direct_match.group(1)
