@@ -93,6 +93,7 @@ async def test_blob_checkpoint_prevents_reprocessing_across_runs(db, monkeypatch
     monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_costs", fake_fetch_costs)
     monkeypatch.setattr("app.domains.connectors.azure.client.AzureConnectorClient.fetch_events", fake_fetch_events)
     monkeypatch.setattr("app.domains.cloud_ledger.service.insert_rows", fake_insert_rows)
+    monkeypatch.setattr("app.domains.cloud_ledger.service.CloudLedgerService._delete_azure_cost_overlap", lambda *args, **kwargs: None)
 
     service = CloudLedgerService(db)
 

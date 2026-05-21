@@ -123,8 +123,9 @@ async def test_temporary_password_works_for_login(client):
 
     # Find the created user's ID via list
     users_resp = await client.get("/api/v1/auth/users", headers=ctx["headers"])
+    users_page = users_resp.json()
     target_id = next(
-        u["id"] for u in users_resp.json() if u["email"] == member_email
+        u["id"] for u in users_page["items"] if u["email"] == member_email
     )
 
     reset_resp = await client.post(

@@ -5,16 +5,29 @@ from unittest.mock import AsyncMock, patch
 from app.domains.admin.models import DlqMessage, DlqStatus
 
 
+def _azure_account_payload(external_id: str, display_name: str, tenant_id: str = "tenant-abc") -> dict:
+    return {
+        "provider": "azure",
+        "external_id": external_id,
+        "display_name": display_name,
+        "tenant_id": tenant_id,
+        "azure_credentials": {
+            "tenant_id": tenant_id,
+            "client_id": f"client-{external_id}",
+            "client_secret": "secret-test",
+            "subscription_id": external_id,
+            "storage_account_url": "https://example.blob.core.windows.net",
+            "cost_export_container": "exports",
+            "cost_export_prefix": "daily/",
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_create_and_list_account(client, auth_headers):
     resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-12345",
-            "display_name": "Test Azure Sub",
-            "tenant_id": "tenant-abc",
-        },
+        json=_azure_account_payload("sub-12345", "Test Azure Sub"),
         headers=auth_headers,
     )
     assert resp.status_code == 201
@@ -32,11 +45,7 @@ async def test_create_and_list_account(client, auth_headers):
 async def test_get_account(client, auth_headers):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-get-test",
-            "display_name": "Get Test Sub",
-        },
+        json=_azure_account_payload("sub-get-test", "Get Test Sub"),
         headers=auth_headers,
     )
     account_id = create_resp.json()["id"]
@@ -59,11 +68,7 @@ async def test_get_nonexistent_account(client, auth_headers):
 async def test_health_check_uses_mock(client, auth_headers):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-health-test",
-            "display_name": "Health Test Sub",
-        },
+        json=_azure_account_payload("sub-health-test", "Health Test Sub"),
         headers=auth_headers,
     )
     account_id = create_resp.json()["id"]
@@ -131,11 +136,7 @@ async def test_azure_health_check_returns_warning_for_excessive_permissions(clie
 async def test_sync_status_returns_operational_fields(client, auth_headers, db):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-sync-status",
-            "display_name": "Sync Status Sub",
-        },
+        json=_azure_account_payload("sub-sync-status", "Sync Status Sub"),
         headers=auth_headers,
     )
     assert create_resp.status_code == 201
@@ -171,11 +172,7 @@ async def test_sync_status_returns_operational_fields(client, auth_headers, db):
 async def test_sync_status_respects_workspace_isolation(client, org_a, org_b):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-iso-sync",
-            "display_name": "Org B Sync Sub",
-        },
+        json=_azure_account_payload("sub-iso-sync", "Org B Sync Sub", tenant_id="tenant-org-b"),
         headers=org_b["headers"],
     )
     assert create_resp.status_code == 201

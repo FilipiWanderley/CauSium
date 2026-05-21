@@ -2,6 +2,24 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 
+def _azure_payload(external_id: str, tenant_id: str) -> dict:
+    return {
+        "provider": "azure",
+        "external_id": external_id,
+        "display_name": "Scope Test" if external_id == "sub-scope-001" else "Scope ISO",
+        "tenant_id": tenant_id,
+        "azure_credentials": {
+            "tenant_id": tenant_id,
+            "client_id": f"client-{external_id}",
+            "client_secret": "secret-test",
+            "subscription_id": external_id,
+            "storage_account_url": "https://example.blob.core.windows.net",
+            "cost_export_container": "exports",
+            "cost_export_prefix": "scope/",
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_validate_scope_success_for_mocked_azure_credentials(client, auth_headers):
     """SP-CL03 happy path: /{id}/validate returns validated scopes and timestamp."""
@@ -9,18 +27,7 @@ async def test_validate_scope_success_for_mocked_azure_credentials(client, auth_
          patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
-            json={
-                "provider": "azure",
-                "external_id": "sub-scope-001",
-                "display_name": "Scope Test",
-                "tenant_id": "tenant-test",
-                "azure_credentials": {
-                    "tenant_id": "tenant-test",
-                    "client_id": "client-test",
-                    "client_secret": "secret-test",
-                    "subscription_id": "sub-scope-001",
-                },
-            },
+            json=_azure_payload("sub-scope-001", "tenant-test"),
             headers=auth_headers,
         )
     assert create_resp.status_code == 201, create_resp.text
@@ -64,18 +71,7 @@ async def test_validate_scope_org_isolation(client, org_a, org_b):
          patch("app.domains.connectors.azure.client.AzureConnectorClient.validate_cost_management_scope", new=AsyncMock(return_value=None)):
         create_resp = await client.post(
             "/api/v1/cloud-accounts",
-            json={
-                "provider": "azure",
-                "external_id": "sub-scope-iso",
-                "display_name": "Scope ISO",
-                "tenant_id": "tenant-iso",
-                "azure_credentials": {
-                    "tenant_id": "tenant-iso",
-                    "client_id": "client-iso",
-                    "client_secret": "secret-iso",
-                    "subscription_id": "sub-scope-iso",
-                },
-            },
+            json=_azure_payload("sub-scope-iso", "tenant-iso"),
             headers=org_b["headers"],
         )
     assert create_resp.status_code == 201, create_resp.text

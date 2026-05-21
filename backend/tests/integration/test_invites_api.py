@@ -28,6 +28,7 @@ async def test_admin_create_preview_accept_invite_flow(client, auth_headers):
         json={
             "full_name": "Invite Flow User",
             "password": "InviteFlow@123",
+            "terms_accepted": True,
         },
     )
     assert accept_resp.status_code == 201, accept_resp.text
@@ -70,6 +71,7 @@ async def test_admin_revoke_invite_prevents_accept(client, auth_headers):
         json={
             "full_name": "Revoke User",
             "password": "InviteFlow@123",
+            "terms_accepted": True,
         },
     )
     assert accept_resp.status_code == 409, accept_resp.text

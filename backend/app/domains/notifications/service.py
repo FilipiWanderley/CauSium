@@ -741,7 +741,7 @@ class NotificationsService:
         await self.db.refresh(event)
 
         mapped_severity = _ACTIVITY_TO_ALERT_SEVERITY[severity]
-        await self.create_realtime_alert(
+        await self.create_if_rule_matches(
             org_id=org_id,
             category=AlertCategory.ACTIVITY,
             severity=mapped_severity,
@@ -751,6 +751,7 @@ class NotificationsService:
             source_type="activity_event",
             source_id=str(event.id),
             extra_metadata={"provider": provider, "service": service, "resource_id": resource_id},
+            ignore_rules=False,
         )
 
         return event

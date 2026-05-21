@@ -2,16 +2,29 @@ import pytest
 from uuid import uuid4
 
 
+def _azure_sync_payload() -> dict:
+    return {
+        "provider": "azure",
+        "external_id": "sub-idemp-sync",
+        "display_name": "Idemp Sync Sub",
+        "tenant_id": "tenant-idemp-sync",
+        "azure_credentials": {
+            "tenant_id": "tenant-idemp-sync",
+            "client_id": "client-idemp-sync",
+            "client_secret": "secret-idemp-sync",
+            "subscription_id": "sub-idemp-sync",
+            "storage_account_url": "https://example.blob.core.windows.net",
+            "cost_export_container": "exports",
+            "cost_export_prefix": "idempotency/",
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_sync_endpoint_is_idempotent_with_same_key(client, auth_headers):
     create_resp = await client.post(
         "/api/v1/cloud-accounts",
-        json={
-            "provider": "azure",
-            "external_id": "sub-idemp-sync",
-            "display_name": "Idemp Sync Sub",
-            "tenant_id": "tenant-idemp-sync",
-        },
+        json=_azure_sync_payload(),
         headers=auth_headers,
     )
     assert create_resp.status_code == 201, create_resp.text

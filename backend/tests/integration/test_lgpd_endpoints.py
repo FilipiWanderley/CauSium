@@ -40,7 +40,7 @@ async def test_purge_my_data_anonymises_and_blocks_access(client):
     email = reg.json()["user"]["email"]
 
     purge = await client.delete("/api/v1/auth/me/data", headers=headers)
-    assert purge.status_code == 200, purge.text
+    assert purge.status_code == 204, purge.text
 
     # Access with old token must now fail (user anonymised/inactive)
     me = await client.get("/api/v1/auth/me", headers=headers)

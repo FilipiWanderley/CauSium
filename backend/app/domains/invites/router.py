@@ -59,6 +59,7 @@ async def accept_invite(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserOut:
     from app.domains.auth.service import AuthService
+    from app.domains.auth.router import _user_out
 
     service = InviteService(db)
     user = await service.accept_invite(token, req)
@@ -66,9 +67,7 @@ async def accept_invite(
 
     auth_service = AuthService(db)
     org_name = await auth_service.get_org_name(user.org_id)
-    out = UserOut.model_validate(user)
-    out.org_name = org_name
-    return out
+    return _user_out(user, org_name)
 
 
 @router.get("", response_model=Page[InviteOut])
