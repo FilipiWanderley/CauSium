@@ -1,4 +1,4 @@
-﻿const DEFAULT_DISPLAY_CURRENCY = 'BRL'
+const DEFAULT_DISPLAY_CURRENCY = 'BRL'
 
 function resolveLocale(currency: string) {
   return currency === 'BRL' ? 'pt-BR' : 'en-US'
@@ -29,5 +29,3 @@ export function formatCurrency(
 }
 
 export { DEFAULT_DISPLAY_CURRENCY }
-
-

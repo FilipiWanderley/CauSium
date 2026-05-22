@@ -9,12 +9,16 @@ export interface DataTableColumn<T> {
   header: string
   /** Render cell content. Receives the row item. */
   render: (item: T) => React.ReactNode
+  /** Optional summary/meta content rendered below the primary cell on small screens. */
+  mobileMeta?: (item: T) => React.ReactNode
   /** Sort comparator. If provided, column is sortable. */
   sortFn?: (a: T, b: T) => number
   /** Column alignment */
   align?: 'left' | 'center' | 'right'
   /** Responsive visibility */
   hideBelow?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Marks the column that should carry small-screen summary/meta content. */
+  mobilePrimary?: boolean
   /** Fixed width class (e.g. 'w-[280px]') */
   width?: string
   /** Whether this column should be sticky */
@@ -115,7 +119,7 @@ export function DataTable<T>({
               {Array.from({ length: loadingRows }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.key} className={clsx(cellPadding, hideClass(col))}>
+                    <td key={col.key} className={clsx(cellPadding, 'align-top', hideClass(col))}>
                       <div className="h-3.5 rounded bg-slate-100 animate-pulse" style={{ width: `${50 + Math.random() * 40}%` }} />
                     </td>
                   ))}
@@ -200,6 +204,11 @@ export function DataTable<T>({
                       )}
                     >
                       {col.render(item)}
+                      {col.mobilePrimary && col.mobileMeta && (
+                        <div className="mt-2 sm:hidden">
+                          {col.mobileMeta(item)}
+                        </div>
+                      )}
                     </td>
                   ))}
                 </tr>

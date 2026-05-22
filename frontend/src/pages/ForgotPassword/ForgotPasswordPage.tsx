@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Cpu } from 'lucide-react'
 import { authApi } from '../../api/auth'
@@ -218,5 +218,3 @@ export function ForgotPasswordPage() {
     </div>
   )
 }
-
-

@@ -346,7 +346,7 @@ export function OpportunitiesPage() {
         title={o.title}
         subtitle={o.subtitle}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button type="button" onClick={() => exportCsvMutation.mutate()} disabled={exportCsvMutation.isPending}
               className={clsx('inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
                 exportCsvMutation.isPending ? 'cursor-wait border-slate-200 bg-slate-50 text-slate-400' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
@@ -373,47 +373,49 @@ export function OpportunitiesPage() {
 
       {/* ═══ C. Filter / Action Bar ═══ */}
       <div className="rounded-panel border border-slate-200 bg-white px-3 py-2.5 shadow-panel">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          <select value={selectedCategory} onChange={(ev) => setSelectedCategory(ev.target.value)} aria-label="Filter by category"
-            className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
-            {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-          <select value={selectedStatus} onChange={(ev) => setSelectedStatus(ev.target.value as OpportunityStatus | 'all')} aria-label="Filter by status"
-            className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
-            <option value="all">{o.statusAll}</option>
-            <option value="open">{o.statusOpenSuggestion}</option>
-            <option value="in_progress">{o.statusInProgressReview}</option>
-            <option value="resolved">{o.statusResolvedApproved}</option>
-            <option value="dismissed">{o.statusDismissed}</option>
-            <option value="validated">{o.statusValidated}</option>
-          </select>
-          <select value={sortKey} onChange={(ev) => setSortKey(ev.target.value as SortKey)} aria-label="Sort"
-            className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
-            <option value="savings_desc">{o.sortSavingsDesc}</option>
-            <option value="score_desc">{o.sortScoreDesc}</option>
-            <option value="risk_desc">{o.sortRiskDesc}</option>
-            <option value="newest">{o.sortNewest}</option>
-          </select>
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={searchQuery} onChange={(ev) => setSearchQuery(ev.target.value)} placeholder={o.searchPlaceholder} aria-label={o.searchPlaceholder}
-              className="w-full rounded-md border border-slate-200 bg-slate-50/60 py-1.5 pl-8 pr-7 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none" />
-            {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" aria-label={o.searchClear}><X className="h-3 w-3" /></button>}
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-wrap items-center gap-2.5">
+            <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <select value={selectedCategory} onChange={(ev) => setSelectedCategory(ev.target.value)} aria-label="Filter by category"
+              className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
+              {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+            <select value={selectedStatus} onChange={(ev) => setSelectedStatus(ev.target.value as OpportunityStatus | 'all')} aria-label="Filter by status"
+              className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
+              <option value="all">{o.statusAll}</option>
+              <option value="open">{o.statusOpenSuggestion}</option>
+              <option value="in_progress">{o.statusInProgressReview}</option>
+              <option value="resolved">{o.statusResolvedApproved}</option>
+              <option value="dismissed">{o.statusDismissed}</option>
+              <option value="validated">{o.statusValidated}</option>
+            </select>
+            <select value={sortKey} onChange={(ev) => setSortKey(ev.target.value as SortKey)} aria-label="Sort"
+              className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
+              <option value="savings_desc">{o.sortSavingsDesc}</option>
+              <option value="score_desc">{o.sortScoreDesc}</option>
+              <option value="risk_desc">{o.sortRiskDesc}</option>
+              <option value="newest">{o.sortNewest}</option>
+            </select>
+            <div className="relative min-w-[220px] flex-[1.4_1_280px]">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input type="text" value={searchQuery} onChange={(ev) => setSearchQuery(ev.target.value)} placeholder={o.searchPlaceholder} aria-label={o.searchPlaceholder}
+                className="w-full rounded-md border border-slate-200 bg-slate-50/60 py-1.5 pl-8 pr-7 text-xs text-slate-700 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none" />
+              {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" aria-label={o.searchClear}><X className="h-3 w-3" /></button>}
+            </div>
+            {hasActiveFilters && (
+              <button type="button" onClick={clearAllFilters} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+                <X className="h-3 w-3" />{o.emptyFilteredAction}
+              </button>
+            )}
           </div>
-          {hasActiveFilters && (
-            <button type="button" onClick={clearAllFilters} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
-              <X className="h-3 w-3" />{o.emptyFilteredAction}
-            </button>
-          )}
           {sortedOpportunities.length > 0 && (
-            <div className="ml-auto flex items-center gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-xs xl:ml-auto xl:justify-end">
               <span className="font-semibold text-slate-800">{o.summaryOpportunities.replace('{{count}}', String(sortedOpportunities.length))}</span>
-              <span className="h-3.5 w-px bg-slate-200" />
+              <span className="hidden h-3.5 w-px bg-slate-200 sm:block" />
               <span className="font-semibold tabular-nums text-emerald-700">{o.summaryPerMonth.replace('{{amount}}', fmt(sortedOpportunities.reduce((s, op) => s + op.estimated_monthly_savings_usd, 0)))}</span>
               {sortedOpportunities.some((op) => op.risk_level === 'high') && (
                 <>
-                  <span className="h-3.5 w-px bg-slate-200" />
+                  <span className="hidden h-3.5 w-px bg-slate-200 sm:block" />
                   <span className="inline-flex items-center gap-1 font-medium text-rose-700"><span className="h-1.5 w-1.5 rounded-full bg-rose-500" />{o.summaryHighRisk.replace('{{count}}', String(sortedOpportunities.filter((op) => op.risk_level === 'high').length))}</span>
                 </>
               )}
@@ -547,27 +549,33 @@ export function OpportunitiesPage() {
 
       {/* ═══ E. Detail Drawer ═══ */}
       {selectedOpp && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOpp(null)} />
-          <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur-sm px-5 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          <div className="relative h-full w-full max-w-full overflow-y-auto bg-white shadow-2xl sm:max-w-2xl lg:max-w-lg">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white tabular-nums">{selectedOpp.composite_score.toFixed(0)}</div>
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-sm font-semibold text-slate-900">{o.detailTitle}</h2>
                   <p className="text-[10px] text-slate-500">{statusLabels[selectedOpp.status]}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedOpp(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X className="h-4 w-4" /></button>
+              <button onClick={() => setSelectedOpp(null)} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><X className="h-4 w-4" /></button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="space-y-4 p-4 sm:p-5">
               <div>
                 <h3 className="text-base font-bold text-slate-900">{selectedOpp.title}</h3>
                 <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">{selectedOpp.description}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={clsx('rounded-full border px-2 py-0.5 text-[10px] font-medium', STATUS_COLORS[selectedOpp.status])}>{statusLabels[selectedOpp.status]}</span>
+                  <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-medium', RISK_COLORS[getOpportunityRiskLevel(selectedOpp)])}>{riskLabels[getOpportunityRiskLevel(selectedOpp)]}</span>
+                  <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-medium', CONFIDENCE_COLORS[getOpportunityConfidenceTier(selectedOpp)])}>{confidenceTierLabels[getOpportunityConfidenceTier(selectedOpp)]}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{selectedProviderLabel}</span>
+                </div>
               </div>
 
               {/* Savings + Score */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">{o.monthlySavings}</p>
                   <p className="mt-1 text-lg font-bold tabular-nums text-emerald-700">{fmt(selectedSavingsEvidence?.estimated_monthly_savings ?? selectedOpp.estimated_monthly_savings_usd)}</p>
@@ -583,11 +591,11 @@ export function OpportunitiesPage() {
               {/* Resource Context */}
               {(selectedResourceContext || selectedOpp.resource_id || selectedOpp.resource_name) && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <h4 className="text-xs font-semibold text-slate-800">{o.resourceContextTitle}</h4>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{granularityLabels[selectedResourceContext?.granularity_tier ?? 'unknown']}</span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <MetadataField label={o.resourceContextProvider} value={selectedProviderLabel} />
                     <MetadataField label={o.resourceContextSubscription} value={selectedResourceContext?.subscription_name ?? undefined} />
                     <MetadataField label={o.resourceContextResourceGroup} value={selectedResourceContext?.resource_group ?? selectedParsedResource?.resourceGroup ?? undefined} />
@@ -627,7 +635,7 @@ export function OpportunitiesPage() {
                 </div>
                 {selectedSavingsEvidence ? (
                   <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <EvidenceMetric label={o.currentMonthlyCostEstimate} value={fmt(selectedSavingsEvidence.current_monthly_cost_estimate)} />
                       <EvidenceMetric label={o.projectedMonthlyCostEstimate} value={selectedSavingsEvidence.projected_monthly_cost_estimate != null ? fmt(selectedSavingsEvidence.projected_monthly_cost_estimate) : o.notAvailable} />
                       <EvidenceMetric label={o.estimatedSavingsEvidence} value={fmt(selectedSavingsEvidence.estimated_monthly_savings)} />
@@ -649,7 +657,7 @@ export function OpportunitiesPage() {
               {selectedEvidence && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
                   <h4 className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">{selectedIsAksEvidence ? o.aksEvidenceTitle : o.rightsizingEvidenceTitle}</h4>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {!selectedIsAksEvidence && (
                       <>
                         <EvidenceMetric label={o.currentLabel} value={selectedEvidence.current_sku ?? selectedMachineSku} />
@@ -685,7 +693,7 @@ export function OpportunitiesPage() {
               {/* Status Actions */}
               <div className="border-t border-slate-200 pt-4 space-y-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{o.currentStatus}</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 sm:gap-2.5">
                   <button onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'in_progress' })} disabled={updateStatus.isPending || selectedOpp.status === 'in_progress'}
                     className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40">{o.markInReview}</button>
                   <button onClick={() => updateStatus.mutate({ id: selectedOpp.id, status: 'resolved' })} disabled={updateStatus.isPending || selectedOpp.status === 'resolved'}
@@ -710,7 +718,7 @@ function EvidenceMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
       <p className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-slate-800">{value}</p>
+      <p className="mt-0.5 break-words text-xs font-semibold text-slate-800">{value}</p>
     </div>
   )
 }
@@ -720,7 +728,7 @@ function MetadataField({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
       <p className="text-[9px] font-medium uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-xs font-medium text-slate-800">{value}</p>
+      <p className="mt-0.5 break-words text-xs font-medium text-slate-800">{value}</p>
     </div>
   )
 }

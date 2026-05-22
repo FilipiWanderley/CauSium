@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bell, ChevronRight, LogOut, Menu } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -97,7 +97,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       <div
         className={
           enterpriseShellEnabled
-            ? 'flex w-full min-w-0 flex-wrap items-start gap-3 sm:flex-nowrap sm:gap-4'
+            ? 'flex w-full min-w-0 flex-col gap-3 xl:flex-row xl:items-start xl:justify-between xl:gap-4'
             : 'flex w-full min-w-0 items-center justify-between'
         }
       >
@@ -114,7 +114,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           {enterpriseShellEnabled ? (
             <div className="min-w-0 flex-1">
               {showBreadcrumbs && (
-                <nav className="mb-1.5 flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap text-[11px] font-medium text-slate-400">
+                <nav className="mb-1.5 flex min-w-0 max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[11px] font-medium text-slate-400 xl:max-w-[720px]">
                   {breadcrumbs.map((crumb, index) => (
                     <span key={`${crumb}-${index}`} className="flex items-center gap-1.5">
                       {index > 0 && <ChevronRight className="h-3 w-3 text-slate-300" />}
@@ -144,18 +144,18 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <div
           className={
             enterpriseShellEnabled
-              ? 'ml-auto flex w-full min-w-0 shrink-0 items-center justify-end gap-2 sm:w-auto md:gap-4'
+              ? 'flex w-full min-w-0 flex-wrap items-center justify-between gap-2 md:gap-4 xl:w-auto xl:shrink-0 xl:justify-end'
               : 'flex min-w-0 items-center gap-2 md:gap-4'
           }
         >
           {user && (
             <div className="flex min-w-0 items-center gap-2.5">
               <UserAvatar name={user.full_name} />
-              <div className="hidden min-w-0 leading-tight sm:block">
+              <div className="hidden min-w-0 max-w-[180px] leading-tight sm:block lg:max-w-[220px]">
                 <p className="truncate text-sm font-medium text-gray-900">{user.full_name}</p>
-                <p className="truncate text-xs text-gray-400">{user.org_name}</p>
+                <p className="hidden truncate text-xs text-gray-400 md:block">{user.org_name}</p>
               </div>
-              <span className="hidden rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 md:inline-flex">
+              <span className="hidden rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 xl:inline-flex">
                 {user.role}
               </span>
             </div>
@@ -199,5 +199,3 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     </header>
   )
 }
-
-

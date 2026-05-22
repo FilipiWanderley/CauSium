@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import clsx from 'clsx'
@@ -10,6 +10,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { useI18n } from '../../contexts/I18nContext'
 import { PageHeader } from '../../components/Layout/PageHeader'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
+import { ResponsivePrimaryCell } from '../../components/Tables/cells'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -32,15 +33,15 @@ const INVITES_PAGE_SIZE = 10
 const MEMBERS_PAGE_SIZE = 10
 
 const ACTION_BUTTON_BASE =
-  'rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-60 disabled:cursor-not-allowed'
+  'rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60'
 const ACTION_BUTTON_SECONDARY =
-  `${ACTION_BUTTON_BASE} text-gray-500 hover:bg-gray-50 hover:text-gray-700`
+  `${ACTION_BUTTON_BASE} border border-transparent px-2 py-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700`
 const ACTION_BUTTON_PRIMARY =
-  `${ACTION_BUTTON_BASE} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`
+  `${ACTION_BUTTON_BASE} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50`
 const ACTION_BUTTON_WARNING =
-  `${ACTION_BUTTON_BASE} border border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100/80`
+  `${ACTION_BUTTON_BASE} border border-amber-200 bg-amber-50/80 text-amber-700 hover:bg-amber-100/80`
 const ACTION_BUTTON_DANGER =
-  `${ACTION_BUTTON_BASE} text-red-600 hover:bg-red-50`
+  `${ACTION_BUTTON_BASE} border border-transparent px-2 py-1.5 text-red-600 hover:bg-red-50`
 
 type DeactivateModalState = { member: MemberItem; reason: string }
 type EditModalState = { member: MemberItem; full_name: string; role: UserRole }
@@ -269,6 +270,9 @@ export function MembersPage() {
   })
 
   const allMembers = membersQuery.data ?? []
+  const activeMembers = allMembers.filter((member) => member.is_active).length
+  const inactiveMembers = allMembers.length - activeMembers
+  const elevatedMembers = allMembers.filter((member) => member.role === 'admin' || member.role === 'executive').length
   const totalMemberPages = Math.max(1, Math.ceil(allMembers.length / MEMBERS_PAGE_SIZE))
   const members = allMembers.slice((membersPage - 1) * MEMBERS_PAGE_SIZE, membersPage * MEMBERS_PAGE_SIZE)
   const invites = invitesQuery.data?.items ?? []
@@ -325,41 +329,69 @@ export function MembersPage() {
   const formatDateTime = (value: string) => new Date(value).toLocaleString(locale)
 
   return (
-    <div className="page-container max-w-6xl">
+    <div className="page-container">
       <PageHeader
         title={m.title}
         subtitle={m.subtitle}
         meta={
           <>
-            <span>Workspace administration</span>
-            <span>Identity & access controls</span>
+            <span>Workspace access</span>
+            <span>Identity governance</span>
           </>
         }
       />
 
-      <Panel compact>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTab('members')}
-            disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
-            className={clsx(
-              'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
-              tab === 'members' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
-            )}
-          >
-            {m.tabMembers}
-          </button>
-          <button
-            onClick={() => setTab('invites')}
-            disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
-            className={clsx(
-              'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
-              tab === 'invites' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
-            )}
-          >
-            {m.tabInvites}
-          </button>
+      <Panel className="border-slate-200 bg-slate-50/70">
+        <PanelHeader
+          title="Access overview"
+          subtitle="Manage active members, role-sensitive access, and invitation flow from one workspace access surface."
+        />
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Active members</div>
+              <div className="mt-2 text-lg font-semibold text-slate-900">{activeMembers}</div>
+              <p className="mt-1 text-xs text-slate-500">Members with current workspace access.</p>
+            </div>
+            <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Elevated roles</div>
+              <div className="mt-2 text-lg font-semibold text-slate-900">{elevatedMembers}</div>
+              <p className="mt-1 text-xs text-slate-500">Members holding executive or admin privileges.</p>
+            </div>
+            <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Inactive members</div>
+              <div className="mt-2 text-lg font-semibold text-slate-900">{inactiveMembers}</div>
+              <p className="mt-1 text-xs text-slate-500">Previously provisioned members without active access.</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => setTab('members')}
+                disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
+                className={clsx(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+                  tab === 'members' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
+                )}
+              >
+                {m.tabMembers}
+              </button>
+              <button
+                onClick={() => setTab('invites')}
+                disabled={hasMemberMutationInFlight || hasInviteMutationInFlight}
+                className={clsx(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50',
+                  tab === 'invites' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-700 hover:bg-gray-50'
+                )}
+              >
+                {m.tabInvites}
+              </button>
+            </div>
+          </div>
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Keep access changes focused on role posture, security recovery, and lifecycle actions rather than treating every row as the same priority.
+        </p>
       </Panel>
 
       {feedback && (
@@ -380,7 +412,7 @@ export function MembersPage() {
           <Panel>
             <PanelHeader
               title={m.createMember}
-              subtitle="Provision a workspace member and assign an initial role from the same command surface."
+              subtitle="Provision a workspace member with an initial role and temporary password from the same governed access surface."
             />
             <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -432,7 +464,7 @@ export function MembersPage() {
           <Panel>
             <PanelHeader
               title={m.workspaceMembers.replace('{{count}}', String(allMembers.length))}
-              subtitle="Review current workspace access and manage account-level member actions."
+              subtitle="Review current workspace access, verify role posture, and complete sensitive member actions from one place."
               actions={
                 totalMemberPages > 1 ? (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -443,7 +475,7 @@ export function MembersPage() {
                     >
                       {m.prev}
                     </button>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-[11px] text-gray-500">
                       {m.pageOf
                         .replace('{{page}}', String(membersPage))
                         .replace('{{total}}', String(totalMemberPages))}
@@ -481,23 +513,36 @@ export function MembersPage() {
                     <thead>
                       <tr className="border-b border-gray-100 text-left">
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.name}</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">Email</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">{t.common.role}</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">Status</th>
                         <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {members.map((member) => (
-                        <tr key={member.id} className="transition hover:bg-gray-50/50">
-                          <td className="py-3 pr-4 font-medium text-gray-900">{member.full_name}</td>
-                          <td className="py-3 pr-4 text-gray-700">{member.email}</td>
+                        <tr key={member.id} className="align-top transition hover:bg-gray-50/50">
                           <td className="py-3 pr-4">
+                            <ResponsivePrimaryCell
+                              title={member.full_name}
+                              subtitle={member.email}
+                              meta={[
+                                { label: t.common.role, value: member.role },
+                                {
+                                  label: 'Status',
+                                  value: member.is_active ? 'active' : 'inactive',
+                                  valueClassName: member.is_active ? 'text-emerald-700' : 'text-slate-600',
+                                },
+                              ]}
+                            />
+                          </td>
+                          <td className="hidden py-3 pr-4 text-gray-700 sm:table-cell">{member.email}</td>
+                          <td className="hidden py-3 pr-4 md:table-cell">
                             <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                               {member.role}
                             </span>
                           </td>
-                          <td className="py-3 pr-4">
+                          <td className="hidden py-3 pr-4 sm:table-cell">
                             <span
                               className={clsx(
                                 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
@@ -508,43 +553,49 @@ export function MembersPage() {
                             </span>
                           </td>
                           <td className="py-3">
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => handleEdit(member)}
-                                disabled={!member.is_active || hasMemberMutationInFlight}
-                                className={ACTION_BUTTON_PRIMARY}
-                              >
-                                {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
-                              </button>
-                              <button
-                                onClick={() => resetMfaMutation.mutate(member)}
-                                disabled={hasMemberMutationInFlight}
-                                className={ACTION_BUTTON_SECONDARY}
-                              >
-                                {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
-                              </button>
-                              <button
-                                onClick={() => resetPasswordMutation.mutate(member)}
-                                disabled={hasMemberMutationInFlight}
-                                className={ACTION_BUTTON_SECONDARY}
-                              >
-                                {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
-                              </button>
-                              <span className="hidden h-5 w-px bg-gray-200 md:block" aria-hidden="true" />
-                              <button
-                                onClick={() => handleDeactivate(member)}
-                                disabled={!member.is_active || hasMemberMutationInFlight}
-                                className={ACTION_BUTTON_WARNING}
-                              >
-                                {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(member)}
-                                disabled={hasMemberMutationInFlight}
-                                className={ACTION_BUTTON_DANGER}
-                              >
-                                {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
-                              </button>
+                            <div className="flex flex-col items-start gap-2 sm:items-end">
+                              <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
+                                <button
+                                  onClick={() => handleEdit(member)}
+                                  disabled={!member.is_active || hasMemberMutationInFlight}
+                                  className={ACTION_BUTTON_PRIMARY}
+                                >
+                                  {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
+                                </button>
+                                <button
+                                  onClick={() => resetMfaMutation.mutate(member)}
+                                  disabled={hasMemberMutationInFlight}
+                                  className={ACTION_BUTTON_SECONDARY}
+                                >
+                                  {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
+                                </button>
+                                <button
+                                  onClick={() => resetPasswordMutation.mutate(member)}
+                                  disabled={hasMemberMutationInFlight}
+                                  className={ACTION_BUTTON_SECONDARY}
+                                >
+                                  {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
+                                <button
+                                  onClick={() => handleDeactivate(member)}
+                                  disabled={!member.is_active || hasMemberMutationInFlight}
+                                  className={ACTION_BUTTON_WARNING}
+                                >
+                                  {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(member)}
+                                  disabled={hasMemberMutationInFlight}
+                                  className={ACTION_BUTTON_DANGER}
+                                >
+                                  {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
+                                </button>
+                              </div>
+                              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 sm:text-right">
+                                Security recovery and lifecycle
+                              </p>
                             </div>
                           </td>
                         </tr>
@@ -563,7 +614,7 @@ export function MembersPage() {
           <Panel>
             <PanelHeader
               title={m.createInvite}
-              subtitle="Create a role-scoped invite without leaving the access management surface."
+              subtitle="Create a role-scoped invite without leaving the governed access management surface."
             />
             <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -611,7 +662,7 @@ export function MembersPage() {
           <Panel>
             <PanelHeader
               title="Invite inventory"
-              subtitle="Search pending and historical invites while keeping the same table behavior."
+              subtitle="Review pending and historical invites while keeping invitation control in the same access workflow."
             />
             <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -663,6 +714,9 @@ export function MembersPage() {
                   </button>
                 </div>
               </div>
+              <p className="mt-3 text-xs text-slate-500">
+                Use invite status and expiry filters to keep pending onboarding work separate from historical invite activity.
+              </p>
             </div>
             <div className="mt-4">
               {invitesQuery.isLoading ? (
@@ -702,25 +756,34 @@ export function MembersPage() {
                     <thead>
                       <tr className="border-b border-gray-100 text-left">
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
-                        <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Expires</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">{t.common.role}</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">Status</th>
+                        <th className="hidden pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">Expires</th>
                         <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {invites.map((invite) => (
                         <tr key={invite.id} className="transition hover:bg-gray-50/50">
-                          <td className="py-3 pr-4 font-medium text-gray-900">{invite.invited_email}</td>
                           <td className="py-3 pr-4">
+                            <ResponsivePrimaryCell
+                              title={invite.invited_email}
+                              meta={[
+                                { label: t.common.role, value: invite.role },
+                                { label: 'Status', value: inviteStatusLabel(invite.status) },
+                                { label: 'Expires', value: formatDateTime(invite.expires_at) },
+                              ]}
+                            />
+                          </td>
+                          <td className="hidden py-3 pr-4 sm:table-cell">
                             <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                               {invite.role}
                             </span>
                           </td>
-                          <td className="py-3 pr-4 text-gray-700">{inviteStatusLabel(invite.status)}</td>
-                          <td className="py-3 pr-4 text-gray-700">{formatDateTime(invite.expires_at)}</td>
+                          <td className="hidden py-3 pr-4 text-gray-700 sm:table-cell">{inviteStatusLabel(invite.status)}</td>
+                          <td className="hidden py-3 pr-4 text-gray-700 md:table-cell">{formatDateTime(invite.expires_at)}</td>
                           <td className="py-3">
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
                               <button
                                 onClick={() => copyInviteLink(invite)}
                                 disabled={hasInviteMutationInFlight}
@@ -903,5 +966,3 @@ export function MembersPage() {
     </div>
   )
 }
-
-

@@ -22,7 +22,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 import type { ConfidenceTier, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
 const INITIATIVE_COLUMNS: Array<keyof InitiativeBoard> = ['backlog', 'planned', 'in_progress', 'review', 'done', 'cancelled']
 
@@ -53,7 +53,7 @@ function formatDate(value: string | null, locale: string) {
 function capConfidence(v: ConfidenceTier) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' | 'Insufficient' }
 function capRisk(v: RiskLevel) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ExecutivePage() {
   usePageTitle('Executive')
@@ -62,7 +62,7 @@ export function ExecutivePage() {
   const ux = t.ux
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
-  // ─── Queries ────────────────────────────────────────────────────────────────
+  // ─── Queries ─────────────────────────────────────────────────────────────────
 
   const { data: subscriptionSummary, isLoading: subscriptionSummaryLoading, isError: subscriptionSummaryError } = useQuery({
     queryKey: ['ledger', 'subscriptions', 90],
@@ -95,7 +95,7 @@ export function ExecutivePage() {
     queryFn: () => initiativesApi.board().then((r) => r.data),
   })
 
-  // ─── Derived data ───────────────────────────────────────────────────────────
+  // ─── Derived data ────────────────────────────────────────────────────────────
 
   const displayCurrency = dashboardMeta?.billing_currency || DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
@@ -182,7 +182,7 @@ export function ExecutivePage() {
     )
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="page-container">
@@ -586,6 +586,4 @@ function CoverageCell({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
-
 

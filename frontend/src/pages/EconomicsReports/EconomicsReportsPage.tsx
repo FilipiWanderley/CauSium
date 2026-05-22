@@ -265,7 +265,7 @@ export function EconomicsReportsPage() {
   )
 }
 
-// ─── Breakdown Card ───────────────────────────────────────────────────────────
+// ─── Breakdown Card ──────────────────────────────────────────────────────────
 
 function BreakdownCard({
   title,
@@ -322,5 +322,3 @@ function BreakdownCard({
     </Panel>
   )
 }
-
-

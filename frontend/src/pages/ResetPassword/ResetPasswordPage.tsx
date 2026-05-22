@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Cpu, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../../api/auth'
@@ -289,5 +289,3 @@ export function ResetPasswordPage() {
     </div>
   )
 }
-
-

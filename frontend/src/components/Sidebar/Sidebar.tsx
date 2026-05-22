@@ -1,4 +1,4 @@
-﻿import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState, useEffect } from 'react'
 import {
@@ -420,5 +420,3 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     </aside>
   )
 }
-
-

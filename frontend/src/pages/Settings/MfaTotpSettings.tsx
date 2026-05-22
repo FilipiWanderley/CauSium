@@ -83,7 +83,10 @@ export function MfaTotpSettings() {
 
   return (
     <div className="space-y-4 max-w-lg">
-      <h2 className="text-sm font-semibold text-gray-900">Two-factor authentication (TOTP)</h2>
+      <h2 className="text-sm font-semibold text-gray-900">Two-factor authentication</h2>
+      <p className="text-xs leading-5 text-slate-500">
+        Keep two-factor authentication enabled for higher-risk access paths and store recovery codes somewhere your team can reach during account recovery.
+      </p>
 
       {feedback && (
         <div
@@ -98,28 +101,28 @@ export function MfaTotpSettings() {
       {step === 'status' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Two-factor authentication is not enabled. Enable it to strengthen access security.
+            Two-factor authentication is not enabled. Turn it on to add a stronger sign-in checkpoint for this workspace.
           </p>
           <button
             className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60"
             onClick={() => { setFeedback(null); setupMutation.mutate() }}
             disabled={setupMutation.isPending}
           >
-            {setupMutation.isPending ? t.common.loading : 'Enable 2FA'}
+            {setupMutation.isPending ? t.common.loading : 'Enable two-factor authentication'}
           </button>
         </div>
       )}
 
       {step === 'setup' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">Preparing setup…</p>
+          <p className="text-sm text-gray-600">Preparing your security setup…</p>
         </div>
       )}
 
       {step === 'enable' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Scan this QR code with Google Authenticator, Authy, or a compatible app. You can also enter the secret manually.
+            Scan this QR code with Google Authenticator, Authy, or another compatible app. You can also enter the secret manually.
           </p>
           <div>
             <QRCodeSVG value={otpauthUrl} size={160} />
@@ -142,7 +145,7 @@ export function MfaTotpSettings() {
               onClick={() => { setFeedback(null); enableMutation.mutate() }}
               disabled={code.length < 6 || enableMutation.isPending}
             >
-              {enableMutation.isPending ? 'Enabling…' : 'Enable'}
+              {enableMutation.isPending ? 'Enabling…' : 'Confirm and enable'}
             </button>
           </div>
         </div>
@@ -153,7 +156,7 @@ export function MfaTotpSettings() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm font-semibold text-amber-900 mb-1">Save your recovery codes</p>
             <p className="text-xs text-amber-800 mb-3">
-              Each code can be used once if you lose access to your authenticator app. They won’t be shown again.
+              Each code can be used once if you lose access to your authenticator app. They will not be shown again.
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {backupCodes.map((c) => (
@@ -166,21 +169,21 @@ export function MfaTotpSettings() {
               onClick={() => navigator.clipboard.writeText(backupCodes.join('\n'))}
               className="mt-3 text-xs text-amber-800 underline"
             >
-              Copy all
+              Copy all codes
             </button>
           </div>
           <button
             className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             onClick={() => { setBackupCodes([]); setStep('enabled') }}
           >
-            I saved these codes
+            I saved these recovery codes
           </button>
         </div>
       )}
 
       {step === 'enabled' && (
         <div className="space-y-3">
-          <p className="text-sm text-emerald-700 font-medium">Two-factor authentication is enabled.</p>
+          <p className="text-sm font-medium text-emerald-700">Two-factor authentication is enabled.</p>
           {backupCountData && (
             <p className="text-xs text-gray-500">
               Recovery codes remaining:{' '}
@@ -188,7 +191,7 @@ export function MfaTotpSettings() {
                 {backupCountData.backup_codes_remaining}
               </span>
               {backupCountData.backup_codes_remaining === 0 && (
-                <span className="text-red-600"> — regenerate now</span>
+                <span className="text-red-600"> - regenerate now</span>
               )}
             </p>
           )}
@@ -203,7 +206,7 @@ export function MfaTotpSettings() {
               className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-700 hover:bg-red-50"
               onClick={() => { setFeedback(null); setCode(''); setStep('disable') }}
             >
-              Disable 2FA
+              Disable two-factor authentication
             </button>
           </div>
         </div>
@@ -211,7 +214,7 @@ export function MfaTotpSettings() {
 
       {step === 'regenerate' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">To regenerate, confirm with a code from your authenticator app:</p>
+          <p className="text-sm text-gray-600">To regenerate recovery codes, confirm with a code from your authenticator app:</p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -227,7 +230,7 @@ export function MfaTotpSettings() {
               onClick={() => { setFeedback(null); regenerateMutation.mutate() }}
               disabled={code.length < 6 || regenerateMutation.isPending}
             >
-              {regenerateMutation.isPending ? 'Generating…' : 'Regenerate'}
+              {regenerateMutation.isPending ? 'Generating…' : 'Regenerate codes'}
             </button>
             <button
               className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
@@ -241,7 +244,7 @@ export function MfaTotpSettings() {
 
       {step === 'disable' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">To disable, confirm with a code from your authenticator app:</p>
+          <p className="text-sm text-gray-600">To disable two-factor authentication, confirm with a code from your authenticator app:</p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -257,7 +260,7 @@ export function MfaTotpSettings() {
               onClick={() => { setFeedback(null); disableMutation.mutate() }}
               disabled={code.length < 6 || disableMutation.isPending}
             >
-              {disableMutation.isPending ? 'Disabling…' : 'Disable'}
+              {disableMutation.isPending ? 'Disabling…' : 'Disable two-factor authentication'}
             </button>
             <button
               className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"

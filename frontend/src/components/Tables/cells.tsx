@@ -5,6 +5,12 @@
 
 import clsx from 'clsx'
 
+export interface ResponsiveMetaItem {
+  label: string
+  value: React.ReactNode
+  valueClassName?: string
+}
+
 // ─── Badge Cell ──────────────────────────────────────────────────────────────
 
 interface BadgeCellProps {
@@ -117,6 +123,49 @@ export function TimestampCell({ value, locale = 'en-US' }: TimestampCellProps) {
     <span className="text-slate-500 tabular-nums">
       {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date)}
     </span>
+  )
+}
+
+// ─── Responsive Admin/Table Helpers ──────────────────────────────────────────
+
+interface ResponsiveMetaListProps {
+  items: ResponsiveMetaItem[]
+  className?: string
+}
+
+export function ResponsiveMetaList({ items, className }: ResponsiveMetaListProps) {
+  const visibleItems = items.filter((item) => item.value !== null && item.value !== undefined && item.value !== '')
+
+  if (!visibleItems.length) return null
+
+  return (
+    <dl className={clsx('mt-2 grid grid-cols-1 gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:hidden', className)}>
+      {visibleItems.map((item) => (
+        <div key={item.label} className="flex items-start justify-between gap-3">
+          <dt className="shrink-0 text-slate-400">{item.label}</dt>
+          <dd className={clsx('min-w-0 text-right text-slate-600', item.valueClassName)}>{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+interface ResponsivePrimaryCellProps {
+  title: React.ReactNode
+  subtitle?: React.ReactNode
+  meta?: ResponsiveMetaItem[]
+  className?: string
+}
+
+export function ResponsivePrimaryCell({ title, subtitle, meta, className }: ResponsivePrimaryCellProps) {
+  return (
+    <div className={clsx('min-w-0', className)}>
+      <div className="min-w-0">
+        <p className="font-medium text-slate-800 break-words">{title}</p>
+        {subtitle && <p className="mt-0.5 break-words text-[11px] text-slate-400">{subtitle}</p>}
+      </div>
+      {meta && <ResponsiveMetaList items={meta} />}
+    </div>
   )
 }
 

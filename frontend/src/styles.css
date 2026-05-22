@@ -19,7 +19,12 @@
 @layer components {
   /* Page layout rhythm */
   .page-container {
-    @apply space-y-6;
+    @apply w-full space-y-6;
+  }
+
+  /* Intentionally constrained reading surfaces. App/ops pages should remain fluid by default. */
+  .page-container-narrow {
+    @apply mx-auto w-full max-w-3xl space-y-6;
   }
 
   /* Section grouping */

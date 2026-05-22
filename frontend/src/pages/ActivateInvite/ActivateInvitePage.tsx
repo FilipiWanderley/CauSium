@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Cpu } from 'lucide-react'
@@ -313,5 +313,3 @@ export function ActivateInvitePage() {
     </div>
   )
 }
-
-

@@ -180,5 +180,3 @@ export function AcceptTermsPage() {
     </div>
   )
 }
-
-
