@@ -87,7 +87,7 @@ describe('EconomicsSkusPage', () => {
     render(<EconomicsSkusPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByText(/no sku cost data/i)).toBeInTheDocument()
+      expect(screen.getByText('No SKU data available for the selected window.')).toBeInTheDocument()
     })
   })
 
