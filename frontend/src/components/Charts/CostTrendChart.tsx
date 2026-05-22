@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import type { CostTrend, ChangeEvent, ChangeEventType } from '../../types'
 import { format, parseISO } from 'date-fns'
+import { formatCurrency, getCurrencyLocale } from '../../utils/currency'
 
 // ── Event type styling ────────────────────────────────────────────────────────
 
@@ -51,17 +52,15 @@ function dominantType(events: ChangeEvent[]): ChangeEventType {
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
 const formatMoney = (value: number, currency: string) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: value >= 100 ? 0 : 2,
-  }).format(value)
+  formatCurrency(value, currency, { maximumFractionDigits: value >= 100 ? 0 : 2 })
 
 const formatAxisValue = (value: number, currency: string) => {
-  if (Math.abs(value) >= 1000) {
-    return `${formatMoney(value / 1000, currency).replace(/\.00(?=\D|$)/, '')}k`
-  }
-  return formatMoney(value, currency).replace(/\.00(?=\D|$)/, '')
+  return new Intl.NumberFormat(getCurrencyLocale(currency), {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value)
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -172,7 +171,7 @@ function EventDot(props: any) {
   )
 }
 
-// ── Reference lines for events with high cost impact ─────────────────────────
+// ── Reference lines for events with high cost impact ──────────────────────────
 
 interface RefEvent {
   dateLabel: string
@@ -330,3 +329,5 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
     </div>
   )
 }
+
+

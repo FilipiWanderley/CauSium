@@ -1,4 +1,4 @@
-const DEFAULT_DISPLAY_CURRENCY = 'BRL'
+﻿const DEFAULT_DISPLAY_CURRENCY = 'BRL'
 
 function resolveLocale(currency: string) {
   return currency === 'BRL' ? 'pt-BR' : 'en-US'
@@ -6,6 +6,10 @@ function resolveLocale(currency: string) {
 
 export function getDisplayCurrency(currency?: string | null) {
   return currency?.trim().toUpperCase() || DEFAULT_DISPLAY_CURRENCY
+}
+
+export function getCurrencyLocale(currency?: string | null) {
+  return resolveLocale(getDisplayCurrency(currency))
 }
 
 export function formatCurrency(
@@ -16,7 +20,7 @@ export function formatCurrency(
   const resolvedCurrency = getDisplayCurrency(currency)
   const { locale, ...intlOptions } = options ?? {}
 
-  return new Intl.NumberFormat(locale ?? resolveLocale(resolvedCurrency), {
+  return new Intl.NumberFormat(locale ?? getCurrencyLocale(resolvedCurrency), {
     style: 'currency',
     currency: resolvedCurrency,
     maximumFractionDigits: 0,
@@ -25,3 +29,5 @@ export function formatCurrency(
 }
 
 export { DEFAULT_DISPLAY_CURRENCY }
+
+
