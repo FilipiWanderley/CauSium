@@ -6,8 +6,10 @@ import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { formatDateShort } from '../../utils/format'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
-import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { SkeletonMetricCards, SkeletonTable } from '../../components/UX/Skeleton'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
@@ -70,43 +72,42 @@ export function EconomicsUsagePage() {
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">{eu.title}</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{eu.subtitle}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
-            {eu.operationalMetric}
-          </span>
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">
-            {eu.organizationWide}
-          </span>
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-            {eu.financialValuesBrl}
-          </span>
+    <div className="page-container">
+      <PageHeader
+        title={eu.title}
+        subtitle={eu.subtitle}
+        meta={
+          <>
+            <span>{eu.operationalMetric}</span>
+            <span>{eu.organizationWide}</span>
+            <span>Billing currency values</span>
+          </>
+        }
+      />
+
+      <Panel>
+        <PanelHeader
+          title="Command bar"
+          subtitle="Adjust the reporting window while keeping operational and financial usage diagnostics aligned."
+        />
+        <div className="mt-4">
+          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+            {eu.timeWindow}
+            <select
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              className="mt-1.5 block w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+            >
+              <option value={30}>{eu.last30}</option>
+              <option value={60}>{eu.last60}</option>
+              <option value={90}>{eu.last90}</option>
+              <option value={180}>{eu.last180}</option>
+            </select>
+          </label>
         </div>
-      </header>
+      </Panel>
 
-      {/* Time window control */}
-      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
-          {eu.timeWindow}
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="mt-1.5 block w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-          >
-            <option value={30}>{eu.last30}</option>
-            <option value={60}>{eu.last60}</option>
-            <option value={90}>{eu.last90}</option>
-            <option value={180}>{eu.last180}</option>
-          </select>
-        </label>
-      </div>
-
-      {/* Operational signals */}
-      <section>
+      <section className="section-group">
         <SectionIntro
           title={eu.operationsTitle}
           subtitle={eu.operationsSubtitle}
@@ -116,39 +117,39 @@ export function EconomicsUsagePage() {
             { label: eu.organizationWide, tone: 'organization' },
           ]}
         />
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="kpi-grid">
           <KpiCard
             title={eu.dailyAvg}
             value={numberFmt.format(Math.round(usageSignals.dailyAvg))}
-            subtitle={eu.dailyAvgDesc}
             icon={<Activity className="h-4 w-4" />}
-            emphasis="primary"
+            compact
+            footer={<span>{eu.dailyAvgDesc}</span>}
           />
           <KpiCard
             title={eu.peakDay}
             value={numberFmt.format(Math.round(usageSignals.peak))}
-            subtitle={eu.peakDayDesc}
             icon={<TrendingUp className="h-4 w-4" />}
+            compact
+            footer={<span>{eu.peakDayDesc}</span>}
           />
           <KpiCard
             title={eu.volatility}
             value={numberFmt.format(Math.round(usageSignals.volatility))}
-            subtitle={eu.volatilityDesc}
             icon={<Activity className="h-4 w-4" />}
-            tooltip={ux.tooltipVolatility}
+            compact
+            footer={<span>{eu.volatilityDesc}. {ux.tooltipVolatility}</span>}
           />
           <KpiCard
             title={eu.efficiencyScore}
             value={`${efficiencyScore}`}
-            subtitle={eu.efficiencyScoreDesc}
             icon={<TrendingUp className="h-4 w-4" />}
-            tooltip={ux.tooltipEfficiencyScore}
-            valueColor={efficiencyScore >= 70 ? 'text-emerald-600' : efficiencyScore >= 40 ? 'text-amber-600' : 'text-red-600'}
+            compact
+            tone={efficiencyScore >= 70 ? 'positive' : efficiencyScore >= 40 ? 'warning' : 'negative'}
+            footer={<span>{eu.efficiencyScoreDesc}. {ux.tooltipEfficiencyScore}</span>}
           />
         </div>
       </section>
 
-      {/* Reservation coverage */}
       <section>
         <SectionIntro
           title={eu.financialTitle}
@@ -160,60 +161,73 @@ export function EconomicsUsagePage() {
           ]}
           compact
         />
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">{eu.reservationCoverage}</h2>
-          </div>
-          <div className="p-5">
+        <Panel>
+          <PanelHeader
+            title={eu.reservationCoverage}
+            subtitle="Track reserved and uncovered compute cost using the tenant-aware billing currency."
+          />
+          <div className="mt-4">
             {reservationCoverageQuery.isLoading ? (
               <SkeletonMetricCards count={4} />
             ) : reservationCoverageQuery.isError ? (
               <ErrorState
                 title={eu.reservationCoverageEmpty}
+                description="Reservation coverage diagnostics are temporarily unavailable for the selected window."
                 onRetry={() => reservationCoverageQuery.refetch()}
                 retryLabel={t.common.reset}
                 compact
               />
             ) : !reservationCoverageQuery.data ? (
-              <EmptyState icon="lightbulb" title={eu.reservationCoverageEmpty} />
+              <EmptyState
+                icon="lightbulb"
+                title={eu.reservationCoverageEmpty}
+                description="Try a shorter window or validate reservation telemetry for this workspace."
+                action={days !== 30 ? { label: eu.last30, onClick: () => setDays(30) } : undefined}
+              />
             ) : (
               <div className="space-y-5">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="kpi-grid">
                   <KpiCard
                     title={eu.computeSpendBasis}
                     value={formatMoney(reservationCoverageQuery.data.total_compute_cost_usd)}
-                    subtitle={eu.organizationWide}
                     icon={<Activity className="h-4 w-4" />}
+                    compact
+                    footer={<span>{eu.organizationWide}</span>}
                   />
                   <KpiCard
                     title={eu.reservedSpendBasis}
                     value={formatMoney(reservationCoverageQuery.data.total_reserved_cost_usd)}
-                    subtitle={eu.organizationWide}
                     icon={<TrendingUp className="h-4 w-4" />}
+                    compact
+                    footer={<span>{eu.organizationWide}</span>}
                   />
                   <KpiCard
                     title={eu.uncoveredSpendBasis}
                     value={formatMoney(reservationCoverageQuery.data.uncovered_compute_cost_usd)}
-                    subtitle={eu.organizationWide}
                     icon={<Activity className="h-4 w-4" />}
+                    compact
+                    footer={<span>{eu.organizationWide}</span>}
                   />
                   <KpiCard
                     title={eu.coveragePct}
                     value={`${reservationCoverageQuery.data.coverage_pct}%`}
-                    subtitle={reservationCoverageQuery.data.has_active_reservations ? eu.reservationsDetected : eu.noReservationsDetected}
                     icon={<TrendingUp className="h-4 w-4" />}
-                    tooltip={ux.tooltipReservationCoverage}
-                    valueColor={
+                    compact
+                    tone={
                       reservationCoverageQuery.data.coverage_pct >= 70
-                        ? 'text-emerald-600'
+                        ? 'positive'
                         : reservationCoverageQuery.data.coverage_pct >= 40
-                          ? 'text-amber-600'
-                          : undefined
+                          ? 'warning'
+                          : 'negative'
+                    }
+                    footer={
+                      <span>
+                        {reservationCoverageQuery.data.has_active_reservations ? eu.reservationsDetected : eu.noReservationsDetected}. {ux.tooltipReservationCoverage}
+                      </span>
                     }
                   />
                 </div>
 
-                {/* Recommendation callout */}
                 <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3">
                   <TrendingUp className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
                   <p className="text-sm leading-relaxed text-blue-800">
@@ -221,7 +235,6 @@ export function EconomicsUsagePage() {
                   </p>
                 </div>
 
-                {/* Service breakdown table */}
                 {!!reservationCoverageQuery.data.services.length && (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -251,28 +264,32 @@ export function EconomicsUsagePage() {
               </div>
             )}
           </div>
-        </div>
+        </Panel>
       </section>
 
-      {/* Daily cost timeline */}
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-gray-900">
-            {eu.timeline.replace('{{days}}', String(days))}
-          </h2>
-        </div>
-        <div className="p-5">
+      <Panel>
+        <PanelHeader
+          title={eu.timeline.replace('{{days}}', String(days))}
+          subtitle="Review daily usage movement for the selected reporting window."
+        />
+        <div className="mt-4">
           {trendQuery.isLoading ? (
             <SkeletonTable rows={7} columns={2} />
           ) : trendQuery.isError ? (
             <ErrorState
               title={eu.noData}
+              description="Daily usage timeline data is temporarily unavailable for the selected window."
               onRetry={() => trendQuery.refetch()}
               retryLabel={t.common.reset}
               compact
             />
           ) : !(trendQuery.data ?? []).length ? (
-            <EmptyState icon="lightbulb" title={eu.noData} />
+            <EmptyState
+              icon="lightbulb"
+              title={eu.noData}
+              description="No daily usage rows are available for the selected period."
+              action={days !== 30 ? { label: eu.last30, onClick: () => setDays(30) } : undefined}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -294,51 +311,9 @@ export function EconomicsUsagePage() {
             </div>
           )}
         </div>
-      </section>
+      </Panel>
     </div>
   )
 }
 
-// ─── Shared KPI Card ─────────────────────────────────────────────────────────
 
-function KpiCard({
-  title,
-  value,
-  subtitle,
-  icon,
-  emphasis = 'default',
-  tooltip,
-  valueColor,
-}: {
-  title: string
-  value: string
-  subtitle: string
-  icon: React.ReactNode
-  emphasis?: 'default' | 'primary'
-  tooltip?: string
-  valueColor?: string
-}) {
-  const isPrimary = emphasis === 'primary'
-
-  return (
-    <div className={`rounded-xl border p-4 shadow-sm transition ${
-      isPrimary ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'
-    }`}>
-      <div className="flex items-center justify-between">
-        <div className={`text-[11px] font-medium uppercase tracking-wider ${isPrimary ? 'text-slate-400' : 'text-gray-500'}`}>
-          {title}
-          {tooltip && <ExplainTooltip text={tooltip} className="ml-1.5 align-middle" />}
-        </div>
-        <div className={isPrimary ? 'text-slate-400' : 'text-gray-400'}>{icon}</div>
-      </div>
-      <div className={`mt-2 text-2xl font-bold tabular-nums ${
-        isPrimary ? 'text-white' : valueColor ?? 'text-gray-900'
-      }`}>
-        {value}
-      </div>
-      <div className={`mt-1 text-xs leading-relaxed ${isPrimary ? 'text-slate-400' : 'text-gray-500'}`}>
-        {subtitle}
-      </div>
-    </div>
-  )
-}
