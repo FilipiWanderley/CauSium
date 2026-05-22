@@ -228,21 +228,30 @@ export function SettingsPage() {
 
   if (section === 'team') {
     return (
-      <div className="page-container max-w-3xl">
+      <div className="page-container">
         <PageHeader
           title={t.nav.settingsTeam}
           subtitle="Manage workspace membership from the dedicated access administration surface."
           meta={
             <>
-              <span>Workspace administration</span>
-              <span>Member access handoff</span>
+            <span>Settings</span>
+            <span>Workspace access</span>
             </>
           }
+        />
+        <SectionIntro
+          title="Workspace access"
+          subtitle="Access governance lives in the dedicated Members surface so role changes, recovery actions, and offboarding stay together."
+          badges={[
+            { label: 'Access governance', tone: 'organization' },
+            { label: 'Dedicated workflow', tone: 'secondary' },
+          ]}
+          compact
         />
         <Panel>
           <PanelHeader
             title={t.nav.settingsTeam}
-            subtitle="Workspace membership is managed from the Members page to keep access administration in one place."
+          subtitle="Workspace membership is managed from the Members page so access governance stays in one dedicated surface."
           />
           <div className="mt-4">
             <Link
@@ -314,7 +323,6 @@ export function SettingsPage() {
         (typeof responseData === 'string' && responseData.trim()) ||
         ((responseData as { detail?: string })?.detail?.trim?.() as string | undefined) ||
         (error as Error)?.message ||
-        'Falha ao validar credencial. Revise os dados e permissÃµes.'
         'Credential validation failed. Review the fields and permissions.'
       setValidationMessage(status ? `(${status}) ${detail}` : detail)
       setValidationChecks((prev) => ({
@@ -428,36 +436,36 @@ export function SettingsPage() {
       value ? new Date(value).toLocaleString() : 'Never synced'
 
     return (
-      <div className="page-container max-w-6xl">
+      <div className="page-container">
         <PageHeader
           title={t.nav.settingsCloud}
-          subtitle="Connect and validate cloud credentials without changing the current workspace setup workflow."
+          subtitle="Connect, validate, and maintain cloud access from one productized settings surface."
           meta={
             <>
-              <span>Workspace administration</span>
-              <span>Cloud connectivity</span>
+              <span>Settings</span>
+              <span>Cloud connections</span>
             </>
           }
         />
         <SectionIntro
-          title="Cloud settings"
-          subtitle="Configure provider credentials, validate access, and review registered cloud accounts from the same settings surface."
+          title="Cloud connections"
+          subtitle="Configure provider credentials, validate access, and manage connected accounts without leaving the settings experience."
           badges={[
-            { label: 'English UI copy', tone: 'secondary' },
             { label: 'Provider-aware setup', tone: 'organization' },
+            { label: 'Validated before save', tone: 'secondary' },
           ]}
           compact
         />
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
           <Panel className="space-y-5">
             <PanelHeader
-              title="New credential"
+              title="Add cloud connection"
               subtitle={
                 provider === 'azure'
-                  ? 'Connect Azure securely and validate the credential before saving.'
+                  ? 'Connect Azure securely and validate access before saving the connection.'
                   : provider === 'aws'
-                    ? 'Connect AWS with an IAM access key and validate before saving.'
-                    : 'Connect GCP with a Service Account JSON key or Workload Identity.'
+                    ? 'Connect AWS with an IAM access key and validate access before saving.'
+                    : 'Connect GCP with a service account key or Workload Identity.'
               }
             />
 
@@ -472,7 +480,7 @@ export function SettingsPage() {
                       className="inline-flex items-center gap-2 text-sm text-gray-700 font-medium"
                       aria-expanded={isScriptExpanded}
                     >
-                      <span>{isScriptExpanded ? 'â–¼' : 'â–¶'}</span>
+                      <span>{isScriptExpanded ? '▼' : '▶'}</span>
                       <span>Azure setup script (PowerShell)</span>
                     </button>
                     <button
@@ -498,7 +506,7 @@ export function SettingsPage() {
                   </div>
                 </PanelSection>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Use only Service Principal credentials (App Registration). Do not use a personal customer login.
+                  Use only service principal credentials for Azure onboarding. Do not use a personal customer login.
                 </div>
               </>
             )}
@@ -541,16 +549,19 @@ export function SettingsPage() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-600">
-                Select the provider to show only the fields required for that setup.
+                Select a provider to show only the fields required for that connection flow.
               </p>
             </div>
             </PanelSection>
 
-            <PanelSection title="Credential details">
+            <PanelSection title="Connection details">
+            <p className="mb-3 text-xs text-slate-500">
+              Start with account identity, then complete only the provider-specific credentials and export fields required for validation.
+            </p>
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
-                placeholder="Credential name"
+                placeholder="Connection name"
                 value={cloudForm.display_name}
                 onChange={(e) => setCloudForm((prev) => ({ ...prev, display_name: e.target.value }))}
               />
@@ -562,6 +573,9 @@ export function SettingsPage() {
               />
               {provider === 'azure' && (
                 <>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 md:col-span-2">
+                    Provide service principal access first, then the storage location that hosts the billing export.
+                  </div>
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                     placeholder="Tenant ID"
@@ -618,6 +632,9 @@ export function SettingsPage() {
               )}
               {provider === 'aws' && (
                 <>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 md:col-span-2">
+                    Use IAM credentials for validation. CUR export fields are optional and can be added only when needed.
+                  </div>
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                     placeholder="Access Key ID"
@@ -634,7 +651,7 @@ export function SettingsPage() {
                   />
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="Session Token (opcional)"
+                    placeholder="Session token (optional)"
                     value={cloudForm.aws_session_token}
                     onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_session_token: e.target.value }))}
                   />
@@ -646,13 +663,13 @@ export function SettingsPage() {
                   />
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="CUR Bucket (opcional)"
+                    placeholder="CUR bucket (optional)"
                     value={cloudForm.aws_cur_bucket}
                     onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_cur_bucket: e.target.value }))}
                   />
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="CUR Prefix (opcional)"
+                    placeholder="CUR prefix (optional)"
                     value={cloudForm.aws_cur_prefix}
                     onChange={(e) => setCloudForm((prev) => ({ ...prev, aws_cur_prefix: e.target.value }))}
                   />
@@ -660,6 +677,9 @@ export function SettingsPage() {
               )}
               {provider === 'gcp' && (
                 <>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 md:col-span-2">
+                    Choose Workload Identity when available. Otherwise provide a service account key and any optional billing export fields below.
+                  </div>
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
                     placeholder="Project ID"
@@ -677,20 +697,20 @@ export function SettingsPage() {
                   {!cloudForm.gcp_use_workload_identity && (
                     <textarea
                       className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2 min-h-36"
-                      placeholder="Service Account JSON"
+                      placeholder="Service account JSON"
                       value={cloudForm.gcp_service_account_json}
                       onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_service_account_json: e.target.value }))}
                     />
                   )}
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Billing Export Table (opcional)"
+                    placeholder="Billing export table (optional)"
                     value={cloudForm.gcp_billing_export_table}
                     onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_billing_export_table: e.target.value }))}
                   />
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Logging Filter (opcional)"
+                    placeholder="Logging filter (optional)"
                     value={cloudForm.gcp_logging_filter}
                     onChange={(e) => setCloudForm((prev) => ({ ...prev, gcp_logging_filter: e.target.value }))}
                   />
@@ -700,7 +720,7 @@ export function SettingsPage() {
             </PanelSection>
 
             <PanelSection title="Validation">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => {
                   setCloudForm(defaultCloudForm)
@@ -734,7 +754,7 @@ export function SettingsPage() {
             <Panel compact className="space-y-2">
               <PanelHeader
                 title="Validation status"
-                subtitle="Follow credential, scope, cost, and storage checks before saving the final setup."
+                subtitle="Track credential, scope, cost, and storage checks before saving the final connection."
               />
               <div className="mt-3 space-y-2">
               <p className="text-xs text-gray-600">{statusText(validationChecks.credentials, 'Valid credentials')}</p>
@@ -745,8 +765,8 @@ export function SettingsPage() {
             </Panel>
             <Panel compact className="space-y-2">
               <PanelHeader
-                title="Need help?"
-                subtitle="Use the provider-specific guidance below without changing the current setup workflow."
+                title="Setup guidance"
+                subtitle="Use the provider-specific guidance below without leaving the current setup flow."
               />
               <div className="mt-3 space-y-2">
               {provider === 'azure' ? (
@@ -798,8 +818,8 @@ export function SettingsPage() {
         </div>
         <Panel className="space-y-3">
           <PanelHeader
-            title="Registered accounts"
-            subtitle="Review existing cloud credentials and keep sync and lifecycle actions in the same settings view."
+            title="Connected accounts"
+            subtitle="Review existing cloud connections and keep sync and lifecycle actions in the same settings view."
           />
           {cloudActionFeedback && (
             <div
@@ -825,7 +845,7 @@ export function SettingsPage() {
           ) : cloudAccounts && cloudAccounts.length > 0 ? (
             <ul className="space-y-2">
               {cloudAccounts.map((acc) => (
-                <li key={acc.id} className="rounded border border-gray-200 p-3 text-sm">
+                <li key={acc.id} className="rounded-xl border border-slate-200 p-3 text-sm shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="font-medium text-gray-800">{acc.display_name}</div>
                     <span
@@ -843,8 +863,8 @@ export function SettingsPage() {
                     </span>
                   </div>
                   <div className="text-gray-600">{acc.provider} · {acc.external_id}</div>
-                  <div className="text-xs text-gray-500">Ultimo sync: {formatSyncDate(acc.last_sync_at)}</div>
-                  <div className="mt-2 flex gap-2">
+                  <div className="text-xs text-gray-500">Last sync: {formatSyncDate(acc.last_sync_at)}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       onClick={() => {
                         setCloudActionFeedback(null)
@@ -873,7 +893,7 @@ export function SettingsPage() {
             <EmptyState
               icon="document"
               title="No cloud accounts registered."
-              description="Add a validated credential to start sync and diagnostic coverage for this workspace."
+              description="Add a validated cloud connection to start sync and readiness coverage for this workspace."
             />
           )}
         </Panel>
@@ -883,16 +903,25 @@ export function SettingsPage() {
 
   if (section === 'security') {
     return (
-      <div className="page-container max-w-3xl">
+      <div className="page-container">
         <PageHeader
           title={t.nav.settingsSecurity}
           subtitle="Manage authentication, passkeys, sessions, and audit visibility from one security surface."
           meta={
             <>
-              <span>Workspace administration</span>
-              <span>Authentication controls</span>
+              <span>Settings</span>
+              <span>Security controls</span>
             </>
           }
+        />
+        <SectionIntro
+          title="Security controls"
+          subtitle="Manage authentication strength, account recovery, session control, and audit visibility from one settings system."
+          badges={[
+            { label: 'Authentication', tone: 'organization' },
+            { label: 'Auditable controls', tone: 'secondary' },
+          ]}
+          compact
         />
 
         <Panel className="space-y-4">
@@ -908,7 +937,7 @@ export function SettingsPage() {
         <Panel>
           <PanelHeader
             title={s.passkeys}
-            subtitle="Review registered passkeys and enroll a new one when needed."
+            subtitle="Review registered passkeys and add a new one when needed."
           />
           <div className="mt-4 space-y-4">
           {passkeysLoading ? (
@@ -990,7 +1019,7 @@ export function SettingsPage() {
           <Panel>
             <PanelHeader
               title="Audit visibility"
-              subtitle="Review recent security activity without changing the current audit workflow."
+            subtitle="Review recent security activity and trace important access events from the same security surface."
             />
             <div className="mt-4">
             <AuditLog />
@@ -1002,41 +1031,49 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="page-container max-w-3xl">
+    <div className="page-container">
       <PageHeader
         title="Settings"
         subtitle="Choose a settings area to manage workspace access, security, or cloud connectivity."
         meta={
           <>
-            <span>Workspace administration</span>
-            <span>Section entry point</span>
+            <span>Settings</span>
+            <span>Workspace controls</span>
           </>
         }
       />
       <Panel>
         <PanelHeader
           title="Settings overview"
-          subtitle="Open the settings area you want to manage without changing the current routing or workflow structure."
+          subtitle="Open the settings area you want to manage while staying inside one consistent workspace settings experience."
         />
         <div className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <SectionIntro
+            title="Choose a settings surface"
+            subtitle="Each area keeps a specific operational concern together so workspace administration stays clear, auditable, and easy to navigate."
+            compact
+          />
+          <div className="grid gap-3 md:grid-cols-3">
             <Link
               to="/app/settings/cloud"
-              className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
-              {t.nav.settingsCloud}
+              <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsCloud}</span>
+              <span className="mt-1 block text-xs text-slate-500">Manage cloud connections, validation, and sync readiness.</span>
             </Link>
             <Link
               to="/app/settings/security"
-              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
-              {t.nav.settingsSecurity}
+              <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsSecurity}</span>
+              <span className="mt-1 block text-xs text-slate-500">Manage MFA, passkeys, sessions, and audit visibility.</span>
             </Link>
             <Link
               to="/app/settings/team"
-              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
-              {t.nav.settingsTeam}
+              <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsTeam}</span>
+              <span className="mt-1 block text-xs text-slate-500">Open the dedicated workspace access management surface.</span>
             </Link>
           </div>
         </div>
@@ -1044,5 +1081,3 @@ export function SettingsPage() {
     </div>
   )
 }
-
-

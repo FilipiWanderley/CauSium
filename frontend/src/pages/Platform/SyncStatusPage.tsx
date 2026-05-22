@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react'
+import { useMemo } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
@@ -11,6 +11,7 @@ import { useI18n } from '../../contexts/I18nContext'
 import { KpiCard } from '../../components/Cards/KpiCard'
 import { PageHeader } from '../../components/Layout/PageHeader'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
+import { ResponsivePrimaryCell } from '../../components/Tables/cells'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -174,14 +175,14 @@ export function SyncStatusPage() {
   }
 
   return (
-    <div className="page-container max-w-6xl">
+    <div className="page-container">
       <PageHeader
         title={p.syncTitle}
         subtitle={p.syncSubtitle}
         meta={
           <>
-            <span>Platform administration</span>
-            <span>Connector health operations</span>
+            <span>Platform health</span>
+            <span>Connector operations</span>
           </>
         }
         actions={
@@ -198,33 +199,63 @@ export function SyncStatusPage() {
 
       <div className="kpi-grid">
         <KpiCard
-          title={p.syncAccounts}
+          title="Connected accounts"
           value={summary.total}
           compact
-          footer={<span>Total connectors currently in scope.</span>}
+          footer={<span>Total connectors currently in scope for workspace operations.</span>}
         />
         <KpiCard
-          title={p.syncNeedsAttention}
+          title="Needs follow-up"
           value={summary.attention}
           compact
           tone="negative"
-          footer={<span>Accounts currently flagged for follow-up.</span>}
+          footer={<span>Accounts currently flagged for operational follow-up.</span>}
         />
         <KpiCard
-          title={p.syncHealthy}
+          title="Healthy connectors"
           value={summary.healthy}
           compact
           tone="positive"
           footer={<span>Connectors with no open attention signal.</span>}
         />
         <KpiCard
-          title={p.syncOpenDlq}
+          title="Outstanding DLQ items"
           value={summary.openDlq}
           compact
           tone="warning"
-          footer={<span>Total outstanding DLQ items.</span>}
+          footer={<span>Total queue items still waiting for follow-up.</span>}
         />
       </div>
+
+      <Panel className="border-slate-200 bg-slate-50/60">
+        <PanelHeader
+          title="Connector operations posture"
+          subtitle="Use this surface to confirm which integrations are healthy, which need intervention, and where queue pressure is building."
+        />
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Healthy state</div>
+            <p className="mt-2 text-sm font-medium text-slate-900">
+              {summary.healthy} connector{summary.healthy === 1 ? '' : 's'} are currently operating without open attention signals.
+            </p>
+          </div>
+          <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Attention state</div>
+            <p className="mt-2 text-sm font-medium text-slate-900">
+              {summary.attention} connector{summary.attention === 1 ? '' : 's'} currently need follow-up to restore full operational readiness.
+            </p>
+          </div>
+          <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Queue pressure</div>
+            <p className="mt-2 text-sm font-medium text-slate-900">
+              {summary.openDlq} queue item{summary.openDlq === 1 ? '' : 's'} remain open across the current account set.
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Prioritize connectors with attention flags first, then use queue pressure and recent sync time to decide where to intervene next.
+        </p>
+      </Panel>
 
       <Panel flush className="overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">
@@ -292,6 +323,9 @@ export function SyncStatusPage() {
                 ))}
               </select>
             </div>
+            <p className="text-xs text-slate-500">
+              Keep provider, state, and attention filters aligned so the table reflects the exact connector cohort you want to review.
+            </p>
           </div>
         </div>
 
@@ -314,38 +348,57 @@ export function SyncStatusPage() {
         ) : isError ? (
           <div className="p-5">
             <ErrorState
-              title="Could not load sync status"
-              description="Connector status is temporarily unavailable. Please try again."
+              title="Could not load connector operations"
+              description="Connector operations are temporarily unavailable. Please try again."
               onRetry={() => refetch()}
               retryLabel="Retry"
             />
           </div>
         ) : !filteredData.length ? (
           <div className="p-5">
-            <EmptyState icon="search" title={p.syncNoAccounts} />
+            <EmptyState
+              icon="search"
+              title={p.syncNoAccounts}
+              description="No connectors match the current provider, lifecycle, or attention filters."
+            />
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAccount}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColProvider}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">{p.syncColProvider}</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColStatus}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColLastSync}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColLastHealth}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColOpenDlq}</th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAttention}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">{p.syncColLastSync}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 lg:table-cell">{p.syncColLastHealth}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">{p.syncColOpenDlq}</th>
+                <th className="hidden px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">{p.syncColAttention}</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.syncColAction}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {paginatedData.map((item) => (
-                <tr key={item.account_id} className="hover:bg-gray-50/50 transition-colors">
+                <tr key={item.account_id} className="align-top hover:bg-gray-50/50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <p className="font-semibold text-gray-900">{item.display_name}</p>
-                    <p className="text-xs text-gray-400 font-mono">{item.account_id}</p>
+                    <ResponsivePrimaryCell
+                      title={item.display_name}
+                      subtitle={<span className="font-mono">{item.account_id}</span>}
+                      meta={[
+                        { label: p.syncColProvider, value: item.provider.toUpperCase() },
+                        {
+                          label: p.syncColStatus,
+                          value: item.connector_status,
+                          valueClassName: item.connector_status === 'active' ? 'text-emerald-700' : item.connector_status === 'error' ? 'text-rose-700' : 'text-slate-600',
+                        },
+                        { label: p.syncColLastSync, value: formatDate(item.last_sync_at) },
+                        { label: p.syncColLastHealth, value: formatDate(item.last_health_check_at), valueClassName: 'text-slate-500' },
+                        { label: p.syncColOpenDlq, value: String(item.open_dlq_count) },
+                        { label: p.syncColAttention, value: item.needs_attention ? p.syncAttentionYes : p.syncAttentionOk, valueClassName: item.needs_attention ? 'text-rose-700' : 'text-emerald-700' },
+                      ]}
+                    />
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="hidden px-4 py-3.5 sm:table-cell">
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 uppercase">
                       {item.provider}
                     </span>
@@ -360,9 +413,9 @@ export function SyncStatusPage() {
                       {item.connector_status}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 tabular-nums text-gray-700">{formatDate(item.last_sync_at)}</td>
-                  <td className="px-4 py-3.5 tabular-nums text-gray-700">{formatDate(item.last_health_check_at)}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="hidden px-4 py-3.5 tabular-nums text-gray-700 md:table-cell">{formatDate(item.last_sync_at)}</td>
+                  <td className="hidden px-4 py-3.5 tabular-nums text-gray-700 lg:table-cell">{formatDate(item.last_health_check_at)}</td>
+                  <td className="hidden px-4 py-3.5 sm:table-cell">
                     <span
                       className={clsx(
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
@@ -372,7 +425,7 @@ export function SyncStatusPage() {
                       <span className="tabular-nums">{item.open_dlq_count}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="hidden px-4 py-3.5 sm:table-cell">
                     <div className="flex justify-center">
                       {item.needs_attention ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
@@ -388,7 +441,8 @@ export function SyncStatusPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <div className="flex justify-end">
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      <div className="flex justify-start sm:justify-end">
                       <button
                         onClick={() => handleTriggerSync(item.account_id)}
                         disabled={syncMutation.isPending}
@@ -399,12 +453,17 @@ export function SyncStatusPage() {
                         />
                         {syncingAccountId === item.account_id ? p.syncQueueing : p.syncTrigger}
                       </button>
+                      </div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 sm:text-right">
+                        Operator action
+                      </p>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {!isLoading && filteredData.length > 0 && (
@@ -444,5 +503,3 @@ export function SyncStatusPage() {
     </div>
   )
 }
-
-

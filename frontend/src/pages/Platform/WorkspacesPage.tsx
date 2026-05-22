@@ -1,4 +1,4 @@
-﻿import { Fragment, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
@@ -9,8 +9,10 @@ import { useAuth } from '../../hooks/useAuth'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { KpiCard } from '../../components/Cards/KpiCard'
 import { PageHeader } from '../../components/Layout/PageHeader'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
+import { ResponsivePrimaryCell } from '../../components/Tables/cells'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -339,25 +341,61 @@ export function WorkspacesPage() {
   }
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
+  const visibleOrgs = data?.items ?? []
+  const visibleActive = visibleOrgs.filter((org) => org.lifecycle_state === 'active').length
+  const visibleSuspended = visibleOrgs.filter((org) => org.lifecycle_state === 'suspended').length
+  const visibleArchived = visibleOrgs.filter((org) => org.lifecycle_state === 'archived').length
 
   return (
-    <div className="page-container max-w-6xl">
+    <div className="page-container">
       <PageHeader
         title={p.workspacesTitle}
         subtitle={p.workspacesSubtitle}
         meta={
           <>
-            <span>Platform administration</span>
-            <span>Workspace lifecycle controls</span>
+            <span>Platform governance</span>
+            <span>Workspace lifecycle</span>
           </>
         }
       />
+
+      {!isLoading && !isError && data ? (
+        <div className="kpi-grid">
+          <KpiCard
+            title="Workspace inventory"
+            value={data.total}
+            compact
+            footer={<span>Total workspaces currently in the platform inventory.</span>}
+          />
+          <KpiCard
+            title="Active in current view"
+            value={visibleActive}
+            compact
+            tone="positive"
+            footer={<span>Active workspaces visible on the current filtered page.</span>}
+          />
+          <KpiCard
+            title="Suspended in current view"
+            value={visibleSuspended}
+            compact
+            tone={visibleSuspended > 0 ? 'warning' : 'neutral'}
+            footer={<span>Paused workspaces visible on the current filtered page.</span>}
+          />
+          <KpiCard
+            title="Archived in current view"
+            value={visibleArchived}
+            compact
+            tone={visibleArchived > 0 ? 'neutral' : 'positive'}
+            footer={<span>Archived workspaces visible on the current filtered page.</span>}
+          />
+        </div>
+      ) : null}
 
       <Panel flush className="overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">
           <PanelHeader
             title={`${p.workspacesAllOrgs}${data ? ` (${data.total})` : ''}`}
-            subtitle="Search, filter, and review workspace lifecycle state from a single administration surface."
+            subtitle="Search, filter, and review workspace lifecycle state from one customer-facing platform management surface."
             actions={
               <div className="flex items-center gap-2">
                 <button
@@ -401,8 +439,18 @@ export function WorkspacesPage() {
                 <option value="archived">{p.workspacesStateArchived}</option>
               </select>
             </div>
+            <p className="text-xs text-slate-500">
+              Use lifecycle filters to isolate customer-ready, paused, or archived workspaces without leaving the inventory.
+            </p>
           </div>
         </div>
+        {!isLoading && !isError && data?.items.length ? (
+          <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+            <p className="text-xs text-slate-500">
+              Keep lifecycle actions focused on the current workspace state. Treat user-management controls as a second layer only after the workspace record itself is in the right posture.
+            </p>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="p-5">
@@ -444,31 +492,39 @@ export function WorkspacesPage() {
             />
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColOrg}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColPlan}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColMembers}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">{p.workspacesColPlan}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:table-cell">{p.workspacesColMembers}</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColState}</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColCreated}</th>
+                <th className="hidden px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 lg:table-cell">{p.workspacesColCreated}</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{p.workspacesColActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {data.items.map((org) => (
                 <Fragment key={org.id}>
-                  <tr className="hover:bg-gray-50/50 transition-colors">
+                  <tr className="align-top hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3.5">
-                      <p className="font-semibold text-gray-900">{org.name}</p>
-                      <p className="text-xs text-gray-400 font-mono">{org.slug}</p>
+                      <ResponsivePrimaryCell
+                        title={org.name}
+                        subtitle={<span className="font-mono">{org.slug}</span>}
+                        meta={[
+                          { label: p.workspacesColPlan, value: org.plan },
+                          { label: p.workspacesColMembers, value: String(org.member_quota) },
+                          { label: p.workspacesColCreated, value: new Date(org.created_at).toLocaleDateString(locale) },
+                        ]}
+                      />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="hidden px-4 py-3.5 sm:table-cell">
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                         {org.plan}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-gray-600">{org.member_quota}</td>
+                    <td className="hidden px-4 py-3.5 text-gray-600 md:table-cell">{org.member_quota}</td>
                     <td className="px-4 py-3.5">
                       <span
                         className={clsx(
@@ -479,11 +535,11 @@ export function WorkspacesPage() {
                         {org.lifecycle_state}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500">
+                    <td className="hidden px-4 py-3.5 text-xs text-gray-500 lg:table-cell">
                       {new Date(org.created_at).toLocaleDateString(locale)}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
                         <button
                           onClick={() => setExpandedOrgId(expandedOrgId === org.id ? null : org.id)}
                           title={p.workspacesViewUsers}
@@ -522,37 +578,48 @@ export function WorkspacesPage() {
                           </>
                         )}
                       </div>
+                      <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 sm:text-right">
+                        Lifecycle actions
+                      </p>
                     </td>
                   </tr>
                   {expandedOrgId === org.id && (
                     <tr>
-                      <td colSpan={6} className="bg-gray-50 px-8 py-4">
+                      <td colSpan={6} className="bg-slate-50 px-5 py-4 sm:px-8">
                         {usersLoading ? (
                           <p className="text-xs text-gray-400">{p.workspacesLoadingUsers}</p>
                         ) : !expandedUsers?.items.length ? (
                           <p className="text-xs text-gray-500">{p.workspacesNoUsers}</p>
                         ) : (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                              {p.workspacesUsers.replace('{{total}}', String(expandedUsers.total))}
-                            </p>
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <span className="text-[11px] text-gray-500">{p.workspacesAuditWindow}</span>
-                              <select
-                                value={auditWindow}
-                                onChange={(e) => setAuditWindow(e.target.value as AuditWindow)}
-                                className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                              >
-                                <option value="24h">{p.workspacesLast24h}</option>
-                                <option value="7d">{p.workspacesLast7d}</option>
-                                <option value="30d">{p.workspacesLast30d}</option>
-                                <option value="all">{p.workspacesAllTime}</option>
-                              </select>
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace access</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-900">
+                                  {p.workspacesUsers.replace('{{total}}', String(expandedUsers.total))}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Review workspace members, recent security resets, and user lifecycle actions in one place.
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 sm:justify-end">
+                                <span className="text-[11px] text-gray-500">{p.workspacesAuditWindow}</span>
+                                <select
+                                  value={auditWindow}
+                                  onChange={(e) => setAuditWindow(e.target.value as AuditWindow)}
+                                  className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                                >
+                                  <option value="24h">{p.workspacesLast24h}</option>
+                                  <option value="7d">{p.workspacesLast7d}</option>
+                                  <option value="30d">{p.workspacesLast30d}</option>
+                                  <option value="all">{p.workspacesAllTime}</option>
+                                </select>
+                              </div>
                             </div>
                             {userFeedback && (
                               <div
                                 className={clsx(
-                                  'mb-2 rounded border px-3 py-2 text-xs',
+                                  'rounded border px-3 py-2 text-xs',
                                   userFeedback.level === 'success'
                                     ? 'border-green-200 bg-green-50 text-green-700'
                                     : 'border-red-200 bg-red-50 text-red-700'
@@ -561,92 +628,105 @@ export function WorkspacesPage() {
                                 {userFeedback.message}
                               </div>
                             )}
-                            {expandedUsers.items.map((u) => (
-                              <div
-                                key={u.id}
-                                className="flex items-center justify-between rounded border border-gray-100 bg-white px-3 py-2"
-                              >
-                                <div>
-                                  <span className="text-sm font-medium text-gray-800">{u.full_name}</span>
-                                  <span className="ml-2 text-xs text-gray-500">{u.email}</span>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                    {userAuditMap.get(u.id)?.lastPasswordResetAt && (
-                                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                                        {p.workspacesPwdResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastPasswordResetAt ?? null)}
-                                      </span>
-                                    )}
-                                    {userAuditMap.get(u.id)?.lastMfaResetAt && (
-                                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                                        {p.workspacesMfaResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
-                                      </span>
-                                    )}
-                                    {userAuditMap.get(u.id)?.lastDeactivatedAt && (
-                                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
-                                        {p.workspacesDeactivatedBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastDeactivatedAt ?? null)}
-                                      </span>
-                                    )}
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                Member controls
+                              </p>
+                              {expandedUsers.items.map((u) => (
+                                <div
+                                  key={u.id}
+                                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                                >
+                                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-semibold text-gray-900">{u.full_name}</span>
+                                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                                          {u.role}
+                                        </span>
+                                        {!u.is_active && (
+                                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
+                                            {p.workspacesInactive}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="mt-1 break-all text-xs text-gray-500">{u.email}</p>
+                                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        {userAuditMap.get(u.id)?.lastPasswordResetAt && (
+                                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                            {p.workspacesPwdResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastPasswordResetAt ?? null)}
+                                          </span>
+                                        )}
+                                        {userAuditMap.get(u.id)?.lastMfaResetAt && (
+                                          <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                                            {p.workspacesMfaResetBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastMfaResetAt ?? null)}
+                                          </span>
+                                        )}
+                                        {userAuditMap.get(u.id)?.lastDeactivatedAt && (
+                                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+                                            {p.workspacesDeactivatedBadge} {formatAuditDate(userAuditMap.get(u.id)?.lastDeactivatedAt ?? null)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-start gap-2 lg:items-end">
+                                      <div className="flex flex-wrap items-center justify-start gap-1.5 lg:justify-end">
+                                      <button
+                                        onClick={() => handleResetMfa(u)}
+                                        disabled={
+                                          resetMfaMutation.isPending ||
+                                          resetPasswordMutation.isPending ||
+                                          deactivateUserMutation.isPending
+                                        }
+                                        title={p.workspacesResetMfa}
+                                        className={USER_ACTION_SECONDARY}
+                                      >
+                                        <KeyRound className="h-3.5 w-3.5" />
+                                        {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
+                                          ? p.workspacesResetting
+                                          : p.workspacesResetMfa}
+                                      </button>
+                                      <button
+                                        onClick={() => handleResetPassword(u)}
+                                        disabled={
+                                          resetMfaMutation.isPending ||
+                                          resetPasswordMutation.isPending ||
+                                          deactivateUserMutation.isPending
+                                        }
+                                        title={p.workspacesResetPassword}
+                                        className={USER_ACTION_SECONDARY}
+                                      >
+                                        <Key className="h-3.5 w-3.5" />
+                                        {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
+                                          ? p.workspacesResetting
+                                          : p.workspacesResetPassword}
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeactivateUser(u)}
+                                        disabled={
+                                          !u.is_active ||
+                                          resetMfaMutation.isPending ||
+                                          resetPasswordMutation.isPending ||
+                                          deactivateUserMutation.isPending
+                                        }
+                                        title={p.workspacesDeactivateUser}
+                                        className={USER_ACTION_DANGER}
+                                      >
+                                        <UserX className="h-3.5 w-3.5" />
+                                        {deactivateUserMutation.isPending &&
+                                        deactivateUserMutation.variables?.userId === u.id
+                                          ? p.workspacesDeactivating
+                                          : p.workspacesDeactivateUser}
+                                      </button>
+                                      </div>
+                                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 lg:text-right">
+                                        Recovery and offboarding
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                                    {u.role}
-                                  </span>
-                                  {!u.is_active && (
-                                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
-                                      {p.workspacesInactive}
-                                    </span>
-                                  )}
-                                  <span className="hidden h-5 w-px bg-gray-200 md:block" aria-hidden="true" />
-                                  <button
-                                    onClick={() => handleResetMfa(u)}
-                                    disabled={
-                                      resetMfaMutation.isPending ||
-                                      resetPasswordMutation.isPending ||
-                                      deactivateUserMutation.isPending
-                                    }
-                                    title={p.workspacesResetMfa}
-                                    className={USER_ACTION_SECONDARY}
-                                  >
-                                    <KeyRound className="h-3.5 w-3.5" />
-                                    {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
-                                      ? p.workspacesResetting
-                                      : p.workspacesResetMfa}
-                                  </button>
-                                  <button
-                                    onClick={() => handleResetPassword(u)}
-                                    disabled={
-                                      resetMfaMutation.isPending ||
-                                      resetPasswordMutation.isPending ||
-                                      deactivateUserMutation.isPending
-                                    }
-                                    title={p.workspacesResetPassword}
-                                    className={USER_ACTION_SECONDARY}
-                                  >
-                                    <Key className="h-3.5 w-3.5" />
-                                    {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
-                                      ? p.workspacesResetting
-                                      : p.workspacesResetPassword}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeactivateUser(u)}
-                                    disabled={
-                                      !u.is_active ||
-                                      resetMfaMutation.isPending ||
-                                      resetPasswordMutation.isPending ||
-                                      deactivateUserMutation.isPending
-                                    }
-                                    title={p.workspacesDeactivateUser}
-                                    className={USER_ACTION_DANGER}
-                                  >
-                                    <UserX className="h-3.5 w-3.5" />
-                                    {deactivateUserMutation.isPending &&
-                                    deactivateUserMutation.variables?.userId === u.id
-                                      ? p.workspacesDeactivating
-                                      : p.workspacesDeactivateUser}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         )}
                       </td>
@@ -656,6 +736,7 @@ export function WorkspacesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Panel>
 
@@ -778,5 +859,3 @@ export function WorkspacesPage() {
     </div>
   )
 }
-
-

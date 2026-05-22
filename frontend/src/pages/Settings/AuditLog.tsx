@@ -51,7 +51,7 @@ export function AuditLog() {
   })
 
   if (!orgId) {
-    return <EmptyState icon="document" title="Audit log unavailable" description="Organization context is not available for this session." />
+    return <EmptyState icon="document" title="Audit activity is unavailable" description="Workspace context is not available for this session." />
   }
 
   const items = data?.data.items ?? []
@@ -67,16 +67,19 @@ export function AuditLog() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Audit log</h2>
+        <h2 className="text-sm font-semibold text-gray-900">Audit activity</h2>
         <span className="text-xs text-gray-400 tabular-nums">{total.toLocaleString(locale)} events</span>
       </div>
 
       <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
-        <p className="text-xs font-semibold text-blue-900">SAFE DSS posture</p>
+        <p className="text-xs font-semibold text-blue-900">Decision support posture</p>
         <p className="mt-1 text-xs text-blue-800">
-          CauSium provides decision support only. Approvals, dismissals, and operational validation remain explicit human decisions and are auditable.
+          CauSium provides decision support only. Approvals, dismissals, and operational validation remain explicit human decisions and stay fully auditable.
         </p>
       </div>
+      <p className="text-xs text-slate-500">
+        Use filters to isolate the exact security or access event you need without losing the broader audit trail for the workspace.
+      </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <select
@@ -109,13 +112,13 @@ export function AuditLog() {
         <SkeletonTable rows={8} columns={6} />
       ) : error ? (
         <ErrorState
-          title="Could not load audit events"
-          description="The audit log is temporarily unavailable. Please try again."
+          title="Could not load audit activity"
+          description="Audit activity is temporarily unavailable. Please try again."
           onRetry={() => refetch()}
           retryLabel="Retry"
         />
       ) : items.length === 0 ? (
-        <EmptyState icon="document" title="No events found" description="No audit events match the current filters." />
+        <EmptyState icon="document" title="No audit activity found" description="No audit events match the current filters or time window." />
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">

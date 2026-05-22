@@ -1,4 +1,4 @@
-﻿import { Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, XCircle, ServerCog, Activity, Database, Cpu, HardDrive } from 'lucide-react'
 import clsx from 'clsx'
@@ -49,15 +49,15 @@ function StatusBadge({ status }: { status: HealthStatus }) {
 
 function ReadinessIndicator({ ready, label }: { ready: boolean; label: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-      <span className="text-sm text-gray-700">{label}</span>
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
       {ready ? (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5" /> Ready
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-          <XCircle className="h-3.5 w-3.5" /> Not Ready
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">
+          <XCircle className="h-3.5 w-3.5" /> Action needed
         </span>
       )}
     </div>
@@ -72,36 +72,54 @@ function MetricRow({ label, value, status }: { label: string; value: string; sta
     not_configured: 'bg-gray-400',
   }
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-      <div className="flex items-center gap-2">
+    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-2 last:border-0">
+      <div className="flex min-w-0 items-center gap-2">
         <span className={clsx('h-2 w-2 rounded-full', dot[status])} />
-        <span className="text-sm text-gray-600">{label}</span>
+        <span className="text-sm text-slate-600">{label}</span>
       </div>
-      <span className="text-sm font-medium tabular-nums text-gray-900">{value}</span>
+      <span className="text-right text-sm font-semibold tabular-nums text-slate-900">{value}</span>
     </div>
   )
 }
 
 function SummaryBanner({ data }: { data: FinOpsReadinessResponse }) {
   const status = getOverallStatus(data)
+  const blockerCount = data.recommendation_readiness.blockers.length
+  const warningCount = data.recommendation_readiness.warnings.length
   const messages: Record<HealthStatus, string> = {
-    healthy: 'All readiness checks are passing. Telemetry coverage is sufficient for the recommendation engines.',
-    warning: 'Readiness is partial. Some telemetry coverage is limited.',
-    blocked: 'Readiness is blocked. Critical telemetry data is missing.',
-    not_configured: 'No cloud integration is configured for this workspace yet.',
+    healthy: 'Cost, usage, and recommendation telemetry are aligned for this workspace.',
+    warning: 'Core integrations are online, but some readiness signals still need attention.',
+    blocked: 'Key telemetry is missing, so recommendation coverage is not fully ready yet.',
+    not_configured: 'No cloud connection is configured for this workspace yet.',
   }
   const bannerColors: Record<HealthStatus, string> = {
-    healthy: 'bg-green-50 border-green-200 text-green-900',
-    warning: 'bg-amber-50 border-amber-200 text-amber-900',
-    blocked: 'bg-red-50 border-red-200 text-red-900',
-    not_configured: 'bg-gray-50 border-gray-200 text-gray-700',
+    healthy: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+    warning: 'border-amber-200 bg-amber-50 text-amber-900',
+    blocked: 'border-rose-200 bg-rose-50 text-rose-900',
+    not_configured: 'border-slate-200 bg-slate-50 text-slate-700',
   }
   return (
     <div className={clsx('rounded-xl border px-4 py-3', bannerColors[status])}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <StatusBadge status={status} />
-          <span className="text-sm">{messages[status]}</span>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">
+              {status === 'healthy' && 'Workspace readiness is on track'}
+              {status === 'warning' && 'Workspace readiness needs follow-up'}
+              {status === 'blocked' && 'Workspace readiness is blocked'}
+              {status === 'not_configured' && 'Workspace readiness has not started'}
+            </p>
+            <p className="text-sm/6">{messages[status]}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          <span className="rounded-full border border-current/10 bg-white/70 px-2.5 py-1">
+            {blockerCount} blocking gap{blockerCount === 1 ? '' : 's'}
+          </span>
+          <span className="rounded-full border border-current/10 bg-white/70 px-2.5 py-1">
+            {warningCount} watch item{warningCount === 1 ? '' : 's'}
+          </span>
         </div>
       </div>
     </div>
@@ -122,7 +140,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
     <div className="space-y-3">
       {readiness.blockers.length > 0 && (
         <div className="rounded-xl border border-red-100 bg-red-50 p-4">
-          <h4 className="text-sm font-medium text-red-800 mb-2">Blockers</h4>
+          <h4 className="mb-2 text-sm font-semibold text-red-900">Blocking gaps</h4>
           <ul className="space-y-2">
             {readiness.blockers.map((b, i) => (
               <li key={i} className="flex items-start gap-2">
@@ -140,7 +158,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
       )}
       {readiness.warnings.length > 0 && (
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-          <h4 className="text-sm font-medium text-amber-800 mb-2">Warnings</h4>
+          <h4 className="mb-2 text-sm font-semibold text-amber-900">Watch items</h4>
           <ul className="space-y-2">
             {readiness.warnings.map((w, i) => (
               <li key={i} className="flex items-start gap-2">
@@ -173,7 +191,7 @@ export function IntegrationHealthPage() {
 
   if (isLoading) {
     return (
-      <div className="page-container max-w-6xl">
+      <div className="page-container">
         <SkeletonSection lines={2} />
         <SkeletonMetricCards count={4} />
       </div>
@@ -182,20 +200,20 @@ export function IntegrationHealthPage() {
 
   if (error || !data) {
     return (
-      <div className="page-container max-w-6xl">
+      <div className="page-container">
         <PageHeader
           title={t.platform.integrationHealthTitle}
           subtitle={t.platform.integrationHealthSubtitle}
           meta={
             <>
-              <span>Platform administration</span>
-              <span>Telemetry readiness</span>
+              <span>Platform health</span>
+              <span>Integration readiness</span>
             </>
           }
         />
         <ErrorState
-          title="Could not load integration health"
-          description="Diagnostics are temporarily unavailable for this workspace. Please try again."
+          title="Could not load integration readiness"
+          description="Readiness signals are temporarily unavailable for this workspace. Please try again."
           onRetry={() => refetch()}
           retryLabel="Retry"
         />
@@ -217,25 +235,25 @@ export function IntegrationHealthPage() {
   const overallStatus = getOverallStatus(data)
   const summaryCards = [
     {
-      title: 'Cost records (30d)',
+      title: 'Cost telemetry',
       value: data.cost_coverage.total_cost_facts_30d.toLocaleString(),
       tone: costStatus === 'healthy' ? 'positive' : costStatus === 'warning' ? 'warning' : 'neutral',
-      footer: <span>{data.data_freshness.cost_data_stale ? 'Cost data is stale.' : 'Cost data is fresh.'}</span>,
+      footer: <span>{data.data_freshness.cost_data_stale ? 'Cost coverage is stale and needs refresh.' : 'Cost coverage is current.'}</span>,
     },
     {
-      title: 'Usage records (30d)',
+      title: 'Usage telemetry',
       value: data.usage_coverage.total_usage_facts_30d.toLocaleString(),
       tone: usageStatus === 'healthy' ? 'positive' : usageStatus === 'warning' ? 'warning' : 'negative',
-      footer: <span>{`${data.usage_coverage.observation_days} day observation window.`}</span>,
+      footer: <span>{`${data.usage_coverage.observation_days} day observation window available.`}</span>,
     },
     {
-      title: 'Open opportunities',
+      title: 'Opportunity coverage',
       value: data.opportunities.open_opportunities,
       tone: data.opportunities.open_opportunities > 0 ? 'positive' : 'neutral',
-      footer: <span>{`${data.opportunities.generated_recently_count} generated in the last 7 days.`}</span>,
+      footer: <span>{`${data.opportunities.generated_recently_count} recommendations generated in the last 7 days.`}</span>,
     },
     {
-      title: 'Overall readiness',
+      title: 'Readiness posture',
       value: overallStatus === 'not_configured' ? 'Not configured' : overallStatus.replace('_', ' '),
       tone: overallStatus === 'healthy' ? 'positive' : overallStatus === 'warning' ? 'warning' : overallStatus === 'blocked' ? 'negative' : 'neutral',
       footer: <span>{`Assessed ${new Date(data.assessed_at).toLocaleString()}.`}</span>,
@@ -243,14 +261,14 @@ export function IntegrationHealthPage() {
   ] as const
 
   return (
-    <div className="page-container max-w-6xl">
+    <div className="page-container">
       <PageHeader
         title={t.platform.integrationHealthTitle}
         subtitle={t.platform.integrationHealthSubtitle}
         meta={
           <>
-            <span>Platform administration</span>
-            <span>Telemetry readiness</span>
+            <span>Platform health</span>
+            <span>Integration readiness</span>
           </>
         }
       />
@@ -270,12 +288,16 @@ export function IntegrationHealthPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <p className="text-xs text-slate-500">
+        Read the readiness posture from top to bottom: confirm overall state first, then validate cost and usage coverage before reviewing recommendation output and next steps.
+      </p>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
               title="Cost coverage"
-              subtitle="Assess whether cost telemetry is present, current, and sufficiently scoped."
+              subtitle="Confirm that normalized billing data is present, current, and broad enough to support customer-facing spend reporting."
               badge={<StatusBadge status={costStatus} />}
             />
           </div>
@@ -312,7 +334,7 @@ export function IntegrationHealthPage() {
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
               title="Usage coverage"
-              subtitle="Confirm that compute and cluster metrics support downstream recommendation engines."
+              subtitle="Confirm that compute and cluster telemetry is complete enough for analytics and recommendation workflows."
               badge={<StatusBadge status={usageStatus} />}
             />
           </div>
@@ -350,11 +372,11 @@ export function IntegrationHealthPage() {
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
-              title="Recommendation engines"
-              subtitle="Track whether rightsizing and autoscaler engines have the telemetry they need."
+              title="Recommendation readiness"
+              subtitle="Track whether each engine has the telemetry it needs to produce customer-safe recommendations."
             />
           </div>
-          <div className="p-5 space-y-2">
+          <div className="space-y-2 p-5">
             <ReadinessIndicator ready={data.recommendation_readiness.vm_rightsizing_ready} label="VM Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.aks_rightsizing_ready} label="AKS Nodepool Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.autoscaler_ready} label="AKS Autoscaler" />
@@ -364,8 +386,8 @@ export function IntegrationHealthPage() {
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
-              title="Opportunities & export"
-              subtitle="Validate that recommendation output and CSV export volume are operationally usable."
+              title="Recommendation output"
+              subtitle="Validate that recommendations and export volume are available for downstream review and reporting."
             />
           </div>
           <div className="px-5 py-4">
@@ -395,19 +417,17 @@ export function IntegrationHealthPage() {
 
       <Panel>
         <PanelHeader
-          title="Guidance"
-          subtitle="Use the current blockers and warnings to improve telemetry readiness without leaving the page."
+          title="Next steps"
+          subtitle="Use the current readiness gaps to restore full coverage without leaving this surface."
         />
         <div className="mt-4">
           <GuidanceSection readiness={data.recommendation_readiness} />
         </div>
       </Panel>
 
-      <p className="text-xs text-gray-400 text-right">
-        Last assessed: {new Date(data.assessed_at).toLocaleString()}
+      <p className="text-right text-xs text-slate-400">
+        Last readiness assessment: {new Date(data.assessed_at).toLocaleString()}
       </p>
     </div>
   )
 }
-
-

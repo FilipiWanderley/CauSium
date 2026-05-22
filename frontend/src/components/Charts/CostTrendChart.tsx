@@ -171,7 +171,7 @@ function EventDot(props: any) {
   )
 }
 
-// ── Reference lines for events with high cost impact ──────────────────────────
+// ── Reference lines for events with high cost impact ─────────────────────────
 
 interface RefEvent {
   dateLabel: string
@@ -329,5 +329,3 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
     </div>
   )
 }
-
-

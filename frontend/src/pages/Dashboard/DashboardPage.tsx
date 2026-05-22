@@ -47,7 +47,7 @@ import clsx from 'clsx'
 import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
 import { formatCurrency } from '../../utils/currency'
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
 const fmt = (n: number, currency = 'USD') => formatCurrency(n, currency)
 
@@ -93,7 +93,7 @@ function computeAlert(todayCost: number, avg30d: number, hasData: boolean) {
   return null
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ActivityRow({ ev, label, currency }: { ev: ChangeEvent; label: string; currency: string }) {
   const Icon = EVENT_ICON[ev.event_type]
@@ -117,7 +117,7 @@ function ActivityRow({ ev, label, currency }: { ev: ChangeEvent; label: string; 
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
@@ -157,7 +157,7 @@ export function DashboardPage() {
     config_change: ce.configChange, scaling: ce.scaling, policy_change: ce.policyChange,
   }
 
-  // ─── Queries ────────────────────────────────────────────────────────────────
+  // ─── Queries ─────────────────────────────────────────────────────────────────
 
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
@@ -266,7 +266,7 @@ export function DashboardPage() {
   }, [metrics?.data_max_date])
   const reconciliationStatus = integrityData?.reconciliation_status ?? clientReconciliationStatus
 
-  // ─── Derived data ───────────────────────────────────────────────────────────
+  // ─── Derived data ────────────────────────────────────────────────────────────
 
   if (metricsLoading) {
     return (
@@ -351,7 +351,7 @@ export function DashboardPage() {
   // Build sparkline from daily trend (last 14 days)
   const sparklineData = dailyTrend.slice(-14).map((p) => ({ value: p.cost_usd ?? 0 }))
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="page-container">
@@ -720,5 +720,3 @@ function DataHealthCell({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
-

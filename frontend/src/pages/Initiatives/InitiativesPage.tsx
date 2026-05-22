@@ -205,7 +205,7 @@ export function InitiativesPage() {
           title={i.title}
           subtitle={i.subtitle}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
                 <span className="rounded px-2.5 py-1 text-xs font-medium text-slate-500">{i.viewTable}</span>
                 <span className="rounded px-2.5 py-1 text-xs font-medium text-slate-500">{i.viewBoard}</span>
@@ -282,7 +282,7 @@ export function InitiativesPage() {
         title={i.title}
         subtitle={i.subtitle}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
               <button
                 type="button"
@@ -371,7 +371,7 @@ export function InitiativesPage() {
             title={i.createInitiative}
             subtitle="Capture a new execution item without changing the current initiative workflow or board model."
           />
-          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="flex-1">
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400">
                 Initiative title
@@ -384,7 +384,7 @@ export function InitiativesPage() {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:outline-none"
               />
             </div>
-            <div className="lg:w-56">
+            <div className="sm:w-56">
               <label htmlFor="initiative-sla-date" className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400">
                 Due date
               </label>
@@ -396,7 +396,7 @@ export function InitiativesPage() {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-brand-500 focus:outline-none"
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => createMutation.mutate({ title: newTitle, sla_date: newSla || undefined })}
                 disabled={!newTitle || createMutation.isPending}
@@ -429,7 +429,7 @@ export function InitiativesPage() {
               title="Execution table"
               subtitle="Scan ownership, urgency, value delivery, and the next workflow action across the full initiative queue."
               actions={
-                <div className="text-right text-xs text-slate-500">
+                <div className="text-left text-xs text-slate-500 sm:text-right">
                   <div className="font-medium text-slate-700">{summary.activeCount} active</div>
                   <div>{summary.overdueCount} overdue</div>
                 </div>
@@ -449,7 +449,7 @@ export function InitiativesPage() {
                   <th className="hidden px-4 py-3 md:table-cell">{i.colRisk}</th>
                   <th className="hidden px-4 py-3 xl:table-cell">{i.colDueDate}</th>
                   <th className="hidden px-4 py-3 xl:table-cell">{i.colLastActivity}</th>
-                  <th className="px-4 py-3">{i.colProgress}</th>
+                  <th className="hidden px-4 py-3 sm:table-cell">{i.colProgress}</th>
                   <th className="px-4 py-3 text-right">{i.colAction}</th>
                 </tr>
               </thead>
@@ -475,7 +475,7 @@ export function InitiativesPage() {
                       )}
                     >
                       <td className="px-4 py-3 align-top">
-                        <div className="min-w-[240px]">
+                        <div className="min-w-[220px] md:min-w-[240px]">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium text-gray-900">{initiative.title}</p>
                             {initiative.is_overdue && (
@@ -487,16 +487,32 @@ export function InitiativesPage() {
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                             <span>{initiative.external_ref ?? `${i.initiativeIdPrefix} ${truncateId(initiative.id, 8)}`}</span>
-                            <span className="text-gray-300">â€¢</span>
+                            <span className="text-gray-300">•</span>
                             <span className="inline-flex items-center gap-1">
                               <User className="h-3 w-3" />
                               {ownerLabel}
                             </span>
-                            <span className="text-gray-300">â€¢</span>
+                            <span className="text-gray-300">•</span>
                             <span className={clsx('inline-flex items-center gap-1', initiative.is_overdue ? 'text-rose-700' : '')}>
                               <CalendarClock className="h-3 w-3" />
                               {formatDateOnly(initiative.sla_date) ?? i.noDueDate}
                             </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 lg:hidden">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="font-medium text-slate-700">{i.colRelatedOpportunities}:</span>
+                              <span className="truncate">{linkedOpportunity?.title ?? i.noLinkedOpportunity}</span>
+                            </span>
+                            {risk && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span className={clsx('inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium', RISK_COLORS[risk])}>
+                                  {i[`risk${risk.charAt(0).toUpperCase() + risk.slice(1)}` as 'riskLow' | 'riskMedium' | 'riskHigh']}
+                                </span>
+                              </>
+                            )}
+                            <span className="text-gray-300 xl:hidden">•</span>
+                            <span className="xl:hidden">{formatDateTime(initiative.updated_at) ?? i.notAvailable}</span>
                           </div>
                           {initiative.description && (
                             <p className="mt-2 line-clamp-1 text-xs text-gray-500">{initiative.description}</p>
@@ -553,7 +569,7 @@ export function InitiativesPage() {
                       <td className="hidden px-4 py-3 align-top text-gray-500 xl:table-cell">
                         {formatDateTime(initiative.updated_at) ?? i.notAvailable}
                       </td>
-                      <td className="px-4 py-3 align-top">
+                      <td className="hidden px-4 py-3 align-top sm:table-cell">
                         <div className="min-w-[132px]">
                           <div className="flex items-center justify-between text-xs text-gray-500">
                             <span>{phaseLabels[initiative.status]}</span>
@@ -567,12 +583,12 @@ export function InitiativesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-top text-right">
+                      <td className="px-4 py-3 align-top text-left sm:text-right">
                         {nextStatus ? (
                           <button
                             type="button"
                             onClick={() => transitionMutation.mutate({ id: initiative.id, status: nextStatus })}
-                            className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+                            className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-slate-800 sm:w-auto"
                           >
                             <ArrowRight className="h-3.5 w-3.5" />
                             {i.advanceAction.replace('{{status}}', statusLabels[nextStatus])}
@@ -582,7 +598,7 @@ export function InitiativesPage() {
                             href={initiative.external_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                            className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-center text-xs font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 sm:w-auto"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                             {i.openExternal}
@@ -604,17 +620,17 @@ export function InitiativesPage() {
             title="Execution board"
             subtitle="Review work by delivery phase while keeping ownership, urgency, value, and next action visible on every card."
             actions={
-              <div className="text-right text-xs text-slate-500">
+              <div className="text-left text-xs text-slate-500 sm:text-right">
                 <div className="font-medium text-slate-700">{summary.total} total</div>
                 <div>{summary.overdueCount} overdue</div>
               </div>
             }
           />
-          <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:flex xl:gap-4 xl:overflow-x-auto xl:pb-2">
             {columns.map(({ key, label, color }) => {
               const items = board?.[key] ?? []
               return (
-                <Panel key={key} compact className={clsx('w-80 flex-shrink-0 space-y-3', color)}>
+                <Panel key={key} compact className={clsx('min-w-0 space-y-3 xl:w-80 xl:flex-shrink-0', color)}>
                   <PanelHeader
                     title={label}
                     subtitle={phaseLabels[key]}
@@ -692,7 +708,7 @@ function InitiativeCard({
 
   return (
     <div className="rounded-xl border border-white bg-white p-3.5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold leading-snug text-gray-900">{initiative.title}</p>
@@ -705,19 +721,19 @@ function InitiativeCard({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
             <span>{phaseLabel}</span>
-            <span className="text-gray-300">â€¢</span>
+            <span className="text-gray-300">•</span>
             <span className="inline-flex items-center gap-1">
               <User className="h-3 w-3" />
               {ownerLabel}
             </span>
           </div>
         </div>
-        <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_BADGES[initiative.status])}>
+        <span className={clsx('w-fit rounded-full px-2 py-0.5 text-[11px] font-medium', STATUS_BADGES[initiative.status])}>
           {statusLabel}
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+      <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 px-3 py-2">
           <p className="text-slate-400">Expected value (USD)</p>
           <p className="mt-1 font-semibold text-emerald-700">
@@ -730,7 +746,7 @@ function InitiativeCard({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+      <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 px-3 py-2">
           <p className="inline-flex items-center gap-1 text-slate-400">
             <CalendarClock className="h-3 w-3" />
@@ -758,15 +774,15 @@ function InitiativeCard({
       </div>
 
       <div className="mt-3 space-y-1.5 text-[11px] text-gray-500">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span>{i.colRelatedOpportunities}</span>
-          <span className="truncate text-right text-gray-700">
+          <span className="min-w-0 truncate text-left text-gray-700 sm:text-right">
             {linkedOpportunity?.title ?? i.noLinkedOpportunity}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <span>{i.colLastActivity}</span>
-          <span className="text-gray-700">{lastActivityLabel ?? i.notAvailable}</span>
+          <span className="text-left text-gray-700 sm:text-right">{lastActivityLabel ?? i.notAvailable}</span>
         </div>
       </div>
 
@@ -805,5 +821,3 @@ function InitiativeCard({
     </div>
   )
 }
-
-
