@@ -23,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('lucide-react', () => ({
   Cloud: () => null,
   ArrowLeft: () => null,
+  Cpu: () => null,
 }))
 
 const PENDING_PREVIEW = {
@@ -66,7 +67,7 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Acme')
 
-    const submitBtn = screen.getByRole('button', { name: /ativar acesso/i })
+    const submitBtn = screen.getByRole('button', { name: /activate access/i })
     // Without terms checkbox, button is disabled
     expect(submitBtn).toBeDisabled()
 
@@ -79,20 +80,20 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Acme')
 
-    fireEvent.change(screen.getByPlaceholderText('Seu nome'), {
+    fireEvent.change(screen.getByPlaceholderText('Your full name'), {
       target: { value: 'New User' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Min. 8 caracteres'), {
+    fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'Password1!' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Repita a senha'), {
+    fireEvent.change(screen.getByPlaceholderText('Repeat your password'), {
       target: { value: 'Password1!' },
     })
     // Don't check terms — submit via form
-    const form = screen.getByRole('button', { name: /ativar acesso/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /activate access/i }).closest('form')!
     fireEvent.submit(form)
 
-    expect(await screen.findByText(/você precisa aceitar os termos/i)).toBeInTheDocument()
+    expect(await screen.findByText(/you must accept the terms of service/i)).toBeInTheDocument()
     expect(acceptMock).not.toHaveBeenCalled()
   })
 
@@ -101,18 +102,18 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Acme')
 
-    fireEvent.change(screen.getByPlaceholderText('Seu nome'), {
+    fireEvent.change(screen.getByPlaceholderText('Your full name'), {
       target: { value: 'New User' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Min. 8 caracteres'), {
+    fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'Password1!' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Repita a senha'), {
+    fireEvent.change(screen.getByPlaceholderText('Repeat your password'), {
       target: { value: 'Password1!' },
     })
     fireEvent.click(screen.getByRole('checkbox'))
 
-    const submitBtn = screen.getByRole('button', { name: /ativar acesso/i })
+    const submitBtn = screen.getByRole('button', { name: /activate access/i })
     expect(submitBtn).not.toBeDisabled()
     fireEvent.click(submitBtn)
 
@@ -129,19 +130,19 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Acme')
 
-    fireEvent.change(screen.getByPlaceholderText('Seu nome'), { target: { value: 'New User' } })
-    fireEvent.change(screen.getByPlaceholderText('Min. 8 caracteres'), {
+    fireEvent.change(screen.getByPlaceholderText('Your full name'), { target: { value: 'New User' } })
+    fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'Password1!' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Repita a senha'), {
+    fireEvent.change(screen.getByPlaceholderText('Repeat your password'), {
       target: { value: 'Different1!' },
     })
     fireEvent.click(screen.getByRole('checkbox'))
 
-    const form = screen.getByRole('button', { name: /ativar acesso/i }).closest('form')!
+    const form = screen.getByRole('button', { name: /activate access/i }).closest('form')!
     fireEvent.submit(form)
 
-    expect(await screen.findByText(/senhas nao coincidem/i)).toBeInTheDocument()
+    expect(await screen.findByText('Passwords do not match.')).toBeInTheDocument()
     expect(acceptMock).not.toHaveBeenCalled()
   })
 
@@ -152,15 +153,15 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Acme')
 
-    fireEvent.change(screen.getByPlaceholderText('Seu nome'), { target: { value: 'New User' } })
-    fireEvent.change(screen.getByPlaceholderText('Min. 8 caracteres'), {
+    fireEvent.change(screen.getByPlaceholderText('Your full name'), { target: { value: 'New User' } })
+    fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'Password1!' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Repita a senha'), {
+    fireEvent.change(screen.getByPlaceholderText('Repeat your password'), {
       target: { value: 'Password1!' },
     })
     fireEvent.click(screen.getByRole('checkbox'))
-    fireEvent.click(screen.getByRole('button', { name: /ativar acesso/i }))
+    fireEvent.click(screen.getByRole('button', { name: /activate access/i }))
 
     expect(await screen.findByText('Token expired or invalid.')).toBeInTheDocument()
   })
@@ -172,6 +173,6 @@ describe('ActivateInvitePage', () => {
     renderPage()
     await screen.findByText('Invite expired')
 
-    expect(screen.getByRole('button', { name: /ativar acesso/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /activate access/i })).toBeDisabled()
   })
 })

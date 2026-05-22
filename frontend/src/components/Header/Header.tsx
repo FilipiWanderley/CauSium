@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bell, ChevronRight, LogOut, Menu } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -56,17 +56,18 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       { match: '/app/change-events', items: [t.nav.sectionGovernance, t.nav.changeEvents] },
       { match: '/app/executive', items: [t.nav.sectionGovernance, t.nav.executive] },
       { match: '/app/gov', items: [t.nav.sectionGovernance, t.nav.gov] },
-      { match: '/app/green', items: [t.nav.sectionGovernance, t.nav.green] },
-      { match: '/app/notifications', items: [t.nav.sectionPlatform, t.nav.notifications] },
-      { match: '/app/cloud', items: [t.nav.sectionPlatform, t.nav.settingsCloud] },
-      { match: '/app/members', items: [t.nav.sectionPlatform, t.nav.members] },
-      { match: '/app/settings/team', items: [t.nav.sectionPlatform, t.nav.settingsTeam] },
-      { match: '/app/settings/security', items: [t.nav.sectionPlatform, t.nav.settingsSecurity] },
-      { match: '/app/settings', items: [t.nav.sectionPlatform, t.nav.settings] },
-      { match: '/app/admin/reconciliation', items: [t.nav.sectionPlatform, t.nav.adminReconciliation] },
-      { match: '/app/platform/workspaces', items: [t.nav.sectionPlatform, t.nav.platformWorkspaces] },
-      { match: '/app/platform/sync', items: [t.nav.sectionPlatform, t.nav.platformSync] },
-      { match: '/app/platform/slo', items: [t.nav.sectionPlatform, t.nav.platformSlo] },
+      { match: '/app/green', items: [t.nav.sectionSustainability, t.nav.green] },
+      { match: '/app/notifications', items: [t.nav.sectionOperations, t.nav.notifications] },
+      { match: '/app/cloud', items: [t.nav.sectionOperations, t.nav.settingsCloud] },
+      { match: '/app/members', items: [t.nav.sectionAdministration, t.nav.members] },
+      { match: '/app/settings/team', items: [t.nav.sectionAdministration, t.nav.settingsTeam] },
+      { match: '/app/settings/security', items: [t.nav.sectionAdministration, t.nav.settingsSecurity] },
+      { match: '/app/settings', items: [t.nav.sectionAdministration, t.nav.settings] },
+      { match: '/app/admin/reconciliation', items: [t.nav.sectionAdministration, t.nav.adminReconciliation] },
+      { match: '/app/platform/workspaces', items: [t.nav.sectionAdministration, t.nav.platformWorkspaces] },
+      { match: '/app/platform/sync', items: [t.nav.sectionAdministration, t.nav.platformSync] },
+      { match: '/app/platform/integration-health', items: [t.nav.sectionAdministration, t.platform.integrationHealthTitle] },
+      { match: '/app/platform/slo', items: [t.nav.sectionAdministration, t.nav.platformSlo] },
     ]
     const resolved = routes.find((route) => location.pathname === route.match || location.pathname.startsWith(`${route.match}/`))
     return [t.header.breadcrumbsHome, ...(resolved?.items ?? [t.header.operationalConsole])]
@@ -166,8 +167,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             onFocus={() => preloadRoute('/app/notifications')}
             onPointerDown={() => preloadRoute('/app/notifications')}
             className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
-            title="Notificações"
-            aria-label="Abrir notificações"
+            title={t.nav.notifications}
+            aria-label={t.nav.notifications}
           >
             <Bell className="h-5 w-5" />
             {unread > 0 && (
@@ -198,3 +199,5 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     </header>
   )
 }
+
+

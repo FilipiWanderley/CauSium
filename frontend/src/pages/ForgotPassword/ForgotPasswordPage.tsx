@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Cpu } from 'lucide-react'
 import { authApi } from '../../api/auth'
@@ -148,6 +148,9 @@ export function ForgotPasswordPage() {
           </div>
 
           <div className="login-glass-card w-full rounded-[20px] p-8 sm:p-9">
+            <p className="mb-6 text-[13px] text-gray-300">
+              Enter the email associated with your account and we will send a secure password reset link.
+            </p>
             {submitted ? (
               <div className="space-y-4 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-500/10">
@@ -161,7 +164,7 @@ export function ForgotPasswordPage() {
                 </p>
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-300 transition-colors hover:text-violet-400"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-300 transition-colors hover:text-white"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   {fp.backToSignIn}
@@ -201,7 +204,7 @@ export function ForgotPasswordPage() {
                 <div className="mt-6 text-center">
                   <Link
                     to="/login"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-gray-200"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-white"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     {fp.backToSignIn}
@@ -215,3 +218,5 @@ export function ForgotPasswordPage() {
     </div>
   )
 }
+
+

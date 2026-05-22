@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+﻿import { NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState, useEffect } from 'react'
 import {
@@ -26,6 +26,7 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  HeartPulse,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
@@ -150,6 +151,7 @@ function getEnterpriseGroups(
         { to: '/app/admin/reconciliation', icon: ClipboardCheck, label: nav.adminReconciliation, hidden: !isPlatformAdmin },
         { to: '/app/platform/workspaces', icon: Building2, label: nav.platformWorkspaces, hidden: !isPlatformAdmin },
         { to: '/app/platform/sync', icon: RefreshCw, label: nav.platformSync, hidden: !isPlatformAdmin },
+        { to: '/app/platform/integration-health', icon: HeartPulse, label: 'Integration Health', hidden: !isPlatformAdmin },
         { to: '/app/platform/slo', icon: Siren, label: nav.platformSlo, hidden: !isPlatformAdmin },
       ],
     },
@@ -344,6 +346,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 onNavigate={onNavigate}
               />
               <SideNavLink to="/app/platform/sync" icon={RefreshCw} label={t.nav.platformSync} onNavigate={onNavigate} />
+              <SideNavLink to="/app/platform/integration-health" icon={HeartPulse} label="Integration Health" onNavigate={onNavigate} />
               <SideNavLink to="/app/platform/slo" icon={Siren} label={t.nav.platformSlo} onNavigate={onNavigate} />
             </>
           )}
@@ -417,3 +420,5 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     </aside>
   )
 }
+
+

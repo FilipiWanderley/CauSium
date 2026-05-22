@@ -21,6 +21,9 @@ import { ChartPanel } from '../../components/Charts/ChartPanel'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { PageHeader } from '../../components/Layout/PageHeader'
 import { ReconciliationBadge } from '../../components/UX/ReconciliationBadge'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
+import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonSection } from '../../components/UX/Skeleton'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import { opportunitiesApi } from '../../api/opportunities'
@@ -42,11 +45,11 @@ import type {
 } from '../../types'
 import clsx from 'clsx'
 import { usePersistentBoolean, usePersistentString } from '../../hooks/usePersistentBoolean'
+import { formatCurrency } from '../../utils/currency'
 
-// ─── Utilities ───────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-const fmt = (n: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n)
+const fmt = (n: number, currency = 'USD') => formatCurrency(n, currency)
 
 const USD_VALUE_RE = /(?:US\$|\$)\s*(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)/g
 const USD_LABEL_RE = /\bUSD\b\s*:?\s*(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)/g
@@ -90,9 +93,9 @@ function computeAlert(todayCost: number, avg30d: number, hasData: boolean) {
   return null
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ActivityRow({ ev, label }: { ev: ChangeEvent; label: string }) {
+function ActivityRow({ ev, label, currency }: { ev: ChangeEvent; label: string; currency: string }) {
   const Icon = EVENT_ICON[ev.event_type]
   const color = EVENT_COLOR[ev.event_type]
   return (
@@ -104,7 +107,7 @@ function ActivityRow({ ev, label }: { ev: ChangeEvent; label: string }) {
       </div>
       {ev.cost_impact_usd != null && (
         <span className={clsx('text-[11px] font-semibold tabular-nums shrink-0', ev.cost_impact_usd > 0 ? 'text-rose-600' : 'text-emerald-600')}>
-          {ev.cost_impact_usd > 0 ? '+' : ''}{fmt(Math.abs(ev.cost_impact_usd))}
+          {ev.cost_impact_usd > 0 ? '+' : ''}{fmt(Math.abs(ev.cost_impact_usd), currency)}
         </span>
       )}
       <span className="text-[10px] text-slate-400 shrink-0">
@@ -114,7 +117,7 @@ function ActivityRow({ ev, label }: { ev: ChangeEvent; label: string }) {
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
@@ -154,7 +157,7 @@ export function DashboardPage() {
     config_change: ce.configChange, scaling: ce.scaling, policy_change: ce.policyChange,
   }
 
-  // ─── Queries ─────────────────────────────────────────────────────────────────
+  // ─── Queries ────────────────────────────────────────────────────────────────
 
   const { data: accounts } = useQuery({
     queryKey: ['cloud-accounts'],
@@ -263,12 +266,22 @@ export function DashboardPage() {
   }, [metrics?.data_max_date])
   const reconciliationStatus = integrityData?.reconciliation_status ?? clientReconciliationStatus
 
-  // ─── Derived data ────────────────────────────────────────────────────────────
+  // ─── Derived data ───────────────────────────────────────────────────────────
 
   if (metricsLoading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+      <div className="page-container">
+        <PageHeader title={d.title} subtitle={d.operationsSection} />
+        <SkeletonMetricCards count={4} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <SkeletonSection lines={8} />
+          <SkeletonSection lines={6} />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <SkeletonPrioritizedList items={4} />
+          <SkeletonSection lines={5} />
+          <SkeletonSection lines={5} />
+        </div>
       </div>
     )
   }
@@ -338,7 +351,7 @@ export function DashboardPage() {
   // Build sparkline from daily trend (last 14 days)
   const sparklineData = dailyTrend.slice(-14).map((p) => ({ value: p.cost_usd ?? 0 }))
 
-  // ─── Render ────────────────────────────────────────────────────────────────────
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="page-container">
@@ -533,11 +546,22 @@ export function DashboardPage() {
             ) : undefined}
           />
           {intelInsightsLoading ? (
-            <div className="flex flex-1 items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            <div className="mt-4">
+              <SkeletonSection lines={4} />
             </div>
-          ) : intelInsightsError || !insightsDisplayData ? (
-            <div className="flex flex-1 items-center justify-center py-8 text-sm text-slate-400">{d.insightsUnavailable}</div>
+          ) : intelInsightsError ? (
+            <ErrorState
+              className="mt-4"
+              title={d.insightsUnavailable}
+              description="Insight generation is temporarily unavailable. Refresh the workspace to try again."
+            />
+          ) : !insightsDisplayData ? (
+            <EmptyState
+              className="mt-4 py-10"
+              icon="lightbulb"
+              title={d.insightsUnavailable}
+              description={d.insightsAction}
+            />
           ) : (
             <div className="mt-4 flex flex-1 flex-col gap-3">
               <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
@@ -581,7 +605,9 @@ export function DashboardPage() {
             }
           />
           {intelAnomaliesLoading ? (
-            <div className="flex h-36 items-center justify-center"><div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" /></div>
+            <div className="mt-3">
+              <SkeletonPrioritizedList items={4} />
+            </div>
           ) : visibleAnomalies.length > 0 ? (
             <div className="mt-3 space-y-2">
               {visibleAnomalies.slice(0, 4).map((item) => (
@@ -597,7 +623,12 @@ export function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="flex h-36 items-center justify-center text-xs text-slate-400">{ux.emptyNoAnomalies}</div>
+            <EmptyState
+              className="mt-3 py-10"
+              icon="lightbulb"
+              title={ux.emptyNoAnomalies}
+              description={d.anomalyShowAll}
+            />
           )}
         </Panel>
 
@@ -643,7 +674,7 @@ export function DashboardPage() {
         />
         {feedEvents.length > 0 ? (
           <div className="mt-2">
-            {feedEvents.map((ev) => <ActivityRow key={ev.id} ev={ev} label={eventLabels[ev.event_type]} />)}
+            {feedEvents.map((ev) => <ActivityRow key={ev.id} ev={ev} label={eventLabels[ev.event_type]} currency={effectiveCurrency} />)}
           </div>
         ) : (
           <div className="flex h-20 items-center justify-center text-xs text-slate-400">{ux.emptyNoRecentEvents}</div>
@@ -689,3 +720,5 @@ function DataHealthCell({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
+

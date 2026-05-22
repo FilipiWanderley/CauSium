@@ -5,12 +5,16 @@ import { ledgerApi } from '../../api/ledger'
 import { opportunitiesApi } from '../../api/opportunities'
 import { initiativesApi } from '../../api/initiatives'
 import { KpiCard } from '../../components/Cards/KpiCard'
+import { ChartPanel } from '../../components/Charts/ChartPanel'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { PageHeader } from '../../components/Layout/PageHeader'
+import { EmptyState } from '../../components/UX/EmptyState'
+import { ErrorState } from '../../components/UX/ErrorState'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
+import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonSection } from '../../components/UX/Skeleton'
 import { axisStyle, gridStyle, tooltipStyle, barDefaults, chartMargin, chartFill } from '../../components/Charts/chartTheme'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
@@ -18,7 +22,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 import type { ConfidenceTier, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
 
-// ─── Utilities ───────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
 const INITIATIVE_COLUMNS: Array<keyof InitiativeBoard> = ['backlog', 'planned', 'in_progress', 'review', 'done', 'cancelled']
 
@@ -49,7 +53,7 @@ function formatDate(value: string | null, locale: string) {
 function capConfidence(v: ConfidenceTier) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' | 'Insufficient' }
 function capRisk(v: RiskLevel) { return (v.charAt(0).toUpperCase() + v.slice(1)) as 'High' | 'Medium' | 'Low' }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ExecutivePage() {
   usePageTitle('Executive')
@@ -58,7 +62,7 @@ export function ExecutivePage() {
   const ux = t.ux
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
-  // ─── Queries ─────────────────────────────────────────────────────────────────
+  // ─── Queries ────────────────────────────────────────────────────────────────
 
   const { data: subscriptionSummary, isLoading: subscriptionSummaryLoading, isError: subscriptionSummaryError } = useQuery({
     queryKey: ['ledger', 'subscriptions', 90],
@@ -71,7 +75,7 @@ export function ExecutivePage() {
     select: (d) => ({ data_min_date: d.data_min_date, data_max_date: d.data_max_date, subscriptions_included: d.subscriptions_included, billing_currency: d.billing_currency }),
   })
 
-  const { data: summary, isLoading: summaryLoading } = useQuery({
+  const { data: summary, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary } = useQuery({
     queryKey: ['executive', 'summary', subscriptionId],
     queryFn: () => executiveApi.summary(subscriptionId || undefined).then((r) => r.data),
   })
@@ -91,7 +95,7 @@ export function ExecutivePage() {
     queryFn: () => initiativesApi.board().then((r) => r.data),
   })
 
-  // ─── Derived data ────────────────────────────────────────────────────────────
+  // ─── Derived data ───────────────────────────────────────────────────────────
 
   const displayCurrency = dashboardMeta?.billing_currency || DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
@@ -132,12 +136,53 @@ export function ExecutivePage() {
   const dataSourceCount = opportunities.filter((o) => (o.resource_context?.data_sources.length ?? 0) > 0).length
   const overdueCount = allInitiatives.filter((i) => i.is_overdue).length
   const topImpactTeams = [...(scorecard?.teams ?? [])].sort((a, b) => b.current_month_cost_usd - a.current_month_cost_usd).slice(0, 6)
+  const topImpactLead = topImpactTeams[0]
+  const averageEfficiencyScore = topImpactTeams.length
+    ? Math.round(topImpactTeams.reduce((sum, row) => sum + row.efficiency_score, 0) / topImpactTeams.length)
+    : 0
+  const totalVisibleTeamCost = topImpactTeams.reduce((sum, row) => sum + row.current_month_cost_usd, 0)
+  const topTeamCostShare = totalVisibleTeamCost > 0 && topImpactLead
+    ? Math.round((topImpactLead.current_month_cost_usd / totalVisibleTeamCost) * 100)
+    : 0
+  const highestOpportunityTeam = [...topImpactTeams].sort((a, b) => b.open_opportunities - a.open_opportunities)[0]
+  const topImpactChartData = topImpactTeams.map((row, index) => ({
+    ...row,
+    team_label: row.team.length > 18 ? `${row.team.slice(0, 18)}...` : row.team,
+    fill: index === 0 ? chartFill.primary : chartFill.primaryLight,
+  }))
 
-  if (summaryLoading) {
-    return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" /></div>
+  if (summaryLoading || subscriptionSummaryLoading) {
+    return (
+      <div className="page-container">
+        <PageHeader title={e.title} subtitle={e.subtitle} />
+        <SkeletonMetricCards count={4} />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr]">
+          <SkeletonSection lines={7} />
+          <SkeletonPrioritizedList items={4} />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.5fr]">
+          <SkeletonSection lines={5} />
+          <SkeletonSection lines={6} />
+        </div>
+      </div>
+    )
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────────
+  if (summaryError) {
+    return (
+      <div className="page-container">
+        <PageHeader title={e.title} subtitle={e.subtitle} />
+        <ErrorState
+          title="Could not load executive summary"
+          description="Executive reporting is temporarily unavailable. Please try again."
+          onRetry={() => refetchSummary()}
+          retryLabel="Retry"
+        />
+      </div>
+    )
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="page-container">
@@ -206,7 +251,12 @@ export function ExecutivePage() {
         <Panel>
           <PanelHeader title={e.topOpportunitiesTitle} subtitle={e.topOpportunitiesSubtitle} />
           {!topOpportunities.length ? (
-            <EmptyState title={e.noTopOpportunitiesTitle} body={e.noTopOpportunitiesBody} />
+            <EmptyState
+              icon="lightbulb"
+              title={e.noTopOpportunitiesTitle}
+              description={e.noTopOpportunitiesBody}
+              className="mt-4"
+            />
           ) : (
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -263,7 +313,12 @@ export function ExecutivePage() {
               ))}
             </ul>
           ) : (
-            <EmptyState title={e.noTopSavingsTitle} body={e.noTopSavingsBody} />
+            <EmptyState
+              icon="lightbulb"
+              title={e.noTopSavingsTitle}
+              description={e.noTopSavingsBody}
+              className="mt-4"
+            />
           )}
 
           {/* Savings summary bar */}
@@ -359,30 +414,105 @@ export function ExecutivePage() {
               ))}
             </div>
           ) : (
-            <EmptyState title={e.noPriorityWatchlistTitle} body={e.noPriorityWatchlistBody} />
+            <EmptyState
+              icon="lightbulb"
+              title={e.noPriorityWatchlistTitle}
+              description={e.noPriorityWatchlistBody}
+              className="mt-3"
+            />
           )}
         </Panel>
       </div>
 
       {/* ═══ F. Team Accountability ═══ */}
       {topImpactTeams.length > 0 && (
-        <Panel>
-          <PanelHeader title={e.topImpactAreasTitle} subtitle={e.topImpactAreasSubtitle} />
-          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
-            {/* Chart */}
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topImpactTeams} margin={chartMargin.compact}>
-                  <CartesianGrid {...gridStyle} />
-                  <XAxis dataKey="team" tick={axisStyle} />
-                  <YAxis domain={[0, 100]} tick={axisStyle} />
-                  <Tooltip formatter={(v: number) => [`${v}/100`, e.scoreLabel]} {...tooltipStyle} />
-                  <Bar dataKey="efficiency_score" fill={chartFill.primary} radius={barDefaults.radius} maxBarSize={barDefaults.maxBarSize} />
-                </BarChart>
-              </ResponsiveContainer>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_1fr]">
+          <ChartPanel
+            title={e.topImpactAreasTitle}
+            subtitle={e.topImpactAreasSubtitle}
+            height={320}
+            actions={
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
+                {e.scoreLabel}
+              </span>
+            }
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Largest cost area</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{topImpactLead?.team ?? e.na}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {topImpactLead ? `${formatMoney(topImpactLead.current_month_cost_usd)} · ${topTeamCostShare}% of visible spend` : e.na}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Average efficiency</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{averageEfficiencyScore}/100</p>
+                  <p className="mt-1 text-xs text-slate-500">{topImpactTeams.length} teams in view</p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Most open opportunities</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{highestOpportunityTeam?.team ?? e.na}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {highestOpportunityTeam ? `${highestOpportunityTeam.open_opportunities} ${e.openOpps.toLowerCase()}` : e.na}
+                  </p>
+                </div>
+              </div>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topImpactChartData} layout="vertical" margin={chartMargin.withLabels}>
+                    <CartesianGrid horizontal={false} {...gridStyle} />
+                    <XAxis
+                      type="number"
+                      tick={axisStyle}
+                      tickFormatter={(value: number) => formatMoney(value)}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      dataKey="team_label"
+                      type="category"
+                      tick={axisStyle}
+                      width={110}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      {...tooltipStyle}
+                      formatter={(_, __, item) => {
+                        const row = item?.payload
+                        if (!row) return []
+                        return [
+                          `${formatMoney(row.current_month_cost_usd)} · ${row.efficiency_score}/100 ${e.scoreLabel.toLowerCase()} · ${row.open_opportunities} ${e.openOpps.toLowerCase()}`,
+                          row.team,
+                        ]
+                      }}
+                    />
+                    <Bar dataKey="current_month_cost_usd" radius={barDefaults.radius} maxBarSize={22}>
+                      {topImpactChartData.map((row) => (
+                        <Cell key={row.team} fill={row.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Executive readout</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                  {topImpactLead
+                    ? `${topImpactLead.team} currently carries the largest visible monthly cost footprint at ${formatMoney(topImpactLead.current_month_cost_usd)}. Use the accountability table to compare efficiency score and open opportunity volume before prioritizing follow-up.`
+                    : 'Use the accountability table to compare monthly cost, efficiency score, and open opportunity volume.'}
+                </p>
+              </div>
             </div>
-            {/* Table */}
-            <div className="overflow-x-auto">
+          </ChartPanel>
+          <Panel>
+            <PanelHeader
+              title={e.team}
+              subtitle="Supporting accountability detail"
+            />
+            <div className="mt-4 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -395,10 +525,10 @@ export function ExecutivePage() {
                 <tbody className="divide-y divide-slate-50">
                   {topImpactTeams.map((row) => (
                     <tr key={row.team}>
-                      <td className="py-2 pr-3 font-medium text-slate-800">{row.team}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-slate-600">{formatMoney(row.current_month_cost_usd)}</td>
-                      <td className="py-2 pr-3 text-right text-slate-600">{row.open_opportunities}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-2.5 pr-3 font-medium text-slate-800">{row.team}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{formatMoney(row.current_month_cost_usd)}</td>
+                      <td className="py-2.5 pr-3 text-right text-slate-600">{row.open_opportunities}</td>
+                      <td className="py-2.5 text-right">
                         <span className={clsx('font-semibold tabular-nums', row.efficiency_score >= 70 ? 'text-emerald-700' : row.efficiency_score >= 40 ? 'text-amber-700' : 'text-rose-700')}>
                           {row.efficiency_score}/100
                         </span>
@@ -408,8 +538,8 @@ export function ExecutivePage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </Panel>
+          </Panel>
+        </div>
       )}
 
       {/* ═══ G. Supporting Metadata ═══ */}
@@ -425,17 +555,6 @@ export function ExecutivePage() {
           <span>{e.confidenceCoverageSubtitle.replace('{{high}}', String(highConfidenceCount)).replace('{{medium}}', String(mediumConfidenceCount))}</span>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-4 py-6 text-center mt-4">
-      <p className="text-xs font-medium text-slate-600">{title}</p>
-      <p className="mt-1 text-[10px] text-slate-400">{body}</p>
     </div>
   )
 }
@@ -467,4 +586,6 @@ function CoverageCell({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
+
 

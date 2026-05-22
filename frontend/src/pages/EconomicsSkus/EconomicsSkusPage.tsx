@@ -5,6 +5,9 @@ import { ledgerApi } from '../../api/ledger'
 import type { ServiceBreakdown } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { SkeletonTable, SkeletonMetricCards } from '../../components/UX/Skeleton'
@@ -17,10 +20,16 @@ export function EconomicsSkusPage() {
   const { t } = useI18n()
   const es = t.economicsSkus
   const ux = t.ux
-  const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const [days, setDays] = useState(30)
   const [limit, setLimit] = useState(20)
+
+  const dashboardQuery = useQuery({
+    queryKey: ['economics-skus-dashboard'],
+    queryFn: () => ledgerApi.dashboard().then((r) => r.data),
+    staleTime: 30_000,
+    retry: 2,
+  })
 
   const { data: skus = [] as ServiceBreakdown[], isLoading, isError, refetch } = useQuery({
     queryKey: ['economics-skus', days, limit],
@@ -42,43 +51,45 @@ export function EconomicsSkusPage() {
       : summary.concentrationRisk === 'medium'
         ? 'bg-amber-50 text-amber-700 border-amber-200'
         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  const displayCurrency = dashboardQuery.data?.currency ?? DEFAULT_DISPLAY_CURRENCY
+  const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">{es.title}</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{es.subtitle}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-            {es.financialValuesBrl}
-          </span>
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
-            {es.consolidated}
-          </span>
+    <div className="page-container">
+      <PageHeader
+        title={es.title}
+        subtitle={es.subtitle}
+        meta={
+          <>
+            <span>Billing currency values</span>
+            <span>Consolidated SKU concentration</span>
+          </>
+        }
+      />
+
+      <Panel compact className="border-amber-200 bg-amber-50/60 shadow-none">
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+          <p className="text-sm leading-relaxed text-amber-800">{es.note}</p>
         </div>
-      </header>
+      </Panel>
 
-      {/* Advisory notice */}
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-        <p className="text-sm leading-relaxed text-amber-800">{es.note}</p>
-      </div>
-
-      {/* Controls + KPI strip */}
-      <section>
+      <section className="section-group">
         <SectionIntro
           title={es.overviewTitle}
           subtitle={es.overviewSubtitle}
           freshness={ux.freshnessSnapshot}
           badges={[
-            { label: es.financialValuesBrl, tone: 'billing' },
+            { label: 'Billing currency values', tone: 'billing' },
             { label: es.consolidated, tone: 'organization' },
           ]}
         />
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            {/* Time window selector */}
+        <Panel>
+          <PanelHeader
+            title="Command bar"
+            subtitle="Adjust the reporting window and SKU depth without leaving the overview."
+          />
+          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[220px_220px_minmax(0,1fr)_minmax(0,1fr)]">
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
               {es.window}
               <select
@@ -93,7 +104,6 @@ export function EconomicsSkusPage() {
               </select>
             </label>
 
-            {/* Row limit selector */}
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
               {es.topRows}
               <select
@@ -108,46 +118,54 @@ export function EconomicsSkusPage() {
               </select>
             </label>
 
-            {/* Total cost KPI */}
-            <div className="flex flex-col justify-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 shadow-sm">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{es.totalCost}</div>
-              <div className="mt-1 text-xl font-bold tabular-nums text-white">{formatMoney(summary.totalCost)}</div>
-            </div>
+            <KpiCard
+              title={es.totalCost}
+              value={formatMoney(summary.totalCost)}
+              icon={<Boxes className="h-4 w-4" />}
+              compact
+              footer={<span>Visible SKU cost for the current selection.</span>}
+            />
 
-            {/* Concentration risk KPI */}
-            <div className="flex flex-col justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-              <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                {es.top3Share}
-                <ExplainTooltip text={ux.tooltipConcentrationRisk} className="ml-1.5 align-middle" />
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-xl font-bold tabular-nums text-gray-900">
-                  {summary.top3Share.toFixed(1)}%
-                </span>
-                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${riskColor}`}>
-                  {summary.concentrationRisk}
-                </span>
-              </div>
-            </div>
+            <KpiCard
+              title={es.top3Share}
+              value={`${summary.top3Share.toFixed(1)}%`}
+              icon={<Info className="h-4 w-4" />}
+              compact
+              tone={
+                summary.concentrationRisk === 'high'
+                  ? 'negative'
+                  : summary.concentrationRisk === 'medium'
+                    ? 'warning'
+                    : 'positive'
+              }
+              footer={
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${riskColor}`}>
+                    {summary.concentrationRisk}
+                  </span>
+                  <span className="text-slate-500">
+                    {ux.tooltipConcentrationRisk}
+                  </span>
+                </div>
+              }
+            />
           </div>
-        </div>
+        </Panel>
       </section>
 
-      {/* SKU breakdown table */}
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-4">
-          <Boxes className="h-4 w-4 text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-900">{es.breakdown}</h2>
-          <span className="ml-auto text-xs text-gray-400">{skus.length} items</span>
-        </div>
-
-        <div className="p-5">
+      <Panel>
+        <PanelHeader
+          title={es.breakdown}
+          subtitle="Review ranked SKU concentration and share of spend for the selected window."
+          actions={<span className="text-xs text-slate-400">{skus.length} items</span>}
+        />
+        <div className="mt-4">
           {isLoading ? (
             <SkeletonTable rows={6} columns={4} />
           ) : isError ? (
             <ErrorState
               title={es.noData}
-              description="Could not load SKU breakdown data."
+              description="SKU breakdown data is temporarily unavailable for the selected time window."
               onRetry={() => refetch()}
               retryLabel={t.common.reset}
               compact
@@ -156,7 +174,8 @@ export function EconomicsSkusPage() {
             <EmptyState
               icon="lightbulb"
               title={es.noData}
-              description="No SKU cost data available for the selected time window."
+              description="No SKU cost rows are available for the selected time window."
+              action={days !== 30 ? { label: es.last30, onClick: () => setDays(30) } : undefined}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -197,7 +216,9 @@ export function EconomicsSkusPage() {
             </div>
           )}
         </div>
-      </section>
+      </Panel>
     </div>
   )
 }
+
+

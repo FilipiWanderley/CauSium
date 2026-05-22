@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate } from 'react-router-dom'
 import clsx from 'clsx'
@@ -8,6 +8,8 @@ import { adminApi } from '../../api/admin'
 import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { useI18n } from '../../contexts/I18nContext'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -28,6 +30,17 @@ const INVITE_STATUS_OPTIONS: Array<'all' | InviteStatus> = [
 
 const INVITES_PAGE_SIZE = 10
 const MEMBERS_PAGE_SIZE = 10
+
+const ACTION_BUTTON_BASE =
+  'rounded-md px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-60 disabled:cursor-not-allowed'
+const ACTION_BUTTON_SECONDARY =
+  `${ACTION_BUTTON_BASE} text-gray-500 hover:bg-gray-50 hover:text-gray-700`
+const ACTION_BUTTON_PRIMARY =
+  `${ACTION_BUTTON_BASE} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`
+const ACTION_BUTTON_WARNING =
+  `${ACTION_BUTTON_BASE} border border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100/80`
+const ACTION_BUTTON_DANGER =
+  `${ACTION_BUTTON_BASE} text-red-600 hover:bg-red-50`
 
 type DeactivateModalState = { member: MemberItem; reason: string }
 type EditModalState = { member: MemberItem; full_name: string; role: UserRole }
@@ -312,13 +325,19 @@ export function MembersPage() {
   const formatDateTime = (value: string) => new Date(value).toLocaleString(locale)
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">{m.title}</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{m.subtitle}</p>
-      </header>
+    <div className="page-container max-w-6xl">
+      <PageHeader
+        title={m.title}
+        subtitle={m.subtitle}
+        meta={
+          <>
+            <span>Workspace administration</span>
+            <span>Identity & access controls</span>
+          </>
+        }
+      />
 
-      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+      <Panel compact>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTab('members')}
@@ -341,7 +360,7 @@ export function MembersPage() {
             {m.tabInvites}
           </button>
         </div>
-      </div>
+      </Panel>
 
       {feedback && (
         <div
@@ -358,11 +377,12 @@ export function MembersPage() {
 
       {tab === 'members' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-gray-900">{m.createMember}</h2>
-            </div>
-            <div className="p-5">
+          <Panel>
+            <PanelHeader
+              title={m.createMember}
+              subtitle="Provision a workspace member and assign an initial role from the same command surface."
+            />
+            <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input
                   type="email"
@@ -407,38 +427,39 @@ export function MembersPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </Panel>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-gray-900">
-                {m.workspaceMembers.replace('{{count}}', String(allMembers.length))}
-              </h2>
-              {totalMemberPages > 1 && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <button
-                    onClick={() => setMembersPage((p) => Math.max(1, p - 1))}
-                    disabled={membersPage <= 1 || hasMemberMutationInFlight}
-                    className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {m.prev}
-                  </button>
-                  <span className="text-xs text-gray-500">
-                    {m.pageOf
-                      .replace('{{page}}', String(membersPage))
-                      .replace('{{total}}', String(totalMemberPages))}
-                  </span>
-                  <button
-                    onClick={() => setMembersPage((p) => Math.min(totalMemberPages, p + 1))}
-                    disabled={membersPage >= totalMemberPages || hasMemberMutationInFlight}
-                    className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {m.next}
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="p-5">
+          <Panel>
+            <PanelHeader
+              title={m.workspaceMembers.replace('{{count}}', String(allMembers.length))}
+              subtitle="Review current workspace access and manage account-level member actions."
+              actions={
+                totalMemberPages > 1 ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <button
+                      onClick={() => setMembersPage((p) => Math.max(1, p - 1))}
+                      disabled={membersPage <= 1 || hasMemberMutationInFlight}
+                      className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {m.prev}
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      {m.pageOf
+                        .replace('{{page}}', String(membersPage))
+                        .replace('{{total}}', String(totalMemberPages))}
+                    </span>
+                    <button
+                      onClick={() => setMembersPage((p) => Math.min(totalMemberPages, p + 1))}
+                      disabled={membersPage >= totalMemberPages || hasMemberMutationInFlight}
+                      className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {m.next}
+                    </button>
+                  </div>
+                ) : undefined
+              }
+            />
+            <div className="mt-4">
               {membersQuery.isLoading ? (
                 <SkeletonTable rows={6} columns={5} />
               ) : membersQuery.isError ? (
@@ -449,7 +470,11 @@ export function MembersPage() {
                   retryLabel="Retry"
                 />
               ) : !allMembers.length ? (
-                <EmptyState icon="document" title={m.noMembers} />
+                <EmptyState
+                  icon="document"
+                  title={m.noMembers}
+                  description="Create the first workspace member to start delegating access and ownership."
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -459,7 +484,7 @@ export function MembersPage() {
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</th>
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
-                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.edit}</th>
+                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -483,39 +508,40 @@ export function MembersPage() {
                             </span>
                           </td>
                           <td className="py-3">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleEdit(member)}
+                                disabled={!member.is_active || hasMemberMutationInFlight}
+                                className={ACTION_BUTTON_PRIMARY}
+                              >
+                                {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
+                              </button>
                               <button
                                 onClick={() => resetMfaMutation.mutate(member)}
                                 disabled={hasMemberMutationInFlight}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_SECONDARY}
                               >
                                 {resetMfaMutation.isPending && memberActionId === member.id ? m.resettingMfa : m.resetMfa}
                               </button>
                               <button
                                 onClick={() => resetPasswordMutation.mutate(member)}
                                 disabled={hasMemberMutationInFlight}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_SECONDARY}
                               >
                                 {resetPasswordMutation.isPending && memberActionId === member.id ? m.resettingPassword : m.resetPassword}
                               </button>
-                              <button
-                                onClick={() => handleEdit(member)}
-                                disabled={!member.is_active || hasMemberMutationInFlight}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                              >
-                                {editMemberMutation.isPending && memberActionId === member.id ? m.saving : m.edit}
-                              </button>
+                              <span className="hidden h-5 w-px bg-gray-200 md:block" aria-hidden="true" />
                               <button
                                 onClick={() => handleDeactivate(member)}
                                 disabled={!member.is_active || hasMemberMutationInFlight}
-                                className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_WARNING}
                               >
                                 {deactivateMutation.isPending && memberActionId === member.id ? m.deactivating : m.deactivate}
                               </button>
                               <button
                                 onClick={() => handleDelete(member)}
                                 disabled={hasMemberMutationInFlight}
-                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_DANGER}
                               >
                                 {deleteMemberMutation.isPending && memberActionId === member.id ? m.removing : m.remove}
                               </button>
@@ -528,17 +554,18 @@ export function MembersPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Panel>
         </div>
       )}
 
       {tab === 'invites' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-gray-900">{m.createInvite}</h2>
-            </div>
-            <div className="p-5">
+          <Panel>
+            <PanelHeader
+              title={m.createInvite}
+              subtitle="Create a role-scoped invite without leaving the access management surface."
+            />
+            <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <input
                 type="email"
@@ -579,10 +606,14 @@ export function MembersPage() {
               </button>
               </div>
             </div>
-          </div>
+          </Panel>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-gray-100 px-5 py-4">
+          <Panel>
+            <PanelHeader
+              title="Invite inventory"
+              subtitle="Search pending and historical invites while keeping the same table behavior."
+            />
+            <div className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <input
                   type="text"
@@ -633,7 +664,7 @@ export function MembersPage() {
                 </div>
               </div>
             </div>
-            <div className="p-5">
+            <div className="mt-4">
               {invitesQuery.isLoading ? (
                 <SkeletonTable rows={6} columns={5} />
               ) : invitesQuery.isError ? (
@@ -644,7 +675,27 @@ export function MembersPage() {
                   retryLabel="Retry"
                 />
               ) : !invites.length ? (
-                <EmptyState icon="document" title={m.noInvites} />
+                <EmptyState
+                  icon="document"
+                  title={m.noInvites}
+                  description={
+                    inviteQuery || inviteStatusFilter !== 'all'
+                      ? 'No invites match the current filters.'
+                      : 'Create an invite to onboard another workspace member.'
+                  }
+                  action={
+                    inviteQuery || inviteStatusFilter !== 'all'
+                      ? {
+                          label: 'Clear filters',
+                          onClick: () => {
+                            setInviteQuery('')
+                            setInviteStatusFilter('all')
+                            setInvitePage(1)
+                          },
+                        }
+                      : undefined
+                  }
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -654,7 +705,7 @@ export function MembersPage() {
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.role}</th>
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Status</th>
                         <th className="pb-3 pr-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Expires</th>
-                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t.common.copy}</th>
+                        <th className="pb-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -669,18 +720,18 @@ export function MembersPage() {
                           <td className="py-3 pr-4 text-gray-700">{inviteStatusLabel(invite.status)}</td>
                           <td className="py-3 pr-4 text-gray-700">{formatDateTime(invite.expires_at)}</td>
                           <td className="py-3">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <button
                                 onClick={() => copyInviteLink(invite)}
                                 disabled={hasInviteMutationInFlight}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_PRIMARY}
                               >
                                 {m.copyLink}
                               </button>
                               <button
                                 onClick={() => revokeInviteMutation.mutate(invite)}
                                 disabled={invite.status !== 'pending' || hasInviteMutationInFlight}
-                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                className={ACTION_BUTTON_DANGER}
                               >
                                 {revokeInviteMutation.isPending && inviteActionId === invite.id ? m.revoking : m.revoke}
                               </button>
@@ -693,7 +744,7 @@ export function MembersPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Panel>
         </div>
       )}
 
@@ -852,3 +903,5 @@ export function MembersPage() {
     </div>
   )
 }
+
+

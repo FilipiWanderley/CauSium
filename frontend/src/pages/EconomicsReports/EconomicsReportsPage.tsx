@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Download, FileSpreadsheet, FileText } from 'lucide-react'
+import { FileSpreadsheet, FileText } from 'lucide-react'
 import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
-import { FreshnessIndicator } from '../../components/UX/FreshnessIndicator'
-import { SkeletonMetricCards, SkeletonTable } from '../../components/UX/Skeleton'
+import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonTable } from '../../components/UX/Skeleton'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
@@ -136,24 +138,24 @@ export function EconomicsReportsPage() {
   const momPct = dashboardQuery.data?.mom_change_pct ?? 0
 
   return (
-    <div className="space-y-8">
-      {/* Page header */}
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">{er.title}</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{er.subtitle}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-            {er.financialValuesBrl}
-          </span>
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-blue-700">
-            {er.consolidated}
-          </span>
-        </div>
-      </header>
+    <div className="page-container">
+      <PageHeader
+        title={er.title}
+        subtitle={er.subtitle}
+        meta={
+          <>
+            <span>Billing currency values</span>
+            <span>Consolidated reporting view</span>
+          </>
+        }
+      />
 
-      {/* Export controls */}
-      <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <Panel>
+        <PanelHeader
+          title="Export & reporting window"
+          subtitle="Adjust the reporting window and trigger summary exports from the same command surface."
+        />
+        <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
             {er.reportWindow}
             <select
@@ -189,16 +191,15 @@ export function EconomicsReportsPage() {
             <div className="text-right text-xs">{renderExportStatus()}</div>
           </div>
         </div>
-      </div>
+      </Panel>
 
-      {/* Financial overview KPIs */}
-      <section>
+      <section className="section-group">
         <SectionIntro
           title={er.overviewTitle}
           subtitle={er.overviewSubtitle}
           freshness={ux.freshnessSnapshot}
           badges={[
-            { label: er.financialValuesBrl, tone: 'billing' },
+            { label: 'Billing currency values', tone: 'billing' },
             { label: er.consolidated, tone: 'organization' },
           ]}
         />
@@ -214,41 +215,36 @@ export function EconomicsReportsPage() {
               compact
             />
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              {/* Current month — primary emphasis */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
-                <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{er.currentMonth}</div>
-                <div className="mt-2 text-2xl font-bold tabular-nums text-white">
-                  {formatMoney(dashboardQuery.data?.current_month_cost ?? 0)}
-                </div>
-              </div>
-
-              {/* Previous month */}
-              <div className="rounded-xl border border-gray-200 bg-slate-50 p-5 shadow-sm">
-                <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{er.previousMonth}</div>
-                <div className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
-                  {formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)}
-                </div>
-              </div>
-
-              {/* Month-over-month change */}
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{er.momChange}</div>
-                <div className={`mt-2 text-2xl font-bold tabular-nums ${
-                  momPct > 0 ? 'text-red-600' : momPct < 0 ? 'text-emerald-600' : 'text-gray-900'
-                }`}>
-                  {momPct > 0 ? '+' : ''}{momPct.toFixed(1)}%
-                </div>
-                <div className="mt-1 text-xs text-gray-500">
-                  {momPct > 0 ? 'Cost increase' : momPct < 0 ? 'Cost reduction' : 'No change'}
-                </div>
-              </div>
+            <div className="kpi-grid">
+              <KpiCard
+                title={er.currentMonth}
+                value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)}
+                compact
+                tone="neutral"
+                footer={<span>Current billing window summary.</span>}
+              />
+              <KpiCard
+                title={er.previousMonth}
+                value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)}
+                compact
+                footer={<span>Prior billing window summary.</span>}
+              />
+              <KpiCard
+                title={er.momChange}
+                value={`${momPct > 0 ? '+' : ''}${momPct.toFixed(1)}%`}
+                compact
+                tone={momPct > 0 ? 'negative' : momPct < 0 ? 'positive' : 'neutral'}
+                footer={
+                  <span>
+                    {momPct > 0 ? 'Cost increase' : momPct < 0 ? 'Cost reduction' : 'No change'}
+                  </span>
+                }
+              />
             </div>
           )}
         </div>
       </section>
 
-      {/* Breakdown cards */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <BreakdownCard
           title={er.topServices}
@@ -269,7 +265,7 @@ export function EconomicsReportsPage() {
   )
 }
 
-// ─── Breakdown Card ──────────────────────────────────────────────────────────
+// ─── Breakdown Card ───────────────────────────────────────────────────────────
 
 function BreakdownCard({
   title,
@@ -287,25 +283,20 @@ function BreakdownCard({
   const formatMoney = (value: number) => formatCurrency(value, currency)
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-      </div>
-      <div className="p-5">
+    <Panel>
+      <PanelHeader
+        title={title}
+        subtitle="Prioritized contribution to the reporting window."
+      />
+      <div className="mt-4">
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-lg border border-gray-100 px-3 py-3">
-                <div className="h-4 w-2/3 rounded bg-gray-200" />
-                <div className="mt-1.5 h-3 w-1/3 rounded bg-gray-100" />
-                <div className="mt-2.5 h-1.5 w-full rounded-full bg-gray-100" />
-              </div>
-            ))}
-          </div>
+          <SkeletonPrioritizedList items={5} />
         ) : !rows.length ? (
-          <div className="rounded-lg border-2 border-dashed border-gray-200 py-10 text-center">
-            <p className="text-sm text-gray-500">{noDataLabel}</p>
-          </div>
+          <EmptyState
+            icon="document"
+            title={noDataLabel}
+            description="No report rows are available for the selected reporting window."
+          />
         ) : (
           <div className="space-y-2.5">
             {rows.map((row) => (
@@ -328,6 +319,8 @@ function BreakdownCard({
           </div>
         )}
       </div>
-    </div>
+    </Panel>
   )
 }
+
+
