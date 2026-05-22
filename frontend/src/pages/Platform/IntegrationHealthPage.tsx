@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+﻿import { Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, XCircle, ServerCog, Activity, Database, Cpu, HardDrive } from 'lucide-react'
 import clsx from 'clsx'
@@ -7,8 +7,11 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { integrationHealthApi } from '../../api/integrationHealth'
 import type { FinOpsReadinessResponse, RecommendationReadiness } from '../../api/integrationHealth'
 import { useI18n } from '../../contexts/I18nContext'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { ErrorState } from '../../components/UX/ErrorState'
-import { SkeletonMetricCards } from '../../components/UX/Skeleton'
+import { SkeletonMetricCards, SkeletonSection } from '../../components/UX/Skeleton'
 
 type HealthStatus = 'healthy' | 'warning' | 'blocked' | 'not_configured'
 
@@ -161,7 +164,7 @@ export function IntegrationHealthPage() {
     return <Navigate to="/app/dashboard" replace />
   }
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['finops-readiness'],
     queryFn: () => integrationHealthApi.getReadiness().then((r) => r.data),
     refetchInterval: 60000,
@@ -170,11 +173,8 @@ export function IntegrationHealthPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-          <div className="h-6 w-56 rounded bg-gray-200 animate-pulse" />
-          <div className="mt-2 h-4 w-96 rounded bg-gray-100 animate-pulse" />
-        </div>
+      <div className="page-container max-w-6xl">
+        <SkeletonSection lines={2} />
         <SkeletonMetricCards count={4} />
       </div>
     )
@@ -182,14 +182,22 @@ export function IntegrationHealthPage() {
 
   if (error || !data) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold text-gray-900">{t.platform.integrationHealthTitle}</h1>
-          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{t.platform.integrationHealthSubtitle}</p>
-        </header>
+      <div className="page-container max-w-6xl">
+        <PageHeader
+          title={t.platform.integrationHealthTitle}
+          subtitle={t.platform.integrationHealthSubtitle}
+          meta={
+            <>
+              <span>Platform administration</span>
+              <span>Telemetry readiness</span>
+            </>
+          }
+        />
         <ErrorState
           title="Could not load integration health"
           description="Diagnostics are temporarily unavailable for this workspace. Please try again."
+          onRetry={() => refetch()}
+          retryLabel="Retry"
         />
       </div>
     )
@@ -203,27 +211,73 @@ export function IntegrationHealthPage() {
     ? (data.usage_coverage.observation_days >= 7 ? 'healthy' : 'warning')
     : (data.usage_coverage.total_usage_facts_30d > 0 ? 'blocked' : 'not_configured')
 
-  const formatCurrency = (val: number) =>
+  const formatUsd = (val: number) =>
     val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">{t.platform.integrationHealthTitle}</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{t.platform.integrationHealthSubtitle}</p>
-      </header>
+  const overallStatus = getOverallStatus(data)
+  const summaryCards = [
+    {
+      title: 'Cost records (30d)',
+      value: data.cost_coverage.total_cost_facts_30d.toLocaleString(),
+      tone: costStatus === 'healthy' ? 'positive' : costStatus === 'warning' ? 'warning' : 'neutral',
+      footer: <span>{data.data_freshness.cost_data_stale ? 'Cost data is stale.' : 'Cost data is fresh.'}</span>,
+    },
+    {
+      title: 'Usage records (30d)',
+      value: data.usage_coverage.total_usage_facts_30d.toLocaleString(),
+      tone: usageStatus === 'healthy' ? 'positive' : usageStatus === 'warning' ? 'warning' : 'negative',
+      footer: <span>{`${data.usage_coverage.observation_days} day observation window.`}</span>,
+    },
+    {
+      title: 'Open opportunities',
+      value: data.opportunities.open_opportunities,
+      tone: data.opportunities.open_opportunities > 0 ? 'positive' : 'neutral',
+      footer: <span>{`${data.opportunities.generated_recently_count} generated in the last 7 days.`}</span>,
+    },
+    {
+      title: 'Overall readiness',
+      value: overallStatus === 'not_configured' ? 'Not configured' : overallStatus.replace('_', ' '),
+      tone: overallStatus === 'healthy' ? 'positive' : overallStatus === 'warning' ? 'warning' : overallStatus === 'blocked' ? 'negative' : 'neutral',
+      footer: <span>{`Assessed ${new Date(data.assessed_at).toLocaleString()}.`}</span>,
+    },
+  ] as const
 
-      {/* Summary Banner */}
+  return (
+    <div className="page-container max-w-6xl">
+      <PageHeader
+        title={t.platform.integrationHealthTitle}
+        subtitle={t.platform.integrationHealthSubtitle}
+        meta={
+          <>
+            <span>Platform administration</span>
+            <span>Telemetry readiness</span>
+          </>
+        }
+      />
+
       <SummaryBanner data={data} />
 
-      {/* Grid */}
+      <div className="kpi-grid">
+        {summaryCards.map((card) => (
+          <KpiCard
+            key={card.title}
+            title={card.title}
+            value={card.value}
+            tone={card.tone}
+            compact
+            footer={card.footer}
+          />
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Cost Coverage */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-            <Database className="h-4 w-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Cost Coverage</h3>
-            <StatusBadge status={costStatus} />
+        <Panel flush className="overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <PanelHeader
+              title="Cost coverage"
+              subtitle="Assess whether cost telemetry is present, current, and sufficiently scoped."
+              badge={<StatusBadge status={costStatus} />}
+            />
           </div>
           <div className="px-5 py-4">
             <MetricRow
@@ -232,8 +286,8 @@ export function IntegrationHealthPage() {
               status={data.cost_coverage.total_cost_facts_30d > 0 ? 'healthy' : 'not_configured'}
             />
             <MetricRow
-              label="Monthly cost"
-              value={formatCurrency(data.cost_coverage.total_cost_30d_usd)}
+              label="Monthly cost (USD normalized)"
+              value={formatUsd(data.cost_coverage.total_cost_30d_usd)}
               status={data.cost_coverage.total_cost_30d_usd > 500 ? 'healthy' : 'warning'}
             />
             <MetricRow
@@ -252,14 +306,15 @@ export function IntegrationHealthPage() {
               status={data.data_freshness.cost_data_stale ? 'warning' : 'healthy'}
             />
           </div>
-        </div>
+        </Panel>
 
-        {/* Usage Coverage */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-            <Activity className="h-4 w-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Usage Coverage</h3>
-            <StatusBadge status={usageStatus} />
+        <Panel flush className="overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <PanelHeader
+              title="Usage coverage"
+              subtitle="Confirm that compute and cluster metrics support downstream recommendation engines."
+              badge={<StatusBadge status={usageStatus} />}
+            />
           </div>
           <div className="px-5 py-4">
             <MetricRow
@@ -290,26 +345,28 @@ export function IntegrationHealthPage() {
               status={data.usage_coverage.observation_days >= 7 ? 'healthy' : 'warning'}
             />
           </div>
-        </div>
+        </Panel>
 
-        {/* Recommendation Readiness */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-            <Cpu className="h-4 w-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Recommendation Engines</h3>
+        <Panel flush className="overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <PanelHeader
+              title="Recommendation engines"
+              subtitle="Track whether rightsizing and autoscaler engines have the telemetry they need."
+            />
           </div>
           <div className="p-5 space-y-2">
             <ReadinessIndicator ready={data.recommendation_readiness.vm_rightsizing_ready} label="VM Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.aks_rightsizing_ready} label="AKS Nodepool Rightsizing" />
             <ReadinessIndicator ready={data.recommendation_readiness.autoscaler_ready} label="AKS Autoscaler" />
           </div>
-        </div>
+        </Panel>
 
-        {/* Opportunities & Export */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-            <HardDrive className="h-4 w-4 text-gray-500" />
-            <h3 className="text-sm font-semibold text-gray-900">Opportunities & Export</h3>
+        <Panel flush className="overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <PanelHeader
+              title="Opportunities & export"
+              subtitle="Validate that recommendation output and CSV export volume are operationally usable."
+            />
           </div>
           <div className="px-5 py-4">
             <MetricRow
@@ -333,16 +390,24 @@ export function IntegrationHealthPage() {
               status={data.export_readiness.csv_export_ready ? 'healthy' : 'warning'}
             />
           </div>
-        </div>
+        </Panel>
       </div>
 
-      {/* Guidance */}
-      <GuidanceSection readiness={data.recommendation_readiness} />
+      <Panel>
+        <PanelHeader
+          title="Guidance"
+          subtitle="Use the current blockers and warnings to improve telemetry readiness without leaving the page."
+        />
+        <div className="mt-4">
+          <GuidanceSection readiness={data.recommendation_readiness} />
+        </div>
+      </Panel>
 
-      {/* Footer */}
       <p className="text-xs text-gray-400 text-right">
         Last assessed: {new Date(data.assessed_at).toLocaleString()}
       </p>
     </div>
   )
 }
+
+

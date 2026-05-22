@@ -1,13 +1,16 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw, ServerCog } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
 import type { CloudProvider, ConnectorStatus } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -171,48 +174,67 @@ export function SyncStatusPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <ServerCog className="h-6 w-6 text-brand-600" />
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{p.syncTitle}</h1>
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{p.syncSubtitle}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isRefetching}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-        >
-          <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
-          {p.refresh}
-        </button>
+    <div className="page-container max-w-6xl">
+      <PageHeader
+        title={p.syncTitle}
+        subtitle={p.syncSubtitle}
+        meta={
+          <>
+            <span>Platform administration</span>
+            <span>Connector health operations</span>
+          </>
+        }
+        actions={
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
+            {p.refresh}
+          </button>
+        }
+      />
+
+      <div className="kpi-grid">
+        <KpiCard
+          title={p.syncAccounts}
+          value={summary.total}
+          compact
+          footer={<span>Total connectors currently in scope.</span>}
+        />
+        <KpiCard
+          title={p.syncNeedsAttention}
+          value={summary.attention}
+          compact
+          tone="negative"
+          footer={<span>Accounts currently flagged for follow-up.</span>}
+        />
+        <KpiCard
+          title={p.syncHealthy}
+          value={summary.healthy}
+          compact
+          tone="positive"
+          footer={<span>Connectors with no open attention signal.</span>}
+        />
+        <KpiCard
+          title={p.syncOpenDlq}
+          value={summary.openDlq}
+          compact
+          tone="warning"
+          footer={<span>Total outstanding DLQ items.</span>}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncAccounts}</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{summary.total}</p>
+      <Panel flush className="overflow-hidden">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <PanelHeader
+            title={p.syncConnectorOps}
+            subtitle="Filter provider health, attention state, and queue pressure from one operational surface."
+          />
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncNeedsAttention}</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-red-600">{summary.attention}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncHealthy}</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-600">{summary.healthy}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.syncOpenDlq}</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-amber-700">{summary.openDlq}</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100">
+        <div className="border-b border-slate-100 px-5 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <span className="text-sm font-semibold text-gray-700">{p.syncConnectorOps}</span>
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={providerFilter}
@@ -418,7 +440,9 @@ export function SyncStatusPage() {
             </div>
           </div>
         )}
-      </div>
+      </Panel>
     </div>
   )
 }
+
+

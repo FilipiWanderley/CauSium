@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, RefreshCw, Siren, Timer } from 'lucide-react'
+﻿import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react'
 import clsx from 'clsx'
 import { adminApi } from '../../api/admin'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { KpiCard } from '../../components/Cards/KpiCard'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonMetricCards, SkeletonTable } from '../../components/UX/Skeleton'
@@ -35,24 +38,27 @@ export function SloPage() {
   const warningAlerts = alerts.filter((a) => a.severity === 'warning').length
 
   return (
-    <div className="space-y-8 max-w-7xl">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Siren className="h-6 w-6 text-brand-600" />
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{p.sloTitle}</h1>
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{p.sloSubtitle}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isRefetching}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-        >
-          <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
-          {p.refresh}
-        </button>
-      </div>
+    <div className="page-container max-w-7xl">
+      <PageHeader
+        title={p.sloTitle}
+        subtitle={p.sloSubtitle}
+        meta={
+          <>
+            <span>Platform administration</span>
+            <span>Reliability overview</span>
+          </>
+        }
+        actions={
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw className={clsx('h-4 w-4', isRefetching && 'animate-spin')} />
+            {p.refresh}
+          </button>
+        }
+      />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -68,38 +74,48 @@ export function SloPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.sloRequests}</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{data.global_sli.requests_total}</p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.sloErrorRate}</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{data.global_sli.api_error_rate_pct.toFixed(3)}%</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {p.sloTarget.replace('{{value}}', data.targets.api_error_budget_pct.toFixed(2))}
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.sloBurnRate}</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{data.global_sli.error_budget_burn_rate.toFixed(2)}x</p>
-              <p className="mt-1 text-xs text-gray-500">{p.sloBurnDesc}</p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">{p.sloAlerts}</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">{alerts.length}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {p.sloCriticalWarning
-                  .replace('{{c}}', String(criticalAlerts))
-                  .replace('{{w}}', String(warningAlerts))}
-              </p>
-            </div>
+          <div className="kpi-grid">
+            <KpiCard
+              title={p.sloRequests}
+              value={data.global_sli.requests_total}
+              compact
+              footer={<span>Total observed API requests.</span>}
+            />
+            <KpiCard
+              title={p.sloErrorRate}
+              value={`${data.global_sli.api_error_rate_pct.toFixed(3)}%`}
+              compact
+              tone={data.global_sli.api_error_rate_pct > data.targets.api_error_budget_pct ? 'negative' : 'positive'}
+              footer={<span>{p.sloTarget.replace('{{value}}', data.targets.api_error_budget_pct.toFixed(2))}</span>}
+            />
+            <KpiCard
+              title={p.sloBurnRate}
+              value={`${data.global_sli.error_budget_burn_rate.toFixed(2)}x`}
+              compact
+              tone={data.global_sli.error_budget_burn_rate > 1 ? 'warning' : 'neutral'}
+              footer={<span>{p.sloBurnDesc}</span>}
+            />
+            <KpiCard
+              title={p.sloAlerts}
+              value={alerts.length}
+              compact
+              tone={criticalAlerts > 0 ? 'negative' : warningAlerts > 0 ? 'warning' : 'positive'}
+              footer={
+                <span>
+                  {p.sloCriticalWarning
+                    .replace('{{c}}', String(criticalAlerts))
+                    .replace('{{w}}', String(warningAlerts))}
+                </span>
+              }
+            />
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-              <Timer className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">{p.sloApiPathsTitle}</span>
+          <Panel flush className="overflow-hidden">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <PanelHeader
+                title={p.sloApiPathsTitle}
+                subtitle="Track API request volume, error rate, and latency on the most visible paths."
+              />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -127,12 +143,14 @@ export function SloPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Panel>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">{p.sloWorkerTitle}</span>
+          <Panel flush className="overflow-hidden">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <PanelHeader
+                title={p.sloWorkerTitle}
+                subtitle="Review worker execution reliability, retry pressure, and failure rate."
+              />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -160,12 +178,14 @@ export function SloPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </Panel>
 
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700">{p.sloAlertsTitle}</span>
+          <Panel flush className="overflow-hidden">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <PanelHeader
+                title={p.sloAlertsTitle}
+                subtitle="Surface recommended follow-up for the most urgent reliability issues."
+              />
             </div>
             {!alerts.length ? (
               <div className="p-5">
@@ -187,9 +207,11 @@ export function SloPage() {
                 ))}
               </ul>
             )}
-          </div>
+          </Panel>
         </>
       )}
     </div>
   )
 }
+
+

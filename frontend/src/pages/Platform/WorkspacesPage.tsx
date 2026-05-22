@@ -1,14 +1,16 @@
-import { Fragment, useState } from 'react'
+﻿import { Fragment, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminOrgListItem, AdminUserItem } from '../../api/admin'
 import { auditChainApi } from '../../api/auditChain'
-import { Shield, Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key, UserX } from 'lucide-react'
+import { Users, Ban, RefreshCw, Archive, ChevronLeft, ChevronRight, KeyRound, Key, UserX } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../hooks/useAuth'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
+import { PageHeader } from '../../components/Layout/PageHeader'
+import { Panel, PanelHeader } from '../../components/Layout/Panel'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonTable } from '../../components/UX/Skeleton'
@@ -48,6 +50,23 @@ type AuditWindow = '24h' | '7d' | '30d' | 'all'
 const AUDIT_WINDOW_OPTIONS: AuditWindow[] = ['24h', '7d', '30d', 'all']
 
 const PAGE_SIZE = 20
+
+const ROW_ACTION_BASE =
+  'inline-flex items-center gap-1 rounded-md transition disabled:opacity-60 disabled:cursor-not-allowed'
+const ROW_ACTION_PRIMARY =
+  `${ROW_ACTION_BASE} border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50`
+const ROW_ACTION_SECONDARY_ICON =
+  `${ROW_ACTION_BASE} rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600`
+const ROW_ACTION_WARNING_ICON =
+  `${ROW_ACTION_BASE} rounded p-1.5 text-amber-500 hover:bg-amber-50 hover:text-amber-700`
+const ROW_ACTION_SUCCESS_ICON =
+  `${ROW_ACTION_BASE} rounded p-1.5 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700`
+const ROW_ACTION_DANGER_ICON =
+  `${ROW_ACTION_BASE} rounded p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-700`
+const USER_ACTION_SECONDARY =
+  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed'
+const USER_ACTION_DANGER =
+  'inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50/70 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100/80 disabled:opacity-60 disabled:cursor-not-allowed'
 
 export function WorkspacesPage() {
   usePageTitle('Workspaces')
@@ -322,56 +341,66 @@ export function WorkspacesPage() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      <header className="flex items-start gap-3">
-        <Shield className="mt-0.5 h-6 w-6 text-brand-600" />
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{p.workspacesTitle}</h1>
-          <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{p.workspacesSubtitle}</p>
-        </div>
-      </header>
+    <div className="page-container max-w-6xl">
+      <PageHeader
+        title={p.workspacesTitle}
+        subtitle={p.workspacesSubtitle}
+        meta={
+          <>
+            <span>Platform administration</span>
+            <span>Workspace lifecycle controls</span>
+          </>
+        }
+      />
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">
-              {p.workspacesAllOrgs}{data ? ` (${data.total})` : ''}
-            </span>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={p.workspacesSearch}
-              className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            />
-            <select
-              value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value as 'all' | 'active' | 'suspended' | 'archived')}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            >
-              <option value="all">{p.workspacesAllStates}</option>
-              <option value="active">{p.workspacesStateActive}</option>
-              <option value="suspended">{p.workspacesStateSuspended}</option>
-              <option value="archived">{p.workspacesStateArchived}</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs text-gray-500">
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+      <Panel flush className="overflow-hidden">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <PanelHeader
+            title={`${p.workspacesAllOrgs}${data ? ` (${data.total})` : ''}`}
+            subtitle="Search, filter, and review workspace lifecycle state from a single administration surface."
+            actions={
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page === 1}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs text-gray-500">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages, page + 1))}
+                  disabled={page >= totalPages}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            }
+          />
+        </div>
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={p.workspacesSearch}
+                className="w-56 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              />
+              <select
+                value={stateFilter}
+                onChange={(e) => setStateFilter(e.target.value as 'all' | 'active' | 'suspended' | 'archived')}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="all">{p.workspacesAllStates}</option>
+                <option value="active">{p.workspacesStateActive}</option>
+                <option value="suspended">{p.workspacesStateSuspended}</option>
+                <option value="archived">{p.workspacesStateArchived}</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -390,7 +419,29 @@ export function WorkspacesPage() {
           </div>
         ) : !data?.items.length ? (
           <div className="p-5">
-            <EmptyState icon="search" title={p.workspacesNoOrgs} />
+            <EmptyState
+              icon="search"
+              title={p.workspacesNoOrgs}
+              description={
+                searchQuery || stateFilter !== 'all'
+                  ? 'No workspaces match the current search and lifecycle filters.'
+                  : 'No workspaces are currently available in the platform inventory.'
+              }
+              action={
+                searchQuery || stateFilter !== 'all'
+                  ? {
+                      label: 'Clear filters',
+                      onClick: () => {
+                        const next = new URLSearchParams(searchParams)
+                        next.delete('q')
+                        next.delete('state')
+                        next.delete('page')
+                        setSearchParams(next)
+                      },
+                    }
+                  : undefined
+              }
+            />
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -432,21 +483,23 @@ export function WorkspacesPage() {
                       {new Date(org.created_at).toLocaleDateString(locale)}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
                         <button
                           onClick={() => setExpandedOrgId(expandedOrgId === org.id ? null : org.id)}
                           title={p.workspacesViewUsers}
-                          className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          className={ROW_ACTION_PRIMARY}
                         >
-                          <Users className="h-4 w-4" />
+                          <Users className="h-3.5 w-3.5" />
+                          {p.workspacesViewUsers}
                         </button>
                         {org.lifecycle_state !== 'archived' && (
                           <>
+                            <span className="hidden h-5 w-px bg-gray-200 md:block" aria-hidden="true" />
                             {org.lifecycle_state === 'active' ? (
                               <button
                                 onClick={() => openDialog('suspend', org)}
                                 title={p.workspacesSuspendHint}
-                                className="rounded p-1.5 text-gray-400 hover:bg-yellow-50 hover:text-yellow-600"
+                                className={ROW_ACTION_WARNING_ICON}
                               >
                                 <Ban className="h-4 w-4" />
                               </button>
@@ -454,7 +507,7 @@ export function WorkspacesPage() {
                               <button
                                 onClick={() => openDialog('restore', org)}
                                 title={p.workspacesRestoreHint}
-                                className="rounded p-1.5 text-gray-400 hover:bg-green-50 hover:text-green-600"
+                                className={ROW_ACTION_SUCCESS_ICON}
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </button>
@@ -462,7 +515,7 @@ export function WorkspacesPage() {
                             <button
                               onClick={() => openDialog('archive', org)}
                               title={p.workspacesArchiveHint}
-                              className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                              className={ROW_ACTION_DANGER_ICON}
                             >
                               <Archive className="h-4 w-4" />
                             </button>
@@ -534,7 +587,7 @@ export function WorkspacesPage() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
                                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                                     {u.role}
                                   </span>
@@ -543,6 +596,7 @@ export function WorkspacesPage() {
                                       {p.workspacesInactive}
                                     </span>
                                   )}
+                                  <span className="hidden h-5 w-px bg-gray-200 md:block" aria-hidden="true" />
                                   <button
                                     onClick={() => handleResetMfa(u)}
                                     disabled={
@@ -551,7 +605,7 @@ export function WorkspacesPage() {
                                       deactivateUserMutation.isPending
                                     }
                                     title={p.workspacesResetMfa}
-                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                                    className={USER_ACTION_SECONDARY}
                                   >
                                     <KeyRound className="h-3.5 w-3.5" />
                                     {resetMfaMutation.isPending && resetMfaMutation.variables === u.id
@@ -566,7 +620,7 @@ export function WorkspacesPage() {
                                       deactivateUserMutation.isPending
                                     }
                                     title={p.workspacesResetPassword}
-                                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                                    className={USER_ACTION_SECONDARY}
                                   >
                                     <Key className="h-3.5 w-3.5" />
                                     {resetPasswordMutation.isPending && resetPasswordMutation.variables === u.id
@@ -582,7 +636,7 @@ export function WorkspacesPage() {
                                       deactivateUserMutation.isPending
                                     }
                                     title={p.workspacesDeactivateUser}
-                                    className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                    className={USER_ACTION_DANGER}
                                   >
                                     <UserX className="h-3.5 w-3.5" />
                                     {deactivateUserMutation.isPending &&
@@ -603,7 +657,7 @@ export function WorkspacesPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </Panel>
 
       {dialog.action && dialog.org && (
         <div
@@ -724,3 +778,5 @@ export function WorkspacesPage() {
     </div>
   )
 }
+
+
