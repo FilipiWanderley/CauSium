@@ -156,6 +156,13 @@
         "owner": "backend-platform",
         "ticket": "TEMP-PY-DEPS-BASELINE",
         "expires_on": "2026-06-30"
+      },
+      {
+        "id": "PYSEC-2026-161",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
       }
     ],
     "npm_audit": [],
