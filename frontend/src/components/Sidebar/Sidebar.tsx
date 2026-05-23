@@ -90,6 +90,7 @@ function getLegacyNav(nav: Translations['nav']): NavItem[] {
 
 function getEnterpriseGroups(
   nav: Translations['nav'],
+  platform: Translations['platform'],
   isAdmin: boolean,
   isPlatformAdmin: boolean,
 ): NavGroup[] {
@@ -151,7 +152,7 @@ function getEnterpriseGroups(
         { to: '/app/admin/reconciliation', icon: ClipboardCheck, label: nav.adminReconciliation, hidden: !isPlatformAdmin },
         { to: '/app/platform/workspaces', icon: Building2, label: nav.platformWorkspaces, hidden: !isPlatformAdmin },
         { to: '/app/platform/sync', icon: RefreshCw, label: nav.platformSync, hidden: !isPlatformAdmin },
-        { to: '/app/platform/integration-health', icon: HeartPulse, label: 'Integration Health', hidden: !isPlatformAdmin },
+        { to: '/app/platform/integration-health', icon: HeartPulse, label: platform.integrationHealthTitle, hidden: !isPlatformAdmin },
         { to: '/app/platform/slo', icon: Siren, label: nav.platformSlo, hidden: !isPlatformAdmin },
       ],
     },
@@ -211,7 +212,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const isPlatformAdmin = user?.role === 'platform_admin'
   const isAdmin = user?.role === 'admin' || isPlatformAdmin
   const legacyNav = getLegacyNav(t.nav)
-  const enterpriseGroups = getEnterpriseGroups(t.nav, isAdmin, isPlatformAdmin)
+  const enterpriseGroups = getEnterpriseGroups(t.nav, t.platform, isAdmin, isPlatformAdmin)
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
@@ -346,7 +347,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 onNavigate={onNavigate}
               />
               <SideNavLink to="/app/platform/sync" icon={RefreshCw} label={t.nav.platformSync} onNavigate={onNavigate} />
-              <SideNavLink to="/app/platform/integration-health" icon={HeartPulse} label="Integration Health" onNavigate={onNavigate} />
+              <SideNavLink to="/app/platform/integration-health" icon={HeartPulse} label={t.platform.integrationHealthTitle} onNavigate={onNavigate} />
               <SideNavLink to="/app/platform/slo" icon={Siren} label={t.nav.platformSlo} onNavigate={onNavigate} />
             </>
           )}

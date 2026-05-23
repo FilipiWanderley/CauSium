@@ -24,9 +24,9 @@ function SeverityBadge({ severity }: { severity: string }) {
 }
 
 export function SloPage() {
-  usePageTitle('SLO')
   const { t } = useI18n()
   const p = t.platform
+  usePageTitle(p.sloTitle)
 
   const { data, isLoading, isError, isRefetching, refetch } = useQuery({
     queryKey: ['platform-slo-overview'],
@@ -45,8 +45,8 @@ export function SloPage() {
         subtitle={p.sloSubtitle}
         meta={
           <>
-            <span>Platform health</span>
-            <span>Reliability overview</span>
+            <span>Service reliability</span>
+            <span>Operational monitoring</span>
           </>
         }
         actions={
@@ -68,10 +68,10 @@ export function SloPage() {
         </div>
       ) : isError || !data ? (
         <ErrorState
-          title="Could not load SLO overview"
+          title="Could not load service reliability"
           description="Service reliability data is temporarily unavailable. Please try again."
           onRetry={() => refetch()}
-          retryLabel="Retry"
+          retryLabel={p.refresh}
         />
       ) : (
         <>
@@ -113,8 +113,8 @@ export function SloPage() {
 
           <Panel className="border-slate-200 bg-slate-50/60">
             <PanelHeader
-              title="Reliability posture"
-              subtitle="Use this surface to confirm service reliability, identify burn-rate risk, and prioritize the most urgent operational follow-up."
+              title="Service reliability overview"
+              subtitle="Review service health, identify burn-rate risk, and prioritize the most urgent follow-up."
             />
             <div className="mt-4 grid gap-3 lg:grid-cols-3">
               <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
@@ -137,7 +137,7 @@ export function SloPage() {
               </div>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Start with burn-rate and open alerts, then use the API and worker tables below to locate the exact surface driving the current reliability posture.
+              Start with burn rate and open alerts, then use the API and worker tables below to locate the source of the issue.
             </p>
           </Panel>
 

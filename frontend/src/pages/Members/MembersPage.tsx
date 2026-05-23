@@ -50,8 +50,8 @@ type DeleteModalState = { member: MemberItem; reason: string }
 export function MembersPage() {
   const { user } = useAuth()
   const { t, lang } = useI18n()
-  usePageTitle('Members')
   const m = t.members
+  usePageTitle(m.title)
   const queryClient = useQueryClient()
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
 

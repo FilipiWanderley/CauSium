@@ -32,9 +32,9 @@ function StatusBadge({ status }: { status: HealthStatus }) {
   }
   const labels: Record<HealthStatus, string> = {
     healthy: 'Healthy',
-    warning: 'Warning',
+    warning: 'Needs follow-up',
     blocked: 'Blocked',
-    not_configured: 'Not Configured',
+    not_configured: 'Not configured',
   }
   return (
     <span className={clsx('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium', colors[status])}>
@@ -88,9 +88,9 @@ function SummaryBanner({ data }: { data: FinOpsReadinessResponse }) {
   const warningCount = data.recommendation_readiness.warnings.length
   const messages: Record<HealthStatus, string> = {
     healthy: 'Cost, usage, and recommendation telemetry are aligned for this workspace.',
-    warning: 'Core integrations are online, but some readiness signals still need attention.',
+    warning: 'Core integrations are online, but some FinOps readiness signals still need attention.',
     blocked: 'Key telemetry is missing, so recommendation coverage is not fully ready yet.',
-    not_configured: 'No cloud connection is configured for this workspace yet.',
+    not_configured: 'No cloud account is configured for this workspace yet.',
   }
   const bannerColors: Record<HealthStatus, string> = {
     healthy: 'border-emerald-200 bg-emerald-50 text-emerald-900',
@@ -105,10 +105,10 @@ function SummaryBanner({ data }: { data: FinOpsReadinessResponse }) {
           <StatusBadge status={status} />
           <div className="space-y-1">
             <p className="text-sm font-semibold">
-              {status === 'healthy' && 'Workspace readiness is on track'}
-              {status === 'warning' && 'Workspace readiness needs follow-up'}
-              {status === 'blocked' && 'Workspace readiness is blocked'}
-              {status === 'not_configured' && 'Workspace readiness has not started'}
+              {status === 'healthy' && 'FinOps readiness is on track'}
+              {status === 'warning' && 'FinOps readiness needs follow-up'}
+              {status === 'blocked' && 'FinOps readiness is blocked'}
+              {status === 'not_configured' && 'FinOps readiness has not started'}
             </p>
             <p className="text-sm/6">{messages[status]}</p>
           </div>
@@ -140,7 +140,7 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
     <div className="space-y-3">
       {readiness.blockers.length > 0 && (
         <div className="rounded-xl border border-red-100 bg-red-50 p-4">
-          <h4 className="mb-2 text-sm font-semibold text-red-900">Blocking gaps</h4>
+          <h4 className="mb-2 text-sm font-semibold text-red-900">Blocking readiness gaps</h4>
           <ul className="space-y-2">
             {readiness.blockers.map((b, i) => (
               <li key={i} className="flex items-start gap-2">
@@ -174,9 +174,9 @@ function GuidanceSection({ readiness }: { readiness: RecommendationReadiness }) 
 }
 
 export function IntegrationHealthPage() {
-  usePageTitle('Integration Health')
   const { user } = useAuth()
   const { t } = useI18n()
+  usePageTitle(t.platform.integrationHealthTitle)
 
   if (user?.role !== 'platform_admin') {
     return <Navigate to="/app/dashboard" replace />
@@ -206,14 +206,14 @@ export function IntegrationHealthPage() {
           subtitle={t.platform.integrationHealthSubtitle}
           meta={
             <>
-              <span>Platform health</span>
-              <span>Integration readiness</span>
+              <span>FinOps readiness</span>
+              <span>Telemetry coverage</span>
             </>
           }
         />
         <ErrorState
-          title="Could not load integration readiness"
-          description="Readiness signals are temporarily unavailable for this workspace. Please try again."
+          title="Could not load FinOps readiness"
+          description="FinOps readiness signals are temporarily unavailable for this workspace. Please try again."
           onRetry={() => refetch()}
           retryLabel="Retry"
         />
@@ -235,25 +235,25 @@ export function IntegrationHealthPage() {
   const overallStatus = getOverallStatus(data)
   const summaryCards = [
     {
-      title: 'Cost telemetry',
+      title: 'Cost coverage',
       value: data.cost_coverage.total_cost_facts_30d.toLocaleString(),
       tone: costStatus === 'healthy' ? 'positive' : costStatus === 'warning' ? 'warning' : 'neutral',
-      footer: <span>{data.data_freshness.cost_data_stale ? 'Cost coverage is stale and needs refresh.' : 'Cost coverage is current.'}</span>,
+      footer: <span>{data.data_freshness.cost_data_stale ? 'Cost coverage is stale and should be refreshed.' : 'Cost coverage is current.'}</span>,
     },
     {
-      title: 'Usage telemetry',
+      title: 'Usage coverage',
       value: data.usage_coverage.total_usage_facts_30d.toLocaleString(),
       tone: usageStatus === 'healthy' ? 'positive' : usageStatus === 'warning' ? 'warning' : 'negative',
       footer: <span>{`${data.usage_coverage.observation_days} day observation window available.`}</span>,
     },
     {
-      title: 'Opportunity coverage',
+      title: 'Recommendation coverage',
       value: data.opportunities.open_opportunities,
       tone: data.opportunities.open_opportunities > 0 ? 'positive' : 'neutral',
       footer: <span>{`${data.opportunities.generated_recently_count} recommendations generated in the last 7 days.`}</span>,
     },
     {
-      title: 'Readiness posture',
+      title: 'FinOps readiness',
       value: overallStatus === 'not_configured' ? 'Not configured' : overallStatus.replace('_', ' '),
       tone: overallStatus === 'healthy' ? 'positive' : overallStatus === 'warning' ? 'warning' : overallStatus === 'blocked' ? 'negative' : 'neutral',
       footer: <span>{`Assessed ${new Date(data.assessed_at).toLocaleString()}.`}</span>,
@@ -267,8 +267,8 @@ export function IntegrationHealthPage() {
         subtitle={t.platform.integrationHealthSubtitle}
         meta={
           <>
-            <span>Platform health</span>
-            <span>Integration readiness</span>
+            <span>FinOps readiness</span>
+            <span>Telemetry coverage</span>
           </>
         }
       />
@@ -289,14 +289,14 @@ export function IntegrationHealthPage() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Read the readiness posture from top to bottom: confirm overall state first, then validate cost and usage coverage before reviewing recommendation output and next steps.
+        Read the FinOps readiness posture from top to bottom: confirm overall state first, then validate cost and usage coverage before reviewing recommendation output and next steps.
       </p>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
-              title="Cost coverage"
+              title="Cost data coverage"
               subtitle="Confirm that normalized billing data is present, current, and broad enough to support customer-facing spend reporting."
               badge={<StatusBadge status={costStatus} />}
             />
@@ -314,7 +314,7 @@ export function IntegrationHealthPage() {
             />
             <MetricRow
               label="Providers"
-              value={data.cost_coverage.providers.length > 0 ? data.cost_coverage.providers.join(', ') : 'None'}
+              value={data.cost_coverage.providers.length > 0 ? data.cost_coverage.providers.join(', ') : 'No providers'}
               status={data.cost_coverage.providers.length > 0 ? 'healthy' : 'not_configured'}
             />
             <MetricRow
@@ -333,7 +333,7 @@ export function IntegrationHealthPage() {
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
-              title="Usage coverage"
+              title="Usage telemetry coverage"
               subtitle="Confirm that compute and cluster telemetry is complete enough for analytics and recommendation workflows."
               badge={<StatusBadge status={usageStatus} />}
             />
@@ -373,7 +373,7 @@ export function IntegrationHealthPage() {
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
               title="Recommendation readiness"
-              subtitle="Track whether each engine has the telemetry it needs to produce customer-safe recommendations."
+              subtitle="Track whether each engine has the telemetry it needs to produce customer-safe FinOps recommendations."
             />
           </div>
           <div className="space-y-2 p-5">
@@ -386,7 +386,7 @@ export function IntegrationHealthPage() {
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
             <PanelHeader
-              title="Recommendation output"
+              title="Recommendation output coverage"
               subtitle="Validate that recommendations and export volume are available for downstream review and reporting."
             />
           </div>
@@ -417,7 +417,7 @@ export function IntegrationHealthPage() {
 
       <Panel>
         <PanelHeader
-          title="Next steps"
+          title="Recommended next steps"
           subtitle="Use the current readiness gaps to restore full coverage without leaving this surface."
         />
         <div className="mt-4">
@@ -426,7 +426,7 @@ export function IntegrationHealthPage() {
       </Panel>
 
       <p className="text-right text-xs text-slate-400">
-        Last readiness assessment: {new Date(data.assessed_at).toLocaleString()}
+        Last FinOps readiness assessment: {new Date(data.assessed_at).toLocaleString()}
       </p>
     </div>
   )

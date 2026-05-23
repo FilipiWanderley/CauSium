@@ -109,10 +109,10 @@ type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GovPage() {
-  usePageTitle('Governance')
   const { t } = useI18n()
   const g = t.gov
   const ux = t.ux
+  usePageTitle(g.title)
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const TABS: { id: Tab; label: string }[] = [
@@ -270,7 +270,7 @@ export function GovPage() {
            unownedQ.isError ? (
             <div className="p-8 text-center text-sm text-red-500">{g.errorUnowned}</div>
            ) : (unownedQ.data ?? []).length === 0 ? (
-            <EmptyState icon={Tag} message={ux.emptyNoGovernanceIssues} />
+            <EmptyState icon={Tag} message={g.allOwned} />
            ) : (
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
@@ -356,7 +356,7 @@ export function GovPage() {
              recsQ.isError ? (
               <div className="p-8 text-center text-sm text-red-500">{g.errorRecommendations}</div>
              ) : (recsQ.data ?? []).length === 0 ? (
-              <EmptyState icon={Lightbulb} message={ux.emptyNoGovernanceIssues} />
+              <EmptyState icon={Lightbulb} message={g.noRecommendations} />
              ) : (
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">

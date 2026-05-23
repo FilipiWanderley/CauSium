@@ -71,11 +71,11 @@ const USER_ACTION_DANGER =
   'inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50/70 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100/80 disabled:opacity-60 disabled:cursor-not-allowed'
 
 export function WorkspacesPage() {
-  usePageTitle('Workspaces')
   const { user } = useAuth()
   const { t, lang } = useI18n()
   const p = t.platform
   const m = t.members
+  usePageTitle(p.workspacesTitle)
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -235,7 +235,7 @@ export function WorkspacesPage() {
     onSuccess: (payload, userId) => {
       queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
       const targetUser = expandedUsers?.items.find((u) => u.id === userId)
-      const userLabel = targetUser?.email ?? t.common.unknown
+      const userLabel = targetUser?.email ?? t.common.notProvided
       setUserFeedback({
         level: 'success',
         message: m.toastMfaReset
@@ -277,7 +277,7 @@ export function WorkspacesPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-org-users', expandedOrgId] })
       const targetUser = expandedUsers?.items.find((u) => u.id === variables.userId)
-      const userLabel = targetUser?.email ?? t.common.unknown
+      const userLabel = targetUser?.email ?? t.common.notProvided
       setUserFeedback({
         level: 'success',
         message: m.toastDeactivated.replace('{{email}}', userLabel),
@@ -353,7 +353,7 @@ export function WorkspacesPage() {
         subtitle={p.workspacesSubtitle}
         meta={
           <>
-            <span>Platform governance</span>
+            <span>Customer workspace administration</span>
             <span>Workspace lifecycle</span>
           </>
         }
@@ -362,10 +362,10 @@ export function WorkspacesPage() {
       {!isLoading && !isError && data ? (
         <div className="kpi-grid">
           <KpiCard
-            title="Workspace inventory"
+            title="Customer workspaces"
             value={data.total}
             compact
-            footer={<span>Total workspaces currently in the platform inventory.</span>}
+            footer={<span>Total customer workspaces currently in the platform inventory.</span>}
           />
           <KpiCard
             title="Active in current view"
@@ -379,7 +379,7 @@ export function WorkspacesPage() {
             value={visibleSuspended}
             compact
             tone={visibleSuspended > 0 ? 'warning' : 'neutral'}
-            footer={<span>Paused workspaces visible on the current filtered page.</span>}
+            footer={<span>Suspended customer workspaces visible on the current filtered page.</span>}
           />
           <KpiCard
             title="Archived in current view"
@@ -395,7 +395,7 @@ export function WorkspacesPage() {
         <div className="border-b border-slate-100 px-5 py-4">
           <PanelHeader
             title={`${p.workspacesAllOrgs}${data ? ` (${data.total})` : ''}`}
-            subtitle="Search, filter, and review workspace lifecycle state from one customer-facing platform management surface."
+            subtitle="Search, filter, and review customer workspace lifecycle from one administration surface."
             actions={
               <div className="flex items-center gap-2">
                 <button
@@ -440,14 +440,14 @@ export function WorkspacesPage() {
               </select>
             </div>
             <p className="text-xs text-slate-500">
-              Use lifecycle filters to isolate customer-ready, paused, or archived workspaces without leaving the inventory.
+              Use lifecycle filters to isolate active, suspended, or archived customer workspaces without leaving the inventory.
             </p>
           </div>
         </div>
         {!isLoading && !isError && data?.items.length ? (
           <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
             <p className="text-xs text-slate-500">
-              Keep lifecycle actions focused on the current workspace state. Treat user-management controls as a second layer only after the workspace record itself is in the right posture.
+              Keep lifecycle actions focused on the current customer workspace state. Review member controls only after the workspace record itself is in the right posture.
             </p>
           </div>
         ) : null}
@@ -459,8 +459,8 @@ export function WorkspacesPage() {
         ) : isError ? (
           <div className="p-5">
             <ErrorState
-              title="Could not load workspaces"
-              description="Workspace inventory is temporarily unavailable. Please try again."
+              title="Could not load customer workspaces"
+              description="Customer workspace inventory is temporarily unavailable. Please try again."
               onRetry={() => refetch()}
               retryLabel="Retry"
             />
@@ -473,7 +473,7 @@ export function WorkspacesPage() {
               description={
                 searchQuery || stateFilter !== 'all'
                   ? 'No workspaces match the current search and lifecycle filters.'
-                  : 'No workspaces are currently available in the platform inventory.'
+                  : 'No customer workspaces are currently available in the platform inventory.'
               }
               action={
                 searchQuery || stateFilter !== 'all'
@@ -579,7 +579,7 @@ export function WorkspacesPage() {
                         )}
                       </div>
                       <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 sm:text-right">
-                        Lifecycle actions
+                        Lifecycle controls
                       </p>
                     </td>
                   </tr>
@@ -594,12 +594,12 @@ export function WorkspacesPage() {
                           <div className="space-y-4">
                             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
                               <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace access</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace member access</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900">
                                   {p.workspacesUsers.replace('{{total}}', String(expandedUsers.total))}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-500">
-                                  Review workspace members, recent security resets, and user lifecycle actions in one place.
+                                  Review workspace members, recent access recovery actions, and user lifecycle controls in one place.
                                 </p>
                               </div>
                               <div className="flex items-center justify-between gap-2 sm:justify-end">
@@ -720,7 +720,7 @@ export function WorkspacesPage() {
                                       </button>
                                       </div>
                                       <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 lg:text-right">
-                                        Recovery and offboarding
+                                        Access recovery & offboarding
                                       </p>
                                     </div>
                                   </div>

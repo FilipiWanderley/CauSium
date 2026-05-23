@@ -44,10 +44,10 @@ function isInOptions<T extends string>(value: string | null, options: readonly T
 }
 
 export function SyncStatusPage() {
-  usePageTitle('Sync Status')
   const { user } = useAuth()
   const { t, lang } = useI18n()
   const p = t.platform
+  usePageTitle(p.syncTitle)
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US'
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -181,8 +181,8 @@ export function SyncStatusPage() {
         subtitle={p.syncSubtitle}
         meta={
           <>
-            <span>Platform health</span>
-            <span>Connector operations</span>
+            <span>Data sync health</span>
+            <span>Cloud account sync</span>
           </>
         }
         actions={
@@ -202,47 +202,47 @@ export function SyncStatusPage() {
           title="Connected accounts"
           value={summary.total}
           compact
-          footer={<span>Total connectors currently in scope for workspace operations.</span>}
+          footer={<span>Cloud accounts currently connected for workspace data sync.</span>}
         />
         <KpiCard
           title="Needs follow-up"
           value={summary.attention}
           compact
           tone="negative"
-          footer={<span>Accounts currently flagged for operational follow-up.</span>}
+          footer={<span>Cloud accounts currently flagged for sync follow-up.</span>}
         />
         <KpiCard
-          title="Healthy connectors"
+          title="Healthy cloud accounts"
           value={summary.healthy}
           compact
           tone="positive"
-          footer={<span>Connectors with no open attention signal.</span>}
+          footer={<span>Cloud accounts with healthy sync status and no open queue issues.</span>}
         />
         <KpiCard
-          title="Outstanding DLQ items"
+          title="Open queue items"
           value={summary.openDlq}
           compact
           tone="warning"
-          footer={<span>Total queue items still waiting for follow-up.</span>}
+          footer={<span>Queue items still waiting for follow-up.</span>}
         />
       </div>
 
       <Panel className="border-slate-200 bg-slate-50/60">
         <PanelHeader
-          title="Connector operations posture"
-          subtitle="Use this surface to confirm which integrations are healthy, which need intervention, and where queue pressure is building."
+          title="Cloud account sync overview"
+          subtitle="Confirm which cloud account syncs are healthy, which need intervention, and where queue backlog is building."
         />
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Healthy state</div>
             <p className="mt-2 text-sm font-medium text-slate-900">
-              {summary.healthy} connector{summary.healthy === 1 ? '' : 's'} are currently operating without open attention signals.
+              {summary.healthy} cloud account sync{summary.healthy === 1 ? '' : 's'} currently operate without open attention signals.
             </p>
           </div>
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Attention state</div>
             <p className="mt-2 text-sm font-medium text-slate-900">
-              {summary.attention} connector{summary.attention === 1 ? '' : 's'} currently need follow-up to restore full operational readiness.
+              {summary.attention} cloud account sync{summary.attention === 1 ? '' : 's'} currently need follow-up to restore healthy FinOps data coverage.
             </p>
           </div>
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
@@ -253,7 +253,7 @@ export function SyncStatusPage() {
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Prioritize connectors with attention flags first, then use queue pressure and recent sync time to decide where to intervene next.
+          Prioritize cloud accounts with attention flags first, then use queue backlog and recent sync time to decide what to review next.
         </p>
       </Panel>
 
@@ -261,7 +261,7 @@ export function SyncStatusPage() {
         <div className="border-b border-slate-100 px-5 py-4">
           <PanelHeader
             title={p.syncConnectorOps}
-            subtitle="Filter provider health, attention state, and queue pressure from one operational surface."
+            subtitle="Filter provider health, attention state, and queue backlog from one place."
           />
         </div>
         <div className="border-b border-slate-100 px-5 py-4">
@@ -324,7 +324,7 @@ export function SyncStatusPage() {
               </select>
             </div>
             <p className="text-xs text-slate-500">
-              Keep provider, state, and attention filters aligned so the table reflects the exact connector cohort you want to review.
+              Keep provider, state, and attention filters aligned so the table reflects the exact cloud account sync cohort you want to review.
             </p>
           </div>
         </div>
@@ -348,10 +348,10 @@ export function SyncStatusPage() {
         ) : isError ? (
           <div className="p-5">
             <ErrorState
-              title="Could not load connector operations"
-              description="Connector operations are temporarily unavailable. Please try again."
+              title="Could not load data sync health"
+              description="Data sync details are temporarily unavailable. Please try again."
               onRetry={() => refetch()}
-              retryLabel="Retry"
+              retryLabel={p.refresh}
             />
           </div>
         ) : !filteredData.length ? (
@@ -359,7 +359,7 @@ export function SyncStatusPage() {
             <EmptyState
               icon="search"
               title={p.syncNoAccounts}
-              description="No connectors match the current provider, lifecycle, or attention filters."
+              description="No accounts match the current provider, status, or attention filters."
             />
           </div>
         ) : (
@@ -455,7 +455,7 @@ export function SyncStatusPage() {
                       </button>
                       </div>
                       <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400 sm:text-right">
-                        Operator action
+                        Recommended action
                       </p>
                     </div>
                   </td>

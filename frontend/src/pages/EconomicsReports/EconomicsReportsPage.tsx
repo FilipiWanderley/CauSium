@@ -16,10 +16,10 @@ import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsReportsPage() {
-  usePageTitle('Economics — Reports')
   const { t } = useI18n()
   const er = t.economicsReports
   const ux = t.ux
+  usePageTitle(er.title)
 
   const [days, setDays] = usePersistentNumber('sp.economicsReports.days', 30, [30, 60, 90])
   const [exportJobId, setExportJobId] = useState<string | null>(null)
@@ -144,16 +144,16 @@ export function EconomicsReportsPage() {
         subtitle={er.subtitle}
         meta={
           <>
-            <span>Billing currency values</span>
-            <span>Consolidated reporting view</span>
+            <span>Billing-aligned spend values</span>
+            <span>Export-ready reporting</span>
           </>
         }
       />
 
       <Panel>
         <PanelHeader
-          title="Export & reporting window"
-          subtitle="Adjust the reporting window and trigger summary exports from the same command surface."
+          title="Report window & export"
+          subtitle="Adjust the reporting window and generate export-ready FinOps summaries from one place."
         />
         <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -199,7 +199,7 @@ export function EconomicsReportsPage() {
           subtitle={er.overviewSubtitle}
           freshness={ux.freshnessSnapshot}
           badges={[
-            { label: 'Billing currency values', tone: 'billing' },
+            { label: 'Billing-aligned spend values', tone: 'billing' },
             { label: er.consolidated, tone: 'organization' },
           ]}
         />
@@ -209,7 +209,7 @@ export function EconomicsReportsPage() {
           ) : isError ? (
             <ErrorState
               title={er.noData}
-              description="Could not load report data."
+              description="Could not load FinOps report data."
               onRetry={() => { dashboardQuery.refetch(); servicesQuery.refetch(); teamsQuery.refetch() }}
               retryLabel={t.common.reset}
               compact
@@ -221,13 +221,13 @@ export function EconomicsReportsPage() {
                 value={formatMoney(dashboardQuery.data?.current_month_cost ?? 0)}
                 compact
                 tone="neutral"
-                footer={<span>Current billing window summary.</span>}
+                footer={<span>Current billing-period spend summary.</span>}
               />
               <KpiCard
                 title={er.previousMonth}
                 value={formatMoney(dashboardQuery.data?.previous_month_cost ?? 0)}
                 compact
-                footer={<span>Prior billing window summary.</span>}
+                footer={<span>Prior billing-period spend summary.</span>}
               />
               <KpiCard
                 title={er.momChange}
@@ -236,7 +236,7 @@ export function EconomicsReportsPage() {
                 tone={momPct > 0 ? 'negative' : momPct < 0 ? 'positive' : 'neutral'}
                 footer={
                   <span>
-                    {momPct > 0 ? 'Cost increase' : momPct < 0 ? 'Cost reduction' : 'No change'}
+                    {momPct > 0 ? 'Spend increase' : momPct < 0 ? 'Spend reduction' : 'No change'}
                   </span>
                 }
               />
@@ -286,7 +286,7 @@ function BreakdownCard({
     <Panel>
       <PanelHeader
         title={title}
-        subtitle="Prioritized contribution to the reporting window."
+          subtitle="Largest contributors in the selected reporting window."
       />
       <div className="mt-4">
         {loading ? (
@@ -295,7 +295,7 @@ function BreakdownCard({
           <EmptyState
             icon="document"
             title={noDataLabel}
-            description="No report rows are available for the selected reporting window."
+            description="No rows are available for the selected reporting window."
           />
         ) : (
           <div className="space-y-2.5">

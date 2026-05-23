@@ -6,6 +6,7 @@ import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import type { Experiment, ExperimentStatus } from '../../types'
 import clsx from 'clsx'
+import { formatCurrency } from '../../utils/currency'
 
 const NEXT_STATUS: Partial<Record<ExperimentStatus, ExperimentStatus>> = {
   draft: 'hypothesis',
@@ -23,9 +24,9 @@ const OUTCOME_BADGE: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500',
 }
 
-function fmt(n: number | null | undefined, prefix = '$') {
+function fmt(n: number | null | undefined) {
   if (n == null) return '—'
-  return `${prefix}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  return formatCurrency(n)
 }
 
 function ExperimentCard({
@@ -40,6 +41,16 @@ function ExperimentCard({
   const { t } = useI18n()
   const e = t.experiments
   const next = NEXT_STATUS[exp.status]
+  const statusLabels: Partial<Record<ExperimentStatus, string>> = {
+    draft: e.draft,
+    hypothesis: e.hypothesis,
+    simulating: e.simulating,
+    approved: e.approved,
+    running: e.running,
+    measuring: e.measuring,
+    concluded: e.concluded,
+    cancelled: e.cancelled,
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm space-y-2">
@@ -83,7 +94,7 @@ function ExperimentCard({
               className="flex items-center gap-1 rounded px-2 py-1 text-xs bg-brand-600 text-white hover:bg-brand-700 transition-colors"
             >
               <ChevronRight className="h-3 w-3" />
-              {next.charAt(0).toUpperCase() + next.slice(1)}
+              {statusLabels[next] ?? next}
             </button>
           )}
           <button
@@ -100,9 +111,9 @@ function ExperimentCard({
 }
 
 export function ExperimentsPage() {
-  usePageTitle('PulseLab')
   const { t } = useI18n()
   const e = t.experiments
+  usePageTitle(e.title)
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -164,7 +175,7 @@ export function ExperimentsPage() {
               {summary
                 ? e.summaryWithData
                   .replace('{{count}}', String(summary.total))
-                  .replace('{{savings}}', (summary.total_actual_savings_usd ?? 0).toLocaleString())
+                  .replace('{{savings}}', formatCurrency(summary.total_actual_savings_usd ?? 0))
                 : e.subtitle}
             </p>
           </div>

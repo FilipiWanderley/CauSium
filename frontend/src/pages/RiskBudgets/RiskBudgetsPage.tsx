@@ -60,6 +60,7 @@ function BudgetCard({
   onDelete,
   meta,
   periodLabel,
+  environmentLabel,
   deactivateLabel,
   activateLabel,
   deleteLabel,
@@ -72,6 +73,7 @@ function BudgetCard({
   onDelete: (id: string) => void
   meta: { label: string; unit: string; description: string }
   periodLabel: string
+  environmentLabel: string
   deactivateLabel: string
   activateLabel: string
   deleteLabel: string
@@ -123,7 +125,7 @@ function BudgetCard({
           {budget.domain}
         </span>
         <span>
-          {budget.environment}
+          {environmentLabel}
         </span>
         <span>
           {periodLabel}
@@ -161,10 +163,10 @@ const EMPTY_FORM = {
 }
 
 export function RiskBudgetsPage() {
-  usePageTitle('Risk Budgets')
   const { t } = useI18n()
   const rb = t.riskBudgets
   const common = t.common
+  usePageTitle(rb.title)
 
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
@@ -182,6 +184,12 @@ export function RiskBudgetsPage() {
     daily: common.daily,
     weekly: common.weekly,
     monthly: common.monthly,
+  }
+  const ENVIRONMENT_LABEL: Record<string, string> = {
+    production: common.production,
+    staging: common.staging,
+    development: common.development,
+    unknown: rb.environmentUnknown,
   }
 
   const { data: budgets = [], isLoading } = useQuery({
@@ -279,7 +287,7 @@ export function RiskBudgetsPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">{common.environment}</label>
+              <label className="block text-xs text-gray-500 mb-1">{rb.environment}</label>
               <select
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={form.environment}
@@ -287,7 +295,7 @@ export function RiskBudgetsPage() {
               >
                 {ENVS.map((e) => (
                   <option key={e} value={e}>
-                    {e}
+                    {ENVIRONMENT_LABEL[e] ?? e}
                   </option>
                 ))}
               </select>
@@ -406,6 +414,7 @@ export function RiskBudgetsPage() {
               budget={b}
               meta={BUDGET_TYPE_META[b.budget_type]}
               periodLabel={PERIOD_LABEL[b.period]}
+              environmentLabel={ENVIRONMENT_LABEL[b.environment] ?? b.environment}
               deactivateLabel={rb.deactivate}
               activateLabel={rb.activate}
               deleteLabel={rb.delete}

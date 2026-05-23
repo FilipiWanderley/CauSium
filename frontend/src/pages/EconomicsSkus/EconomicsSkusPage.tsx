@@ -16,10 +16,10 @@ import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 export function EconomicsSkusPage() {
-  usePageTitle('Economics — SKUs')
   const { t } = useI18n()
   const es = t.economicsSkus
   const ux = t.ux
+  usePageTitle(es.title)
 
   const [days, setDays] = useState(30)
   const [limit, setLimit] = useState(20)
@@ -61,8 +61,8 @@ export function EconomicsSkusPage() {
         subtitle={es.subtitle}
         meta={
           <>
-            <span>Billing currency values</span>
-            <span>Consolidated SKU concentration</span>
+            <span>{es.financialValuesBrl}</span>
+            <span>{es.consolidated}</span>
           </>
         }
       />
@@ -80,14 +80,14 @@ export function EconomicsSkusPage() {
           subtitle={es.overviewSubtitle}
           freshness={ux.freshnessSnapshot}
           badges={[
-            { label: 'Billing currency values', tone: 'billing' },
+            { label: 'Billing-aligned spend values', tone: 'billing' },
             { label: es.consolidated, tone: 'organization' },
           ]}
         />
         <Panel>
           <PanelHeader
-            title="Command bar"
-            subtitle="Adjust the reporting window and SKU depth without leaving the overview."
+            title="Reporting scope"
+            subtitle="Adjust the reporting window and the number of SKU rows shown in the spend concentration view."
           />
           <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[220px_220px_minmax(0,1fr)_minmax(0,1fr)]">
             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -123,7 +123,7 @@ export function EconomicsSkusPage() {
               value={formatMoney(summary.totalCost)}
               icon={<Boxes className="h-4 w-4" />}
               compact
-              footer={<span>Visible SKU cost for the current selection.</span>}
+              footer={<span>Spend visible in the current reporting scope.</span>}
             />
 
             <KpiCard
@@ -156,7 +156,7 @@ export function EconomicsSkusPage() {
       <Panel>
         <PanelHeader
           title={es.breakdown}
-          subtitle="Review ranked SKU concentration and share of spend for the selected window."
+          subtitle="Review ranked SKU concentration and share of spend for the selected reporting window."
           actions={<span className="text-xs text-slate-400">{skus.length} items</span>}
         />
         <div className="mt-4">

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, Info, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -170,7 +170,7 @@ function SubscriptionTable({ rows, currency }: { rows: ReconciliationSubscriptio
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export function ReconciliationPage() {
-  usePageTitle('Reconciliation')
+  usePageTitle('Cost Data Reconciliation')
   const { user } = useAuth()
 
   // Role guard — redirect non-admin/engineer users
@@ -210,11 +210,11 @@ export function ReconciliationPage() {
             <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Cost Reconciliation</h1>
             <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
               <ShieldAlert className="h-3 w-3" />
-              Internal Admin Tool
+              Platform admin only
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            Validate ingested tenant cost data against dashboard totals.
+            Validate imported cost data against dashboard totals.
           </p>
         </div>
         <button
@@ -295,7 +295,7 @@ export function ReconciliationPage() {
       {/* Error */}
       {isError && !isLoading && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Failed to load reconciliation data. Check your permissions or try again.
+          Could not load reconciliation data. Check your access and try again.
         </div>
       )}
 

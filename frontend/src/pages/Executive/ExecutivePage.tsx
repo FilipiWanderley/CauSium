@@ -56,10 +56,10 @@ function capRisk(v: RiskLevel) { return (v.charAt(0).toUpperCase() + v.slice(1))
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ExecutivePage() {
-  usePageTitle('Executive')
   const { t, lang } = useI18n()
   const e = t.executive
   const ux = t.ux
+  usePageTitle(e.title)
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
   // ─── Queries ─────────────────────────────────────────────────────────────────

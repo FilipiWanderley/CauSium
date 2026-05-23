@@ -7,6 +7,7 @@ import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { formatDateFull } from '../../utils/format'
+import { formatCurrency } from '../../utils/currency'
 
 const ALL_TYPES: ChangeEventType[] = [
   'deploy',
@@ -44,7 +45,7 @@ function EventRow({ ev, typeMeta }: {
       <td className="px-4 py-3 whitespace-nowrap text-sm">
         {ev.cost_impact_usd != null ? (
           <span className={clsx('font-semibold', ev.cost_impact_usd > 0 ? 'text-red-600' : 'text-green-600')}>
-            {ev.cost_impact_usd > 0 ? '+' : ''}${ev.cost_impact_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            {ev.cost_impact_usd > 0 ? '+' : ''}{formatCurrency(ev.cost_impact_usd)}
           </span>
         ) : (
           <span className="text-gray-400">—</span>
@@ -73,10 +74,10 @@ function EventRow({ ev, typeMeta }: {
 }
 
 export function ChangeEventsPage() {
-  usePageTitle('Change Events')
   const { t } = useI18n()
   const ce = t.changeEvents
   const common = t.common
+  usePageTitle(ce.title)
 
   const EVENT_TYPE_META: Record<ChangeEventType, { label: string; color: string; Icon: React.ElementType }> = {
     deploy: { label: ce.deploy, color: 'bg-blue-100 text-blue-700', Icon: RefreshCw },
@@ -136,9 +137,7 @@ export function ChangeEventsPage() {
           <Activity className="h-6 w-6 text-brand-600" />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{ce.title}</h1>
-            <p className="text-sm text-gray-500">
-              {events.length} {ce.subtitle}
-            </p>
+            <p className="text-sm text-gray-500">{ce.subtitle}</p>
           </div>
         </div>
         <button

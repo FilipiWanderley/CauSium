@@ -37,9 +37,9 @@ type ExportState =
 
 export function EconomicsCostsPage() {
   const { t } = useI18n()
-  usePageTitle('Economics — Costs')
   const ec = t.economicsCosts
   const ux = t.ux
+  usePageTitle(ec.title)
   const currencyCode = DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, currencyCode)
 

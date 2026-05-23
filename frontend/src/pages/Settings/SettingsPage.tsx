@@ -44,7 +44,7 @@ type ValidationCheckState = 'idle' | 'ok' | 'error'
 
 export function SettingsPage() {
   const { t } = useI18n()
-  usePageTitle('Settings')
+  usePageTitle(t.nav.settings)
   const s = t.settings
   const p = t.platform
   const { user, registerCurrentPasskey, logoutAll } = useAuth()
@@ -188,12 +188,12 @@ export function SettingsPage() {
     mutationFn: (accountId: string) => cloudAccountsApi.delete(accountId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['cloud-accounts-settings'] })
-      setCloudActionFeedback({ tone: 'success', message: 'Cloud account removed.' })
+      setCloudActionFeedback({ tone: 'success', message: 'Cloud account removed from this workspace.' })
     },
     onError: (error) => {
       const detail =
         (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Could not remove cloud account.'
+        'Could not remove the cloud account.'
       setCloudActionFeedback({ tone: 'error', message: detail })
     },
   })
@@ -231,17 +231,17 @@ export function SettingsPage() {
       <div className="page-container">
         <PageHeader
           title={t.nav.settingsTeam}
-          subtitle="Manage workspace membership from the dedicated access administration surface."
+          subtitle="Review workspace access governance from the dedicated member administration surface."
           meta={
             <>
-            <span>Settings</span>
-            <span>Workspace access</span>
+            <span>Workspace administration</span>
+            <span>Access governance</span>
             </>
           }
         />
         <SectionIntro
-          title="Workspace access"
-          subtitle="Access governance lives in the dedicated Members surface so role changes, recovery actions, and offboarding stay together."
+          title="Workspace access governance"
+          subtitle="Role changes, recovery actions, and offboarding stay together in the dedicated Members surface."
           badges={[
             { label: 'Access governance', tone: 'organization' },
             { label: 'Dedicated workflow', tone: 'secondary' },
@@ -251,14 +251,14 @@ export function SettingsPage() {
         <Panel>
           <PanelHeader
             title={t.nav.settingsTeam}
-          subtitle="Workspace membership is managed from the Members page so access governance stays in one dedicated surface."
+          subtitle="Workspace membership is managed from the Members page so access governance stays in one place."
           />
           <div className="mt-4">
             <Link
               to="/app/members"
               className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
-              Open Members
+              Open Workspace Access
             </Link>
           </div>
         </Panel>
@@ -379,12 +379,12 @@ export function SettingsPage() {
 
     const tenantId = cloudForm.tenant_id.trim() || '<TENANT_ID>'
     const subscriptionId = cloudForm.external_id.trim() || '<SUBSCRIPTION_ID>'
-    const appName = cloudForm.display_name.trim() || 'StratoPulse-Cost-Collector'
+    const appName = cloudForm.display_name.trim() || 'CauSium-Cost-Collector'
     const storageAccountName = cloudForm.storage_account.trim() || '<STORAGE_ACCOUNT_NAME>'
     const containerName = cloudForm.container.trim() || '<CONTAINER_NAME>'
     const exportPrefix = cloudForm.cost_export_prefix.trim() || '<COST_EXPORT_PREFIX>'
     const azureSetupScript = [
-      '# Azure setup for StratoPulse (Service Principal + RBAC)',
+      '# Azure setup for CauSium cloud cost ingestion (Service Principal + RBAC)',
       '# Run in PowerShell with Az module installed',
       '',
       `$TenantId = "${tenantId}"`,
@@ -421,7 +421,7 @@ export function SettingsPage() {
       '$secret = New-AzADAppCredential -ApplicationId $sp.AppId -EndDate (Get-Date).AddYears(1)',
       '',
       'Write-Host ""',
-      'Write-Host "Use these values in StratoPulse Cloud Settings:" -ForegroundColor Green',
+      'Write-Host "Use these values in CauSium Cloud Account Settings:" -ForegroundColor Green',
       'Write-Host ("Tenant ID: " + $TenantId)',
       'Write-Host ("Subscription ID: " + $SubscriptionId)',
       'Write-Host ("Client ID (Application ID): " + $sp.AppId)',
@@ -439,17 +439,17 @@ export function SettingsPage() {
       <div className="page-container">
         <PageHeader
           title={t.nav.settingsCloud}
-          subtitle="Connect, validate, and maintain cloud access from one productized settings surface."
+          subtitle="Connect, validate, and maintain cloud account access for spend ingestion and FinOps readiness."
           meta={
             <>
-              <span>Settings</span>
-              <span>Cloud connections</span>
+              <span>Workspace administration</span>
+              <span>Cloud account access</span>
             </>
           }
         />
         <SectionIntro
-          title="Cloud connections"
-          subtitle="Configure provider credentials, validate access, and manage connected accounts without leaving the settings experience."
+          title="Cloud account access"
+          subtitle="Configure provider credentials, validate access, and manage connected cloud accounts without leaving workspace administration."
           badges={[
             { label: 'Provider-aware setup', tone: 'organization' },
             { label: 'Validated before save', tone: 'secondary' },
@@ -459,19 +459,19 @@ export function SettingsPage() {
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
           <Panel className="space-y-5">
             <PanelHeader
-              title="Add cloud connection"
+              title="Add cloud account"
               subtitle={
                 provider === 'azure'
-                  ? 'Connect Azure securely and validate access before saving the connection.'
+                  ? 'Connect Azure securely and validate access before saving the cloud account.'
                   : provider === 'aws'
-                    ? 'Connect AWS with an IAM access key and validate access before saving.'
+                    ? 'Connect AWS with IAM credentials and validate access before saving the cloud account.'
                     : 'Connect GCP with a service account key or Workload Identity.'
               }
             />
 
             {provider === 'azure' && (
               <>
-                <PanelSection title="Azure setup helper" className="mt-0 border-t-0 pt-0">
+                <PanelSection title="Azure setup guide" className="mt-0 border-t-0 pt-0">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -488,9 +488,9 @@ export function SettingsPage() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(azureSetupScript)
-                          setValidationMessage('Script copied to the clipboard.')
+                          setValidationMessage('Setup script copied to the clipboard.')
                         } catch {
-                          setValidationMessage('Could not copy the script automatically.')
+                          setValidationMessage('Could not copy the setup script automatically.')
                         }
                       }}
                       className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
@@ -506,7 +506,7 @@ export function SettingsPage() {
                   </div>
                 </PanelSection>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Use only service principal credentials for Azure onboarding. Do not use a personal customer login.
+                  Use only service principal credentials for Azure onboarding. Do not use a personal sign-in.
                 </div>
               </>
             )}
@@ -549,19 +549,19 @@ export function SettingsPage() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-600">
-                Select a provider to show only the fields required for that connection flow.
+                Select a provider to show only the fields required for that cloud account setup flow.
               </p>
             </div>
             </PanelSection>
 
             <PanelSection title="Connection details">
             <p className="mb-3 text-xs text-slate-500">
-              Start with account identity, then complete only the provider-specific credentials and export fields required for validation.
+              Start with the cloud account identity, then complete only the provider-specific credentials and export fields required for validation.
             </p>
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 className="rounded border border-gray-300 px-3 py-2 text-sm md:col-span-2"
-                placeholder="Connection name"
+                placeholder="Cloud account name"
                 value={cloudForm.display_name}
                 onChange={(e) => setCloudForm((prev) => ({ ...prev, display_name: e.target.value }))}
               />
@@ -574,7 +574,7 @@ export function SettingsPage() {
               {provider === 'azure' && (
                 <>
                   <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 md:col-span-2">
-                    Provide service principal access first, then the storage location that hosts the billing export.
+                    Provide service principal access first, then the storage location that hosts the billing export used for spend ingestion.
                   </div>
                   <input
                     className="rounded border border-gray-300 px-3 py-2 text-sm"
@@ -754,7 +754,7 @@ export function SettingsPage() {
             <Panel compact className="space-y-2">
               <PanelHeader
                 title="Validation status"
-                subtitle="Track credential, scope, cost, and storage checks before saving the final connection."
+                subtitle="Track credential, scope, cost, and storage checks before saving the cloud account."
               />
               <div className="mt-3 space-y-2">
               <p className="text-xs text-gray-600">{statusText(validationChecks.credentials, 'Valid credentials')}</p>
@@ -766,7 +766,7 @@ export function SettingsPage() {
             <Panel compact className="space-y-2">
               <PanelHeader
                 title="Setup guidance"
-                subtitle="Use the provider-specific guidance below without leaving the current setup flow."
+                subtitle="Use the provider-specific guidance below without leaving the current cloud account setup flow."
               />
               <div className="mt-3 space-y-2">
               {provider === 'azure' ? (
@@ -818,8 +818,8 @@ export function SettingsPage() {
         </div>
         <Panel className="space-y-3">
           <PanelHeader
-            title="Connected accounts"
-            subtitle="Review existing cloud connections and keep sync and lifecycle actions in the same settings view."
+            title="Connected cloud accounts"
+            subtitle="Review existing cloud accounts and keep sync and lifecycle actions in the same settings view."
           />
           {cloudActionFeedback && (
             <div
@@ -839,7 +839,7 @@ export function SettingsPage() {
               title="Could not load cloud accounts"
               description="Cloud account settings are temporarily unavailable. Please try again."
               onRetry={() => refetchCloudAccounts()}
-              retryLabel="Retry"
+              retryLabel={p.refresh}
               compact
             />
           ) : cloudAccounts && cloudAccounts.length > 0 ? (
@@ -892,8 +892,8 @@ export function SettingsPage() {
           ) : (
             <EmptyState
               icon="document"
-              title="No cloud accounts registered."
-              description="Add a validated cloud connection to start sync and readiness coverage for this workspace."
+              title="No cloud accounts connected."
+              description="Add a validated cloud account to start data sync and FinOps readiness coverage for this workspace."
             />
           )}
         </Panel>
@@ -906,17 +906,17 @@ export function SettingsPage() {
       <div className="page-container">
         <PageHeader
           title={t.nav.settingsSecurity}
-          subtitle="Manage authentication, passkeys, sessions, and audit visibility from one security surface."
+          subtitle="Manage authentication, passkeys, sessions, and access audit visibility from one security surface."
           meta={
             <>
-              <span>Settings</span>
-              <span>Security controls</span>
+              <span>Workspace administration</span>
+              <span>Authentication & audit</span>
             </>
           }
         />
         <SectionIntro
           title="Security controls"
-          subtitle="Manage authentication strength, account recovery, session control, and audit visibility from one settings system."
+          subtitle="Manage authentication strength, account recovery, session control, and access audit visibility from one settings surface."
           badges={[
             { label: 'Authentication', tone: 'organization' },
             { label: 'Auditable controls', tone: 'secondary' },
@@ -1018,7 +1018,7 @@ export function SettingsPage() {
         {isAdmin && (
           <Panel>
             <PanelHeader
-              title="Audit visibility"
+              title="Access audit visibility"
             subtitle="Review recent security activity and trace important access events from the same security surface."
             />
             <div className="mt-4">
@@ -1033,24 +1033,24 @@ export function SettingsPage() {
   return (
     <div className="page-container">
       <PageHeader
-        title="Settings"
-        subtitle="Choose a settings area to manage workspace access, security, or cloud connectivity."
+        title={t.nav.settings}
+        subtitle="Choose an administration area to manage workspace access, security, or cloud account connectivity."
         meta={
           <>
-            <span>Settings</span>
-            <span>Workspace controls</span>
+            <span>Workspace administration</span>
+            <span>Access, security & cloud accounts</span>
           </>
         }
       />
       <Panel>
         <PanelHeader
-          title="Settings overview"
-          subtitle="Open the settings area you want to manage while staying inside one consistent workspace settings experience."
+          title="Workspace administration"
+          subtitle="Open the administration area you want to manage while staying inside one consistent workspace experience."
         />
         <div className="mt-4 space-y-4">
           <SectionIntro
-            title="Choose a settings surface"
-            subtitle="Each area keeps a specific operational concern together so workspace administration stays clear, auditable, and easy to navigate."
+            title="Choose an administration area"
+            subtitle="Each area keeps a specific responsibility together so workspace administration stays clear, auditable, and easy to navigate."
             compact
           />
           <div className="grid gap-3 md:grid-cols-3">
@@ -1059,7 +1059,7 @@ export function SettingsPage() {
               className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
               <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsCloud}</span>
-              <span className="mt-1 block text-xs text-slate-500">Manage cloud connections, validation, and sync readiness.</span>
+              <span className="mt-1 block text-xs text-slate-500">Manage cloud accounts, validation, and sync readiness.</span>
             </Link>
             <Link
               to="/app/settings/security"
@@ -1073,7 +1073,7 @@ export function SettingsPage() {
               className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
             >
               <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsTeam}</span>
-              <span className="mt-1 block text-xs text-slate-500">Open the dedicated workspace access management surface.</span>
+              <span className="mt-1 block text-xs text-slate-500">Open the dedicated workspace access governance surface.</span>
             </Link>
           </div>
         </div>
