@@ -1413,7 +1413,7 @@ export const en: Translations = {
     sectionEconomics: 'Economics',
     sectionFinancial: 'Financial',
     economicsCosts: 'Costs',
-    economicsUsage: 'Usage',
+    economicsUsage: 'Spend Stability',
     economicsSkus: 'SKUs',
     economicsReports: 'Reports',
     sectionOptimization: 'Optimization',
@@ -2360,7 +2360,7 @@ export const en: Translations = {
     optimizationSubtitle: 'Reservation efficiency and waste signals to prioritize optimization work.',
   },
   economicsUsage: {
-    title: 'Economics Usage',
+    title: 'Spend Stability',
     subtitle: 'Monitor operational usage behavior, identify volatility, and track efficiency stability over time.',
     timeWindow: 'Time window',
     last30: 'Last 30 days',
