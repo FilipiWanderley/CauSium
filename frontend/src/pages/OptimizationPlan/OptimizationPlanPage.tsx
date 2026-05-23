@@ -46,7 +46,7 @@ const fmt = (n: number) => formatCurrency(n, undefined, { minimumFractionDigits:
 
 export function OptimizationPlanPage() {
   const { t, lang } = useI18n()
-  usePageTitle('Optimization Plan')
+  usePageTitle(t.optimizationPlan.title)
   const queryClient = useQueryClient()
   const [reviewComment, setReviewComment] = useState('')
   const [scheduledFor, setScheduledFor] = useState('')
@@ -195,7 +195,7 @@ export function OptimizationPlanPage() {
       <div className="p-6">
         <ErrorState
           title={t.optimizationPlan.error}
-          description="Could not load the optimization plan. Please check your connection and try again."
+          description="Could not load the savings plan. Please check your connection and try again."
           onRetry={() => refetch()}
           retryLabel={t.optimizationPlan.errorRetry}
         />
@@ -682,7 +682,7 @@ function GovernanceSection({
             <div className="mt-4 rounded-lg border border-violet-100 bg-violet-50/30 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <div className="flex h-5 w-5 items-center justify-center rounded bg-violet-100">
-                  <span className="text-[9px] font-bold text-violet-700">PL</span>
+                  <span className="text-[9px] font-bold text-violet-700">IMP</span>
                 </div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">{t.optimizationPlan.sendToPulseLab}</p>
               </div>
@@ -761,7 +761,7 @@ function GovernanceSection({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
-                <span className="text-[10px] font-bold text-violet-700">PL</span>
+                <span className="text-[10px] font-bold text-violet-700">IMP</span>
               </div>
               <div>
                 <div className="text-sm font-semibold text-gray-900">{t.optimizationPlan.handoffExperimentId}</div>
