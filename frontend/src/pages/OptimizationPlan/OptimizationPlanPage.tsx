@@ -10,6 +10,7 @@ import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonSection } from '.
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import type { ExecutionPlanStatus, OptimizationPlanRecommendation } from '../../types'
+import { formatCurrency } from '../../utils/currency'
 
 const CATEGORY_COLORS: Record<string, string> = {
   rightsizing: 'bg-blue-50 text-blue-700',
@@ -41,8 +42,7 @@ function humanizeCategory(value: string) {
   return value.split('_').filter(Boolean).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
 }
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+const fmt = (n: number) => formatCurrency(n, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function OptimizationPlanPage() {
   const { t, lang } = useI18n()
@@ -172,10 +172,7 @@ export function OptimizationPlanPage() {
     })
   }
 
-  const currency = useMemo(
-    () => new Intl.NumberFormat(lang === 'pt' ? 'pt-BR' : 'en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-    [lang]
-  )
+  const currency = useMemo(() => (value: number) => fmt(value), [])
 
   // Loading state
   if (isLoading) {
@@ -254,8 +251,8 @@ export function OptimizationPlanPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
           title={t.optimizationPlan.adjustedMonthly}
-          value={currency.format(data.total_savings_monthly_adjusted_usd)}
-          subtitle={`${currency.format(data.total_savings_annual_adjusted_usd)}/yr`}
+          value={currency(data.total_savings_monthly_adjusted_usd)}
+          subtitle={`${currency(data.total_savings_annual_adjusted_usd)}/yr`}
           variant="success"
           emphasis="primary"
           tooltip={t.optimizationPlan.adjustedMonthly}
@@ -396,7 +393,7 @@ function QuickWinItem({
   t,
 }: {
   item: OptimizationPlanRecommendation
-  currency: Intl.NumberFormat
+  currency: (value: number) => string
   t: ReturnType<typeof useI18n>['t']
 }) {
   return (
@@ -418,7 +415,7 @@ function QuickWinItem({
           <p className="mt-1 text-xs text-gray-500 leading-relaxed">{item.next_step}</p>
         </div>
         <div className="flex-shrink-0 text-right">
-          <p className="text-sm font-bold tabular-nums text-emerald-700">{currency.format(item.estimated_monthly_savings_usd)}</p>
+          <p className="text-sm font-bold tabular-nums text-emerald-700">{currency(item.estimated_monthly_savings_usd)}</p>
           <p className="text-[11px] text-gray-400">{t.common.monthly}</p>
         </div>
       </div>
@@ -434,7 +431,7 @@ function PrioritizedItem({
   t,
 }: {
   item: OptimizationPlanRecommendation
-  currency: Intl.NumberFormat
+  currency: (value: number) => string
   expanded: boolean
   onToggle: () => void
   t: ReturnType<typeof useI18n>['t']
@@ -455,7 +452,7 @@ function PrioritizedItem({
             </span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-            <span className="font-bold tabular-nums text-emerald-700">{currency.format(item.estimated_monthly_savings_usd)}/mo</span>
+            <span className="font-bold tabular-nums text-emerald-700">{currency(item.estimated_monthly_savings_usd)}/mo</span>
             <span className="h-3 w-px bg-gray-200" />
             <span className={clsx('inline-flex rounded-full px-1.5 py-0.5 font-medium', RISK_COLORS[item.risk_level])}>{item.risk_level} risk</span>
             <span className="h-3 w-px bg-gray-200" />
@@ -549,7 +546,7 @@ function GovernanceSection({
   setStatusMessage: (v: { text: string; type: 'success' | 'error' } | null) => void
   showConfirmDialog: 'approve' | 'reject' | null
   setShowConfirmDialog: (v: 'approve' | 'reject' | null) => void
-  currency: Intl.NumberFormat
+  currency: (value: number) => string
   t: ReturnType<typeof useI18n>['t']
 }) {
   const STATUS_ORDER: ExecutionPlanStatus[] = ['review_required', 'approved', 'scheduled']
@@ -796,17 +793,17 @@ function GovernanceSection({
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-white p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{t.optimizationPlan.expectedSavingsLabel}</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-gray-900">{currency.format(executionStatus.expected_savings)}</p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-gray-900">{currency(executionStatus.expected_savings)}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-white p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{t.optimizationPlan.actualSavingsLabel}</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-gray-900">{currency.format(executionStatus.actual_savings)}</p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-gray-900">{currency(executionStatus.actual_savings)}</p>
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{t.optimizationPlan.deltaSavingsLabel}</p>
                 <p className={clsx('ml-auto text-sm font-bold tabular-nums', executionStatus.delta >= 0 ? 'text-emerald-700' : 'text-rose-700')}>
-                  {executionStatus.delta >= 0 ? '+' : ''}{currency.format(executionStatus.delta)}
+                  {executionStatus.delta >= 0 ? '+' : ''}{currency(executionStatus.delta)}
                 </p>
               </div>
             </div>

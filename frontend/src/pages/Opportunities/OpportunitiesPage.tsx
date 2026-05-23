@@ -17,11 +17,11 @@ import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/a
 import { usePersistentString } from '../../hooks/usePersistentBoolean'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
+import { formatCurrency } from '../../utils/currency'
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+const fmt = (n: number) => formatCurrency(n, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 type OpportunityViewMode = 'table' | 'cards'
 type ProviderKey = 'azure' | 'aws' | 'gcp' | 'unknown'
