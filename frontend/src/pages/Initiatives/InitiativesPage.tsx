@@ -23,7 +23,7 @@ import { KpiCard } from '../../components/Cards/KpiCard'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonMetricCards, SkeletonSection, SkeletonTable } from '../../components/UX/Skeleton'
-import { formatCurrency } from '../../utils/currency'
+import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 
 const STATUS_TRANSITIONS: Record<InitiativeStatus, InitiativeStatus | null> = {
   backlog: 'planned',
@@ -64,8 +64,10 @@ const STATUS_BADGES: Record<InitiativeStatus, string> = {
   cancelled: 'bg-gray-100 text-gray-600',
 }
 
-function formatUsd(value: number) {
-  return formatCurrency(value, 'USD')
+const DISPLAY_CURRENCY_LABEL = DEFAULT_DISPLAY_CURRENCY
+
+function formatMoney(value: number) {
+  return formatCurrency(value, undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function formatDateTime(value: string | null) {
@@ -222,7 +224,7 @@ export function InitiativesPage() {
           meta={
             <>
               <span>Execution workspace</span>
-              <span>Expected and realized value shown as USD</span>
+              <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
             </>
           }
         />
@@ -232,7 +234,7 @@ export function InitiativesPage() {
           badges={[
             { label: 'Workflow preserved', tone: 'secondary' },
             { label: 'Board and table parity', tone: 'operational' },
-            { label: 'USD-backed savings fields', tone: 'billing' },
+            { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
           ]}
           compact
         />
@@ -252,7 +254,7 @@ export function InitiativesPage() {
           meta={
             <>
               <span>Execution workspace</span>
-              <span>Expected and realized value shown as USD</span>
+              <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
             </>
           }
         />
@@ -262,7 +264,7 @@ export function InitiativesPage() {
           badges={[
             { label: 'Workflow preserved', tone: 'secondary' },
             { label: 'Board and table parity', tone: 'operational' },
-            { label: 'USD-backed savings fields', tone: 'billing' },
+            { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
           ]}
           compact
         />
@@ -322,7 +324,7 @@ export function InitiativesPage() {
             <span>{summary.total} initiatives</span>
             <span>{summary.activeCount} active</span>
             <span>{summary.overdueCount} overdue</span>
-            <span>Expected and realized value shown as USD</span>
+            <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
           </>
         }
       />
@@ -333,7 +335,7 @@ export function InitiativesPage() {
         badges={[
           { label: 'Workflow preserved', tone: 'secondary' },
           { label: 'Board and table parity', tone: 'operational' },
-          { label: 'USD-backed savings fields', tone: 'billing' },
+          { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
         ]}
         compact
       />
@@ -346,14 +348,14 @@ export function InitiativesPage() {
           footer={<span>{summary.activeCount} active initiatives in flight</span>}
         />
         <KpiCard
-          title="Linked value (USD)"
-          value={formatUsd(summary.estimatedSavings)}
+          title={`Linked value (${DISPLAY_CURRENCY_LABEL})`}
+          value={formatMoney(summary.estimatedSavings)}
           tone="positive"
           footer={<span>{summary.linkedCount} linked opportunities contributing expected monthly value</span>}
         />
         <KpiCard
-          title="Realized value (USD)"
-          value={formatUsd(summary.realizedSavings)}
+          title={`Realized value (${DISPLAY_CURRENCY_LABEL})`}
+          value={formatMoney(summary.realizedSavings)}
           tone="positive"
           footer={<span>{summary.completedCount} completed initiatives contributing realized savings to date</span>}
         />
@@ -533,10 +535,10 @@ export function InitiativesPage() {
                       <td className="px-4 py-3 align-top">
                         {estimatedSavings != null ? (
                           <div>
-                            <div className="font-semibold text-emerald-700">{formatUsd(estimatedSavings)}</div>
-                            <div className="mt-1 text-xs text-gray-400">Monthly value (USD)</div>
+                            <div className="font-semibold text-emerald-700">{formatMoney(estimatedSavings)}</div>
+                            <div className="mt-1 text-xs text-gray-400">{`Monthly value (${DISPLAY_CURRENCY_LABEL})`}</div>
                             <div className="mt-1 text-xs text-slate-500">
-                              Realized: {formatUsd(initiative.realized_savings_usd ?? 0)}
+                              Realized: {formatMoney(initiative.realized_savings_usd ?? 0)}
                             </div>
                           </div>
                         ) : (
@@ -735,14 +737,14 @@ function InitiativeCard({
 
       <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 px-3 py-2">
-          <p className="text-slate-400">Expected value (USD)</p>
+          <p className="text-slate-400">{`Expected value (${DISPLAY_CURRENCY_LABEL})`}</p>
           <p className="mt-1 font-semibold text-emerald-700">
-            {linkedOpportunity ? formatUsd(linkedOpportunity.estimated_monthly_savings_usd) : i.notAvailable}
+            {linkedOpportunity ? formatMoney(linkedOpportunity.estimated_monthly_savings_usd) : i.notAvailable}
           </p>
         </div>
         <div className="rounded-lg bg-slate-50 px-3 py-2">
-          <p className="text-slate-400">Realized value (USD)</p>
-          <p className="mt-1 font-semibold text-slate-800">{formatUsd(initiative.realized_savings_usd ?? 0)}</p>
+          <p className="text-slate-400">{`Realized value (${DISPLAY_CURRENCY_LABEL})`}</p>
+          <p className="mt-1 font-semibold text-slate-800">{formatMoney(initiative.realized_savings_usd ?? 0)}</p>
         </div>
       </div>
 
