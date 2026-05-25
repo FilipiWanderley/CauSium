@@ -14,6 +14,7 @@ import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonTable } from '../
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
+import { formatTeamGroupingLabel } from '../../utils/teamDisplay'
 
 export function EconomicsReportsPage() {
   const { t } = useI18n()
@@ -255,7 +256,7 @@ export function EconomicsReportsPage() {
         />
         <BreakdownCard
           title={er.topTeams}
-          rows={teamsQuery.data ?? []}
+          rows={(teamsQuery.data ?? []).map((row) => ({ ...row, service: formatTeamGroupingLabel(row.service) ?? row.service }))}
           loading={teamsQuery.isLoading}
           noDataLabel={er.noData}
           currency={displayCurrency}

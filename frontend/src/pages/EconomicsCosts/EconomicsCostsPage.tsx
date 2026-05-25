@@ -21,6 +21,7 @@ import type { DataTableColumn } from '../../components/Tables/DataTable'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
+import { formatTeamGroupingLabel } from '../../utils/teamDisplay'
 import clsx from 'clsx'
 
 const DAYS_OPTIONS = [30, 60, 90, 180] as const
@@ -139,7 +140,7 @@ export function EconomicsCostsPage() {
     { key: 'provider', header: ec.colProvider, hideBelow: 'md', render: (r) => <span className="text-slate-600">{r.provider}</span> },
     { key: 'service', header: ec.colService, render: (r) => <span className="font-medium text-slate-800">{r.service ?? '-'}</span> },
     { key: 'resource', header: ec.colResource, hideBelow: 'lg', render: (r) => <span className="text-slate-700">{r.resource_name ?? '-'}</span> },
-    { key: 'team', header: ec.colTeam, hideBelow: 'lg', render: (r) => <span className="text-slate-600">{r.owner_team ?? '-'}</span> },
+    { key: 'team', header: ec.colTeam, hideBelow: 'lg', render: (r) => <span className="text-slate-600">{formatTeamGroupingLabel(r.owner_team) ?? '-'}</span> },
     { key: 'region', header: ec.colRegion, hideBelow: 'xl', render: (r) => <span className="text-slate-500">{r.region ?? '-'}</span> },
     { key: 'cost', header: ec.colCost, align: 'right', sortFn: (a, b) => a.cost_usd - b.cost_usd, render: (r) => <span className="font-semibold tabular-nums text-slate-800">{formatMoney(r.cost_usd)}</span> },
   ]
@@ -276,7 +277,7 @@ export function EconomicsCostsPage() {
                 <div key={row.service} className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-slate-700 truncate">{row.service}</span>
+                      <span className="text-xs font-medium text-slate-700 truncate">{formatTeamGroupingLabel(row.service)}</span>
                       <span className="text-xs font-semibold tabular-nums text-slate-600 shrink-0">{formatMoney(row.cost_usd)}</span>
                     </div>
                     <div className="mt-1 h-1 rounded-full bg-slate-100">
