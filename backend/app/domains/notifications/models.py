@@ -5,7 +5,18 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from app.core.types import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +53,25 @@ class NotificationFrequency(str, enum.Enum):
 
 class AlertRecord(Base):
     __tablename__ = "alert_records"
+    __table_args__ = (
+        Index(
+            "uq_alert_records_org_cat_logical_user_null",
+            "org_id",
+            "category",
+            "logical_key",
+            unique=True,
+            postgresql_where=text("user_id IS NULL AND logical_key IS NOT NULL"),
+        ),
+        Index(
+            "uq_alert_records_org_user_cat_logical",
+            "org_id",
+            "user_id",
+            "category",
+            "logical_key",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL AND logical_key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     org_id: Mapped[UUID] = mapped_column(
@@ -76,6 +106,7 @@ class AlertRecord(Base):
     # Source reference (e.g. risk_budget_id, opportunity_id)
     source_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     source_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    logical_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     extra_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSONB, nullable=True)
 

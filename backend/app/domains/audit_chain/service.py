@@ -14,6 +14,35 @@ from app.domains.audit_chain.models import AuditChainCheckpoint, AuditChainEvent
 from app.domains.audit_chain.schemas import AuditCheckpointVerificationOut, AuditVerificationOut
 from app.domains.notifications.models import AlertCategory, AlertSeverity
 
+_AUDIT_NOTIFICATION_ALLOWLIST = {
+    "invite.created",
+    "invite.accepted",
+    "invite.revoked",
+    "auth.user.deactivated",
+    "auth.passkey.revoked",
+    "auth.mfa.totp.enabled",
+    "auth.mfa.totp.disabled",
+    "auth.password.changed",
+    "auth.password.admin_reset",
+    "auth.mfa.admin_reset",
+    "auth.user.lgpd_purge",
+    "cloud_account.created",
+    "cloud_account.deleted",
+    "cloud_account.sync.completed",
+    "cloud_account.sync.warning",
+    "worker.ingestion.dlq_failure",
+    "worker.carbon_sync.dlq_failure",
+    "budget.threshold.crossed",
+    "cost.anomaly.detected",
+    "support_access.started",
+    "support_access.ended",
+    "platform_admin.workspace.force_suspended",
+    "platform_admin.workspace.force_restored",
+    "platform_admin.workspace.force_archived",
+    "experiment.approved",
+    "change_event.created",
+}
+
 
 class AuditChainService:
     GENESIS_HASH = "GENESIS"
@@ -79,6 +108,10 @@ class AuditChainService:
         )
         return result.scalar_one_or_none()
 
+    @staticmethod
+    def _should_emit_notification(event_type: str) -> bool:
+        return event_type in _AUDIT_NOTIFICATION_ALLOWLIST
+
     async def append_event(
         self,
         *,
@@ -121,41 +154,7 @@ class AuditChainService:
         # Only a curated allowlist of audit events generates an in-app notification.
         # Auth session events (login, refresh) and low-signal updates are intentionally
         # excluded to prevent notification spam. All events still land in the audit chain.
-        _NOTIFICATION_ALLOWLIST = {
-            # Identity & access
-            "invite.created",
-            "invite.accepted",
-            "invite.revoked",
-            "auth.user.deactivated",
-            "auth.passkey.revoked",
-            "auth.mfa.totp.enabled",
-            "auth.mfa.totp.disabled",
-            "auth.password.changed",
-            "auth.password.admin_reset",
-            "auth.mfa.admin_reset",
-            "auth.user.lgpd_purge",
-            # Cloud accounts
-            "cloud_account.created",
-            "cloud_account.deleted",
-            "cloud_account.sync.completed",
-            "cloud_account.sync.warning",
-            "worker.ingestion.dlq_failure",
-            "worker.carbon_sync.dlq_failure",
-            # Cost & anomalies
-            "budget.threshold.crossed",
-            "cost.anomaly.detected",
-            # Governance & security
-            "support_access.started",
-            "support_access.ended",
-            "platform_admin.workspace.force_suspended",
-            "platform_admin.workspace.force_restored",
-            "platform_admin.workspace.force_archived",
-            "experiment.approved",
-            # Cloud change events (dedupe handled by source_type+source_id)
-            "change_event.created",
-        }
-
-        if event_type in _NOTIFICATION_ALLOWLIST:
+        if self._should_emit_notification(event_type):
             from app.domains.notifications.service import NotificationsService
 
             notif = NotificationsService(self.db)
