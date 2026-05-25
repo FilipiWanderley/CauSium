@@ -121,12 +121,12 @@ function ActivityRow({ ev, label, currency }: { ev: ChangeEvent; label: string; 
 
 export function DashboardPage() {
   const { t, lang } = useI18n()
-  usePageTitle('Dashboard')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const d = t.dashboard
   const ce = t.changeEvents
   const ux = t.ux
+  usePageTitle(d.title)
   const [explainOpen, setExplainOpen] = useState(false)
   const budgetSectionRef = useRef<HTMLDivElement | null>(null)
   const [actionMessage, setActionMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)

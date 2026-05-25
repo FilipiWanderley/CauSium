@@ -32,10 +32,10 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 }
 
 export function GreenPage() {
-  usePageTitle('Green')
   const { t } = useI18n()
   const gr = t.green
   const ux = t.ux
+  usePageTitle(gr.title)
   const formatMoney = (value: number) => formatCurrency(value, DEFAULT_DISPLAY_CURRENCY)
 
   const BREAKDOWN_LABELS: Record<BreakdownDimension, string> = {

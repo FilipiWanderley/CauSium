@@ -207,9 +207,9 @@ function AlertCard({
 }
 
 export function NotificationsPage() {
-  usePageTitle('Notifications')
   const { t } = useI18n()
   const n = t.notifications
+  usePageTitle(n.title)
 
   const CATEGORY_LABELS: Record<AlertCategory, string> = {
     financial:    n.financial,

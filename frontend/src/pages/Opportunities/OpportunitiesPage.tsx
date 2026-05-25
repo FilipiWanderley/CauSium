@@ -124,8 +124,8 @@ async function getExportErrorMessage(error: unknown, fallback: string) {
 
 export function OpportunitiesPage() {
   const { t, lang } = useI18n()
-  usePageTitle('Opportunities')
   const o = t.opportunities
+  usePageTitle(o.title)
   const queryClient = useQueryClient()
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<OpportunityStatus | 'all'>('open')

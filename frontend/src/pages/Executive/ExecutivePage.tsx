@@ -20,6 +20,7 @@ import clsx from 'clsx'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
+import { formatTeamGroupingLabel } from '../../utils/teamDisplay'
 import type { ConfidenceTier, InitiativeBoard, Opportunity, RiskLevel } from '../../types'
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -56,10 +57,10 @@ function capRisk(v: RiskLevel) { return (v.charAt(0).toUpperCase() + v.slice(1))
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ExecutivePage() {
-  usePageTitle('Executive')
   const { t, lang } = useI18n()
   const e = t.executive
   const ux = t.ux
+  usePageTitle(e.title)
   const [subscriptionId, setSubscriptionId] = useState<string>('')
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -99,6 +100,7 @@ export function ExecutivePage() {
 
   const displayCurrency = dashboardMeta?.billing_currency || DEFAULT_DISPLAY_CURRENCY
   const formatMoney = (value: number) => formatCurrency(value, displayCurrency)
+  const formatTeamLabel = (value: string | null | undefined) => formatTeamGroupingLabel(value) ?? e.na
   const hasMultipleSubscriptions = (subscriptionSummary?.subscription_count ?? 0) > 1
   const getSubName = (name: string | null | undefined, key: string | null | undefined) => {
     const n = name?.trim()
@@ -147,7 +149,8 @@ export function ExecutivePage() {
   const highestOpportunityTeam = [...topImpactTeams].sort((a, b) => b.open_opportunities - a.open_opportunities)[0]
   const topImpactChartData = topImpactTeams.map((row, index) => ({
     ...row,
-    team_label: row.team.length > 18 ? `${row.team.slice(0, 18)}...` : row.team,
+    display_team: formatTeamLabel(row.team),
+    team_label: formatTeamLabel(row.team).length > 18 ? `${formatTeamLabel(row.team).slice(0, 18)}...` : formatTeamLabel(row.team),
     fill: index === 0 ? chartFill.primary : chartFill.primaryLight,
   }))
 
@@ -441,7 +444,7 @@ export function ExecutivePage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Largest cost area</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{topImpactLead?.team ?? e.na}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatTeamLabel(topImpactLead?.team)}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {topImpactLead ? `${formatMoney(topImpactLead.current_month_cost_usd)} · ${topTeamCostShare}% of visible spend` : e.na}
                   </p>
@@ -453,7 +456,7 @@ export function ExecutivePage() {
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Most open opportunities</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{highestOpportunityTeam?.team ?? e.na}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatTeamLabel(highestOpportunityTeam?.team)}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {highestOpportunityTeam ? `${highestOpportunityTeam.open_opportunities} ${e.openOpps.toLowerCase()}` : e.na}
                   </p>
@@ -485,7 +488,7 @@ export function ExecutivePage() {
                         if (!row) return []
                         return [
                           `${formatMoney(row.current_month_cost_usd)} · ${row.efficiency_score}/100 ${e.scoreLabel.toLowerCase()} · ${row.open_opportunities} ${e.openOpps.toLowerCase()}`,
-                          row.team,
+                          row.display_team,
                         ]
                       }}
                     />
@@ -501,7 +504,7 @@ export function ExecutivePage() {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Executive readout</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">
                   {topImpactLead
-                    ? `${topImpactLead.team} currently carries the largest visible monthly cost footprint at ${formatMoney(topImpactLead.current_month_cost_usd)}. Use the accountability table to compare efficiency score and open opportunity volume before prioritizing follow-up.`
+                    ? `${formatTeamLabel(topImpactLead.team)} currently carries the largest visible monthly cost footprint at ${formatMoney(topImpactLead.current_month_cost_usd)}. Use the accountability table to compare efficiency score and open opportunity volume before prioritizing follow-up.`
                     : 'Use the accountability table to compare monthly cost, efficiency score, and open opportunity volume.'}
                 </p>
               </div>
@@ -525,7 +528,7 @@ export function ExecutivePage() {
                 <tbody className="divide-y divide-slate-50">
                   {topImpactTeams.map((row) => (
                     <tr key={row.team}>
-                      <td className="py-2.5 pr-3 font-medium text-slate-800">{row.team}</td>
+                      <td className="py-2.5 pr-3 font-medium text-slate-800">{formatTeamLabel(row.team)}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">{formatMoney(row.current_month_cost_usd)}</td>
                       <td className="py-2.5 pr-3 text-right text-slate-600">{row.open_opportunities}</td>
                       <td className="py-2.5 text-right">

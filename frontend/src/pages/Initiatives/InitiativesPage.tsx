@@ -102,9 +102,9 @@ function progressBarClass(status: InitiativeStatus) {
 }
 
 export function InitiativesPage() {
-  usePageTitle('Initiatives')
   const { t } = useI18n()
   const i = t.initiatives
+  usePageTitle(i.title)
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -223,18 +223,18 @@ export function InitiativesPage() {
           }
           meta={
             <>
-              <span>Execution workspace</span>
-              <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
+              <span>Savings initiative tracking</span>
+              <span>{`Estimated and realized savings shown in ${DISPLAY_CURRENCY_LABEL}`}</span>
             </>
           }
         />
         <SectionIntro
-          title="Execution workspace"
-          subtitle="Track workload, ownership, urgency, expected value, realized value, and next actions without changing the existing initiative workflow."
+          title="Savings initiative tracker"
+          subtitle="Review ownership, urgency, estimated savings, realized savings, and next steps in one place."
           badges={[
             { label: 'Workflow preserved', tone: 'secondary' },
             { label: 'Board and table parity', tone: 'operational' },
-            { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
+            { label: `${DISPLAY_CURRENCY_LABEL}-formatted savings values`, tone: 'billing' },
           ]}
           compact
         />
@@ -253,26 +253,26 @@ export function InitiativesPage() {
           subtitle={i.subtitle}
           meta={
             <>
-              <span>Execution workspace</span>
-              <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
+              <span>Savings initiative tracking</span>
+              <span>{`Estimated and realized savings shown in ${DISPLAY_CURRENCY_LABEL}`}</span>
             </>
           }
         />
         <SectionIntro
-          title="Execution workspace"
-          subtitle="Track workload, ownership, urgency, expected value, realized value, and next actions without changing the existing initiative workflow."
+          title="Savings initiative tracker"
+          subtitle="Review ownership, urgency, estimated savings, realized savings, and next steps in one place."
           badges={[
             { label: 'Workflow preserved', tone: 'secondary' },
             { label: 'Board and table parity', tone: 'operational' },
-            { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
+            { label: `${DISPLAY_CURRENCY_LABEL}-formatted savings values`, tone: 'billing' },
           ]}
           compact
         />
         <ErrorState
-          title="Could not load initiatives"
-          description="The execution workspace is temporarily unavailable. Please try again."
+          title="Could not load savings initiatives"
+          description="Savings initiatives are temporarily unavailable. Please try again."
           onRetry={() => refetch()}
-          retryLabel="Retry"
+          retryLabel={t.platform.refresh}
         />
       </div>
     )
@@ -321,46 +321,46 @@ export function InitiativesPage() {
         }
         meta={
           <>
-            <span>{summary.total} initiatives</span>
+            <span>{summary.total} savings initiatives</span>
             <span>{summary.activeCount} active</span>
             <span>{summary.overdueCount} overdue</span>
-            <span>{`Expected and realized value shown as ${DISPLAY_CURRENCY_LABEL}`}</span>
+            <span>{`Estimated and realized savings shown in ${DISPLAY_CURRENCY_LABEL}`}</span>
           </>
         }
       />
 
       <SectionIntro
-        title="Execution workspace"
-        subtitle="Review workload, ownership, urgency, expected value, realized value, and next actions from one controlled execution surface."
+        title="Savings initiative tracker"
+        subtitle="Review ownership, urgency, estimated savings, realized savings, and next steps in one place."
         badges={[
           { label: 'Workflow preserved', tone: 'secondary' },
           { label: 'Board and table parity', tone: 'operational' },
-          { label: `${DISPLAY_CURRENCY_LABEL}-backed savings fields`, tone: 'billing' },
+          { label: `${DISPLAY_CURRENCY_LABEL}-formatted savings values`, tone: 'billing' },
         ]}
         compact
       />
 
       <div className="kpi-grid">
         <KpiCard
-          title="Execution queue"
+          title="Savings initiatives"
           value={summary.total}
           tone="neutral"
-          footer={<span>{summary.activeCount} active initiatives in flight</span>}
+          footer={<span>{summary.activeCount} active savings initiatives in flight</span>}
         />
         <KpiCard
-          title={`Linked value (${DISPLAY_CURRENCY_LABEL})`}
+          title={`Linked estimated savings (${DISPLAY_CURRENCY_LABEL})`}
           value={formatMoney(summary.estimatedSavings)}
           tone="positive"
-          footer={<span>{summary.linkedCount} linked opportunities contributing expected monthly value</span>}
+          footer={<span>{summary.linkedCount} linked opportunities contributing estimated monthly savings</span>}
         />
         <KpiCard
-          title={`Realized value (${DISPLAY_CURRENCY_LABEL})`}
+          title={`Realized savings (${DISPLAY_CURRENCY_LABEL})`}
           value={formatMoney(summary.realizedSavings)}
           tone="positive"
           footer={<span>{summary.completedCount} completed initiatives contributing realized savings to date</span>}
         />
         <KpiCard
-          title="Execution risk"
+          title="At-risk initiatives"
           value={summary.overdueCount}
           tone={summary.overdueCount > 0 ? 'warning' : 'neutral'}
           footer={<span>{summary.overdueCount > 0 ? 'Overdue initiatives need attention' : 'No overdue initiatives right now'}</span>}
@@ -371,12 +371,12 @@ export function InitiativesPage() {
         <Panel>
           <PanelHeader
             title={i.createInitiative}
-            subtitle="Capture a new execution item without changing the current initiative workflow or board model."
+            subtitle="Capture a new savings initiative with accountable ownership and a target date when available."
           />
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="flex-1">
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-400">
-                Initiative title
+                Initiative name
               </label>
               <input
                 autoFocus
@@ -404,7 +404,7 @@ export function InitiativesPage() {
                 disabled={!newTitle || createMutation.isPending}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
-                {createMutation.isPending ? 'Creating...' : i.create}
+                {createMutation.isPending ? 'Creating initiative...' : i.create}
               </button>
               <button
                 onClick={() => setCreating(false)}
@@ -428,8 +428,8 @@ export function InitiativesPage() {
         <Panel flush className="overflow-hidden">
           <div className="border-b border-slate-100 p-5">
             <PanelHeader
-              title="Execution table"
-              subtitle="Scan ownership, urgency, value delivery, and the next workflow action across the full initiative queue."
+              title="Savings initiative table"
+              subtitle="Review ownership, urgency, savings impact, and the next action across all initiatives."
               actions={
                 <div className="text-left text-xs text-slate-500 sm:text-right">
                   <div className="font-medium text-slate-700">{summary.activeCount} active</div>
@@ -536,9 +536,9 @@ export function InitiativesPage() {
                         {estimatedSavings != null ? (
                           <div>
                             <div className="font-semibold text-emerald-700">{formatMoney(estimatedSavings)}</div>
-                            <div className="mt-1 text-xs text-gray-400">{`Monthly value (${DISPLAY_CURRENCY_LABEL})`}</div>
+                            <div className="mt-1 text-xs text-gray-400">{`Estimated monthly savings (${DISPLAY_CURRENCY_LABEL})`}</div>
                             <div className="mt-1 text-xs text-slate-500">
-                              Realized: {formatMoney(initiative.realized_savings_usd ?? 0)}
+                              Realized savings: {formatMoney(initiative.realized_savings_usd ?? 0)}
                             </div>
                           </div>
                         ) : (
@@ -619,8 +619,8 @@ export function InitiativesPage() {
       ) : (
         <Panel>
           <PanelHeader
-            title="Execution board"
-            subtitle="Review work by delivery phase while keeping ownership, urgency, value, and next action visible on every card."
+            title="Savings initiative board"
+            subtitle="Review work by phase while keeping ownership, urgency, savings impact, and next action visible on every card."
             actions={
               <div className="text-left text-xs text-slate-500 sm:text-right">
                 <div className="font-medium text-slate-700">{summary.total} total</div>
@@ -671,7 +671,7 @@ export function InitiativesPage() {
       )}
 
       <p className="text-center text-[10px] text-slate-400">
-        Execution tracking workspace - workflow states and initiative values remain unchanged.
+        Lifecycle states and savings values remain unchanged.
       </p>
     </div>
   )
@@ -737,13 +737,13 @@ function InitiativeCard({
 
       <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 px-3 py-2">
-          <p className="text-slate-400">{`Expected value (${DISPLAY_CURRENCY_LABEL})`}</p>
+          <p className="text-slate-400">{`Estimated savings (${DISPLAY_CURRENCY_LABEL})`}</p>
           <p className="mt-1 font-semibold text-emerald-700">
             {linkedOpportunity ? formatMoney(linkedOpportunity.estimated_monthly_savings_usd) : i.notAvailable}
           </p>
         </div>
         <div className="rounded-lg bg-slate-50 px-3 py-2">
-          <p className="text-slate-400">{`Realized value (${DISPLAY_CURRENCY_LABEL})`}</p>
+          <p className="text-slate-400">{`Realized savings (${DISPLAY_CURRENCY_LABEL})`}</p>
           <p className="mt-1 font-semibold text-slate-800">{formatMoney(initiative.realized_savings_usd ?? 0)}</p>
         </div>
       </div>

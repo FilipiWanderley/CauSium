@@ -18,10 +18,10 @@ import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
 const numberFmt = new Intl.NumberFormat('en-US')
 
 export function EconomicsUsagePage() {
-  usePageTitle('Economics — Usage')
   const { t } = useI18n()
   const eu = t.economicsUsage
   const ux = t.ux
+  usePageTitle(eu.title)
 
   const [days, setDays] = usePersistentNumber('sp.economicsUsage.days', 30, [30, 60, 90, 180])
 
@@ -82,13 +82,13 @@ export function EconomicsUsagePage() {
   const usagePostureTone =
     efficiencyScore >= 70 ? 'positive' : efficiencyScore >= 40 ? 'warning' : 'negative'
   const usagePostureLabel =
-    efficiencyScore >= 70 ? 'Stable usage posture' : efficiencyScore >= 40 ? 'Mixed usage posture' : 'Volatile usage posture'
+    efficiencyScore >= 70 ? 'Stable spend profile' : efficiencyScore >= 40 ? 'Mixed spend profile' : 'Volatile spend profile'
   const usagePostureSummary =
     momChange > 10
-      ? 'Usage spend is accelerating faster than the prior month and needs closer review.'
+      ? 'Spend is accelerating faster than the prior month and needs closer review.'
       : momChange < -5
-        ? 'Usage spend is moderating versus the prior month while core activity remains in range.'
-        : 'Usage spend is tracking close to the prior month with no major directional break.'
+        ? 'Spend is moderating versus the prior month while core activity remains in range.'
+        : 'Spend is tracking close to the prior month with no major directional break.'
 
   return (
     <div className="page-container">
@@ -99,7 +99,7 @@ export function EconomicsUsagePage() {
           <>
             <span>{eu.operationalMetric}</span>
             <span>{eu.organizationWide}</span>
-            <span>Billing currency values</span>
+            <span>Billing-aligned spend values</span>
           </>
         }
       />
@@ -107,8 +107,8 @@ export function EconomicsUsagePage() {
       <Panel flush className="overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">
           <PanelHeader
-            title="Usage command center"
-            subtitle="Set the reporting window and keep operational usage diagnostics aligned with the current billing view."
+            title="Spend stability window"
+            subtitle="Set the reporting window and review daily spend movement with the current billing context."
           />
         </div>
         <div className="space-y-4 px-5 py-4">
@@ -128,16 +128,16 @@ export function EconomicsUsagePage() {
                 </select>
               </label>
               <div className="min-w-[220px] rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Coverage</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Billing coverage</div>
                 <div className="mt-1 text-sm font-medium text-slate-800">{dataCoverageLabel}</div>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-                {activeAccounts.toLocaleString()} active accounts
+                {activeAccounts.toLocaleString()} active cloud accounts
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-                {recentEvents.toLocaleString()} events in the last 7 days
+                {recentEvents.toLocaleString()} operational changes in the last 7 days
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
                 Billing currency: {displayCurrency}
@@ -146,7 +146,7 @@ export function EconomicsUsagePage() {
           </div>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,1fr)]">
             <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-5 py-4 text-white">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Usage posture</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Spend posture</div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span
                   className={
@@ -170,14 +170,14 @@ export function EconomicsUsagePage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current month</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current month spend</div>
                 <div className="mt-2 text-lg font-semibold text-slate-900">{formatMoney(currentMonthCost)}</div>
-                <p className="mt-1 text-xs text-slate-500">Current spend tracked in billing currency.</p>
+                <p className="mt-1 text-xs text-slate-500">Current spend tracked in the billing currency.</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Previous month</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Prior month spend</div>
                 <div className="mt-2 text-lg font-semibold text-slate-900">{formatMoney(previousMonthCost)}</div>
-                <p className="mt-1 text-xs text-slate-500">Baseline used for month-over-month movement.</p>
+                <p className="mt-1 text-xs text-slate-500">Baseline used for month-over-month spend movement.</p>
               </div>
             </div>
           </div>
@@ -186,24 +186,24 @@ export function EconomicsUsagePage() {
 
       <Panel className="border-slate-200 bg-slate-50/60">
         <PanelHeader
-          title="Usage interpretation"
-          subtitle="Use the current usage posture, volatility, and coverage trend to decide where to review reservation exposure and day-by-day movement next."
+          title="Spend interpretation"
+          subtitle="Use the current spend posture, volatility, and coverage trend to decide where to review commitment exposure and day-by-day movement next."
         />
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Daily average</div>
-            <div className="mt-2 text-lg font-semibold text-slate-900">{numberFmt.format(Math.round(usageSignals.dailyAvg))}</div>
-            <p className="mt-1 text-xs text-slate-500">Average daily usage cost across the selected reporting window.</p>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Average daily spend</div>
+            <div className="mt-2 text-lg font-semibold text-slate-900">{formatMoney(usageSignals.dailyAvg)}</div>
+            <p className="mt-1 text-xs text-slate-500">Average daily spend across the selected reporting window.</p>
           </div>
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Peak usage day</div>
-            <div className="mt-2 text-lg font-semibold text-slate-900">{numberFmt.format(Math.round(usageSignals.peak))}</div>
-            <p className="mt-1 text-xs text-slate-500">Highest single-day usage cost observed in the current window.</p>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Peak spend day</div>
+            <div className="mt-2 text-lg font-semibold text-slate-900">{formatMoney(usageSignals.peak)}</div>
+            <p className="mt-1 text-xs text-slate-500">Highest single-day spend observed in the current window.</p>
           </div>
           <div className="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Volatility signal</div>
-            <div className="mt-2 text-lg font-semibold text-slate-900">{numberFmt.format(Math.round(usageSignals.volatility))}</div>
-            <p className="mt-1 text-xs text-slate-500">Higher values indicate less predictable day-to-day usage.</p>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Spend volatility</div>
+            <div className="mt-2 text-lg font-semibold text-slate-900">{formatMoney(usageSignals.volatility)}</div>
+            <p className="mt-1 text-xs text-slate-500">Higher values indicate less predictable day-to-day spend.</p>
           </div>
         </div>
       </Panel>
@@ -265,7 +265,7 @@ export function EconomicsUsagePage() {
         <Panel>
           <PanelHeader
             title={eu.reservationCoverage}
-            subtitle="Track reserved and uncovered compute cost with the same billing-currency context used across the economics surfaces."
+            subtitle="Track covered and uncovered compute spend with the same billing context used across the FinOps surfaces."
           />
           <div className="mt-4">
             {reservationCoverageQuery.isLoading ? (
@@ -273,7 +273,7 @@ export function EconomicsUsagePage() {
             ) : reservationCoverageQuery.isError ? (
               <ErrorState
                 title={eu.reservationCoverageEmpty}
-                description="Reservation coverage diagnostics are temporarily unavailable for the selected window."
+                description="Commitment coverage diagnostics are temporarily unavailable for the selected window."
                 onRetry={() => reservationCoverageQuery.refetch()}
                 retryLabel={t.common.reset}
                 compact
@@ -282,7 +282,7 @@ export function EconomicsUsagePage() {
               <EmptyState
                 icon="lightbulb"
                 title={eu.reservationCoverageEmpty}
-                description="Try a shorter window or validate reservation telemetry for this workspace."
+                description="Try a shorter window or validate commitment telemetry for this workspace."
                 action={days !== 30 ? { label: eu.last30, onClick: () => setDays(30) } : undefined}
               />
             ) : (
@@ -377,7 +377,7 @@ export function EconomicsUsagePage() {
       <Panel>
         <PanelHeader
           title={eu.timeline.replace('{{days}}', String(days))}
-          subtitle="Review day-by-day usage movement and compare outlier days against the current operating window."
+          subtitle="Review day-by-day spend movement and compare outlier days against the current reporting window."
         />
         <div className="mt-4">
           {trendQuery.isLoading ? (
@@ -385,7 +385,7 @@ export function EconomicsUsagePage() {
           ) : trendQuery.isError ? (
             <ErrorState
               title={eu.noData}
-              description="Daily usage timeline data is temporarily unavailable for the selected window."
+              description="Daily spend trend data is temporarily unavailable for the selected window."
               onRetry={() => trendQuery.refetch()}
               retryLabel={t.common.reset}
               compact
@@ -394,14 +394,14 @@ export function EconomicsUsagePage() {
             <EmptyState
               icon="lightbulb"
               title={eu.noData}
-              description="No daily usage rows are available for the selected period."
+              description="No daily spend rows are available for the selected period."
               action={days !== 30 ? { label: eu.last30, onClick: () => setDays(30) } : undefined}
             />
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-800">Daily usage ledger</p>
-                <p className="mt-1 text-xs text-slate-500">Track daily usage cost for the current reporting window and use spikes to validate workload behavior or reservation coverage gaps.</p>
+                <p className="text-sm font-medium text-slate-800">Daily spend ledger</p>
+                <p className="mt-1 text-xs text-slate-500">Track daily spend for the current reporting window and use spikes to validate workload behavior or commitment coverage gaps.</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -415,7 +415,7 @@ export function EconomicsUsagePage() {
                     {trendQuery.data?.map((point) => (
                       <tr key={point.date} className="transition hover:bg-gray-50/50">
                         <td className="py-2.5 pr-4 pl-4 text-gray-700">{formatDateShort(point.date)}</td>
-                        <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-gray-900">{numberFmt.format(Math.round(point.cost_usd))}</td>
+                        <td className="py-2.5 pr-4 text-right tabular-nums font-medium text-gray-900">{formatMoney(point.cost_usd)}</td>
                       </tr>
                     ))}
                   </tbody>
