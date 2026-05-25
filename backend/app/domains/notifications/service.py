@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import String, and_, cast, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -49,6 +50,33 @@ _BUDGET_DEDUPE_EVENT_TYPES = {"budget.threshold.crossed"}
 class NotificationsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    @staticmethod
+    def _default_logical_key(source_type: str | None, source_id: str | None) -> str | None:
+        if not source_type or not source_id:
+            return None
+        return f"{source_type}:{source_id}"
+
+    async def _get_alert_by_logical_key(
+        self,
+        *,
+        org_id: UUID,
+        user_id: UUID | None,
+        category: AlertCategory,
+        logical_key: str,
+    ) -> AlertRecord | None:
+        filters = [
+            AlertRecord.org_id == org_id,
+            AlertRecord.category == category,
+            AlertRecord.logical_key == logical_key,
+        ]
+        if user_id is None:
+            filters.append(AlertRecord.user_id.is_(None))
+        else:
+            filters.append(AlertRecord.user_id == user_id)
+
+        result = await self.db.execute(select(AlertRecord).where(and_(*filters)))
+        return result.scalar_one_or_none()
 
     # ------------------------------------------------------------------
     # Read
@@ -195,7 +223,9 @@ class NotificationsService:
         source_id: Optional[str] = None,
         user_id: Optional[UUID] = None,
         extra_metadata: Optional[dict] = None,
+        logical_key: Optional[str] = None,
     ) -> AlertRecord:
+        resolved_logical_key = logical_key or self._default_logical_key(source_type, source_id)
         alert = AlertRecord(
             org_id=org_id,
             user_id=user_id,
@@ -206,10 +236,25 @@ class NotificationsService:
             action_url=action_url,
             source_type=source_type,
             source_id=source_id,
+            logical_key=resolved_logical_key,
             extra_metadata=extra_metadata,
         )
-        self.db.add(alert)
-        await self.db.flush()
+        try:
+            async with self.db.begin_nested():
+                self.db.add(alert)
+                await self.db.flush()
+        except IntegrityError:
+            if resolved_logical_key:
+                existing = await self._get_alert_by_logical_key(
+                    org_id=org_id,
+                    user_id=user_id,
+                    category=category,
+                    logical_key=resolved_logical_key,
+                )
+                if existing is not None:
+                    return existing
+            raise
+
         await self.db.refresh(alert)
         await notifications_realtime_broker.publish(
             org_id,
@@ -235,15 +280,20 @@ class NotificationsService:
         category: AlertCategory,
         source_type: str,
         source_id: str,
+        user_id: UUID | None = None,
     ) -> AlertRecord | None:
-        result = await self.db.execute(
-            select(AlertRecord).where(
-                AlertRecord.org_id == org_id,
-                AlertRecord.category == category,
-                AlertRecord.source_type == source_type,
-                AlertRecord.source_id == source_id,
-            )
-        )
+        filters = [
+            AlertRecord.org_id == org_id,
+            AlertRecord.category == category,
+            AlertRecord.source_type == source_type,
+            AlertRecord.source_id == source_id,
+        ]
+        if user_id is None:
+            filters.append(AlertRecord.user_id.is_(None))
+        else:
+            filters.append(AlertRecord.user_id == user_id)
+
+        result = await self.db.execute(select(AlertRecord).where(and_(*filters)))
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -591,6 +641,7 @@ class NotificationsService:
         extra_metadata: dict | None = None,
         event_type: str,
         ignore_rules: bool = False,
+        logical_key: str | None = None,
     ) -> AlertRecord | None:
         if not ignore_rules:
             if not await self.should_create_alert(
@@ -602,14 +653,16 @@ class NotificationsService:
                 return None
 
         if source_type and source_id:
-            existing = await self._get_alert_by_source(
-                org_id=org_id,
-                category=category,
-                source_type=source_type,
-                source_id=source_id,
-            )
-            if existing is not None:
-                return existing
+            resolved_logical_key = logical_key or self._default_logical_key(source_type, source_id)
+            if resolved_logical_key:
+                existing = await self._get_alert_by_logical_key(
+                    org_id=org_id,
+                    user_id=user_id,
+                    category=category,
+                    logical_key=resolved_logical_key,
+                )
+                if existing is not None:
+                    return existing
 
         normalized_metadata: dict = dict(extra_metadata) if isinstance(extra_metadata, dict) else {}
         if event_type in _SYNC_DEDUPE_EVENT_TYPES:
@@ -671,6 +724,7 @@ class NotificationsService:
             source_id=source_id,
             user_id=user_id,
             extra_metadata=normalized_metadata or None,
+            logical_key=logical_key,
         )
 
     async def create_realtime_alert(
@@ -687,6 +741,7 @@ class NotificationsService:
         user_id: UUID | None = None,
         extra_metadata: dict | None = None,
         event_type: str,
+        logical_key: str | None = None,
     ) -> AlertRecord | None:
         """Create an alert immediately, bypassing per-org notification rules."""
         return await self.create_if_rule_matches(
@@ -702,6 +757,7 @@ class NotificationsService:
             extra_metadata=extra_metadata,
             event_type=event_type,
             ignore_rules=True,
+            logical_key=logical_key,
         )
 
     # ------------------------------------------------------------------

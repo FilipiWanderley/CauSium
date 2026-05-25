@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -135,3 +136,85 @@ async def test_notifications_new_supports_category_and_pagination(client, db):
 
     paged_ids = {item["id"] for item in page_data["items"]}
     assert str(first.id) in paged_ids or str(second.id) in paged_ids
+
+
+@pytest.mark.asyncio
+async def test_risk_budget_creation_does_not_create_audit_duplicate_notification(client):
+    org = await _register(client, "nt04-risk-budget")
+
+    initial = await client.get(
+        "/api/v1/notifications",
+        headers=org["headers"],
+        params={"status": "unread"},
+    )
+    assert initial.status_code == 200, initial.text
+    assert initial.json()["total"] == 0
+
+    created = await client.post(
+        "/api/v1/risk-budgets",
+        headers=org["headers"],
+        json={
+            "name": "Production blast radius",
+            "domain": "payments",
+            "environment": "production",
+            "budget_type": "blast_radius",
+            "period": "weekly",
+            "limit_value": 20,
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    notifications = await client.get(
+        "/api/v1/notifications",
+        headers=org["headers"],
+        params={"status": "unread"},
+    )
+    assert notifications.status_code == 200, notifications.text
+    body = notifications.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    item = body["items"][0]
+    assert item["category"] == "governance"
+    assert item["source_type"] == "risk_budget"
+    assert item["title"].startswith("Risk budget configured:")
+
+
+@pytest.mark.asyncio
+async def test_change_event_creation_generates_audit_notification(client):
+    org = await _register(client, "nt04-change-event")
+
+    initial = await client.get(
+        "/api/v1/notifications",
+        headers=org["headers"],
+        params={"status": "unread"},
+    )
+    assert initial.status_code == 200, initial.text
+    assert initial.json()["total"] == 0
+
+    created = await client.post(
+        "/api/v1/change-events",
+        headers=org["headers"],
+        json={
+            "event_type": "deploy",
+            "title": "Payments deployment",
+            "description": "Release 2026.05.25",
+            "environment": "production",
+            "owner_team": "payments",
+            "occurred_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    notifications = await client.get(
+        "/api/v1/notifications",
+        headers=org["headers"],
+        params={"status": "unread"},
+    )
+    assert notifications.status_code == 200, notifications.text
+    body = notifications.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    item = body["items"][0]
+    assert item["category"] == "activity"
+    assert item["source_type"] == "audit_event"
+    assert item["title"] == "Activity: change_event.created"
