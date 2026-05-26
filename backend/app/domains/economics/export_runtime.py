@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domains.cloud_accounts.service import CloudAccountService
 from app.domains.cloud_ledger.service import CloudLedgerService
+from app.domains.decision_engine.service import DecisionEngineService
 from app.domains.economics.models import ReportExportFormat, ReportExportJob
 
 log = get_logger(__name__)
@@ -148,26 +149,36 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
 
     ledger = CloudLedgerService(db)
     dashboard = await ledger.get_dashboard_metrics(job.org_id, active_accounts)
-    top_services = ledger.get_top_services(job.org_id, days=job.window_days, limit=15)
-    top_teams = ledger.get_top_teams(job.org_id, days=job.window_days, limit=15)
+    top_services, _ = ledger.get_top_services(job.org_id, days=job.window_days, limit=15)
+    top_teams, _ = ledger.get_top_teams(job.org_id, days=job.window_days, limit=15)
     trend = ledger.get_cost_trend(job.org_id, days=job.window_days)
+
+    decision_engine = DecisionEngineService(db)
+    opportunities, _ = await decision_engine.list_opportunities(job.org_id, limit=50)
+
+    total_monthly_savings = sum(op.estimated_monthly_savings_usd for op in opportunities)
+    total_annual_savings = sum(op.estimated_annual_savings_usd for op in opportunities)
 
     generated_at = datetime.now(timezone.utc)
     filters_json = json.dumps(job.filters or {}, sort_keys=True)
-    base_name = f"economics-{job.report_type.value}-{generated_at.strftime('%Y%m%d-%H%M%S')}"
+    base_name = f"causium-spend-report-{generated_at.strftime('%Y%m%d-%H%M%S')}"
 
     if job.file_format == ReportExportFormat.CSV:
         buffer = io.StringIO()
         writer = csv.writer(buffer)
         writer.writerow(["section", "key", "value"])
+        writer.writerow(["metadata", "report_title", "CauSium Spend Analysis Report"])
         writer.writerow(["metadata", "generated_at", generated_at.isoformat()])
         writer.writerow(["metadata", "window_days", job.window_days])
         writer.writerow(["metadata", "filters", filters_json])
-        writer.writerow(["summary", "current_month_cost", dashboard.current_month_cost])
-        writer.writerow(["summary", "previous_month_cost", dashboard.previous_month_cost])
-        writer.writerow(["summary", "mom_change_pct", dashboard.mom_change_pct])
-        writer.writerow(["summary", "event_count_7d", dashboard.event_count_7d])
-        writer.writerow(["summary", "active_accounts", dashboard.active_accounts])
+        writer.writerow(["spend_overview", "current_month_cost_usd", dashboard.current_month_cost])
+        writer.writerow(["spend_overview", "previous_month_cost_usd", dashboard.previous_month_cost])
+        writer.writerow(["spend_overview", "month_over_month_change_pct", dashboard.mom_change_pct])
+        writer.writerow(["spend_overview", "change_events_7d", dashboard.event_count_7d])
+        writer.writerow(["spend_overview", "active_cloud_accounts", dashboard.active_accounts])
+        writer.writerow(["savings_summary", "total_monthly_savings_usd", round(total_monthly_savings, 2)])
+        writer.writerow(["savings_summary", "total_annual_savings_usd", round(total_annual_savings, 2)])
+        writer.writerow(["savings_summary", "open_opportunities", len(opportunities)])
         for index, row in enumerate(top_services, start=1):
             prefix = f"top_services_{index}"
             writer.writerow([prefix, "service", row.service])
@@ -183,6 +194,17 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
             writer.writerow([prefix, "date", row.date.isoformat()])
             writer.writerow([prefix, "cost_usd", row.cost_usd])
             writer.writerow([prefix, "provider", row.provider or ""])
+        for index, op in enumerate(opportunities, start=1):
+            prefix = f"opportunity_{index}"
+            writer.writerow([prefix, "title", op.title])
+            writer.writerow([prefix, "category", op.category.value])
+            writer.writerow([prefix, "estimated_monthly_savings_usd", op.estimated_monthly_savings_usd])
+            writer.writerow([prefix, "estimated_annual_savings_usd", op.estimated_annual_savings_usd])
+            writer.writerow([prefix, "risk_level", op.risk_level.value])
+            writer.writerow([prefix, "effort_level", op.effort_level.value])
+            writer.writerow([prefix, "resource_name", op.resource_name or ""])
+            writer.writerow([prefix, "service", op.service or ""])
+            writer.writerow([prefix, "status", op.status.value])
 
         content = buffer.getvalue().encode("utf-8")
         return ReportExportArtifact(
@@ -194,32 +216,75 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     workbook = build_xlsx_workbook(
         [
             (
-                "Summary",
+                "Spend Overview",
                 [
-                    ["generated_at", generated_at.isoformat()],
-                    ["window_days", job.window_days],
-                    ["filters", filters_json],
-                    ["current_month_cost", dashboard.current_month_cost],
-                    ["previous_month_cost", dashboard.previous_month_cost],
-                    ["mom_change_pct", dashboard.mom_change_pct],
-                    ["event_count_7d", dashboard.event_count_7d],
-                    ["active_accounts", dashboard.active_accounts],
+                    ["CauSium Spend Analysis Report"],
+                    [],
+                    ["Generated At", generated_at.isoformat()],
+                    ["Report Window (days)", job.window_days],
+                    ["Filters", filters_json],
+                    [],
+                    ["Metric", "Value"],
+                    ["Current Month Spend (USD)", dashboard.current_month_cost],
+                    ["Previous Month Spend (USD)", dashboard.previous_month_cost],
+                    ["Month-over-Month Change (%)", dashboard.mom_change_pct],
+                    ["Change Events (7d)", dashboard.event_count_7d],
+                    ["Active Cloud Accounts", dashboard.active_accounts],
+                    [],
+                    ["Savings Potential"],
+                    ["Total Monthly Savings (USD)", round(total_monthly_savings, 2)],
+                    ["Total Annual Savings (USD)", round(total_annual_savings, 2)],
+                    ["Open Opportunities", len(opportunities)],
                 ],
             ),
             (
-                "Top Services",
-                [["service", "cost_usd", "percentage"]]
+                "Spend by Service",
+                [["Service", "Cost (USD)", "% of Total"]]
                 + [[row.service, row.cost_usd, row.percentage] for row in top_services],
             ),
             (
-                "Top Teams",
-                [["team", "cost_usd", "percentage"]]
+                "Spend by Team",
+                [["Team", "Cost (USD)", "% of Total"]]
                 + [[row.service, row.cost_usd, row.percentage] for row in top_teams],
             ),
             (
-                "Daily Trend",
-                [["date", "cost_usd", "provider"]]
+                "Daily Spend Trend",
+                [["Date", "Cost (USD)", "Provider"]]
                 + [[row.date.isoformat(), row.cost_usd, row.provider or ""] for row in trend],
+            ),
+            (
+                "Opportunities",
+                [["Title", "Category", "Monthly Savings (USD)", "Annual Savings (USD)",
+                  "Risk", "Effort", "Resource", "Service", "Status"]]
+                + [
+                    [
+                        op.title,
+                        op.category.value,
+                        op.estimated_monthly_savings_usd,
+                        op.estimated_annual_savings_usd,
+                        op.risk_level.value,
+                        op.effort_level.value,
+                        op.resource_name or "",
+                        op.service or "",
+                        op.status.value,
+                    ]
+                    for op in opportunities
+                ],
+            ),
+            (
+                "Recommendations",
+                [["#", "Recommendation", "Category", "Estimated Savings (USD/mo)", "Risk", "Effort"]]
+                + [
+                    [
+                        idx,
+                        op.title,
+                        op.category.value,
+                        op.estimated_monthly_savings_usd,
+                        op.risk_level.value,
+                        op.effort_level.value,
+                    ]
+                    for idx, op in enumerate(opportunities, start=1)
+                ],
             ),
         ]
     )
