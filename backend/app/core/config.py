@@ -281,6 +281,7 @@ class Settings(BaseSettings):
 
     # Workers
     ingestion_worker_enabled: bool = True
+    export_worker_enabled: bool = True
     ingestion_interval_hours: int = 6
     scoring_interval_hours: int = 1
     anomaly_detection_interval_minutes: int = 30

@@ -94,8 +94,47 @@ async def lifespan(app: FastAPI):
     else:
         log.warning("ingestion_worker.disabled", reason="INGESTION_WORKER_ENABLED=false")
 
+    export_worker_task = None
+    if settings.export_worker_enabled:
+        if not settings.redis_enabled:
+            log.error(
+                "export_worker.skipped",
+                reason="REDIS_URL not configured — export queue cannot be consumed.",
+            )
+        else:
+            log.info("export_worker.startup_requested")
+            from app.workers.export_worker import run_export_worker
+            try:
+                export_worker_task = asyncio.create_task(run_export_worker())
+
+                def _export_worker_done_callback(task: asyncio.Task) -> None:
+                    exc = task.exception() if not task.cancelled() else None
+                    if exc:
+                        log.error(
+                            "export_worker.task_crashed",
+                            error=type(exc).__name__,
+                            reason=str(exc)[:300],
+                        )
+                    elif task.cancelled():
+                        log.info("export_worker.task_cancelled")
+                    else:
+                        log.info("export_worker.task_exited")
+
+                export_worker_task.add_done_callback(_export_worker_done_callback)
+                log.info("export_worker.task_created")
+            except Exception as exc:
+                log.error(
+                    "export_worker.startup_failed",
+                    error=type(exc).__name__,
+                    reason=str(exc)[:200],
+                )
+    else:
+        log.warning("export_worker.disabled", reason="EXPORT_WORKER_ENABLED=false")
+
     yield
 
+    if export_worker_task is not None:
+        export_worker_task.cancel()
     if worker_task is not None:
         worker_task.cancel()
     from app.core.redis import close_redis
