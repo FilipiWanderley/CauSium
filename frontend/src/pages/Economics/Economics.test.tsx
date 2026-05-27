@@ -115,26 +115,25 @@ describe('EconomicsReportsPage', () => {
     vi.clearAllMocks()
   })
 
-  it('shows skeleton loading state initially', () => {
+  it('shows loading state initially', () => {
     mockDashboard.mockReturnValue(new Promise(() => {}))
     mockTopServicesPaginated.mockReturnValue(new Promise(() => {}))
     mockTopTeamsPaginated.mockReturnValue(new Promise(() => {}))
 
-    const { container } = render(<EconomicsReportsPage />, { wrapper: createWrapper() })
-    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+    render(<EconomicsReportsPage />, { wrapper: createWrapper() })
+    expect(screen.getAllByText('Loading...').length).toBeGreaterThan(0)
   })
 
-  it('shows error state when queries fail', async () => {
+  it('shows fallback values when queries fail', async () => {
     mockDashboard.mockRejectedValue(new Error('fail'))
     mockTopServicesPaginated.mockRejectedValue(new Error('fail'))
     mockTopTeamsPaginated.mockRejectedValue(new Error('fail'))
 
     render(<EconomicsReportsPage />, { wrapper: createWrapper() })
 
-    // Component has retry: 2, so wait for retries to exhaust
     await waitFor(
       () => {
-        expect(screen.getByText('Reset')).toBeInTheDocument()
+        expect(screen.getAllByText('$0').length).toBeGreaterThan(0)
       },
       { timeout: 5000 },
     )

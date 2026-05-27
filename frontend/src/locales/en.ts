@@ -1,20 +1,28 @@
 export interface Translations {
   nav: {
     economics: string
+    sectionEconomics: string
+    sectionFinancial: string
     economicsCosts: string
     economicsUsage: string
     economicsSkus: string
     economicsReports: string
+    sectionOptimization: string
     opportunities: string
     optimizationPlan: string
     experiments: string
     notifications: string
+    sectionGovernance: string
+    sectionSustainability: string
+    sectionOperations: string
+    sectionAdministration: string
     gov: string
     green: string
     initiatives: string
     riskBudgets: string
     changeEvents: string
     executive: string
+    sectionPlatform: string
     members: string
     settings: string
     settingsTeam: string
@@ -23,6 +31,7 @@ export interface Translations {
     platformWorkspaces: string
     platformSync: string
     platformSlo: string
+    adminReconciliation: string
     soon: string
   }
   common: {
@@ -56,6 +65,7 @@ export interface Translations {
     production: string
     staging: string
     development: string
+    notProvided: string
     unknown: string
     high: string
     medium: string
@@ -78,8 +88,30 @@ export interface Translations {
     providerAzure: string
     providerAws: string
     providerGcp: string
+    subscriptionLabel: string
+    allSubscriptionsConsolidated: string
+    subscriptionScopedView: string
+    consolidatedViewAcross: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionSingleScope: string
+    subscriptionNone: string
+    syncHint: string
+    filteredScope: string
+    consolidatedScope: string
     currentMonthCost: string
     vsLastMonth: string
+    financialOverview: string
+    financialOverviewSubtitle: string
+    optimizationSection: string
+    optimizationSectionSubtitle: string
+    operationsSection: string
+    operationsSectionSubtitle: string
+    financialMetric: string
+    operationalMetric: string
+    organizationWide: string
+    subscriptionScoped: string
+    billingContext: string
     explainCostCta: string
     explainCostTitle: string
     explainCostLoading: string
@@ -88,6 +120,10 @@ export interface Translations {
     explainCostCauses: string
     explainCostRecommendation: string
     explainCostConfidence: string
+    explainCostModelRuleBased: string
+    explainCostFallbackSummaryWithChange: string
+    explainCostFallbackSummaryWithoutChange: string
+    explainCostFallbackRecommendation: string
     insightsTitle: string
     insightsSubtitle: string
     insightsTopSaving: string
@@ -95,6 +131,7 @@ export interface Translations {
     insightsTrend: string
     insightsAction: string
     insightsConfidence: string
+    insightsModelRuleBased: string
     insightsUnavailable: string
     anomaliesTitle: string
     anomaliesSubtitle: string
@@ -110,6 +147,12 @@ export interface Translations {
     totalConnected: string
     events7d: string
     cloudActivityEvents: string
+    monitoringVsBaseline: string
+    todayCost: string
+    avgPrevious30d: string
+    todayVsAvgDelta: string
+    partialUntilLastSync: string
+    billingProcessingPending: string
     costTrend: string
     noCostData: string
     topServices: string
@@ -140,6 +183,9 @@ export interface Translations {
     reservationsHighBadge: string
     reservationsCriticalOnly: string
     reservationsShowAll: string
+    alertCostSpike: string
+    alertCostDrop: string
+    alertCostDetail: string
   }
   budget: {
     title: string
@@ -159,10 +205,30 @@ export interface Translations {
   }
   header: {
     logout: string
+    searchPlaceholder: string
+    searchAriaLabel: string
+    breadcrumbsHome: string
+    operationalConsole: string
+    scopeProvider: string
+    scopeSubscription: string
+    scopePeriod: string
+    allProviders: string
+    allSubscriptions: string
+    period30d: string
+    periodCurrentMonth: string
+    period90d: string
+    compactDensity: string
+    comfortDensity: string
+    enterpriseShellVersion: string
   }
   opportunities: {
     title: string
     subtitle: string
+    viewTable: string
+    viewCards: string
+    exportCsv: string
+    exportCsvLoading: string
+    exportCsvError: string
     open: string
     inProgress: string
     resolved: string
@@ -201,13 +267,66 @@ export interface Translations {
     summaryPerMonth: string
     summaryHighRisk: string
     currentStatus: string
+    colOpportunity: string
+    colCategory: string
+    colProvider: string
+    colResourceScope: string
+    colEstimatedMonthlySavings: string
+    colConfidence: string
+    colRisk: string
+    colStatus: string
+    colDetectedAt: string
+    colAction: string
     readOnlyNoticeTitle: string
     readOnlyNoticeDesc: string
+    openDetail: string
+    providerAzure: string
+    providerAws: string
+    providerGcp: string
+    providerUnknown: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
+    confidenceHigh: string
+    confidenceMedium: string
+    confidenceLow: string
+    confidenceInsufficient: string
+    notAvailable: string
     executionOwnershipHint: string
     markInReview: string
     markApproved: string
     markValidated: string
     markDismissed: string
+    savingsEvidenceTitle: string
+    savingsEvidenceSubtitle: string
+    savingsEvidenceUnavailable: string
+    currentMonthlyCostEstimate: string
+    projectedMonthlyCostEstimate: string
+    estimatedSavingsEvidence: string
+    confidenceTierLabel: string
+    riskLevelEvidence: string
+    evidenceWindowLabel: string
+    evidenceWindowDays: string
+    calculationBasisLabel: string
+    evidenceSummaryLabel: string
+    resourceContextTitle: string
+    resourceContextSubtitle: string
+    resourceContextProvider: string
+    resourceContextSubscription: string
+    resourceContextResourceGroup: string
+    resourceContextResource: string
+    resourceContextResourceType: string
+    resourceContextSku: string
+    resourceContextRegion: string
+    resourceContextWorkload: string
+    resourceContextEnvironment: string
+    resourceContextOwner: string
+    resourceContextTagsSummary: string
+    resourceContextDataSources: string
+    granularityResource: string
+    granularityCluster: string
+    granularitySubscription: string
+    granularityUnknown: string
     rightsizingEvidenceTitle: string
     currentLabel: string
     recommendedLabel: string
@@ -230,6 +349,31 @@ export interface Translations {
     explainImpact: string
     explainRisks: string
     explainSteps: string
+    // Hardening additions
+    searchPlaceholder: string
+    searchClear: string
+    sortBy: string
+    sortSavingsDesc: string
+    sortScoreDesc: string
+    sortRiskDesc: string
+    sortNewest: string
+    errorTitle: string
+    errorDescription: string
+    errorRetry: string
+    emptyFilteredTitle: string
+    emptyFilteredDescription: string
+    emptyFilteredAction: string
+    safeDssFooter: string
+    performanceContextTitle: string
+    performanceContextSubtitle: string
+    performanceContextCpuP95: string
+    performanceContextMemP95: string
+    performanceContextTrend: string
+    performanceContextIdleDays: string
+    performanceContextQuality: string
+    decisionEvidenceTitle: string
+    decisionEvidenceShow: string
+    decisionEvidenceHide: string
   }
   optimizationPlan: {
     title: string
@@ -261,6 +405,7 @@ export interface Translations {
     targetEnvironment: string
     targetCriticality: string
     sendToPulseLab: string
+    handoffNotice: string
     handoffSuccess: string
     handoffError: string
     handoffExperimentId: string
@@ -295,12 +440,40 @@ export interface Translations {
     statusScheduled: string
     statusRejected: string
     statusUnknown: string
+    // Hardening additions
+    safeDssNotice: string
+    emptyTitle: string
+    emptyDescription: string
+    emptyAction: string
+    errorRetry: string
+    quickWinsTitle: string
+    quickWinsSubtitle: string
+    quickWinNextStep: string
+    confidenceLabel: string
+    riskLabel: string
+    effortLabel: string
+    whyNow: string
+    nextStep: string
+    categoryLabel: string
+    generatingPlan: string
+    generateSuccess: string
+    generateError: string
+    confirmApproveTitle: string
+    confirmApproveDesc: string
+    confirmRejectTitle: string
+    confirmRejectDesc: string
+    gatesTriggered: string
+    noRecommendations: string
+    noRecommendationsHint: string
   }
   initiatives: {
     title: string
     subtitle: string
+    viewTable: string
+    viewBoard: string
     newInitiative: string
     createInitiative: string
+    createInitiativeHint: string
     titlePlaceholder: string
     create: string
     cancel: string
@@ -309,10 +482,54 @@ export interface Translations {
     inProgress: string
     review: string
     done: string
+    cancelled: string
     empty: string
     moveTo: string
+    advanceAction: string
     sla: string
     overdue: string
+    summaryExecutionQueue: string
+    summaryActive: string
+    summaryLinkedOpportunities: string
+    summaryEstimatedSavings: string
+    summaryRealizedSavings: string
+    summaryCompleted: string
+    summaryExecutionRisk: string
+    summaryOverdue: string
+    summaryOnTrack: string
+    emptyWorkspaceTitle: string
+    emptyWorkspaceBody: string
+    emptyPhaseTitle: string
+    emptyPhaseBody: string
+    colInitiative: string
+    colOwner: string
+    colRelatedOpportunities: string
+    colEstimatedSavings: string
+    colStatus: string
+    colPhase: string
+    colRisk: string
+    colDueDate: string
+    colLastActivity: string
+    colProgress: string
+    colAction: string
+    phaseIntake: string
+    phasePlanning: string
+    phaseExecution: string
+    phaseValidation: string
+    phaseCompleted: string
+    phaseCancelled: string
+    ownerUnassigned: string
+    ownerIdPrefix: string
+    initiativeIdPrefix: string
+    noLinkedOpportunity: string
+    noDueDate: string
+    notAvailable: string
+    estimatedMonthly: string
+    openExternal: string
+    noAction: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
   }
   experiments: {
     title: string
@@ -366,6 +583,8 @@ export interface Translations {
     noBudgetsHint: string
     createFirst: string
     nameLabel: string
+    environment: string
+    environmentUnknown: string
     budgetType: string
     period: string
     limitUnit: string
@@ -427,9 +646,119 @@ export interface Translations {
     currentMonth: string
     openOpps: string
     efficiency: string
+    subscriptionLabel: string
+    allSubscriptionsConsolidated: string
+    subscriptionViewing: string
+    consolidatedAcross: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionSingleScope: string
+    subscriptionNone: string
+    filteredScope: string
+    consolidatedScope: string
+    scoreLabel: string
     topSavings: string
     completedDate: string
     perMonth: string
+    historicalCostCoverageTitle: string
+    historicalCostCoverageSubtitle: string
+    billingRecordsLabel: string
+    historicalBaselineLabel: string
+    providerNotFilteredLabel: string
+    financialValuesBrl: string
+    consolidated: string
+    filtered: string
+    organizationWide: string
+    financialMetric: string
+    operationalMetric: string
+    subscriptionScoped: string
+    billingContext: string
+    executiveReady: string
+    exportReadinessTitle: string
+    exportReadinessSubtitle: string
+    exportCsvReady: string
+    exportPdfReady: string
+    executiveSnapshotReady: string
+    presentationModeReady: string
+    exportReadinessNote: string
+    executiveSummaryTitle: string
+    executiveSummarySubtitle: string
+    confidenceCoverageTitle: string
+    confidenceCoverageSubtitle: string
+    savingsOverviewTitle: string
+    savingsOverviewSubtitle: string
+    savingsOverviewFilteredSubtitle: string
+    operationalScopeNote: string
+    topOpportunitiesTitle: string
+    topOpportunitiesSubtitle: string
+    colRecommendation: string
+    colSavings: string
+    riskTableLabel: string
+    riskLow: string
+    riskMedium: string
+    riskHigh: string
+    confidenceHigh: string
+    confidenceMedium: string
+    confidenceLow: string
+    confidenceInsufficient: string
+    noTopOpportunitiesTitle: string
+    noTopOpportunitiesBody: string
+    topSavingsTitle: string
+    topSavingsSubtitle: string
+    realizedAwaitingDate: string
+    noTopSavingsTitle: string
+    noTopSavingsBody: string
+    optimizationProgressTitle: string
+    optimizationProgressSubtitle: string
+    identifiedRecommendations: string
+    overdueInitiatives: string
+    executionRiskSubtitle: string
+    forecastSubtitle: string
+    topImpactAreasTitle: string
+    topImpactAreasSubtitle: string
+    noImpactAreasTitle: string
+    noImpactAreasBody: string
+    riskGovernanceTitle: string
+    riskGovernanceSubtitle: string
+    highRiskRecommendations: string
+    highRiskRecommendationsSubtitle: string
+    lowConfidenceRecommendations: string
+    lowConfidenceRecommendationsSubtitle: string
+    overdueInitiativesSubtitle: string
+    priorityWatchlistTitle: string
+    priorityWatchlistSubtitle: string
+    watchlistOpportunity: string
+    watchlistInitiativeDue: string
+    watchlistInitiativeNoDate: string
+    watchlistHighRisk: string
+    watchlistExecutionRisk: string
+    noPriorityWatchlistTitle: string
+    noPriorityWatchlistBody: string
+    coverageEvidenceTitle: string
+    coverageEvidenceSubtitle: string
+    evidenceCoverageTitle: string
+    evidenceCoverageSubtitleValue: string
+    resourceContextCoverageTitle: string
+    resourceContextCoverageSubtitle: string
+    highConfidenceCoverageTitle: string
+    highConfidenceCoverageSubtitle: string
+    dataSourceCoverageTitle: string
+    dataSourceCoverageSubtitle: string
+    bestEvidenceTitle: string
+    bestEvidenceSubtitle: string
+    evidenceSavings: string
+    evidenceFinancial: string
+    evidencePartial: string
+    evidenceContext: string
+    evidenceNoContext: string
+    noBestEvidenceTitle: string
+    noBestEvidenceBody: string
+    overviewTitle: string
+    overviewSubtitle: string
+    optimizationTitle: string
+    optimizationSubtitle: string
+    operationsTitle: string
+    operationsSubtitle: string
   }
   gov: {
     title: string
@@ -489,6 +818,13 @@ export interface Translations {
     untagged: string
     errorInventory: string
     noInventory: string
+    governanceMetric: string
+    organizationWide: string
+    resourcesUnit: string
+    complianceUnit: string
+    sectionTitle: string
+    sectionSubtitle: string
+    noGovernanceIssues: string
   }
   green: {
     title: string
@@ -521,6 +857,12 @@ export interface Translations {
     dataOfficial: string
     dataEstimated: string
     dataMixed: string
+    sustainabilityEstimate: string
+    organizationWide: string
+    overviewTitle: string
+    overviewSubtitle: string
+    breakdownTitle: string
+    breakdownSubtitle: string
   }
   economicsCosts: {
     title: string
@@ -536,6 +878,11 @@ export interface Translations {
     providerFilterPlaceholder: string
     teamFilter: string
     teamFilterPlaceholder: string
+    subscriptionLabel: string
+    allSubscriptionsCount: string
+    subscriptionLoading: string
+    subscriptionUnavailable: string
+    subscriptionNone: string
     visibleCost: string
     exportReport: string
     format: string
@@ -562,12 +909,14 @@ export interface Translations {
     noTeamData: string
     colDate: string
     colProvider: string
+    colSubscription: string
     colService: string
     colResource: string
     colTeam: string
     colEnvironment: string
     colRegion: string
     colCost: string
+    colShare: string
     reservationEfficiency: string
     familiesCount: string
     loadingReservationEfficiency: string
@@ -592,6 +941,14 @@ export interface Translations {
     reservationHighBadge: string
     reservationCriticalOnly: string
     reservationShowAll: string
+    financialValuesBrl: string
+    filtered: string
+    financialMetric: string
+    billingContext: string
+    overviewTitle: string
+    overviewSubtitle: string
+    optimizationTitle: string
+    optimizationSubtitle: string
   }
   economicsUsage: {
     title: string
@@ -614,6 +971,23 @@ export interface Translations {
     noData: string
     colDate: string
     colValue: string
+    operationalMetric: string
+    organizationWide: string
+    financialValuesBrl: string
+    reservationCoverage: string
+    computeSpendBasis: string
+    reservedSpendBasis: string
+    uncoveredSpendBasis: string
+    coveragePct: string
+    reservationCoverageLoading: string
+    reservationCoverageEmpty: string
+    reservationsDetected: string
+    noReservationsDetected: string
+    operationsTitle: string
+    operationsSubtitle: string
+    financialTitle: string
+    financialSubtitle: string
+    serviceColumn: string
   }
   economicsSkus: {
     title: string
@@ -638,6 +1012,10 @@ export interface Translations {
     colSku: string
     colCost: string
     colShare: string
+    financialValuesBrl: string
+    consolidated: string
+    overviewTitle: string
+    overviewSubtitle: string
   }
   economicsReports: {
     title: string
@@ -662,6 +1040,10 @@ export interface Translations {
     running: string
     completed: string
     completedDownload: string
+    financialValuesBrl: string
+    consolidated: string
+    overviewTitle: string
+    overviewSubtitle: string
   }
   notifications: {
     title: string
@@ -975,34 +1357,93 @@ export interface Translations {
     refresh: string
     readOnlyBannerTitle: string
     readOnlyBannerBody: string
+    integrationHealthTitle: string
+    integrationHealthSubtitle: string
+  }
+  ux: {
+    freshnessRecent: string
+    freshnessSyncing: string
+    freshnessSnapshot: string
+    freshnessRefreshes: string
+    tooltipForecast: string
+    tooltipPotentialSavings: string
+    tooltipGovernance: string
+    tooltipCO2: string
+    tooltipReservationCoverage: string
+    tooltipEfficiencyScore: string
+    tooltipVolatility: string
+    tooltipConcentrationRisk: string
+    emptyNoAnomalies: string
+    emptyNoOptimizations: string
+    emptyNoGovernanceIssues: string
+    emptyNoRecentEvents: string
+    emptyNoEmissions: string
+    billingDataRange: string
+    billingSubscriptions: string
+    billingCostBasis: string
+    billingCurrency: string
+    costBasisActualPreTax: string
+    integrityHealthy: string
+    integrityDelayed: string
+    integrityPartial: string
+    integrityWarning: string
+    integrityLastSync: string
+    integrityDataThrough: string
+    integrityBillingPeriod: string
+    integrityGapDays: string
+    integritySyncAge: string
+    integritySubscriptions: string
+    integrityDiagnosticsTitle: string
+    integrityDiagnosticsSubtitle: string
+    integrityProviderScope: string
+    integrityDataCoverage: string
+    integrityStatusLabel: string
+    integrityDelayedMessage: string
+    integrityNoDataMessage: string
+    integrityPartialMessage: string
+    exportBasisLabel: string
+    exportFormatLabel: string
+    exportReservationMeta: string
+    exportReservationAvailable: string
+    exportReservationNotAvailable: string
+    exportPortalHint: string
   }
 }
 
 export const en: Translations = {
   nav: {
-    economics: 'Economics',
-    economicsCosts: 'Costs',
-    economicsUsage: 'Usage',
-    economicsSkus: 'SKUs',
-    economicsReports: 'Reports',
-    opportunities: 'PulseIntel',
-    optimizationPlan: 'Optimization Plan',
-    experiments: 'PulseLab',
+    economics: 'FinOps Overview',
+    sectionEconomics: 'FinOps',
+    sectionFinancial: 'Financial',
+    economicsCosts: 'Spend Analysis',
+    economicsUsage: 'Spend Stability',
+    economicsSkus: 'Spend by SKU',
+    economicsReports: 'FinOps Reports',
+    sectionOptimization: 'Optimization',
+    opportunities: 'Savings Opportunities',
+    optimizationPlan: 'Savings Plan',
+    experiments: 'Optimization Experiments',
     notifications: 'Notifications',
-    gov: 'PulseGov',
-    green: 'PulseGreen',
-    initiatives: 'Initiatives',
+    sectionGovernance: 'Governance',
+    sectionSustainability: 'Sustainability',
+    sectionOperations: 'Operations',
+    sectionAdministration: 'Administration',
+    gov: 'Governance',
+    green: 'Sustainability',
+    initiatives: 'Savings Initiatives',
     riskBudgets: 'Risk Budgets',
-    changeEvents: 'Change Events',
-    executive: 'Executive',
+    changeEvents: 'Operational Change Log',
+    executive: 'Executive FinOps Summary',
+    sectionPlatform: 'Platform',
     members: 'Members',
     settings: 'Settings',
     settingsTeam: 'Team',
-    settingsCloud: 'Cloud',
+    settingsCloud: 'Cloud Accounts',
     settingsSecurity: 'Security',
-    platformWorkspaces: 'Workspaces',
-    platformSync: 'Sync',
-    platformSlo: 'SLO',
+    platformWorkspaces: 'Customer Workspaces',
+    platformSync: 'Data Sync',
+    platformSlo: 'Service Reliability',
+    adminReconciliation: 'Cost Data Reconciliation',
     soon: 'Soon',
   },
   common: {
@@ -1036,20 +1477,21 @@ export const en: Translations = {
     production: 'Production',
     staging: 'Staging',
     development: 'Development',
+    notProvided: 'Not provided',
     unknown: 'Unknown',
     high: 'High',
     medium: 'Medium',
     low: 'Low',
   },
   dashboard: {
-    title: 'Dashboard',
-    subtitle: 'Cloud spending overview and optimization scorecard',
+    title: 'FinOps Overview',
+    subtitle: 'Cloud spend visibility, savings opportunities, and governance signals.',
     providerScope: 'Provider scope',
-    refreshData: 'Refresh data',
+    refreshData: 'Refresh View',
     refreshingData: 'Refreshing...',
-    adjustBudget: 'Adjust budget',
-    queueIngestion: 'Sync Data',
-    queueingIngestion: 'Queueing...',
+    adjustBudget: 'Budget Settings',
+    queueIngestion: 'Sync Cloud Data',
+    queueingIngestion: 'Syncing...',
     refreshSuccess: 'Dashboard data refreshed.',
     ingestQueuedSuccess: 'Ingestion queued for {{count}} account(s).',
     ingestNoAccounts: 'No active account available for ingestion.',
@@ -1058,8 +1500,30 @@ export const en: Translations = {
     providerAzure: 'Azure',
     providerAws: 'AWS',
     providerGcp: 'GCP',
-    currentMonthCost: 'Current Month Cost',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
+    subscriptionScopedView: 'Subscription-scoped view: {{name}}. Applies to cost metrics only.',
+    consolidatedViewAcross: 'Consolidated view across {{count}} subscriptions.',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionSingleScope: '1 subscription in scope: {{name}}.',
+    subscriptionNone: 'No subscriptions discovered.',
+    syncHint: 'When syncing cloud data, new provider usage and costs may take a few minutes to appear.',
+    filteredScope: 'Filtered: {{scope}}',
+    consolidatedScope: 'Consolidated · {{count}} subscriptions',
+    currentMonthCost: 'Current Month Spend',
     vsLastMonth: 'vs last month',
+    financialOverview: 'Spend Overview',
+    financialOverviewSubtitle: 'Spend, forecast, and trend for the selected scope.',
+    optimizationSection: 'Savings Opportunities',
+    optimizationSectionSubtitle: 'Savings opportunities, anomaly signals, and optimization priorities for the current scope.',
+    operationsSection: 'Coverage & Activity',
+    operationsSectionSubtitle: 'Data coverage, recent change activity, and connected account status.',
+    financialMetric: 'Financial metric',
+    operationalMetric: 'Operational metric',
+    organizationWide: 'Organization-wide',
+    subscriptionScoped: 'Subscription scoped',
+    billingContext: 'Billing context',
     explainCostCta: 'Explain change',
     explainCostTitle: 'Explain Cost Change',
     explainCostLoading: 'Analyzing cost drivers…',
@@ -1068,31 +1532,45 @@ export const en: Translations = {
     explainCostCauses: 'Top causes',
     explainCostRecommendation: 'Recommendation',
     explainCostConfidence: 'Confidence',
-    insightsTitle: 'AI Insights Engine',
+    explainCostModelRuleBased: 'Based on billing history',
+    explainCostFallbackSummaryWithChange:
+      'From {{start}} to {{end}}, current month cost is {{cost}} with a {{change}} change vs last month.',
+    explainCostFallbackSummaryWithoutChange:
+      'From {{start}} to {{end}}, current month cost is {{cost}}. Month-over-month comparison is not available yet.',
+    explainCostFallbackRecommendation:
+      'Review recent cost drivers for this period, validate the billing context in {{currency}}, and compare top services before taking action.',
+    insightsTitle: 'Historical FinOps Insights',
     insightsSubtitle: 'Prioritized recommendations from cost, opportunities, and anomaly signals',
-    insightsTopSaving: 'Top saving opportunity',
+    insightsTopSaving: 'Savings summary',
     insightsMainRisk: 'Main risk',
     insightsTrend: 'Cost trend',
-    insightsAction: 'Recommended action',
+    insightsAction: 'Recommended action (based on historical baseline)',
     insightsConfidence: 'Insight confidence',
-    insightsUnavailable: 'No insights available right now.',
+    insightsModelRuleBased: 'Based on billing history',
+    insightsUnavailable: 'No optimization insights available for this scope yet.',
     anomaliesTitle: 'Cost Anomalies',
     anomaliesSubtitle: 'Outliers detected against recent baseline',
-    anomaliesNone: 'No anomalies detected in the recent window.',
+    anomaliesNone: 'No anomalies detected for the selected scope.',
     anomalyCriticalOnly: 'High only',
     anomalyShowAll: 'Show all',
     anomalySeverityLow: 'Low',
     anomalySeverityMedium: 'Medium',
     anomalySeverityHigh: 'High',
-    potentialSavings: 'Potential Savings',
+    potentialSavings: 'Estimated Savings Opportunity',
     openOpportunities: '{{count}} open opportunities',
     activeAccounts: 'Active Accounts',
     totalConnected: '{{count}} total connected',
-    events7d: 'Events (7d)',
-    cloudActivityEvents: 'Cloud activity & change events',
-    costTrend: 'Cost Trend — 30 Days',
+    events7d: 'Recent changes — last 7 days',
+    cloudActivityEvents: 'Operational change events',
+    monitoringVsBaseline: 'Current monitoring vs historical baseline',
+    todayCost: "Today's cost",
+    avgPrevious30d: 'Daily average (previous 30 days)',
+    todayVsAvgDelta: 'Today vs average delta',
+    partialUntilLastSync: 'Partial up to last sync',
+    billingProcessingPending: 'Waiting for billing processing',
+    costTrend: 'Spend baseline — last 30 days',
     noCostData: 'No cost data yet. Sync an account to populate.',
-    topServices: 'Top Services',
+    topServices: 'Top services by spend — historical window',
     noServiceData: 'No service data yet.',
     connectedAccounts: 'Connected Accounts',
     colAccount: 'Account',
@@ -1102,24 +1580,27 @@ export const en: Translations = {
     never: 'Never',
     recentChanges: 'Recent Changes',
     viewAll: 'View all →',
-    noChangeEvents: 'No change events logged yet.',
+    noChangeEvents: 'No recent change events found for this scope yet.',
     noAccounts: 'No accounts connected yet.',
     connectFirstAccountCta: 'Connect Account',
     connectFirstAccountMessage: 'Connect your first cloud account to start seeing your costs.',
     changeEventsOverlaid: '{{count}} change event{{s}} overlaid',
-    reservationsTitle: 'Reservation Priorities',
+    reservationsTitle: 'Commitment Priorities',
     reservationsViewAll: 'Open costs →',
     reservationsPriority: 'Priority P{{priority}}',
-    reservationsWaste: 'Waste {{waste}}',
-    reservationsEmpty: 'No reservation action items for now.',
+    reservationsWaste: 'Potential waste {{waste}}',
+    reservationsEmpty: 'No reservation opportunities detected for this scope yet.',
     resActionKeep: 'Keep',
     resActionResize: 'Resize',
     resActionScheduleStop: 'Schedule stop',
     resActionExchange: 'Exchange',
     resActionDoNotRenew: 'Do not renew',
     reservationsHighBadge: '{{count}} high',
-    reservationsCriticalOnly: 'Critical only',
+    reservationsCriticalOnly: 'High priority only',
     reservationsShowAll: 'Show all',
+    alertCostSpike: "Today's cost is {{delta}}% above the 30-day average",
+    alertCostDrop: "Today's cost is {{delta}}% below the 30-day average",
+    alertCostDetail: 'Today: {{today}} · 30d avg: {{avg}} · Delta: {{diff}}',
   },
   budget: {
     title: 'Workspace Budget',
@@ -1139,55 +1620,128 @@ export const en: Translations = {
   },
   header: {
     logout: 'Logout',
+    searchPlaceholder: 'Search resources, opportunities, subscriptions or initiatives',
+    searchAriaLabel: 'Global search',
+    breadcrumbsHome: 'Workspace',
+    operationalConsole: 'Workspace',
+    scopeProvider: 'Provider scope',
+    scopeSubscription: 'Subscription scope',
+    scopePeriod: 'Period',
+    allProviders: 'All providers',
+    allSubscriptions: 'All subscriptions',
+    period30d: 'Last 30 days',
+    periodCurrentMonth: 'Current month',
+    period90d: 'Last 90 days',
+    compactDensity: 'Compact density',
+    comfortDensity: 'Comfort density',
+    enterpriseShellVersion: 'Navigation preview',
   },
   opportunities: {
-    title: 'Opportunities',
-    subtitle: 'Prioritized by composite score — financial impact × risk × effort',
+    title: 'Savings Opportunities',
+    subtitle: 'Prioritized by estimated savings, implementation risk, and effort.',
+    viewTable: 'Table',
+    viewCards: 'Cards',
+    exportCsv: 'Export CSV',
+    exportCsvLoading: 'Exporting CSV...',
+    exportCsvError: 'Unable to export opportunities right now. Try again in a moment.',
     open: 'Open',
     inProgress: 'In Progress',
     resolved: 'Resolved',
-    totalSavings: 'Total Potential Savings',
+    totalSavings: 'Total Estimated Savings',
     allCategories: 'All categories',
     rightsizing: 'Rightsizing',
     aksAutoscalerRecommendation: 'AKS Autoscaler',
     idleResources: 'Idle Resources',
-    reservedInstances: 'Reserved Instances',
-    storage: 'Storage',
-    network: 'Network',
-    noOpportunities: 'No opportunities found.',
-    noOpportunitiesHint: 'Sync a cloud account and generate opportunities to see results here.',
-    detailTitle: 'Opportunity Detail',
-    targetResource: 'Target Resource',
-    machineName: 'Machine',
-    machineSku: 'SKU',
-    machineFamily: 'Family',
+    reservedInstances: 'Reservation Optimization',
+    storage: 'Storage Optimization',
+    network: 'Network Optimization',
+    noOpportunities: 'No savings opportunities in the review queue.',
+    noOpportunitiesHint: 'Sync cloud accounts and generate recommendations to populate this FinOps work queue.',
+    detailTitle: 'Savings Opportunity',
+    targetResource: 'Target Scope',
+    machineName: 'Resource Name',
+    machineSku: 'Resource SKU',
+    machineFamily: 'Resource Family',
     resourceGroup: 'Resource Group',
     resourceId: 'Resource ID',
     openInAzure: 'Open in Azure Portal',
-    unknownResource: 'Unknown',
-    monthlySavings: 'Monthly Savings',
+    unknownResource: 'Not provided',
+    monthlySavings: 'Estimated Monthly Savings',
     compositeScore: 'Composite Score',
     scoreRationale: 'Score Rationale',
     playbook: 'Playbook',
     createInitiative: 'Create Initiative',
     dismiss: 'Dismiss',
     statusAll: 'All status',
-    statusOpenSuggestion: 'AI suggestion',
-    statusInProgressReview: 'Under client review',
-    statusResolvedApproved: 'Approved and executed by client',
-    statusDismissed: 'Dismissed by client',
-    statusValidated: 'Validated by client',
+    statusOpenSuggestion: 'Recommended',
+    statusInProgressReview: 'Under review',
+    statusResolvedApproved: 'Approved and completed',
+    statusDismissed: 'Dismissed',
+    statusValidated: 'Validated',
     summaryOpportunities: '{{count}} opportunities',
     summaryPerMonth: '{{amount}}/mo',
     summaryHighRisk: '{{count}} high risk',
-    currentStatus: 'Current status',
-    readOnlyNoticeTitle: 'Read-only analysis mode',
-    readOnlyNoticeDesc: 'The platform only reads tenant data and generates recommendations. Execution always happens after explicit client decision.',
-    executionOwnershipHint: 'Execution is external to the platform and owned by the client team.',
-    markInReview: 'Mark as under review',
-    markApproved: 'Mark as approved/executed',
-    markValidated: 'Mark as validated',
-    markDismissed: 'Mark as dismissed',
+    currentStatus: 'Review status',
+    colOpportunity: 'Opportunity',
+    colCategory: 'Category',
+    colProvider: 'Provider',
+    colResourceScope: 'Resource / scope',
+    colEstimatedMonthlySavings: 'Estimated monthly savings',
+    colConfidence: 'Confidence',
+    colRisk: 'Risk',
+    colStatus: 'Status',
+    colDetectedAt: 'Detected',
+    colAction: 'Action',
+    readOnlyNoticeTitle: 'Recommendation-Only Mode',
+    readOnlyNoticeDesc: 'CauSium identifies savings opportunities and shows the supporting evidence. Your team decides and executes every change.',
+    openDetail: 'Review',
+    providerAzure: 'Azure',
+    providerAws: 'AWS',
+    providerGcp: 'GCP',
+    providerUnknown: 'Not classified',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
+    confidenceHigh: 'High',
+    confidenceMedium: 'Medium',
+    confidenceLow: 'Low',
+    confidenceInsufficient: 'Insufficient',
+    notAvailable: 'Not available',
+    executionOwnershipHint: 'Your team reviews and executes every change. CauSium provides analysis and supporting evidence only.',
+    markInReview: 'Start review',
+    markApproved: 'Approve recommendation',
+    markValidated: 'Confirm validated',
+    markDismissed: 'Dismiss',
+    savingsEvidenceTitle: 'Savings Evidence',
+    savingsEvidenceSubtitle: 'Deterministic financial evidence for recommendation auditability.',
+    savingsEvidenceUnavailable: 'Financial evidence is not available for this recommendation yet.',
+    currentMonthlyCostEstimate: 'Current monthly cost',
+    projectedMonthlyCostEstimate: 'Projected monthly cost',
+    estimatedSavingsEvidence: 'Estimated savings',
+    confidenceTierLabel: 'Confidence tier',
+    riskLevelEvidence: 'Risk level',
+    evidenceWindowLabel: 'Evidence window',
+    evidenceWindowDays: '{{days}} days',
+    calculationBasisLabel: 'Calculation basis',
+    evidenceSummaryLabel: 'Evidence summary',
+    resourceContextTitle: 'Resource Context',
+    resourceContextSubtitle: 'Resource context for review and implementation planning.',
+    resourceContextProvider: 'Provider',
+    resourceContextSubscription: 'Subscription',
+    resourceContextResourceGroup: 'Resource group',
+    resourceContextResource: 'Resource',
+    resourceContextResourceType: 'Resource type',
+    resourceContextSku: 'SKU',
+    resourceContextRegion: 'Region',
+    resourceContextWorkload: 'Workload',
+    resourceContextEnvironment: 'Environment',
+    resourceContextOwner: 'Owner',
+    resourceContextTagsSummary: 'Tags summary',
+    resourceContextDataSources: 'Data sources',
+    granularityResource: 'Resource',
+    granularityCluster: 'Cluster',
+    granularitySubscription: 'Subscription',
+    granularityUnknown: 'Scope unavailable',
     rightsizingEvidenceTitle: 'Rightsizing Evidence',
     currentLabel: 'Current',
     recommendedLabel: 'Recommended',
@@ -1210,27 +1764,52 @@ export const en: Translations = {
     explainImpact: 'Expected impact',
     explainRisks: 'Risks',
     explainSteps: 'Recommended steps',
+    // Hardening additions
+    searchPlaceholder: 'Search opportunities...',
+    searchClear: 'Clear search',
+    sortBy: 'Sort by',
+    sortSavingsDesc: 'Highest savings',
+    sortScoreDesc: 'Highest score',
+    sortRiskDesc: 'Highest risk',
+    sortNewest: 'Newest first',
+    errorTitle: 'Could not load opportunities',
+    errorDescription: 'There was a problem loading your optimization opportunities. Please try again.',
+    errorRetry: 'Try again',
+    emptyFilteredTitle: 'No matching opportunities',
+    emptyFilteredDescription: 'No opportunities match your current filters or search. Try adjusting your criteria.',
+    emptyFilteredAction: 'Clear filters',
+    safeDssFooter: 'This is a recommendation only. No automatic changes will be made to your infrastructure.',
+    performanceContextTitle: 'Performance Context',
+    performanceContextSubtitle: 'Resource utilization evidence from monitoring data.',
+    performanceContextCpuP95: 'CPU p95',
+    performanceContextMemP95: 'Memory p95',
+    performanceContextTrend: 'Utilization trend',
+    performanceContextIdleDays: 'Idle days',
+    performanceContextQuality: 'Evidence quality',
+    decisionEvidenceTitle: 'Detailed Evidence',
+    decisionEvidenceShow: 'Show technical details',
+    decisionEvidenceHide: 'Hide technical details',
   },
   optimizationPlan: {
-    title: 'Optimization Plan',
-    subtitle: 'Deterministic ranking with quick wins and conflict-aware savings',
-    error: 'Could not load optimization plan.',
-    adjustedMonthly: 'Adjusted Monthly Savings',
-    adjustedAnnual: 'Adjusted Annual Savings',
+    title: 'Savings Plan',
+    subtitle: 'Ranked savings opportunities with implementation sequencing and approval controls.',
+    error: 'Could not load the savings plan.',
+    adjustedMonthly: 'Risk-Adjusted Monthly Savings',
+    adjustedAnnual: 'Risk-Adjusted Annual Savings',
     quickWins: 'Quick Wins',
     conflicts: 'Conflicts',
-    summary: 'Execution Summary',
+    summary: 'Savings Delivery Summary',
     conflictHints: 'Conflict Hints',
-    prioritized: 'Prioritized Recommendations',
+    prioritized: 'Prioritized Savings Opportunities',
     score: 'Priority score',
     savings: 'Savings',
-    governanceTitle: 'Execution Governance',
-    governanceSubtitle: 'Approval workflow for execution plans with audit trail',
+    governanceTitle: 'Approval & Control',
+    governanceSubtitle: 'Governed approval workflow with audit trail. No changes without explicit authorization.',
     noExecutionPlan: 'No execution plan available yet. Create one to enable approval workflow.',
-    generateExecutionPlan: 'Generate Execution Plan',
+    generateExecutionPlan: 'Generate Savings Plan',
     generateExecutionPlanSoon: 'Coming soon',
-    latestPlanId: 'Execution plan',
-    reviewComment: 'Review comment',
+    latestPlanId: 'Plan',
+    reviewComment: 'Approval notes',
     reviewCommentPlaceholder: 'Add a context comment for approval or rejection.',
     approvePlan: 'Approve Plan',
     rejectPlan: 'Reject Plan',
@@ -1240,17 +1819,18 @@ export const en: Translations = {
     maintenanceWindowPlaceholder: 'e.g. night_window_02_04_utc',
     targetEnvironment: 'Target Environment',
     targetCriticality: 'Target Criticality',
-    sendToPulseLab: 'Send to PulseLab',
-    handoffSuccess: 'PulseLab handoff created. Experiment ID:',
-    handoffError: 'Could not create PulseLab handoff.',
-    handoffExperimentId: 'PulseLab Experiment',
-    executionTrackingTitle: 'Execution Tracking',
-    executionTrackingSubtitle: 'Synchronized with PulseLab status and real savings results.',
-    experimentStatusLabel: 'Experiment Status',
-    executionOutcomeLabel: 'Execution Outcome',
+    sendToPulseLab: 'Create implementation handoff',
+    handoffNotice: 'This creates an implementation handoff record. No infrastructure changes are executed automatically. Your team retains full control over implementation.',
+    handoffSuccess: 'Implementation handoff created. Tracking ID:',
+    handoffError: 'Could not create implementation handoff.',
+    handoffExperimentId: 'Tracking ID',
+    executionTrackingTitle: 'Implementation Tracking',
+    executionTrackingSubtitle: 'Synchronized with implementation status and measured savings results.',
+    experimentStatusLabel: 'Implementation Status',
+    executionOutcomeLabel: 'Implementation Outcome',
     expectedSavingsLabel: 'Expected Savings',
-    actualSavingsLabel: 'Actual Savings',
-    deltaSavingsLabel: 'Delta',
+    actualSavingsLabel: 'Realized Savings',
+    deltaSavingsLabel: 'Savings Variance',
     executionStatusRunning: 'Running',
     executionStatusCompleted: 'Completed',
     executionStatusFailed: 'Failed',
@@ -1258,11 +1838,11 @@ export const en: Translations = {
     executionOutcomePartial: 'Partial',
     executionOutcomeFailed: 'Failed',
     updatingStatus: 'Updating...',
-    statusUpdateError: 'Could not update execution plan status.',
-    statusUpdateSuccessApproved: 'Execution plan approved successfully.',
-    statusUpdateSuccessRejected: 'Execution plan rejected successfully.',
-    scheduleUpdateSuccess: 'Execution plan scheduled successfully.',
-    scheduleUpdateError: 'Could not schedule execution plan.',
+    statusUpdateError: 'Could not update savings plan status.',
+    statusUpdateSuccessApproved: 'Savings plan approved successfully.',
+    statusUpdateSuccessRejected: 'Savings plan rejected successfully.',
+    scheduleUpdateSuccess: 'Savings plan scheduled successfully.',
+    scheduleUpdateError: 'Could not schedule the savings plan.',
     timeline: 'Timeline',
     timelineReviewRequired: 'Review Required',
     timelineBlocked: 'Blocked',
@@ -1274,14 +1854,42 @@ export const en: Translations = {
     statusApproved: 'Approved',
     statusScheduled: 'Scheduled',
     statusRejected: 'Rejected',
-    statusUnknown: 'Unknown',
+    statusUnknown: 'Plan status unavailable',
+    // Hardening additions
+    safeDssNotice: 'CauSium operates in Decision Support mode. All recommendations require human review and explicit approval before any action is taken. No infrastructure changes are made automatically.',
+    emptyTitle: 'No recommendations available',
+    emptyDescription: 'Optimization recommendations will appear here once opportunities are detected and scored. Check the Opportunities page for current detections.',
+    emptyAction: 'View Opportunities',
+    errorRetry: 'Try again',
+    quickWinsTitle: 'Quick Wins',
+    quickWinsSubtitle: 'Low-risk, high-confidence savings opportunities ready for review.',
+    quickWinNextStep: 'Next step',
+    confidenceLabel: 'Confidence',
+    riskLabel: 'Risk',
+    effortLabel: 'Effort',
+    whyNow: 'Why now',
+    nextStep: 'Next step',
+    categoryLabel: 'Category',
+    generatingPlan: 'Generating...',
+    generateSuccess: 'Savings plan created successfully.',
+    generateError: 'Could not generate execution plan.',
+    confirmApproveTitle: 'Approve Execution Plan',
+    confirmApproveDesc: 'This will mark the plan as approved for manual execution. No automatic changes will be made to your infrastructure.',
+    confirmRejectTitle: 'Reject Execution Plan',
+    confirmRejectDesc: 'This will reject the plan. You can provide a reason in the comment field.',
+    gatesTriggered: 'Gates triggered',
+    noRecommendations: 'No recommendations yet',
+    noRecommendationsHint: 'Recommendations appear when opportunities are detected and scored by the decision engine.',
   },
   initiatives: {
-    title: 'Initiatives',
-    subtitle: 'Execution board — track optimization initiatives',
+    title: 'Savings Initiatives',
+    subtitle: 'Track initiative delivery, ownership, savings impact, and next steps in one place.',
+    viewTable: 'Table',
+    viewBoard: 'Board',
     newInitiative: 'New Initiative',
     createInitiative: 'Create Initiative',
-    titlePlaceholder: 'Initiative title...',
+    createInitiativeHint: 'Create a tracked savings initiative with an accountable owner and target date when available.',
+    titlePlaceholder: 'Initiative name...',
     create: 'Create',
     cancel: 'Cancel',
     backlog: 'Backlog',
@@ -1289,17 +1897,61 @@ export const en: Translations = {
     inProgress: 'In Progress',
     review: 'Review',
     done: 'Done',
+    cancelled: 'Cancelled',
     empty: 'Empty',
     moveTo: 'Move to {{status}} →',
+    advanceAction: 'Advance to {{status}}',
     sla: 'SLA: {{date}}',
     overdue: 'OVERDUE',
+    summaryExecutionQueue: 'Initiative pipeline',
+    summaryActive: '{{count}} active initiatives',
+    summaryLinkedOpportunities: 'Linked opportunities',
+    summaryEstimatedSavings: '{{amount}} estimated monthly savings',
+    summaryRealizedSavings: 'Realized savings',
+    summaryCompleted: '{{count}} completed initiatives',
+    summaryExecutionRisk: 'Delivery risk',
+    summaryOverdue: 'Overdue work requires review',
+    summaryOnTrack: 'No overdue initiatives',
+    emptyWorkspaceTitle: 'No initiatives yet.',
+    emptyWorkspaceBody: 'Create the first initiative to track delivery, ownership, and savings impact.',
+    emptyPhaseTitle: 'No initiatives in {{phase}}',
+    emptyPhaseBody: 'Work items move here when execution advances to this phase.',
+    colInitiative: 'Initiative',
+    colOwner: 'Owner',
+    colRelatedOpportunities: 'Related opportunities',
+    colEstimatedSavings: 'Estimated savings',
+    colStatus: 'Status',
+    colPhase: 'Phase',
+    colRisk: 'Risk',
+    colDueDate: 'Due date',
+    colLastActivity: 'Last activity',
+    colProgress: 'Progress',
+    colAction: 'Action',
+    phaseIntake: 'Intake',
+    phasePlanning: 'Planning',
+    phaseExecution: 'Execution',
+    phaseValidation: 'Validation',
+    phaseCompleted: 'Completed',
+    phaseCancelled: 'Cancelled',
+    ownerUnassigned: 'Unassigned',
+    ownerIdPrefix: 'Owner',
+    initiativeIdPrefix: 'Initiative',
+    noLinkedOpportunity: 'No linked opportunity',
+    noDueDate: 'No due date',
+    notAvailable: 'Not available',
+    estimatedMonthly: 'Estimated monthly savings',
+    openExternal: 'Open external',
+    noAction: 'No action',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
   },
   experiments: {
-    title: 'Experiments',
-    subtitle: 'Optimization experiments pipeline',
-    summaryWithData: '{{count}} experiments · ${{savings}} realized',
-    newExperiment: 'New Experiment',
-    titleLabel: 'Experiment title *',
+    title: 'Optimization Experiments',
+    subtitle: 'Track optimization experiments and measured savings outcomes.',
+    summaryWithData: '{{count}} experiments · {{savings}} realized savings',
+    newExperiment: 'New Optimization Experiment',
+    titleLabel: 'Experiment name *',
     hypothesis: 'Hypothesis (optional)',
     create: 'Create',
     cancel: 'Cancel',
@@ -1309,8 +1961,8 @@ export const en: Translations = {
     running: 'Running',
     measuring: 'Measuring',
     concluded: 'Concluded',
-    simSavings: 'Sim. savings:',
-    actualSavings: 'Actual savings:',
+    simSavings: 'Simulated savings:',
+    actualSavings: 'Realized savings:',
     noExperiments: 'No experiments',
     loading: 'Loading…',
     improved: 'improved',
@@ -1346,36 +1998,38 @@ export const en: Translations = {
     noBudgetsHint: 'Create a budget to define safe thresholds for deployments, cost variance, and error rates per domain and environment.',
     createFirst: 'Create first budget',
     nameLabel: 'Name *',
+    environment: 'Deployment environment',
+    environmentUnknown: 'Environment not provided',
     budgetType: 'Budget Type',
     period: 'Period',
     limitUnit: 'Limit ({{unit}}) *',
   },
   changeEvents: {
-    title: 'Change Events',
-    subtitle: 'deploy, config, incidents, cost anomalies',
-    logEvent: 'Log Event',
-    logEventTitle: 'Log Change Event',
+    title: 'Operational Change Log',
+    subtitle: 'Audit deployments, configuration changes, incidents, and cost anomalies in one timeline.',
+    logEvent: 'Record Change',
+    logEventTitle: 'Record Operational Change',
     type: 'Type *',
     environment: 'Environment',
-    titleLabel: 'Title *',
+    titleLabel: 'Change title *',
     titleDesc: 'Describe what changed',
     service: 'Service',
     servicePlaceholder: 'e.g. api-gateway',
-    costImpact: 'Cost Impact (USD)',
+    costImpact: 'Estimated Cost Impact',
     costImpactPlaceholder: 'e.g. 1500 or -500',
     occurredAt: 'Occurred At *',
     description: 'Description',
     descriptionPlaceholder: 'Optional notes',
-    saveEvent: 'Save Event',
+    saveEvent: 'Save Change',
     all: 'All',
     colType: 'Type',
     colTitle: 'Title',
     colService: 'Service',
-    colEnv: 'Env',
+    colEnv: 'Environment',
     colCostImpact: 'Cost Impact',
-    colCausalConf: 'Causal Conf.',
+    colCausalConf: 'Causal confidence',
     colOccurred: 'Occurred',
-    noEvents: 'No change events yet. Log the first one.',
+    noEvents: 'No operational changes logged yet. Record the first one.',
     deploy: 'Deploy',
     configChange: 'Config Change',
     scaling: 'Scaling',
@@ -1384,15 +2038,15 @@ export const en: Translations = {
     policyChange: 'Policy Change',
   },
   executive: {
-    title: 'Executive View',
-    subtitle: 'Financial performance, savings, and team efficiency',
-    currentMonthCost: 'Current Month Cost',
+    title: 'Executive FinOps Summary',
+    subtitle: 'Cloud spend performance, savings delivery, and team accountability.',
+    currentMonthCost: 'Current Month Spend',
     mom: 'MoM',
     ytdSpend: 'YTD Cloud Spend',
     ytdDesc: 'Year to date',
     realizedSavings: 'Realized Savings',
     realizedDesc: 'this month',
-    potentialSavings: 'Potential Savings',
+    potentialSavings: 'Estimated Savings Opportunity',
     openOpportunities: 'open opportunities',
     inProgress: 'In Progress',
     completed: 'Completed',
@@ -1401,43 +2055,153 @@ export const en: Translations = {
     confidence: 'Confidence:',
     na: 'n/a',
     linearProjection: 'Linear projection',
-    teamScorecard: 'Team Efficiency Scorecard',
+    teamScorecard: 'Team Spend Accountability Scorecard',
     orgScore: 'Org Score: {{score}}/100',
     team: 'Team',
     currentMonth: 'Current Month',
-    openOpps: 'Open Opps',
-    efficiency: 'Efficiency',
+    openOpps: 'Open Opportunities',
+    efficiency: 'FinOps Score',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsConsolidated: 'All subscriptions (consolidated)',
+    subscriptionViewing: 'Viewing: {{scope}}. Financial metrics only.',
+    consolidatedAcross: 'Consolidated across {{count}} subscriptions.',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionSingleScope: '1 subscription in scope: {{scope}}.',
+    subscriptionNone: 'No subscriptions discovered.',
+    filteredScope: 'Filtered: {{scope}}',
+    consolidatedScope: 'Consolidated · {{count}} subscriptions',
+    scoreLabel: 'Score',
     topSavings: 'Top Realized Savings',
     completedDate: 'Completed {{date}}',
     perMonth: '/mo',
+    historicalCostCoverageTitle: 'Historical cost coverage — {{count}} subscription scope(s) detected',
+    historicalCostCoverageSubtitle: 'aggregated from ingested billing records over the last {{days}} days',
+    billingRecordsLabel: 'Billing records',
+    historicalBaselineLabel: 'Historical baseline',
+    providerNotFilteredLabel: 'Provider not filtered',
+    financialValuesBrl: 'Displayed using tenant billing context',
+    consolidated: 'Consolidated',
+    filtered: 'Filtered',
+    organizationWide: 'Organization-wide',
+    financialMetric: 'Billing-context financial metric',
+    operationalMetric: 'Operational metric',
+    subscriptionScoped: 'Subscription scoped',
+    billingContext: 'Billing context',
+    executiveReady: 'Executive-ready reporting',
+    exportReadinessTitle: 'Reporting & Export Readiness',
+    exportReadinessSubtitle: 'Prepare executive snapshots, board reviews, and export workflows without generating files yet.',
+    exportCsvReady: 'CSV export',
+    exportPdfReady: 'PDF export',
+    executiveSnapshotReady: 'Executive snapshot',
+    presentationModeReady: 'Presentation mode',
+    exportReadinessNote: 'Export actions remain intentionally disabled in this phase. The workspace now exposes the structure needed for future CSV, PDF, and presentation flows.',
+    executiveSummaryTitle: 'Executive Summary',
+    executiveSummarySubtitle: 'Board-ready financial summary with savings posture, billing context, and confidence coverage.',
+    confidenceCoverageTitle: 'Confidence Coverage',
+    confidenceCoverageSubtitle: '{{high}} high confidence · {{medium}} medium confidence',
+    savingsOverviewTitle: 'Savings Overview',
+    savingsOverviewSubtitle: 'Potential and realized savings with prioritized recommendations and concise operational evidence.',
+    savingsOverviewFilteredSubtitle: 'Savings reporting keeps the financial scope filtered, while recommendation evidence remains organization-wide.',
+    operationalScopeNote: 'Operational evidence remains organization-wide',
+    topOpportunitiesTitle: 'Top Opportunities',
+    topOpportunitiesSubtitle: 'Highest estimated monthly savings with confidence and risk context.',
+    colRecommendation: 'Recommendation',
+    colSavings: 'Savings',
+    riskTableLabel: 'Risk',
+    riskLow: 'Low',
+    riskMedium: 'Medium',
+    riskHigh: 'High',
+    confidenceHigh: 'High',
+    confidenceMedium: 'Medium',
+    confidenceLow: 'Low',
+    confidenceInsufficient: 'Insufficient',
+    noTopOpportunitiesTitle: 'No prioritized opportunities yet.',
+    noTopOpportunitiesBody: 'Generate recommendations to populate the executive opportunity shortlist.',
+    topSavingsTitle: 'Top Realized Savings',
+    topSavingsSubtitle: 'Completed initiatives with realized monthly savings evidence.',
+    realizedAwaitingDate: 'Awaiting completion date',
+    noTopSavingsTitle: 'No realized savings recorded yet.',
+    noTopSavingsBody: 'Completed initiatives with realized values will appear here when available.',
+    optimizationProgressTitle: 'Optimization Progress',
+    optimizationProgressSubtitle: 'Savings delivery progress, forecast posture, and the areas carrying the largest financial impact.',
+    identifiedRecommendations: 'Identified Recommendations',
+    overdueInitiatives: 'Overdue Initiatives',
+    executionRiskSubtitle: 'Execution items requiring follow-up',
+    forecastSubtitle: 'Forward view of next-month spend with current execution load.',
+    topImpactAreasTitle: 'Top Impact Areas',
+    topImpactAreasSubtitle: 'Teams with the highest spend exposure and savings pressure.',
+    noImpactAreasTitle: 'No impact areas available yet.',
+    noImpactAreasBody: 'Team-level reporting will appear here when scorecard data is available.',
+    riskGovernanceTitle: 'Risk & Governance Highlights',
+    riskGovernanceSubtitle: 'Operational risk, low-confidence recommendations, and items requiring governance review.',
+    highRiskRecommendations: 'High-Risk Recommendations',
+    highRiskRecommendationsSubtitle: 'Require extra validation before execution',
+    lowConfidenceRecommendations: 'Low-Confidence Recommendations',
+    lowConfidenceRecommendationsSubtitle: 'Need stronger evidence before executive sign-off',
+    overdueInitiativesSubtitle: 'Execution items past expected timeline',
+    priorityWatchlistTitle: 'Priority Watchlist',
+    priorityWatchlistSubtitle: 'Items that deserve executive attention before approval or escalation.',
+    watchlistOpportunity: '{{value}} estimated monthly savings at risk',
+    watchlistInitiativeDue: 'Execution due {{date}}',
+    watchlistInitiativeNoDate: 'Execution item without due date',
+    watchlistHighRisk: 'High risk',
+    watchlistExecutionRisk: 'Execution risk',
+    noPriorityWatchlistTitle: 'No priority watchlist items right now.',
+    noPriorityWatchlistBody: 'High-risk recommendations and overdue initiatives will surface here when they require attention.',
+    coverageEvidenceTitle: 'Coverage / Evidence Summary',
+    coverageEvidenceSubtitle: 'How much of the recommendation set is backed by financial evidence, resource context, and data lineage.',
+    evidenceCoverageTitle: 'Savings Evidence Coverage',
+    evidenceCoverageSubtitleValue: '{{count}} of {{total}} recommendations',
+    resourceContextCoverageTitle: 'Resource Context Coverage',
+    resourceContextCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    highConfidenceCoverageTitle: 'High Confidence Coverage',
+    highConfidenceCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    dataSourceCoverageTitle: 'Data Source Coverage',
+    dataSourceCoverageSubtitle: '{{count}} of {{total}} recommendations',
+    bestEvidenceTitle: 'Best-Evidenced Recommendations',
+    bestEvidenceSubtitle: 'Recommendations with the strongest combination of savings evidence and resource lineage.',
+    evidenceSavings: '{{amount}} potential monthly savings',
+    evidenceFinancial: 'Financial evidence available',
+    evidencePartial: 'Partial evidence',
+    evidenceContext: 'Resource context available',
+    evidenceNoContext: 'Resource context pending',
+    noBestEvidenceTitle: 'No evidence-rich recommendations yet.',
+    noBestEvidenceBody: 'Recommendations with stronger financial evidence and resource lineage will appear here.',
+    overviewTitle: 'Spend Overview',
+    overviewSubtitle: 'Spend, forecast and savings performance for the selected scope.',
+    optimizationTitle: 'Savings Delivery',
+    optimizationSubtitle: 'Savings delivery progress, forecast posture, and prioritized initiatives.',
+    operationsTitle: 'Team Accountability',
+    operationsSubtitle: 'Team spend exposure, open savings work, and accountability signals.',
   },
   gov: {
-    title: 'PulseGov',
-    subtitle: 'Resource governance — ownership coverage, label compliance, Advisor recommendations, and full inventory.',
+    title: 'Governance & Ownership',
+    subtitle: 'Track team mapping coverage, allocation-tag compliance, governance recommendations, and cloud inventory.',
     last7: 'Last 7 days',
     last30: 'Last 30 days',
     last90: 'Last 90 days',
     billedResources: 'Billed Resources',
-    unowned: 'Unowned',
-    avgCompliance: 'Avg Compliance',
+    unowned: 'Resources without team mapping',
+    avgCompliance: 'Allocation Tag Coverage',
     recommendations: 'Recommendations',
-    estSavings: 'Est. Savings',
-    deployedResources: 'Deployed Resources',
+    estSavings: 'Estimated Savings',
+    deployedResources: 'Resources Inventoried',
     types: 'types',
-    tabUnowned: 'Unowned Resources',
-    tabCompliance: 'Label Compliance',
+    tabUnowned: 'Team Mapping Gaps',
+    tabCompliance: 'Allocation Tags',
     tabRecommendations: 'Recommendations',
     tabInventory: 'Inventory',
-    allOwned: 'All resources have an owner assigned.',
+    allOwned: 'All resources have a team mapped.',
     colService: 'Service',
     colResourceId: 'Resource ID',
     colRegion: 'Region',
     colEnvironment: 'Environment',
     colDaysActive: 'Days Active',
-    colCost: 'Cost (USD)',
-    colTeam: 'Team',
-    colTotalCost: 'Total Cost',
-    colUntaggedCost: 'Untagged Cost',
+    colCost: 'Spend',
+    colTeam: 'Team Mapping',
+    colTotalCost: 'Total Spend',
+    colUntaggedCost: 'Spend Missing Allocation Tag',
     colCompliance: 'Compliance',
     errorUnowned: 'Failed to load unowned costs data.',
     errorCompliance: 'Failed to load compliance data.',
@@ -1446,7 +2210,7 @@ export const en: Translations = {
     colImpact: 'Impact',
     colResource: 'Resource',
     colDescription: 'Description',
-    colEstSavings: 'Est. Savings / yr',
+    colEstSavings: 'Estimated Savings / year',
     errorRecommendations: 'Failed to load recommendations.',
     noRecommendations: 'No recommendations found. Your Azure environment looks healthy.',
     catCost: 'Cost',
@@ -1466,20 +2230,27 @@ export const en: Translations = {
     colState: 'State',
     stateSucceeded: 'Succeeded',
     stateFailed: 'Failed',
-    untagged: 'untagged',
+    untagged: 'No team mapped',
     errorInventory: 'Failed to load inventory data.',
     noInventory: 'No inventory data yet. Trigger a sync to populate.',
+    governanceMetric: 'Governance metric',
+    organizationWide: 'Organization-wide',
+    resourcesUnit: 'resources',
+    complianceUnit: 'compliance %',
+    sectionTitle: 'Governance & Ownership',
+    sectionSubtitle: 'Team mapping, allocation tags, and governance coverage across the organization.',
+    noGovernanceIssues: 'No governance or ownership issues found.',
   },
   green: {
-    title: 'PulseGreen',
-    subtitle: 'Estimated carbon footprint derived from cloud spend and regional grid intensity.',
+    title: 'Sustainability',
+    subtitle: 'Sustainability estimate derived from cloud spend and regional grid intensity.',
     last3m: 'Last 3 months',
     last6m: 'Last 6 months',
     last12m: 'Last 12 months',
     totalCO2: 'Total CO₂e',
     kg: 'kg',
     tCO2: 'tCO₂e',
-    cloudSpend: 'Cloud Spend',
+    cloudSpend: 'Cloud Spend Basis',
     intensity: 'Intensity (gCO₂e/$)',
     momDelta: 'MoM Delta',
     monthlyTrend: 'Monthly Emissions Trend',
@@ -1487,7 +2258,7 @@ export const en: Translations = {
     colMonth: 'Month',
     colKg: 'kgCO₂e',
     colTCO2: 'tCO₂e',
-    colCost: 'Cloud Cost',
+    colCost: 'Cloud Spend Basis',
     colMom: 'MoM',
     breakdown: 'Emissions Breakdown',
     window7: '7 days',
@@ -1501,11 +2272,17 @@ export const en: Translations = {
     dataOfficial: 'Data source: official provider carbon API',
     dataEstimated: 'Data source: calibrated cost-based estimate',
     dataMixed: 'Data source: mixed (official + estimated)',
+    sustainabilityEstimate: 'Sustainability estimate',
+    organizationWide: 'Organization-wide',
+    overviewTitle: 'Sustainability',
+    overviewSubtitle: 'Carbon and efficiency estimates based on cloud usage and billing signals.',
+    breakdownTitle: 'Sustainability Breakdown',
+    breakdownSubtitle: 'Emission distribution across cloud dimensions for the selected time window.',
   },
   economicsCosts: {
-    title: 'Economics Costs',
-    subtitle: 'Explore detailed cost distribution by service and team using interactive filters.',
-    timeWindow: 'Time window',
+    title: 'Spend Analysis',
+    subtitle: 'Analyze cloud spend by service and team, review billing rows, and prioritize commitment optimization.',
+    timeWindow: 'Historical window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
     last90: 'Last 90 days',
@@ -1516,8 +2293,13 @@ export const en: Translations = {
     providerFilterPlaceholder: 'azure, aws, gcp',
     teamFilter: 'Team filter',
     teamFilterPlaceholder: 'owner team',
-    visibleCost: 'Visible Cost',
-    exportReport: 'Export Spend Report',
+    subscriptionLabel: 'Subscription',
+    allSubscriptionsCount: 'All ({{count}})',
+    subscriptionLoading: 'Loading subscriptions...',
+    subscriptionUnavailable: 'Unable to load subscriptions for this view.',
+    subscriptionNone: 'No subscriptions discovered.',
+    visibleCost: 'Visible Spend',
+    exportReport: 'Export Report',
     format: 'Format',
     csv: 'CSV',
     excel: 'Excel (.xlsx)',
@@ -1526,42 +2308,44 @@ export const en: Translations = {
     buildingFormat: 'Building {{format}} — please wait…',
     downloadFile: 'Download {{filename}}',
     reset: 'Reset',
-    detailedCosts: 'Detailed Costs',
-    detailedCostsDesc: 'Detailed rows from the ledger with combined filters and pagination.',
+    detailedCosts: 'Detailed Billing Rows',
+    detailedCostsDesc: 'Billing rows with combined filters and pagination.',
     totalRows: 'Total rows: {{count}}',
     loadingRows: 'Loading detailed costs...',
     noRows: 'No cost rows for current filters.',
     pageOf: 'Page {{page}} of {{total}}',
     previous: 'Previous',
     next: 'Next',
-    costByService: 'Cost by Service',
+    costByService: 'Spend by Service',
     loadingServices: 'Loading services...',
     noServiceData: 'No results for the selected filters. Try clearing filters or expanding the time range.',
-    costByTeam: 'Cost by Team',
+    costByTeam: 'Spend by Team',
     loadingTeams: 'Loading teams...',
     noTeamData: 'No team data available.',
     colDate: 'Date',
     colProvider: 'Provider',
+    colSubscription: 'Subscription',
     colService: 'Service',
     colResource: 'Resource',
     colTeam: 'Team',
     colEnvironment: 'Environment',
     colRegion: 'Region',
-    colCost: 'Cost',
-    reservationEfficiency: 'Reservation Efficiency',
+    colCost: 'Spend',
+    colShare: 'Share',
+    reservationEfficiency: 'Commitment Efficiency',
     familiesCount: 'Families analyzed: {{count}}',
     loadingReservationEfficiency: 'Loading reservation efficiency...',
     noReservationEfficiency: 'No active reservations or savings plans detected. Purchase reservations to reduce cost and unlock this analysis.',
-    avgUtilization: 'Average utilization',
-    totalWaste: 'Total waste',
-    totalReserved: 'Reserved commitment',
+    avgUtilization: 'Average commitment utilization',
+    totalWaste: 'Potential commitment waste',
+    totalReserved: 'Committed spend',
     colFamily: 'Family',
     colPriority: 'Priority',
     colUtilization: 'Utilization',
     colAction: 'Action',
     colWaste: 'Waste',
     colRenewal: 'Renewal',
-    colAdvisor: 'Advisor signal',
+    colAdvisor: 'Optimization signal',
     noRenewalWindow: 'No window',
     noAdvisorSignals: 'No signal',
     actionKeep: 'Keep',
@@ -1572,33 +2356,58 @@ export const en: Translations = {
     reservationHighBadge: '{{count}} high',
     reservationCriticalOnly: 'Critical only',
     reservationShowAll: 'Show all',
+    financialValuesBrl: 'Financial values follow tenant billing context',
+    filtered: 'Filtered',
+    financialMetric: 'Financial metric',
+    billingContext: 'Billing context',
+    overviewTitle: 'Spend Overview',
+    overviewSubtitle: 'Spend visibility and billing rows for the current filter set.',
+    optimizationTitle: 'Commitment Optimization',
+    optimizationSubtitle: 'Commitment efficiency and waste signals to prioritize savings actions.',
   },
   economicsUsage: {
-    title: 'Economics Usage',
-    subtitle: 'Monitor usage behavior, identify volatility and track efficiency stability over time.',
+    title: 'Spend Stability',
+    subtitle: 'Review demand stability, spend volatility, and commitment coverage over time.',
     timeWindow: 'Time window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
     last90: 'Last 90 days',
     last180: 'Last 180 days',
-    dailyAvg: 'Daily Average',
-    dailyAvgDesc: 'Cost units / day',
-    peakDay: 'Peak Day',
-    peakDayDesc: 'Highest observed day',
-    volatility: 'Volatility',
-    volatilityDesc: 'Standard deviation',
-    efficiencyScore: 'Efficiency Score',
-    efficiencyScoreDesc: 'Stability and MoM impact',
-    timeline: 'Usage Timeline ({{days}} days)',
+    dailyAvg: 'Average Daily Spend',
+    dailyAvgDesc: 'Spend / day',
+    peakDay: 'Peak Spend Day',
+    peakDayDesc: 'Highest single-day spend',
+    volatility: 'Spend Volatility',
+    volatilityDesc: 'Day-to-day spend variance',
+    efficiencyScore: 'Spend Stability Score',
+    efficiencyScoreDesc: 'Trend and volatility',
+    timeline: 'Daily Spend Trend ({{days}} days)',
     loadingTimeline: 'Loading usage timeline...',
     noData: 'No usage data available for this period.',
     colDate: 'Date',
-    colValue: 'Usage Value',
+    colValue: 'Spend / day',
+    operationalMetric: 'Usage efficiency metric',
+    organizationWide: 'Organization-wide',
+    financialValuesBrl: 'Displayed using tenant billing context',
+    reservationCoverage: 'Reservation Coverage',
+    computeSpendBasis: 'Eligible Compute Spend',
+    reservedSpendBasis: 'Covered Spend',
+    uncoveredSpendBasis: 'Uncovered Spend',
+    coveragePct: 'Coverage',
+    reservationCoverageLoading: 'Calculating reservation coverage...',
+    reservationCoverageEmpty: 'No reservation data for this period.',
+    reservationsDetected: 'Reservations detected',
+    noReservationsDetected: 'No active reservation detected',
+    operationsTitle: 'Spend Stability',
+    operationsSubtitle: 'Daily spend movement, peaks, and stability indicators for the selected time window.',
+    financialTitle: 'Commitment Coverage',
+    financialSubtitle: 'Reservation and savings-plan coverage for compute spend.',
+    serviceColumn: 'Service',
   },
   economicsSkus: {
-    title: 'Economics SKUs',
-    subtitle: 'Track spending concentration by SKU dimension to prioritize optimization efforts.',
-    note: 'SKU view is currently mapped from service-level billing dimension. Provider-native SKU ingestion will be connected in a follow-up increment.',
+    title: 'Spend by SKU',
+    subtitle: 'Track spend concentration by SKU to identify savings priorities.',
+    note: 'Current SKU analysis is derived from the billing service dimension until provider-native SKU data is available.',
     window: 'Window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
@@ -1609,49 +2418,57 @@ export const en: Translations = {
     top20: 'Top 20',
     top30: 'Top 30',
     top50: 'Top 50',
-    totalCost: 'Total Cost',
+    totalCost: 'Total Spend',
     top3Share: 'Top 3 Share',
-    breakdown: 'SKU Breakdown',
+    breakdown: 'SKU Spend Concentration',
     loading: 'Loading SKU breakdown...',
     noData: 'No SKU data available for the selected window.',
     colRank: '#',
     colSku: 'SKU',
-    colCost: 'Cost',
+    colCost: 'Spend',
     colShare: 'Share',
+    financialValuesBrl: 'Financial values follow tenant billing context',
+    consolidated: 'Billing-aligned view',
+    overviewTitle: 'Spend Overview',
+    overviewSubtitle: 'Billing concentration by SKU dimension to highlight where spend is most concentrated.',
   },
   economicsReports: {
-    title: 'Spend Analysis Reports',
-    subtitle: 'Generate spend analysis reports with cost breakdowns, trends, and optimization recommendations.',
+    title: 'FinOps Reports',
+    subtitle: 'Generate export-ready FinOps summaries from cloud spend, team allocation, and monthly trend indicators.',
     reportWindow: 'Report window',
     last30: 'Last 30 days',
     last60: 'Last 60 days',
     last90: 'Last 90 days',
-    processing: 'Generating report...',
-    exportCsv: 'Export Spend Report (CSV)',
-    exportExcel: 'Export Spend Report (Excel)',
-    currentMonth: 'Current Period Spend',
-    previousMonth: 'Previous Period Spend',
-    momChange: 'Month-over-Month Change',
+    processing: 'Processing...',
+    exportCsv: 'Export CSV',
+    exportExcel: 'Export Excel',
+    currentMonth: 'Current Month Spend',
+    previousMonth: 'Previous Month Spend',
+    momChange: 'MoM Change',
     topServices: 'Top Services by Spend',
     topTeams: 'Top Teams by Spend',
     loading: 'Loading...',
-    noData: 'Select a time range and generate a report to view spend analysis.',
-    errorEnqueue: 'Failed to start report generation. Please try again.',
-    asyncNote: 'Reports include spend overview, savings potential, cost drivers, and optimization opportunities.',
-    queued: 'Report queued. Preparing your data...',
-    running: 'Generating report. Download will start automatically.',
-    completed: 'Report downloaded successfully.',
-    completedDownload: 'Report ready. Starting download...',
+    noData: 'Select a time range and click Generate Report to view financial indicators.',
+    errorEnqueue: 'Failed to enqueue the export job.',
+    asyncNote: 'Exports are generated asynchronously on the backend and downloaded when ready.',
+    queued: 'Export queued. Waiting for worker pickup.',
+    running: 'Export running. The download will start automatically.',
+    completed: 'Export completed and downloaded.',
+    completedDownload: 'Export completed. Starting download.',
+    financialValuesBrl: 'Uses dashboard billing currency when available',
+    consolidated: 'Billing-aligned view',
+    overviewTitle: 'Spend Overview',
+    overviewSubtitle: 'Export-ready spend summary with billing-aligned monthly trend context.',
   },
   notifications: {
     title: 'Notifications',
-    subtitle: 'Workspace-wide alerts, budget breaches, and optimization signals.',
+    subtitle: 'Spend alerts, budget breaches, governance issues, and optimization signals.',
     markAllRead: 'Mark all read',
     unread: 'Unread',
     critical: 'Critical',
     totalVisible: 'Total Visible',
     allCategories: 'All categories',
-    financial: 'Financial',
+    financial: 'Spend',
     optimization: 'Optimization',
     governance: 'Governance',
     activity: 'Activity',
@@ -1676,7 +2493,7 @@ export const en: Translations = {
     statusArchived: 'Archived',
     error: 'Failed to load notifications. The backend service may still be initializing.',
     noNotifications: 'No notifications match your filters.',
-    emptyHint: 'Alerts are generated from risk budget breaches, optimization signals, and workspace events.',
+    emptyHint: 'Alerts are generated from risk budget breaches, spend anomalies, optimization signals, and workspace events.',
     viewDetails: 'View details →',
     markRead: 'Mark as read',
     archive: 'Archive',
@@ -1698,7 +2515,7 @@ export const en: Translations = {
   },
   members: {
     title: 'Members',
-    subtitle: 'Manage workspace members and invite lifecycle from a single operational panel.',
+    subtitle: 'Manage workspace access, roles, and invites from one place.',
     tabMembers: 'Members',
     tabInvites: 'Invites',
     createMember: 'Create Member',
@@ -1771,24 +2588,24 @@ export const en: Translations = {
     toastInviteRevokeError: 'Could not revoke invite.',
   },
   platform: {
-    syncTitle: 'Platform Sync Status',
-    syncSubtitle: 'Operational visibility for connector health and ingestion backlog.',
+    syncTitle: 'Data Sync Health',
+    syncSubtitle: 'Track cloud account sync health, recent refresh activity, and ingestion backlog.',
     syncAccounts: 'Accounts',
     syncNeedsAttention: 'Needs Attention',
     syncHealthy: 'Healthy',
-    syncOpenDlq: 'Open DLQ',
-    syncConnectorOps: 'Connector Operations',
+    syncOpenDlq: 'Open queue items',
+    syncConnectorOps: 'Account Sync Status',
     syncAllProviders: 'All providers',
-    syncAllStatus: 'All status',
+    syncAllStatus: 'All statuses',
     syncStatusActive: 'Active',
     syncStatusPending: 'Pending',
     syncStatusInactive: 'Inactive',
     syncStatusError: 'Error',
-    syncAllAttention: 'All attention',
+    syncAllAttention: 'All attention states',
     syncNeedsAttentionFilter: 'Needs attention',
     syncHealthyOnly: 'Healthy only',
     syncSortAttentionFirst: 'Sort: Attention first',
-    syncSortDlqDesc: 'Sort: DLQ high to low',
+    syncSortDlqDesc: 'Sort: Queue backlog high to low',
     syncSortLatestSync: 'Sort: Latest sync',
     syncSortNameAsc: 'Sort: Name A-Z',
     syncPerPage: '{{n}} / page',
@@ -1797,7 +2614,7 @@ export const en: Translations = {
     syncColStatus: 'Status',
     syncColLastSync: 'Last Sync',
     syncColLastHealth: 'Last Health Check',
-    syncColOpenDlq: 'Open DLQ',
+    syncColOpenDlq: 'Open queue items',
     syncColAttention: 'Attention',
     syncColAction: 'Action',
     syncAttentionYes: 'Yes',
@@ -1806,8 +2623,8 @@ export const en: Translations = {
     syncTrigger: 'Trigger Sync',
     syncShowing: 'Showing {{from}}-{{to}} of {{total}}',
     syncPage: 'Page {{current}} / {{total}}',
-    workspacesTitle: 'Platform Workspaces',
-    workspacesSubtitle: 'Manage all organizations — suspend, restore, or archive workspaces.',
+    workspacesTitle: 'Customer Workspaces',
+    workspacesSubtitle: 'Manage customer workspaces, lifecycle status, and access controls.',
     workspacesAllOrgs: 'All Organizations',
     workspacesSearch: 'Search by name or slug',
     workspacesAllStates: 'All states',
@@ -1830,9 +2647,9 @@ export const en: Translations = {
     workspacesLast7d: 'Last 7 days',
     workspacesLast30d: 'Last 30 days',
     workspacesAllTime: 'All time',
-    workspacesPwdResetBadge: 'pwd reset:',
-    workspacesMfaResetBadge: 'mfa reset:',
-    workspacesDeactivatedBadge: 'deactivated:',
+    workspacesPwdResetBadge: 'Password resets:',
+    workspacesMfaResetBadge: 'MFA resets:',
+    workspacesDeactivatedBadge: 'Deactivated users:',
     workspacesInactive: 'inactive',
     workspacesResetMfa: 'Reset MFA',
     workspacesResetting: 'Resetting...',
@@ -1863,9 +2680,9 @@ export const en: Translations = {
     workspacesSuspendHint: 'Suspend workspace',
     workspacesRestoreHint: 'Restore workspace',
     workspacesArchiveHint: 'Archive workspace (irreversible)',
-    sloTitle: 'Platform SLI/SLO',
-    sloSubtitle: 'Operational reliability view with error budget, latency targets and actionable alerts.',
-    sloLoading: 'Loading SLI/SLO snapshot...',
+    sloTitle: 'Service Reliability',
+    sloSubtitle: 'Track service-level targets, latency, and alerts across customer-facing and operational workloads.',
+    sloLoading: 'Loading service reliability snapshot...',
     sloRequests: 'Requests',
     sloErrorRate: 'Error Rate',
     sloTarget: 'target: {{value}}%',
@@ -1873,11 +2690,11 @@ export const en: Translations = {
     sloBurnDesc: 'error budget consumption speed',
     sloAlerts: 'Alerts',
     sloCriticalWarning: 'critical {{c}} · warning {{w}}',
-    sloApiPathsTitle: 'API Path SLOs (Top 10)',
+    sloApiPathsTitle: 'API Reliability by Route (Top 10)',
     sloColPath: 'Path',
-    sloColReq: 'Req',
-    sloColErrorPct: 'Error %',
-    sloColP95: 'P95 (ms)',
+    sloColReq: 'Requests',
+    sloColErrorPct: 'Error rate',
+    sloColP95: 'P95 latency (ms)',
     sloColAvg: 'Avg (ms)',
     sloColMax: 'Max (ms)',
     sloWorkerTitle: 'Worker Reliability',
@@ -1887,7 +2704,7 @@ export const en: Translations = {
     sloColRetry: 'Retry',
     sloColFailed: 'Failed',
     sloAlertsTitle: 'Actionable Alerts',
-    sloNoAlerts: 'No active SLO alerts.',
+    sloNoAlerts: 'No active reliability alerts.',
     sloAlertAction: 'Action:',
     syncSuccessMsg: 'Sync job queued successfully.',
     syncErrorMsg: 'Could not trigger sync for this account. Please try again.',
@@ -1895,6 +2712,8 @@ export const en: Translations = {
     refresh: 'Refresh',
     readOnlyBannerTitle: 'Read-only platform mode',
     readOnlyBannerBody: 'CauSium only reads tenant data and suggests actions. Nothing is executed automatically.',
+    integrationHealthTitle: 'FinOps Readiness',
+    integrationHealthSubtitle: 'Assess cost, usage, and telemetry coverage required for reliable FinOps recommendations.',
   },
   login: {
     back: 'Back',
@@ -1904,7 +2723,7 @@ export const en: Translations = {
     networkError: 'Could not connect. Check your network and try again.',
     passkeyFailed: 'Passkey sign in failed. Make sure you have registered a passkey for this account.',
     welcomeBack: 'Welcome back',
-    subtitle: 'Cloud cost intelligence platform for safer decisions and faster execution.',
+    subtitle: 'Enterprise FinOps platform for safer decisions, accountable ownership, and measurable savings.',
     badgeMultiCloud: 'Multi-Cloud',
     badgeRiskAware: 'Risk-Aware',
     badgeEnterprise: 'Enterprise Ready',
@@ -1955,5 +2774,53 @@ export const en: Translations = {
     errorPasswordTooShort: 'Password must be at least 8 characters.',
     errorInvalidOrExpiredLink: 'Failed to reset password. The link may be expired or invalid.',
     backToSignIn: 'Back to sign in',
+  },
+  ux: {
+    freshnessRecent: 'Last updated recently',
+    freshnessSyncing: 'Cloud sync in progress',
+    freshnessSnapshot: 'Based on latest available billing snapshot',
+    freshnessRefreshes: 'Data refreshes periodically',
+    tooltipForecast: 'Projected using historical spend trends.',
+    tooltipPotentialSavings: 'Estimated optimization opportunities based on detected inefficiencies.',
+    tooltipGovernance: 'Derived from tagging, policy and operational governance signals.',
+    tooltipCO2: 'Estimated using cloud usage and sustainability factors.',
+    tooltipReservationCoverage: 'Percentage of compute spend covered by reservations or savings plans.',
+    tooltipEfficiencyScore: 'Composite score based on cost volatility and month-over-month variation.',
+    tooltipVolatility: 'Standard deviation of daily spend over the selected window.',
+    tooltipConcentrationRisk: 'Share of total cost concentrated in the top 3 SKUs.',
+    emptyNoAnomalies: 'No anomalies detected for this scope.',
+    emptyNoOptimizations: 'No optimization opportunities detected yet.',
+    emptyNoGovernanceIssues: 'No governance issues found.',
+    emptyNoRecentEvents: 'No recent operational events.',
+    emptyNoEmissions: 'No emissions data available for this period.',
+    billingDataRange: '{{start}} – {{end}}',
+    billingSubscriptions: '{{count}} subscriptions consolidated',
+    billingCostBasis: 'Actual Cost · Pre-tax',
+    billingCurrency: 'Billing: {{currency}}',
+    costBasisActualPreTax: 'Actual Cost · Pre-tax',
+    integrityHealthy: 'Healthy',
+    integrityDelayed: 'Delayed',
+    integrityPartial: 'Partial',
+    integrityWarning: 'Warning',
+    integrityLastSync: 'Last sync: {{time}}',
+    integrityDataThrough: 'Data available through {{date}}',
+    integrityBillingPeriod: 'Billing period: calendar month',
+    integrityGapDays: 'Ingestion gap: {{days}} day(s)',
+    integritySyncAge: 'Sync age: {{minutes}} min',
+    integritySubscriptions: '{{count}} active subscriptions',
+    integrityDiagnosticsTitle: 'Data Diagnostics',
+    integrityDiagnosticsSubtitle: 'Detailed metadata about data freshness and coverage',
+    integrityProviderScope: 'Provider scope: {{scope}}',
+    integrityDataCoverage: 'Coverage: {{start}} to {{end}}',
+    integrityStatusLabel: 'Reconciliation status',
+    integrityDelayedMessage: 'Billing data is 3–5 days behind. This is common during provider processing windows.',
+    integrityNoDataMessage: 'No billing data available. Verify cloud account connectivity.',
+    integrityPartialMessage: 'Data coverage is incomplete. Some subscriptions may not be reporting.',
+    exportBasisLabel: 'Export basis: {{basis}}',
+    exportFormatLabel: 'Export format: {{format}}',
+    exportReservationMeta: 'Reservation metadata',
+    exportReservationAvailable: 'Available',
+    exportReservationNotAvailable: 'Not available in current export',
+    exportPortalHint: '{{hint}}',
   },
 }
