@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { intelApi } from '../../api/intel'
 import { useI18n } from '../../contexts/I18nContext'
 import type { ExecutionPlanStatus } from '../../types'
+import { formatCurrency } from '../../utils/currency'
 
 export function OptimizationPlanPage() {
   const { t, lang } = useI18n()
@@ -161,15 +162,7 @@ export function OptimizationPlanPage() {
     [latestExecutionPlan, t]
   )
 
-  const currency = useMemo(
-    () =>
-      new Intl.NumberFormat(lang === 'pt' ? 'pt-BR' : 'en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-      }),
-    [lang]
-  )
+  const currency = { format: (n: number) => formatCurrency(n) }
 
   if (isLoading) {
     return <div className="p-6 text-sm text-gray-500">{t.common.loading}</div>

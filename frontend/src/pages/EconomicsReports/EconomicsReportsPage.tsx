@@ -5,12 +5,9 @@ import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePersistentNumber } from '../../hooks/usePersistentBoolean'
+import { formatCurrency } from '../../utils/currency'
 
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-})
+const money = { format: (n: number) => formatCurrency(n) }
 
 export function EconomicsReportsPage() {
   const { t } = useI18n()

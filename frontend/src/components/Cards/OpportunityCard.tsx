@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import type { Opportunity, OpportunityStatus } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
+import { formatCurrency } from '../../utils/currency'
 
 const RISK_COLORS = {
   low: 'bg-green-100 text-green-700',
@@ -33,8 +34,7 @@ interface Props {
   onExplain?: (opportunityId: string) => void
 }
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+const fmtMoney = (n: number) => formatCurrency(n)
 
 export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) {
   const { t } = useI18n()

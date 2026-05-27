@@ -6,13 +6,9 @@ import { economicsApi } from '../../api/economics'
 import { useI18n } from '../../contexts/I18nContext'
 import { useAuth } from '../../hooks/useAuth'
 import type { FinancialBudgetPeriod, WorkspaceBudgetUpsert } from '../../types'
+import { formatCurrency } from '../../utils/currency'
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n)
+const fmt = (n: number) => formatCurrency(n)
 
 const PERIODS: FinancialBudgetPeriod[] = ['monthly', 'quarterly', 'annual']
 

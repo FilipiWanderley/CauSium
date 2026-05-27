@@ -7,6 +7,7 @@ import { ledgerApi } from '../../api/ledger'
 import type { ReconciliationReport, ReconciliationSubscriptionRow } from '../../types'
 import clsx from 'clsx'
 import { Navigate } from 'react-router-dom'
+import { formatCurrency } from '../../utils/currency'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -14,20 +15,8 @@ const ALLOWED_ROLES = new Set(['platform_admin'])
 
 const PLACEHOLDER_SUBSCRIPTION = 'aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa'
 
-function fmtCost(n: number, currency = 'USD') {
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(n)
-  } catch {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 2,
-    }).format(n)
-  }
+function fmtCost(n: number, currency?: string) {
+  return formatCurrency(n, currency, { maximumFractionDigits: 2 })
 }
 
 function fmtDate(d: string | null | undefined) {

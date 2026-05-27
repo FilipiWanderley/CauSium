@@ -133,7 +133,7 @@ describe('EconomicsReportsPage', () => {
 
     await waitFor(
       () => {
-        expect(screen.getAllByText('$0').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('R$ 0').length).toBeGreaterThan(0)
       },
       { timeout: 5000 },
     )
@@ -149,7 +149,7 @@ describe('EconomicsReportsPage', () => {
     render(<EconomicsReportsPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByText('$10,000')).toBeInTheDocument()
+      expect(screen.getByText('R$ 10.000')).toBeInTheDocument()
     })
   })
 })
