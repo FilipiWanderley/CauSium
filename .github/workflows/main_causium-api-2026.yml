@@ -30,12 +30,6 @@ jobs:
           poetry install --no-interaction --no-root --only=main
           pip install gunicorn
 
-      - name: Remove CI Python binaries (incompatible with App Service glibc)
-        working-directory: backend
-        run: |
-          rm -f antenv/bin/python antenv/bin/python3 antenv/bin/python3.12
-          rm -f antenv/bin/Activate.ps1
-
       - name: Create deployment package
         working-directory: backend
         run: |
