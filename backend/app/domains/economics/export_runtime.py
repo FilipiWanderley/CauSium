@@ -250,59 +250,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     filters_json = json.dumps(job.filters or {}, sort_keys=True)
     base_name = f"causium-spend-report-{generated_at.strftime('%Y%m%d-%H%M%S')}"
 
-    if job.file_format == ReportExportFormat.CSV:
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        writer.writerow(["section", "key", "value"])
-        writer.writerow(["metadata", "report_title", "CauSium Spend Analysis Report"])
-        writer.writerow(["metadata", "generated_at", generated_at.isoformat()])
-        writer.writerow(["metadata", "window_days", job.window_days])
-        writer.writerow(["metadata", "filters", filters_json])
-        writer.writerow(["spend_overview", "current_period_spend_usd", round(dashboard.current_month_cost, 2)])
-        writer.writerow(["spend_overview", "previous_period_spend_usd", round(dashboard.previous_month_cost, 2)])
-        writer.writerow(["spend_overview", "mom_change_usd", round(dashboard.current_month_cost - dashboard.previous_month_cost, 2)])
-        writer.writerow(["spend_overview", "mom_change_pct", round(dashboard.mom_change_pct, 1)])
-        writer.writerow(["spend_overview", "change_events_7d", dashboard.event_count_7d])
-        writer.writerow(["spend_overview", "active_cloud_accounts", dashboard.active_accounts])
-        writer.writerow(["savings_summary", "total_monthly_savings_usd", round(total_monthly_savings, 2)])
-        writer.writerow(["savings_summary", "annualized_savings_usd", round(total_annual_savings, 2)])
-        writer.writerow(["savings_summary", "open_opportunities", len(opportunities)])
-        for index, row in enumerate(top_services, start=1):
-            prefix = f"spend_by_service_{index}"
-            writer.writerow([prefix, "service", row.service])
-            writer.writerow([prefix, "monthly_spend_usd", round(row.cost_usd, 2)])
-            writer.writerow([prefix, "share_of_total_pct", round(row.percentage, 1)])
-        for index, row in enumerate(top_teams, start=1):
-            prefix = f"spend_by_team_{index}"
-            writer.writerow([prefix, "team", row.service])
-            writer.writerow([prefix, "monthly_spend_usd", round(row.cost_usd, 2)])
-            writer.writerow([prefix, "share_of_total_pct", round(row.percentage, 1)])
-        for index, row in enumerate(trend, start=1):
-            prefix = f"daily_trend_{index}"
-            writer.writerow([prefix, "date", row.date.isoformat()])
-            writer.writerow([prefix, "daily_cost_usd", round(row.cost_usd, 2)])
-            writer.writerow([prefix, "cloud_provider", row.provider or "All"])
-        for index, op in enumerate(opportunities, start=1):
-            prefix = f"opportunity_{index}"
-            writer.writerow([prefix, "title", op.title])
-            writer.writerow([prefix, "category", _format_category(op.category.value)])
-            writer.writerow([prefix, "monthly_savings_usd", round(op.estimated_monthly_savings_usd, 2)])
-            writer.writerow([prefix, "annualized_savings_usd", round(op.estimated_annual_savings_usd, 2)])
-            writer.writerow([prefix, "risk_level", op.risk_level.value.capitalize()])
-            writer.writerow([prefix, "effort_level", op.effort_level.value.capitalize()])
-            writer.writerow([prefix, "cloud_service", op.service or ""])
-            writer.writerow([prefix, "resource", op.resource_name or ""])
-            writer.writerow([prefix, "region", op.region or ""])
-            writer.writerow([prefix, "status", _format_status(op.status.value)])
-
-        content = buffer.getvalue().encode("utf-8")
-        return ReportExportArtifact(
-            file_name=f"{base_name}.csv",
-            content_type="text/csv; charset=utf-8",
-            content=content,
-        )
-
-    # --- XLSX via openpyxl ---
+    # Fetch governance + sustainability data (used by both CSV and XLSX)
     from app.domains.gov.service import GovService
     from app.domains.green.service import GreenService
 
@@ -315,6 +263,30 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     green_summary = green.get_summary(job.org_id, months=6)
     green_monthly = green.get_emissions_monthly(job.org_id, months=6)
 
+    if job.file_format == ReportExportFormat.CSV:
+        content = _build_csv_zip(
+            dashboard=dashboard,
+            top_services=top_services,
+            top_teams=top_teams,
+            trend=trend,
+            opportunities=opportunities,
+            total_monthly_savings=total_monthly_savings,
+            total_annual_savings=total_annual_savings,
+            gov_summary=gov_summary,
+            gov_unowned=gov_unowned,
+            gov_compliance=gov_compliance,
+            green_summary=green_summary,
+            green_monthly=green_monthly,
+            generated_at=generated_at,
+            window_days=job.window_days,
+        )
+        return ReportExportArtifact(
+            file_name=f"{base_name}.zip",
+            content_type="application/zip",
+            content=content,
+        )
+
+    # --- XLSX via openpyxl ---
     workbook_bytes = _build_enterprise_xlsx(
         dashboard=dashboard,
         top_services=top_services,
@@ -337,6 +309,140 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         content=workbook_bytes,
     )
+
+
+# ---------------------------------------------------------------------------
+# CSV ZIP builder
+# ---------------------------------------------------------------------------
+
+def _csv_bytes(headers: list[str], rows: list[list]) -> bytes:
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    return buf.getvalue().encode("utf-8")
+
+
+def _build_csv_zip(
+    *,
+    dashboard,
+    top_services,
+    top_teams,
+    trend,
+    opportunities,
+    total_monthly_savings: float,
+    total_annual_savings: float,
+    gov_summary,
+    gov_unowned,
+    gov_compliance,
+    green_summary,
+    green_monthly,
+    generated_at: datetime,
+    window_days: int,
+) -> bytes:
+    # 1. Executive summary
+    summary_rows = [
+        ["current_month_spend_brl", round(dashboard.current_month_cost, 2)],
+        ["previous_month_spend_brl", round(dashboard.previous_month_cost, 2)],
+        ["mom_change_pct", round(dashboard.mom_change_pct, 1)],
+        ["monthly_savings_brl", round(total_monthly_savings, 2)],
+        ["annualized_savings_brl", round(total_annual_savings, 2)],
+        ["active_cloud_accounts", dashboard.active_accounts],
+        ["open_opportunities", len(opportunities)],
+        ["change_events_7d", dashboard.event_count_7d],
+        ["report_window_days", window_days],
+        ["generated_at", generated_at.strftime("%Y-%m-%d %H:%M:%S")],
+    ]
+    summary_csv = _csv_bytes(["metric", "value"], summary_rows)
+
+    # 2. Costs by service
+    svc_rows = [
+        [svc.service, round(svc.cost_usd, 2), round(svc.percentage, 1)]
+        for svc in top_services
+    ]
+    svc_csv = _csv_bytes(["service", "monthly_spend_brl", "share_of_total_pct"], svc_rows)
+
+    # 3. Costs by team
+    team_rows = [
+        [team.service, round(team.cost_usd, 2), round(team.percentage, 1)]
+        for team in top_teams
+    ]
+    team_csv = _csv_bytes(["team", "monthly_spend_brl", "share_of_total_pct"], team_rows)
+
+    # 4. Daily trend
+    trend_rows = [
+        [row.date.isoformat() if hasattr(row.date, "isoformat") else str(row.date), round(row.cost_usd, 2), row.provider or ""]
+        for row in trend
+    ]
+    trend_csv = _csv_bytes(["date", "daily_cost_brl", "cloud_provider"], trend_rows)
+
+    # 5. Opportunities
+    opp_rows = [
+        [
+            op.title,
+            _format_category(op.category.value),
+            round(op.estimated_monthly_savings_usd, 2),
+            round(op.estimated_annual_savings_usd, 2),
+            op.risk_level.value.capitalize(),
+            op.effort_level.value.capitalize(),
+            op.service or "",
+            op.resource_name or "",
+            op.region or "",
+            _format_status(op.status.value),
+        ]
+        for op in opportunities
+    ]
+    opp_csv = _csv_bytes(
+        ["title", "category", "monthly_savings_brl", "annualized_savings_brl",
+         "risk_level", "effort_level", "cloud_service", "resource", "region", "status"],
+        opp_rows,
+    )
+
+    # 6. Governance
+    gov_rows = []
+    for item in gov_unowned:
+        gov_rows.append([
+            item.service,
+            item.resource_id,
+            item.region,
+            item.environment,
+            round(item.cost_usd, 2),
+            item.days_active,
+        ])
+    gov_compliance_rows = [
+        [item.team, round(item.total_cost_usd, 2), round(item.untagged_cost_usd, 2), round(item.compliance_pct, 1)]
+        for item in gov_compliance
+    ]
+    gov_csv = _csv_bytes(
+        ["service", "resource_id", "region", "environment", "unowned_cost_brl", "days_active"],
+        gov_rows,
+    )
+    gov_compliance_csv = _csv_bytes(
+        ["team", "total_cost_brl", "untagged_cost_brl", "compliance_pct"],
+        gov_compliance_rows,
+    )
+    # Merge governance into one file with a section separator
+    gov_combined = gov_csv + b"\n" + gov_compliance_csv
+
+    # 7. Sustainability
+    green_rows = [
+        [m.month, round(m.kg_co2e, 1), round(m.cost_usd, 2), round(m.delta_pct, 1) if m.delta_pct else ""]
+        for m in green_monthly
+    ]
+    green_csv = _csv_bytes(["month", "carbon_kg_co2e", "cost_brl", "monthly_delta_pct"], green_rows)
+
+    # Build ZIP
+    zip_buf = io.BytesIO()
+    with ZipFile(zip_buf, "w", compression=ZIP_DEFLATED) as zf:
+        zf.writestr("executive_summary.csv", summary_csv)
+        zf.writestr("costs_by_service.csv", svc_csv)
+        zf.writestr("costs_by_team.csv", team_csv)
+        zf.writestr("daily_trend.csv", trend_csv)
+        zf.writestr("opportunities.csv", opp_csv)
+        zf.writestr("governance.csv", gov_combined)
+        zf.writestr("sustainability.csv", green_csv)
+    return zip_buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
