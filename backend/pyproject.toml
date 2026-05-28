@@ -51,6 +51,7 @@ opentelemetry-instrumentation-redis = { version = ">=0.41b0", allow-prereleases 
 opentelemetry-instrumentation-httpx = { version = ">=0.41b0", allow-prereleases = true }
 tenacity = "^9.0.0"
 eval-type-backport = "^0.3.1"
+openpyxl = "^3.1.0"
 
 [tool.poetry.extras]
 celery = ["celery"]
