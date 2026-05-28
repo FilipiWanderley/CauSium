@@ -1020,11 +1020,13 @@ class AzureConnectorClient(BaseConnector):
                 # Estimated savings live in extended_properties under various keys
                 extended = getattr(rec, "extended_properties", None) or {}
                 savings: float | None = None
+                savings_period = "annual"
                 for key in ("savingsAmount", "annualSavingsAmount", "estimatedAnnualSavings"):
                     raw = extended.get(key)
                     if raw is not None:
                         try:
                             savings = float(raw)
+                            savings_period = "monthly" if key == "savingsAmount" else "annual"
                             break
                         except (TypeError, ValueError):
                             continue
@@ -1044,6 +1046,7 @@ class AzureConnectorClient(BaseConnector):
                         recommendation_type_id=str(getattr(rec, "recommendation_type_id", "") or ""),
                         estimated_savings_usd=savings,
                         fetched_at=now,
+                        savings_period=savings_period,
                     )
                 )
         except Exception as exc:

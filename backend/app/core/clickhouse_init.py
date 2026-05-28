@@ -121,6 +121,8 @@ TABLES = [
 MIGRATIONS = [
     # Add estimated_savings_usd to recommendation_facts if missing
     "ALTER TABLE recommendation_facts ADD COLUMN IF NOT EXISTS estimated_savings_usd Float64 DEFAULT 0",
+    # Track whether Advisor savings value is monthly or annual
+    "ALTER TABLE recommendation_facts ADD COLUMN IF NOT EXISTS savings_period String DEFAULT 'annual'",
     # Change tags from String to Map(String,String) in cost_facts if still String
     # ClickHouse does not support ALTER COLUMN type change in-place for MergeTree;
     # we add a new column and keep the old one for backwards compat with existing data.

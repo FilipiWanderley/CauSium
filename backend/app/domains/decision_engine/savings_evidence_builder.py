@@ -135,6 +135,10 @@ def build_savings_evidence(opportunity: "OptimizationOpportunity") -> "SavingsEv
     evidence = opportunity.decision_evidence or {}
     risk_level = opportunity.risk_level or RiskLevel.MEDIUM
 
+    # Check if this opportunity came from Azure Advisor (real provider data)
+    if evidence.get("source") == "azure_advisor":
+        return _build_from_advisor(opportunity, evidence, current_cost, category, risk_level)
+
     # Determine if this opportunity has real deterministic evidence
     has_real_evidence = (
         category in _EVIDENCE_BASED_CATEGORIES
@@ -277,6 +281,59 @@ def _build_from_heuristic(
         safety_margin_applied=margin_applied,
         methodology="heuristic_category_rate",
         limitations=list(limitations),
+    )
+
+
+def _build_from_advisor(
+    opportunity: "OptimizationOpportunity",
+    evidence: dict,
+    current_cost: float,
+    category: OpportunityCategory,
+    risk_level: RiskLevel,
+) -> "SavingsEvidence":
+    """Build SavingsEvidence from Azure Advisor data (real provider-calculated savings)."""
+    from app.domains.decision_engine.schemas import SavingsEvidence
+
+    monthly_savings = float(opportunity.estimated_monthly_savings_usd or 0.0)
+    projected_cost = round(current_cost - monthly_savings, 2) if monthly_savings > 0 else None
+
+    advisor_desc = evidence.get("advisor_description") or ""
+    advisor_impact = evidence.get("advisor_impact") or "N/A"
+
+    calculation_basis = (
+        f"Azure Advisor recommendation (impact: {advisor_impact}). "
+        f"Savings calculated by the cloud provider based on actual resource usage and pricing."
+    )
+
+    evidence_summary = (
+        f"Economia de {monthly_savings:,.2f}/mês calculada pelo Azure Advisor. "
+        f"{advisor_desc}"
+    )
+
+    limitations: list[str] = []
+    if advisor_impact == "Low":
+        limitations.append("Azure Advisor classifies this as low-impact")
+
+    # Map Advisor impact to confidence
+    confidence_map = {"High": 0.90, "Medium": 0.80, "Low": 0.70}
+    confidence = confidence_map.get(advisor_impact, 0.80)
+
+    tier = _confidence_tier(confidence, 30)
+
+    return SavingsEvidence(
+        current_monthly_cost_estimate=round(current_cost, 2),
+        projected_monthly_cost_estimate=projected_cost,
+        estimated_monthly_savings=round(monthly_savings, 2),
+        estimated_annual_savings=round(monthly_savings * 12, 2),
+        savings_confidence=confidence,
+        confidence_tier=tier,
+        calculation_basis=calculation_basis,
+        evidence_summary=evidence_summary,
+        evidence_window_days=30,
+        risk_level=risk_level,
+        safety_margin_applied=False,
+        methodology="azure_advisor",
+        limitations=limitations,
     )
 
 

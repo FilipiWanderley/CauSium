@@ -71,6 +71,7 @@ class CanonicalRecommendationRecord:
     recommendation_type_id: str
     estimated_savings_usd: float | None
     fetched_at: Any         # datetime
+    savings_period: str = "annual"  # "monthly" | "annual"
 
 
 @dataclass

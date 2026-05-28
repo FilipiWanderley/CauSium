@@ -566,6 +566,7 @@ class CloudLedgerService:
                 "short_description": r.short_description,
                 "recommendation_type_id": r.recommendation_type_id,
                 "estimated_savings_usd": r.estimated_savings_usd,
+                "savings_period": getattr(r, "savings_period", "annual"),
             }
             for r in recs
         ]

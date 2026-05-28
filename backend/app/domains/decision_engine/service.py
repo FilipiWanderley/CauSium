@@ -101,6 +101,38 @@ class DecisionEngineService:
         except Exception as e:
             log.warning("decision_engine.cost_query.failed", error=str(e))
             rows = []
+
+        # Load Azure Advisor recommendations for this account
+        try:
+            advisor_rows = execute_query(
+                """
+                SELECT
+                    resource_id,
+                    estimated_savings_usd,
+                    savings_period,
+                    short_description,
+                    impact,
+                    category AS advisor_category,
+                    recommendation_id
+                FROM recommendation_facts
+                WHERE org_id = {org_id:String}
+                  AND account_id = {account_id:String}
+                  AND category = 'Cost'
+                  AND estimated_savings_usd > 0
+                ORDER BY estimated_savings_usd DESC
+                """,
+                {"org_id": str(org_id), "account_id": str(account_id)},
+            ) or []
+        except Exception as e:
+            log.warning("decision_engine.advisor_query.failed", error=str(e))
+            advisor_rows = []
+
+        advisor_by_resource: dict[str, dict] = {}
+        for ar in advisor_rows:
+            rid = ar.get("resource_id") or ""
+            if rid and rid not in advisor_by_resource:
+                advisor_by_resource[rid] = ar
+
         aks_candidates = await self.get_aks_nodepool_candidates(org_id=org_id, account_id=account_id)
 
         active_statuses = (
@@ -192,8 +224,31 @@ class DecisionEngineService:
                 # AKS node pools are handled by a dedicated candidate query to avoid fallback parsing.
                 continue
             else:
-                estimated_savings = _estimate_savings(category, monthly_cost)
-                if estimated_savings < 10:
+                # Try to match with an Advisor recommendation for this resource
+                advisor_rec = advisor_by_resource.get(resource_id)
+                if advisor_rec is not None:
+                    raw_savings = float(advisor_rec.get("estimated_savings_usd") or 0)
+                    period = str(advisor_rec.get("savings_period") or "annual")
+                    estimated_savings = round(raw_savings / 12.0, 2) if period == "annual" else round(raw_savings, 2)
+                    if estimated_savings < 10:
+                        continue
+                    decision_evidence = {
+                        "source": "azure_advisor",
+                        "advisor_recommendation_id": advisor_rec.get("recommendation_id") or "",
+                        "advisor_impact": advisor_rec.get("impact") or "",
+                        "advisor_description": advisor_rec.get("short_description") or "",
+                        "savings_period": period,
+                        "raw_savings_value": raw_savings,
+                        "estimated_savings": estimated_savings,
+                        "current_monthly_cost": round(float(monthly_cost), 2),
+                    }
+                    score_rationale = (
+                        f"Azure Advisor: {advisor_rec.get('short_description') or ''}. "
+                        f"Impacto: {advisor_rec.get('impact') or 'N/A'}. "
+                        f"Economia: ${estimated_savings:,.2f}/mês (fonte: Advisor)."
+                    )
+                else:
+                    # No Advisor data — skip (don't show heuristic estimates)
                     continue
 
             score = compute_score(
@@ -227,6 +282,13 @@ class DecisionEngineService:
                     f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
                     f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
                     f"({decision_evidence.get('estimated_savings_pct')}%)."
+                )
+            elif decision_evidence and decision_evidence.get("source") == "azure_advisor":
+                description = (
+                    f"Azure Advisor: {decision_evidence.get('advisor_description')}. "
+                    f"Custo atual: ${decision_evidence.get('current_monthly_cost'):,.2f}/mês. "
+                    f"Economia estimada: ${estimated_savings:,.2f}/mês "
+                    f"(fonte: Azure Advisor, impacto: {decision_evidence.get('advisor_impact')})."
                 )
 
             dedupe_key = _opportunity_dedupe_key(
