@@ -225,7 +225,7 @@ def _format_status(raw: str) -> str:
 
 async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExportArtifact:
     account_service = CloudAccountService(db)
-    accounts = await account_service.list_accounts(job.org_id)
+    accounts, _ = await account_service.list_accounts(job.org_id)
     active_accounts = sum(1 for account in accounts if account.status.value == "active")
 
     ledger = CloudLedgerService(db)
