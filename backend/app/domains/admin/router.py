@@ -851,3 +851,118 @@ async def admin_backfill_subscriptions(
         ],
     )
     return JSONResponse(out.model_dump())
+
+
+@router.get(
+    "/diagnose-advisor",
+    include_in_schema=False,
+    summary="Diagnose Azure Advisor connectivity and recommendations for a tenant",
+)
+async def admin_diagnose_advisor(
+    org_id: UUID,
+    account_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import select
+    from app.domains.connectors.azure.client import AzureConnectorClient
+    from app.domains.cloud_accounts.models import CloudAccount
+
+    result = await db.execute(
+        select(CloudAccount).where(
+            CloudAccount.id == account_id,
+            CloudAccount.org_id == org_id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        return JSONResponse({"error": "Account not found"}, status_code=404)
+
+    client = AzureConnectorClient(
+        tenant_id=account.azure_tenant_id or "",
+        client_id=account.azure_client_id or "",
+        client_secret=account.azure_client_secret or "",
+    )
+
+    # Determine subscriptions
+    from app.core.config import get_settings as _get_settings
+    _settings = _get_settings()
+    subscription_ids = [account.external_id]
+    if _settings.azure_multi_subscription_enabled:
+        try:
+            accessible = await client.list_accessible_subscriptions()
+            if accessible:
+                subscription_ids = accessible
+        except Exception as e:
+            return JSONResponse({
+                "error": "Failed to list subscriptions",
+                "detail": str(e),
+            }, status_code=500)
+
+    # Fetch recommendations for each subscription
+    diagnosis = {
+        "org_id": str(org_id),
+        "account_id": str(account_id),
+        "subscription_ids": subscription_ids,
+        "subscriptions": [],
+    }
+
+    for sub_id in subscription_ids:
+        sub_result: dict = {"subscription_id": sub_id, "status": "ok"}
+        try:
+            recs = await client.fetch_recommendations(sub_id)
+            categories: dict[str, int] = {}
+            cost_recs_with_savings = 0
+            sample_recs = []
+            for r in recs:
+                categories[r.category] = categories.get(r.category, 0) + 1
+                if r.category == "Cost" and r.estimated_savings_usd:
+                    cost_recs_with_savings += 1
+                if len(sample_recs) < 3:
+                    sample_recs.append({
+                        "id": r.recommendation_id,
+                        "category": r.category,
+                        "impact": r.impact,
+                        "service": r.service,
+                        "description": r.short_description[:100],
+                        "savings_usd": r.estimated_savings_usd,
+                        "savings_period": r.savings_period,
+                        "resource_name": r.resource_name,
+                    })
+            sub_result["total_recommendations"] = len(recs)
+            sub_result["categories"] = categories
+            sub_result["cost_recs_with_savings"] = cost_recs_with_savings
+            sub_result["sample"] = sample_recs
+        except Exception as e:
+            sub_result["status"] = "error"
+            sub_result["error"] = str(e)
+            sub_result["exc_type"] = type(e).__name__
+
+        diagnosis["subscriptions"].append(sub_result)
+
+    # Summary
+    total = sum(s.get("total_recommendations", 0) for s in diagnosis["subscriptions"])
+    errors = [s for s in diagnosis["subscriptions"] if s["status"] == "error"]
+    diagnosis["summary"] = {
+        "total_recommendations_all_subs": total,
+        "subscriptions_with_errors": len(errors),
+        "subscriptions_ok": len(diagnosis["subscriptions"]) - len(errors),
+    }
+
+    if total == 0 and not errors:
+        diagnosis["likely_cause"] = (
+            "Azure Advisor returned 0 recommendations across all subscriptions. "
+            "Possible causes: (1) Advisor has not generated recommendations yet (can take 24-48h), "
+            "(2) Service Principal lacks 'Reader' role on the subscription, "
+            "(3) Advisor is not enabled for Cost recommendations in this tenant."
+        )
+        diagnosis["rbac_checklist"] = [
+            "Verify SP has 'Reader' role on each subscription",
+            "Verify SP has 'Microsoft.Advisor/recommendations/read' permission",
+            "Check Azure Portal > Advisor > Cost to see if recommendations exist",
+            "If recommendations exist in Portal but not via API, the SP permissions are the issue",
+        ]
+
+    return JSONResponse(diagnosis)

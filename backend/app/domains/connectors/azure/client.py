@@ -979,7 +979,11 @@ class AzureConnectorClient(BaseConnector):
 
         try:
             recs = await asyncio.to_thread(lambda: list(client.recommendations.list()))
+            categories_seen: dict[str, int] = {}
             for rec in recs:
+                cat = str(getattr(rec, "category", "") or "")
+                categories_seen[cat] = categories_seen.get(cat, 0) + 1
+
                 rec_id = str(rec.id or "")
 
                 # The Advisor resource ID is structured as:
@@ -1054,13 +1058,17 @@ class AzureConnectorClient(BaseConnector):
                 "azure.fetch_recommendations.failed",
                 subscription=subscription_id,
                 reason=str(exc),
+                exc_type=type(exc).__name__,
             )
             return []
 
         log.info(
             "azure.fetch_recommendations.done",
             subscription=subscription_id,
+            total_from_api=len(recs),
             records=len(records),
+            categories=categories_seen,
+            cost_recs=categories_seen.get("Cost", 0),
         )
         return records
 

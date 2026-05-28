@@ -417,9 +417,24 @@ class CloudLedgerService:
             inventory_count = 0
             usage_count = 0
 
-            recommendation_count = await self._ingest_provider_recommendations(
-                client, org_id, account_id, account.external_id
-            )
+            if isinstance(client, AzureConnectorClient):
+                for sub_id in azure_subscription_ids:
+                    try:
+                        sub_recs = await self._ingest_provider_recommendations(
+                            client, org_id, account_id, sub_id
+                        )
+                        recommendation_count += sub_recs
+                    except Exception as e:
+                        log.warning(
+                            "ledger.ingest.recommendations_failed",
+                            account_id=str(account_id),
+                            subscription_id=sub_id,
+                            error=str(e),
+                        )
+            else:
+                recommendation_count = await self._ingest_provider_recommendations(
+                    client, org_id, account_id, account.external_id
+                )
             inventory_count = await self._ingest_provider_inventory(
                 client, org_id, account_id, account.external_id
             )
