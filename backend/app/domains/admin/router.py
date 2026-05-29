@@ -1233,3 +1233,87 @@ async def admin_opportunities_audit(
         ),
         "warning": "DO NOT execute the suggested query without manual review. This endpoint is read-only.",
     })
+
+
+@router.post(
+    "/dismiss-legacy-opportunities",
+    include_in_schema=False,
+    summary="Dismiss open legacy heuristic opportunities (no decision_evidence.source)",
+)
+async def admin_dismiss_legacy_opportunities(
+    org_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from datetime import datetime, timezone
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import func, select, or_
+    from app.domains.decision_engine.models import OptimizationOpportunity, OpportunityStatus
+
+    # Find open opportunities with no decision_evidence.source (legacy heuristic)
+    legacy_filter = [
+        OptimizationOpportunity.org_id == org_id,
+        OptimizationOpportunity.status == OpportunityStatus.OPEN,
+        or_(
+            OptimizationOpportunity.decision_evidence.is_(None),
+            OptimizationOpportunity.decision_evidence.op("->>")("source").is_(None),
+        ),
+    ]
+
+    # Fetch them for update
+    result = await db.execute(
+        select(OptimizationOpportunity).where(*legacy_filter)
+    )
+    legacy_items = list(result.scalars().all())
+
+    dismissed_count = 0
+    for item in legacy_items:
+        item.status = OpportunityStatus.DISMISSED
+        item.score_rationale = (
+            (item.score_rationale or "").strip()
+            + "\n\n[system] Dismissed: legacy heuristic opportunity replaced by Azure Advisor-backed data."
+        ).strip()
+        dismissed_count += 1
+
+    await db.flush()
+    await db.commit()
+
+    # Get remaining counts
+    total_open_result = await db.execute(
+        select(func.count()).select_from(OptimizationOpportunity).where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+        )
+    )
+    remaining_open = total_open_result.scalar_one()
+
+    advisor_result = await db.execute(
+        select(func.count()).select_from(OptimizationOpportunity).where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+            OptimizationOpportunity.decision_evidence.op("->>")("source") == "azure_advisor",
+        )
+    )
+    remaining_advisor = advisor_result.scalar_one()
+
+    legacy_remaining_result = await db.execute(
+        select(func.count()).select_from(OptimizationOpportunity).where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+            or_(
+                OptimizationOpportunity.decision_evidence.is_(None),
+                OptimizationOpportunity.decision_evidence.op("->>")("source").is_(None),
+            ),
+        )
+    )
+    remaining_legacy = legacy_remaining_result.scalar_one()
+
+    return JSONResponse({
+        "org_id": str(org_id),
+        "executed_at": datetime.now(timezone.utc).isoformat(),
+        "dismissed_count": dismissed_count,
+        "remaining_open_count": remaining_open,
+        "remaining_azure_advisor_count": remaining_advisor,
+        "remaining_legacy_heuristic_count": remaining_legacy,
+    })
