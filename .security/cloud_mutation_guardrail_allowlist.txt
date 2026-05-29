@@ -15,5 +15,6 @@
 ^backend/app/domains/risk_budgets/router\.py$::delete_::Exclusao de entidade interna de risco
 ^backend/app/domains/intel/usage_observation_service\.py$::delete_::Delete SQL local para observacoes internas
 ^backend/app/domains/decision_engine/scorer\.py$::resize::Texto de playbook/recomendacao sem execucao automatica
+^backend/app/domains/decision_engine/service\.py$::resize::Classificacao textual de recomendacao Advisor (string match, nao execucao cloud)
 ^backend/app/domains/dev/service\.py$::scale::Texto de seed/demo sem chamada mutativa cloud
 ^backend/app/domains/dev/service\.py$::delete_::Mensagem de log interna de seed local (nao cloud mutation)
