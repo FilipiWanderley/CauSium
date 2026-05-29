@@ -36,6 +36,16 @@ from app.domains.intel.models import UsageObservation
 log = get_logger(__name__)
 
 
+def _fmt_brl(value: float | int | None) -> str:
+    """Format a numeric value as BRL currency (R$ X.XXX)."""
+    if value is None:
+        return "R$ 0"
+    v = float(value)
+    if v == int(v):
+        return f"R$ {int(v):,.0f}".replace(",", ".")
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 @dataclass(frozen=True)
 class AksNodePoolCandidate:
     cluster_id: str
@@ -245,7 +255,7 @@ class DecisionEngineService:
                     score_rationale = (
                         f"Azure Advisor: {advisor_rec.get('short_description') or ''}. "
                         f"Impacto: {advisor_rec.get('impact') or 'N/A'}. "
-                        f"Economia: ${estimated_savings:,.2f}/mês (fonte: Advisor)."
+                        f"Estimated savings: {_fmt_brl(estimated_savings)}/month (source: Advisor)."
                     )
                 else:
                     # No Advisor data — skip (don't show heuristic estimates)
@@ -263,12 +273,12 @@ class DecisionEngineService:
             description = _generate_description(category, service, monthly_cost, estimated_savings)
             if category == OpportunityCategory.RIGHTSIZING and decision_evidence:
                 description = (
-                    f"VM atual: {decision_evidence.get('current_sku')}. "
-                    f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / memória {decision_evidence.get('memory_p95')}%. "
-                    f"Recomendação: {decision_evidence.get('recommended_sku')}. "
-                    f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
-                    f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
-                    f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                    f"Current VM: {decision_evidence.get('current_sku')}. "
+                    f"Usage p95: CPU {decision_evidence.get('cpu_p95')}% / memory {decision_evidence.get('memory_p95')}%. "
+                    f"Recommendation: {decision_evidence.get('recommended_sku')}. "
+                    f"Current cost: {_fmt_brl(decision_evidence.get('current_monthly_cost'))}/month. "
+                    f"Estimated cost: {_fmt_brl(decision_evidence.get('estimated_monthly_cost'))}/month. "
+                    f"Savings: {_fmt_brl(decision_evidence.get('estimated_savings'))}/month "
                     f"({decision_evidence.get('estimated_savings_pct')}%)."
                 )
             elif category == OpportunityCategory.AKS_NODEPOOL_RIGHTSIZING and decision_evidence:
@@ -276,19 +286,19 @@ class DecisionEngineService:
                     f"AKS {decision_evidence.get('cluster_name')}, node pool {decision_evidence.get('node_pool')}. "
                     f"Nodes: {decision_evidence.get('current_node_count')} -> "
                     f"{decision_evidence.get('recommended_node_count')}. "
-                    f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / "
-                    f"memória {decision_evidence.get('memory_p95')}%. "
-                    f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
-                    f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
-                    f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                    f"Usage p95: CPU {decision_evidence.get('cpu_p95')}% / "
+                    f"memory {decision_evidence.get('memory_p95')}%. "
+                    f"Current cost: {_fmt_brl(decision_evidence.get('current_monthly_cost'))}/month. "
+                    f"Estimated cost: {_fmt_brl(decision_evidence.get('estimated_monthly_cost'))}/month. "
+                    f"Savings: {_fmt_brl(decision_evidence.get('estimated_savings'))}/month "
                     f"({decision_evidence.get('estimated_savings_pct')}%)."
                 )
             elif decision_evidence and decision_evidence.get("source") == "azure_advisor":
                 description = (
                     f"Azure Advisor: {decision_evidence.get('advisor_description')}. "
-                    f"Custo atual: ${decision_evidence.get('current_monthly_cost'):,.2f}/mês. "
-                    f"Economia estimada: ${estimated_savings:,.2f}/mês "
-                    f"(fonte: Azure Advisor, impacto: {decision_evidence.get('advisor_impact')})."
+                    f"Current cost: {_fmt_brl(decision_evidence.get('current_monthly_cost'))}/month. "
+                    f"Estimated savings: {_fmt_brl(estimated_savings)}/month "
+                    f"(source: Azure Advisor, impact: {decision_evidence.get('advisor_impact')})."
                 )
 
             dedupe_key = _opportunity_dedupe_key(
@@ -461,13 +471,13 @@ class DecisionEngineService:
                     f"AKS {decision_evidence.get('cluster_name')}, node pool {decision_evidence.get('node_pool')}. "
                     f"Nodes: {decision_evidence.get('current_node_count')} -> "
                     f"{decision_evidence.get('recommended_node_count')}. "
-                    f"Uso p95: CPU {decision_evidence.get('cpu_p95')}% / "
-                    f"memória {decision_evidence.get('memory_p95')}%. "
-                    f"Custo atual: ${decision_evidence.get('current_monthly_cost')}/mês. "
-                    f"Custo estimado: ${decision_evidence.get('estimated_monthly_cost')}/mês. "
-                    f"Economia: ${decision_evidence.get('estimated_savings')}/mês "
+                    f"Usage p95: CPU {decision_evidence.get('cpu_p95')}% / "
+                    f"memory {decision_evidence.get('memory_p95')}%. "
+                    f"Current cost: {_fmt_brl(decision_evidence.get('current_monthly_cost'))}/month. "
+                    f"Estimated cost: {_fmt_brl(decision_evidence.get('estimated_monthly_cost'))}/month. "
+                    f"Savings: {_fmt_brl(decision_evidence.get('estimated_savings'))}/month "
                     f"({decision_evidence.get('estimated_savings_pct')}%). "
-                    f"Estratégia recomendada no contexto: {decision_evidence.get('recommended_strategy')}."
+                    f"Recommended strategy: {decision_evidence.get('recommended_strategy')}."
                 )
                 dedupe_key = _opportunity_dedupe_key(
                     category=category,
@@ -565,14 +575,14 @@ class DecisionEngineService:
                 )
                 autoscaler_description = (
                     f"AKS {autoscaler_evidence.get('cluster_name')}, node pool {autoscaler_evidence.get('node_pool')}. "
-                    f"Autoscaler: desativado. Atual: {autoscaler_evidence.get('current_node_count')} nodes fixos. "
-                    f"Recomendado: min={autoscaler_evidence.get('recommended_min_count')}, "
+                    f"Autoscaler: disabled. Current: {autoscaler_evidence.get('current_node_count')} fixed nodes. "
+                    f"Recommended: min={autoscaler_evidence.get('recommended_min_count')}, "
                     f"max={autoscaler_evidence.get('recommended_max_count')}. "
-                    f"Uso p95: CPU {autoscaler_evidence.get('cpu_p95')}% / "
-                    f"memória {autoscaler_evidence.get('memory_p95')}%. "
-                    f"Economia conservadora estimada: ${autoscaler_evidence.get('estimated_savings')}/mês "
+                    f"Usage p95: CPU {autoscaler_evidence.get('cpu_p95')}% / "
+                    f"memory {autoscaler_evidence.get('memory_p95')}%. "
+                    f"Conservative estimated savings: {_fmt_brl(autoscaler_evidence.get('estimated_savings'))}/month "
                     f"({autoscaler_evidence.get('estimated_savings_pct')}%). "
-                    f"Estratégia recomendada no contexto: {autoscaler_evidence.get('recommended_strategy')}."
+                    f"Recommended strategy: {autoscaler_evidence.get('recommended_strategy')}."
                 )
                 autoscaler_dedupe_key = _opportunity_dedupe_key(
                     category=autoscaler_category,
@@ -742,8 +752,8 @@ class DecisionEngineService:
 
             description = (
                 f"Azure Advisor: {description_text}. "
-                f"Economia estimada: ${monthly_savings:,.2f}/mês (${round(monthly_savings * 12, 2):,.2f}/ano). "
-                f"Fonte: Azure Advisor, impacto: {impact}."
+                f"Estimated savings: {_fmt_brl(monthly_savings)}/month ({_fmt_brl(round(monthly_savings * 12, 2))}/year). "
+                f"Source: Azure Advisor, impact: {impact}."
             )
 
             # Check for existing opportunity with same advisor dedupe key
@@ -1451,8 +1461,8 @@ def _generate_description(
 ) -> str:
     rate = estimated_savings / monthly_cost * 100 if monthly_cost else 0
     return (
-        f"{service} is currently costing ${monthly_cost:,.2f}/month. "
-        f"Analysis indicates a {rate:.0f}% cost reduction opportunity (${estimated_savings:,.2f}/month) "
+        f"{service} is currently costing {_fmt_brl(monthly_cost)}/month. "
+        f"Analysis indicates a {rate:.0f}% cost reduction opportunity ({_fmt_brl(estimated_savings)}/month) "
         f"through {category.value.replace('_', ' ')}."
     )
 
