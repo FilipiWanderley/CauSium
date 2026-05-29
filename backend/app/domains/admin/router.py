@@ -865,10 +865,14 @@ async def admin_diagnose_advisor(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
 ):
     _check_internal_key(x_internal_key)
+    import traceback
+    from datetime import datetime, timezone
     from fastapi.responses import JSONResponse
     from sqlalchemy import select
     from app.domains.connectors.azure.client import AzureConnectorClient
-    from app.domains.cloud_accounts.models import CloudAccount
+    from app.domains.cloud_accounts.models import CloudAccount, CloudProvider
+    from app.domains.cloud_accounts.service import CloudAccountService
+    from app.core.config import get_settings as _get_settings
 
     result = await db.execute(
         select(CloudAccount).where(
@@ -880,34 +884,68 @@ async def admin_diagnose_advisor(
     if not account:
         return JSONResponse({"error": "Account not found"}, status_code=404)
 
-    client = AzureConnectorClient(
-        tenant_id=account.azure_tenant_id or "",
-        client_id=account.azure_client_id or "",
-        client_secret=account.azure_client_secret or "",
-    )
+    if account.provider != CloudProvider.AZURE:
+        return JSONResponse(
+            {"error": f"Account provider is '{account.provider.value}', not 'azure'. Advisor diagnostics only apply to Azure accounts."},
+            status_code=400,
+        )
+
+    # Decrypt credentials properly
+    svc = CloudAccountService(db)
+    try:
+        creds = await svc.get_azure_credentials(account)
+    except Exception as e:
+        return JSONResponse({
+            "error": "Failed to decrypt credentials for this account",
+            "exc_type": type(e).__name__,
+            "detail": str(e),
+        }, status_code=500)
+
+    if not creds:
+        return JSONResponse({
+            "error": "No Azure credentials found for this account (credentials_encrypted is empty)",
+        }, status_code=400)
+
+    try:
+        client = AzureConnectorClient(
+            tenant_id=creds.tenant_id,
+            client_id=creds.client_id,
+            client_secret=creds.client_secret,
+        )
+    except Exception as e:
+        return JSONResponse({
+            "error": "Failed to initialize Azure connector client",
+            "exc_type": type(e).__name__,
+            "detail": str(e),
+        }, status_code=500)
 
     # Determine subscriptions
-    from app.core.config import get_settings as _get_settings
     _settings = _get_settings()
     subscription_ids = [account.external_id]
+    multi_sub_error = None
     if _settings.azure_multi_subscription_enabled:
         try:
             accessible = await client.list_accessible_subscriptions()
             if accessible:
                 subscription_ids = accessible
         except Exception as e:
-            return JSONResponse({
-                "error": "Failed to list subscriptions",
+            multi_sub_error = {
+                "exc_type": type(e).__name__,
                 "detail": str(e),
-            }, status_code=500)
+                "fallback": "Using account.external_id only",
+            }
 
     # Fetch recommendations for each subscription
-    diagnosis = {
+    diagnosis: dict = {
         "org_id": str(org_id),
         "account_id": str(account_id),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
         "subscription_ids": subscription_ids,
+        "multi_subscription_enabled": _settings.azure_multi_subscription_enabled,
         "subscriptions": [],
     }
+    if multi_sub_error:
+        diagnosis["multi_subscription_discovery_error"] = multi_sub_error
 
     for sub_id in subscription_ids:
         sub_result: dict = {"subscription_id": sub_id, "status": "ok"}
