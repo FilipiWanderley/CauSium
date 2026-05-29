@@ -1136,3 +1136,100 @@ async def admin_force_ingest_recommendations(
         "opportunities_generated": opportunities_generated,
         "errors": errors,
     })
+
+
+@router.get(
+    "/opportunities-audit",
+    include_in_schema=False,
+    summary="Read-only audit of opportunities by source (no mutations)",
+)
+async def admin_opportunities_audit(
+    org_id: UUID,
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from datetime import datetime, timezone
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import func, select, text
+    from app.domains.decision_engine.models import OptimizationOpportunity, OpportunityStatus
+
+    # Total open opportunities
+    total_result = await db.execute(
+        select(func.count()).select_from(OptimizationOpportunity).where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+        )
+    )
+    total_open = total_result.scalar_one()
+
+    # Count grouped by source
+    source_expr = func.coalesce(
+        OptimizationOpportunity.decision_evidence.op("->>")("source"),
+        text("'legacy_heuristic'"),
+    )
+    source_result = await db.execute(
+        select(source_expr.label("source"), func.count().label("count"))
+        .where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+        )
+        .group_by(source_expr)
+        .order_by(func.count().desc())
+    )
+    source_breakdown = [{"source": row.source, "count": row.count} for row in source_result]
+
+    # Counts for specific sources
+    advisor_count = sum(r["count"] for r in source_breakdown if r["source"] == "azure_advisor")
+    legacy_count = sum(r["count"] for r in source_breakdown if r["source"] == "legacy_heuristic")
+
+    # Top 20 by estimated savings
+    top_result = await db.execute(
+        select(
+            OptimizationOpportunity.id,
+            OptimizationOpportunity.title,
+            OptimizationOpportunity.estimated_monthly_savings_usd,
+            OptimizationOpportunity.status,
+            OptimizationOpportunity.created_at,
+            OptimizationOpportunity.decision_evidence,
+            OptimizationOpportunity.category,
+        )
+        .where(
+            OptimizationOpportunity.org_id == org_id,
+            OptimizationOpportunity.status == OpportunityStatus.OPEN,
+        )
+        .order_by(OptimizationOpportunity.estimated_monthly_savings_usd.desc())
+        .limit(20)
+    )
+    top_opportunities = []
+    for row in top_result:
+        evidence = row.decision_evidence or {}
+        source = evidence.get("source", "legacy_heuristic")
+        top_opportunities.append({
+            "id": str(row.id),
+            "title": row.title,
+            "source": source,
+            "estimated_monthly_savings_usd": float(row.estimated_monthly_savings_usd or 0),
+            "status": row.status.value if hasattr(row.status, "value") else str(row.status),
+            "category": row.category.value if hasattr(row.category, "value") else str(row.category),
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        })
+
+    return JSONResponse({
+        "org_id": str(org_id),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "total_open": total_open,
+        "source_breakdown": source_breakdown,
+        "azure_advisor_count": advisor_count,
+        "legacy_heuristic_count": legacy_count,
+        "top_20_by_savings": top_opportunities,
+        "suggested_cleanup_query": (
+            "UPDATE optimization_opportunities SET status = 'dismissed', "
+            "score_rationale = COALESCE(score_rationale, '') || "
+            "E'\\n\\n[system] Auto-dismissed: replaced by Azure Advisor-backed opportunity.' "
+            f"WHERE org_id = '{org_id}' "
+            "AND status = 'open' "
+            "AND (decision_evidence IS NULL OR decision_evidence->>'source' IS NULL);"
+        ),
+        "warning": "DO NOT execute the suggested query without manual review. This endpoint is read-only.",
+    })
