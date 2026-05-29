@@ -1003,3 +1003,136 @@ async def admin_diagnose_advisor(
         ]
 
     return JSONResponse(diagnosis)
+
+
+@router.post(
+    "/force-ingest-recommendations",
+    include_in_schema=False,
+    summary="Fetch Azure Advisor recommendations and insert into ClickHouse (lightweight, no cost/event sync)",
+)
+async def admin_force_ingest_recommendations(
+    org_id: UUID,
+    account_id: UUID,
+    generate_opportunities: bool = Query(default=True),
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+):
+    _check_internal_key(x_internal_key)
+    from datetime import datetime, timezone
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import select
+    from app.domains.connectors.azure.client import AzureConnectorClient
+    from app.domains.cloud_accounts.models import CloudAccount, CloudProvider
+    from app.domains.cloud_accounts.service import CloudAccountService
+    from app.domains.cloud_ledger.service import CloudLedgerService
+    from app.core.config import get_settings as _get_settings
+
+    result = await db.execute(
+        select(CloudAccount).where(
+            CloudAccount.id == account_id,
+            CloudAccount.org_id == org_id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        return JSONResponse({"error": "Account not found"}, status_code=404)
+
+    if account.provider != CloudProvider.AZURE:
+        return JSONResponse(
+            {"error": f"Account provider is '{account.provider.value}', not 'azure'."},
+            status_code=400,
+        )
+
+    svc = CloudAccountService(db)
+    try:
+        creds = await svc.get_azure_credentials(account)
+    except Exception as e:
+        return JSONResponse({
+            "error": "Failed to decrypt credentials",
+            "exc_type": type(e).__name__,
+            "detail": str(e),
+        }, status_code=500)
+
+    if not creds:
+        return JSONResponse({"error": "No Azure credentials found"}, status_code=400)
+
+    try:
+        client = AzureConnectorClient(
+            tenant_id=creds.tenant_id,
+            client_id=creds.client_id,
+            client_secret=creds.client_secret,
+        )
+    except Exception as e:
+        return JSONResponse({
+            "error": "Failed to initialize Azure connector",
+            "exc_type": type(e).__name__,
+            "detail": str(e),
+        }, status_code=500)
+
+    _settings = _get_settings()
+    subscription_ids = [account.external_id]
+    if _settings.azure_multi_subscription_enabled:
+        try:
+            accessible = await client.list_accessible_subscriptions()
+            if accessible:
+                subscription_ids = accessible
+        except Exception:
+            pass
+
+    ledger = CloudLedgerService(db)
+    total_inserted = 0
+    total_fetched = 0
+    cost_recs = 0
+    cost_recs_with_savings = 0
+    errors: list[dict] = []
+
+    for sub_id in subscription_ids:
+        try:
+            recs = await client.fetch_recommendations(sub_id)
+            total_fetched += len(recs)
+            for r in recs:
+                if r.category == "Cost":
+                    cost_recs += 1
+                    if r.estimated_savings_usd and r.estimated_savings_usd > 0:
+                        cost_recs_with_savings += 1
+
+            inserted = await ledger._ingest_provider_recommendations(
+                client, org_id, account_id, sub_id
+            )
+            total_inserted += inserted
+        except Exception as e:
+            errors.append({
+                "subscription_id": sub_id,
+                "exc_type": type(e).__name__,
+                "detail": str(e)[:200],
+            })
+
+    await db.commit()
+
+    opportunities_generated = 0
+    if generate_opportunities:
+        try:
+            from app.domains.decision_engine.service import DecisionEngineService
+            engine = DecisionEngineService(db)
+            opps = await engine.generate_opportunities_for_account(org_id, account_id)
+            opportunities_generated = len(opps)
+            await db.commit()
+        except Exception as e:
+            errors.append({
+                "step": "generate_opportunities",
+                "exc_type": type(e).__name__,
+                "detail": str(e)[:200],
+            })
+
+    return JSONResponse({
+        "org_id": str(org_id),
+        "account_id": str(account_id),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "subscriptions_checked": len(subscription_ids),
+        "recommendations_fetched": total_fetched,
+        "cost_recommendations": cost_recs,
+        "cost_recommendations_with_savings": cost_recs_with_savings,
+        "recommendation_facts_inserted": total_inserted,
+        "opportunities_generated": opportunities_generated,
+        "errors": errors,
+    })

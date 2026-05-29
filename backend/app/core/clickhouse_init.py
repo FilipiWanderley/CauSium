@@ -138,6 +138,9 @@ MIGRATIONS = [
     "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS cost_type LowCardinality(String) DEFAULT 'actual'",
     # AKS nodepool rightsizing needs sku_name on cost_facts
     "ALTER TABLE cost_facts ADD COLUMN IF NOT EXISTS sku_name String DEFAULT ''",
+    # recommendation_facts: add columns used by _ingest_provider_recommendations
+    "ALTER TABLE recommendation_facts ADD COLUMN IF NOT EXISTS recommendation_id String DEFAULT ''",
+    "ALTER TABLE recommendation_facts ADD COLUMN IF NOT EXISTS resource_group String DEFAULT ''",
 ]
 
 

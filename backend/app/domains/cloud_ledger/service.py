@@ -566,7 +566,7 @@ class CloudLedgerService:
 
         rows = [
             {
-                "fetched_at": r.fetched_at,
+                "date": r.fetched_at.date() if hasattr(r.fetched_at, "date") else r.fetched_at,
                 "org_id": str(org_id),
                 "account_id": str(account_id),
                 "provider": r.provider,
@@ -580,8 +580,11 @@ class CloudLedgerService:
                 "service": r.service,
                 "short_description": r.short_description,
                 "recommendation_type_id": r.recommendation_type_id,
-                "estimated_savings_usd": r.estimated_savings_usd,
+                "estimated_savings_usd": r.estimated_savings_usd or 0.0,
                 "savings_period": getattr(r, "savings_period", "annual"),
+                "resource_type": "",
+                "sku_name": "",
+                "sku_tier": "",
             }
             for r in recs
         ]
@@ -589,7 +592,15 @@ class CloudLedgerService:
             try:
                 insert_rows("recommendation_facts", rows)
             except Exception as exc:
-                log.warning("ledger.clickhouse.recommendation_insert_failed", error=str(exc))
+                columns = list(rows[0].keys()) if rows else []
+                log.warning(
+                    "ledger.clickhouse.recommendation_insert_failed",
+                    table="recommendation_facts",
+                    columns=columns,
+                    row_count=len(rows),
+                    exc_type=type(exc).__name__,
+                    error=str(exc)[:500],
+                )
                 return 0
 
         return len(rows)
