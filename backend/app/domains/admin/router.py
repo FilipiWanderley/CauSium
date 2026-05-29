@@ -865,7 +865,6 @@ async def admin_diagnose_advisor(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
 ):
     _check_internal_key(x_internal_key)
-    import traceback
     from datetime import datetime, timezone
     from fastapi.responses import JSONResponse
     from sqlalchemy import select
