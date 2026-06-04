@@ -123,7 +123,8 @@ class DecisionEngineService:
                     short_description,
                     impact,
                     category AS advisor_category,
-                    recommendation_id
+                    recommendation_id,
+                    subscription_id
                 FROM recommendation_facts
                 WHERE org_id = {org_id:String}
                   AND account_id = {account_id:String}
@@ -667,10 +668,14 @@ class DecisionEngineService:
                 + "\n\n[system] Auto-dismissed duplicate opportunity."
             ).strip()
 
-        # --- Standalone Advisor-backed opportunities ---
-        # Generate opportunities directly from recommendation_facts for Cost recs
-        # that were NOT already matched via cost_facts resource_id join above.
+        # --- Standalone Advisor-backed opportunities (GROUPED) ---
+        # Group Advisor recommendations by subscription + type to reduce visual noise.
+        # Each group becomes one opportunity with child_recommendations in evidence.
         advisor_used_rids = {k.lower() for k in advisor_by_resource if k in seen_keys_in_run}
+
+        # Step 1: Filter and collect eligible recommendations
+        eligible_advisor: list[dict] = []
+        seen_rec_ids: set[str] = set()
         for ar in advisor_rows:
             rid = (ar.get("resource_id") or "").strip()
             rec_id = ar.get("recommendation_id") or ""
@@ -681,88 +686,118 @@ class DecisionEngineService:
             monthly_savings = round(raw_savings / 12.0, 2) if period == "annual" else round(raw_savings, 2)
             if monthly_savings < 10:
                 continue
+            # Skip if already handled by cost_facts matching
+            if rid.lower() in advisor_used_rids:
+                continue
+            # Dedupe within ClickHouse rows (multiple inserts create duplicates)
+            if rec_id in seen_rec_ids:
+                continue
+            seen_rec_ids.add(rec_id)
+            ar["_monthly_savings"] = monthly_savings
+            ar["_period"] = period
+            eligible_advisor.append(ar)
 
-            # Dedupe key for Advisor standalone: use recommendation_id as primary key
-            advisor_dedupe_key = f"advisor|{_norm_text(str(account_id))}|{_norm_text(rec_id or rid)}"
+        # Step 2: Group by subscription_id + normalized recommendation type
+        advisor_groups: dict[str, list[dict]] = {}
+        for ar in eligible_advisor:
+            sub_id = str(ar.get("subscription_id") or "")
+            desc_lower = str(ar.get("short_description") or "").lower()
+            norm_type = _normalize_advisor_type(desc_lower)
+            group_key = f"{sub_id}|{norm_type}"
+            advisor_groups.setdefault(group_key, []).append(ar)
+
+        # Step 3: Create one opportunity per group
+        for group_key, group_recs in advisor_groups.items():
+            sub_id, norm_type = group_key.split("|", 1)
+
+            # Sort by monthly savings descending — best option first
+            group_recs.sort(key=lambda r: r["_monthly_savings"], reverse=True)
+            best = group_recs[0]
+            best_monthly = best["_monthly_savings"]
+            best_rec_id = best.get("recommendation_id") or ""
+            best_description = str(best.get("short_description") or "")
+            best_impact = str(best.get("impact") or "Medium")
+            best_rid = (best.get("resource_id") or "").strip()
+            rec_count = len(group_recs)
+
+            # Dedupe key for grouped opportunity
+            advisor_dedupe_key = f"advisor_group|{_norm_text(str(account_id))}|{_norm_text(sub_id)}|{norm_type}"
             if advisor_dedupe_key in seen_keys_in_run:
                 continue
 
-            # Also check if this resource was already handled by cost_facts matching
-            if rid.lower() in advisor_used_rids:
-                continue
+            # Classify category and generate title
+            category, title = _advisor_group_category_title(norm_type, sub_id, rec_count)
 
-            # Determine if subscription-scoped or resource-scoped
-            is_subscription_scoped = (
-                not rid
-                or rid.lower().rstrip("/").count("/") <= 2
-                or rid.lower().startswith("/subscriptions/") and rid.lower().rstrip("/").count("/") == 2
-            )
-
-            description_text = str(ar.get("short_description") or "")
-            impact = str(ar.get("impact") or "Medium")
-            subscription_id = str(ar.get("subscription_id") or "")
-
-            # Classify category based on description
-            desc_lower = description_text.lower()
-            if "savings plan" in desc_lower or "saving plan" in desc_lower:
-                category = OpportunityCategory.RESERVED_INSTANCES
-                title = f"Purchase Azure Savings Plan for subscription {subscription_id[:8]}..."
-            elif "reserved" in desc_lower or "reservation" in desc_lower:
-                category = OpportunityCategory.RESERVED_INSTANCES
-                title = f"Review Reserved Instance coverage for subscription {subscription_id[:8]}..."
-            elif "shut down" in desc_lower or "idle" in desc_lower or "deallocate" in desc_lower:
-                category = OpportunityCategory.IDLE_RESOURCES
-                resource_display = rid.split("/")[-1] if rid and "/" in rid else (subscription_id[:8] + "...")
-                title = f"Deallocate idle resource: {resource_display}"
-            elif "right-size" in desc_lower or "rightsize" in desc_lower or "resize" in desc_lower:
-                category = OpportunityCategory.RIGHTSIZING
-                resource_display = rid.split("/")[-1] if rid and "/" in rid else "resource"
-                title = f"Rightsize {resource_display} (Azure Advisor)"
-            else:
-                category = OpportunityCategory.ARCHITECTURE_CHANGE
-                if is_subscription_scoped:
-                    title = f"Azure Advisor: {description_text[:60]}"
-                else:
-                    resource_display = rid.split("/")[-1] if rid and "/" in rid else "resource"
-                    title = f"Optimize {resource_display} (Azure Advisor)"
-
-            service = _extract_service_from_resource_id(rid) if rid else "Azure Subscription"
-            resource_name = rid.split("/")[-1] if rid and "/" in rid and not is_subscription_scoped else ""
+            # Build child recommendations list
+            child_recommendations = [
+                {
+                    "recommendation_id": r.get("recommendation_id") or "",
+                    "estimated_savings": r["_monthly_savings"],
+                    "description": str(r.get("short_description") or ""),
+                    "impact": str(r.get("impact") or "Medium"),
+                    "resource_id": (r.get("resource_id") or "").strip(),
+                }
+                for r in group_recs
+            ]
 
             decision_evidence = {
                 "source": "azure_advisor",
-                "advisor_recommendation_id": rec_id,
-                "advisor_impact": impact,
-                "advisor_description": description_text,
-                "subscription_id": subscription_id,
-                "savings_period": period,
-                "raw_savings_value": raw_savings,
-                "estimated_savings": monthly_savings,
-                "estimated_annual_savings": round(monthly_savings * 12, 2),
-                "is_subscription_scoped": is_subscription_scoped,
+                "is_grouped": True,
+                "recommendation_count": rec_count,
+                "best_recommendation_id": best_rec_id,
+                "total_potential_savings": round(sum(r["_monthly_savings"] for r in group_recs), 2),
+                "child_recommendations": child_recommendations,
+                "subscription_id": sub_id,
+                "advisor_description": best_description,
+                "advisor_impact": best_impact,
+                "savings_period": best.get("_period") or "annual",
+                "estimated_savings": best_monthly,
+                "estimated_annual_savings": round(best_monthly * 12, 2),
                 "confidence": 0.90,
             }
 
             score = compute_score(
                 category=category,
-                monthly_savings_usd=monthly_savings,
+                monthly_savings_usd=best_monthly,
                 environment="production",
                 override_risk=RiskLevel.LOW,
             )
 
-            description = (
-                f"Azure Advisor: {description_text}. "
-                f"Estimated savings: {_fmt_brl(monthly_savings)}/month ({_fmt_brl(round(monthly_savings * 12, 2))}/year). "
-                f"Source: Azure Advisor, impact: {impact}."
-            )
+            if rec_count == 1:
+                description = (
+                    f"Azure Advisor: {best_description}. "
+                    f"Estimated savings: {_fmt_brl(best_monthly)}/month ({_fmt_brl(round(best_monthly * 12, 2))}/year). "
+                    f"Source: Azure Advisor, impact: {best_impact}."
+                )
+            else:
+                description = (
+                    f"Azure Advisor identified {rec_count} optimization options. "
+                    f"Best option saves {_fmt_brl(best_monthly)}/month ({_fmt_brl(round(best_monthly * 12, 2))}/year). "
+                    f"Source: Azure Advisor, impact: {best_impact}."
+                )
 
-            # Check for existing opportunity with same advisor dedupe key
+            service = _extract_service_from_resource_id(best_rid) if best_rid else "Azure Subscription"
+            resource_name = ""
+
+            # Upsert: find existing grouped opportunity for same subscription + type
             existing_advisor = None
             for existing_key, existing_op in existing_by_key.items():
                 ev = existing_op.decision_evidence or {}
-                if ev.get("source") == "azure_advisor" and ev.get("advisor_recommendation_id") == rec_id and rec_id:
+                if (
+                    ev.get("source") == "azure_advisor"
+                    and ev.get("is_grouped") is True
+                    and _norm_text(ev.get("subscription_id") or "") == _norm_text(sub_id)
+                    and _normalize_advisor_type(str(ev.get("advisor_description") or "").lower()) == norm_type
+                ):
                     existing_advisor = existing_op
                     break
+            # Also match old non-grouped opportunities by best_recommendation_id
+            if existing_advisor is None and best_rec_id:
+                for existing_key, existing_op in existing_by_key.items():
+                    ev = existing_op.decision_evidence or {}
+                    if ev.get("source") == "azure_advisor" and ev.get("advisor_recommendation_id") == best_rec_id:
+                        existing_advisor = existing_op
+                        break
 
             if existing_advisor is not None:
                 existing_advisor.title = title
@@ -773,11 +808,11 @@ class DecisionEngineService:
                 existing_advisor.effort_score = score.effort_score
                 existing_advisor.criticality_score = score.criticality_score
                 existing_advisor.composite_score = score.composite_score
-                existing_advisor.estimated_monthly_savings_usd = monthly_savings
-                existing_advisor.estimated_annual_savings_usd = round(monthly_savings * 12, 2)
+                existing_advisor.estimated_monthly_savings_usd = best_monthly
+                existing_advisor.estimated_annual_savings_usd = round(best_monthly * 12, 2)
                 existing_advisor.risk_level = score.risk_level
                 existing_advisor.effort_level = score.effort_level
-                existing_advisor.resource_id = rid
+                existing_advisor.resource_id = best_rid
                 existing_advisor.resource_name = resource_name
                 existing_advisor.service = service
                 existing_advisor.score_rationale = score.rationale
@@ -796,12 +831,12 @@ class DecisionEngineService:
                     effort_score=score.effort_score,
                     criticality_score=score.criticality_score,
                     composite_score=score.composite_score,
-                    estimated_monthly_savings_usd=monthly_savings,
-                    estimated_annual_savings_usd=round(monthly_savings * 12, 2),
+                    estimated_monthly_savings_usd=best_monthly,
+                    estimated_annual_savings_usd=round(best_monthly * 12, 2),
                     current_monthly_cost_usd=0.0,
                     risk_level=score.risk_level,
                     effort_level=score.effort_level,
-                    resource_id=rid,
+                    resource_id=best_rid,
                     resource_name=resource_name,
                     service=service,
                     region="",
@@ -1588,6 +1623,54 @@ def _extract_service_from_resource_id(resource_id: str) -> str:
     if len(segments) >= 2:
         return segments[0] + "/" + segments[1]
     return segments[0] if segments else "Azure"
+
+
+def _normalize_advisor_type(desc_lower: str) -> str:
+    """Normalize Advisor short_description to a grouping key."""
+    if "savings plan" in desc_lower or "saving plan" in desc_lower:
+        return "savings_plan"
+    if "reserved" in desc_lower or "reservation" in desc_lower:
+        return "reserved_instance"
+    if "shut down" in desc_lower or "idle" in desc_lower or "deallocate" in desc_lower:
+        return "idle_resource"
+    if "right-size" in desc_lower or "rightsize" in desc_lower or "resize" in desc_lower:
+        return "rightsizing"
+    # Fallback: normalize the description itself as the type key
+    normalized = re.sub(r"[^a-z0-9]+", "_", desc_lower[:50]).strip("_")
+    return normalized or "other"
+
+
+def _advisor_group_category_title(
+    norm_type: str, subscription_id: str, rec_count: int
+) -> tuple[OpportunityCategory, str]:
+    """Return (category, title) for a grouped Advisor opportunity."""
+    sub_display = f"{subscription_id[:8]}..."
+    count_suffix = f" ({rec_count} options)" if rec_count > 1 else ""
+
+    if norm_type == "savings_plan":
+        return (
+            OpportunityCategory.RESERVED_INSTANCES,
+            f"Azure Savings Plan for subscription {sub_display}{count_suffix}",
+        )
+    if norm_type == "reserved_instance":
+        return (
+            OpportunityCategory.RESERVED_INSTANCES,
+            f"Reserved Instance coverage for subscription {sub_display}{count_suffix}",
+        )
+    if norm_type == "idle_resource":
+        return (
+            OpportunityCategory.IDLE_RESOURCES,
+            f"Idle resources in subscription {sub_display}{count_suffix}",
+        )
+    if norm_type == "rightsizing":
+        return (
+            OpportunityCategory.RIGHTSIZING,
+            f"Rightsizing opportunities in subscription {sub_display}{count_suffix}",
+        )
+    return (
+        OpportunityCategory.ARCHITECTURE_CHANGE,
+        f"Azure Advisor: cost optimization for subscription {sub_display}{count_suffix}",
+    )
 
 
 def _opportunity_dedupe_key(

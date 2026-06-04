@@ -38,3 +38,6 @@ backend/alembic/versions/*.pyc
 # Local release/deploy artifacts
 LOGIN_DASHBOARD_LOCAL.txt
 _db_migration_backup/
+
+# ClickHouse Cloud migration credentials
+.env.clickhouse-migration

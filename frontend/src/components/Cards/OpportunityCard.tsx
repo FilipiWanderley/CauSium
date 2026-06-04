@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { useState } from 'react'
 import type { Opportunity, OpportunityStatus } from '../../types'
 import { useI18n } from '../../contexts/I18nContext'
 import { buildAzurePortalResourceUrl, parseAzureResourceId } from '../../utils/azureResource'
@@ -73,6 +74,12 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
     !hasAksNodePoolEvidence &&
     !!evidence &&
     (evidence.current_sku || evidence.recommended_sku || evidence.cpu_p95 != null || evidence.memory_p95 != null)
+  const hasGroupedAdvisorEvidence =
+    !!evidence &&
+    evidence.source === 'azure_advisor' &&
+    evidence.is_grouped === true &&
+    (evidence.recommendation_count ?? 0) > 1
+  const [advisorExpanded, setAdvisorExpanded] = useState(false)
 
   return (
     <div
@@ -235,7 +242,56 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
         </div>
       )}
 
-      {(op.resource_id || op.resource_name) && (
+      {hasGroupedAdvisorEvidence && (
+        <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-gray-700">
+          <p className="font-semibold text-gray-800">
+            Azure Advisor Recommendations ({evidence!.recommendation_count} options)
+          </p>
+          <p className="mt-1">
+            Best option: <strong>{fmtMoney(evidence!.estimated_savings ?? op.estimated_monthly_savings_usd)}/mo</strong>
+            {'  '}·{'  '}
+            Total potential: <strong>{fmtMoney(evidence!.total_potential_savings ?? 0)}/mo</strong>
+          </p>
+          {evidence!.child_recommendations && evidence!.child_recommendations.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="mt-2 text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setAdvisorExpanded(!advisorExpanded)
+                }}
+              >
+                {advisorExpanded ? 'Hide options' : `Show ${evidence!.child_recommendations.length} options`}
+              </button>
+              {advisorExpanded && (
+                <div className="mt-2 space-y-1.5 border-t border-emerald-100 pt-2">
+                  {evidence!.child_recommendations.map((child, idx) => (
+                    <div key={child.recommendation_id || idx} className="flex items-center justify-between gap-2">
+                      <span className="text-gray-600 truncate flex-1">{child.description || 'Advisor recommendation'}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={clsx(
+                          'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                          child.impact === 'High' ? 'bg-red-100 text-red-700' :
+                          child.impact === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        )}>
+                          {child.impact}
+                        </span>
+                        <span className="font-semibold tabular-nums text-emerald-700">
+                          {fmtMoney(child.estimated_savings)}/mo
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {(op.resource_id || op.resource_name) && !hasGroupedAdvisorEvidence && (
         <div className="mt-3 border-t border-gray-100 pt-3">
           <p className="text-xs text-gray-500">{o.targetResource}</p>
           <p className="mt-1 text-xs text-gray-700">

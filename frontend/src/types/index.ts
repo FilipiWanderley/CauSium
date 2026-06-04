@@ -420,6 +420,24 @@ export interface OpportunityDecisionEvidence {
   confidence?: number | null
   risk_level?: RiskLevel | null
   reason?: string | null
+  // Azure Advisor grouped fields
+  source?: string | null
+  is_grouped?: boolean | null
+  recommendation_count?: number | null
+  best_recommendation_id?: string | null
+  total_potential_savings?: number | null
+  child_recommendations?: Array<{
+    recommendation_id: string
+    estimated_savings: number
+    description: string
+    impact: string
+    resource_id?: string
+  }> | null
+  advisor_recommendation_id?: string | null
+  advisor_description?: string | null
+  advisor_impact?: string | null
+  subscription_id?: string | null
+  savings_period?: string | null
 }
 
 export interface OpportunityExplainResponse {
