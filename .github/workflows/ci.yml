@@ -76,14 +76,12 @@ jobs:
       - name: SCA (pip-audit)
         working-directory: backend
         run: |
-          poetry run pip install pip-audit
-          PIP_AUDIT_ARGS=(--local)
-          if [ -n "${{ steps.baseline.outputs.pip_audit_ids }}" ]; then
-            for vuln in ${{ steps.baseline.outputs.pip_audit_ids }}; do
-              PIP_AUDIT_ARGS+=(--ignore-vuln "$vuln")
-            done
-          fi
-          poetry run pip-audit "${PIP_AUDIT_ARGS[@]}"
+          pip install pip-audit
+          IGNORE_ARGS=""
+          for vuln in ${{ steps.baseline.outputs.pip_audit_ids }}; do
+            IGNORE_ARGS="$IGNORE_ARGS --ignore-vuln $vuln"
+          done
+          pip-audit --local $IGNORE_ARGS
 
       - uses: actions/setup-node@v4
         with:
