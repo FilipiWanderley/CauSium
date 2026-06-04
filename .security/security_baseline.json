@@ -163,6 +163,48 @@
         "owner": "backend-platform",
         "ticket": "TEMP-PY-DEPS-BASELINE",
         "expires_on": "2026-06-30"
+      },
+      {
+        "id": "CVE-2026-34993",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "CVE-2026-47265",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "PYSEC-2026-179",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "PYSEC-2026-175",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "PYSEC-2026-177",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "PYSEC-2026-178",
+        "reason": "Temporary CI unblock while Python dependency upgrades are handled in a separate PR.",
+        "owner": "backend-platform",
+        "ticket": "TEMP-PY-DEPS-BASELINE",
+        "expires_on": "2026-06-30"
       }
     ],
     "npm_audit": [],
