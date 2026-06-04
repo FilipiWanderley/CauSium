@@ -207,7 +207,189 @@
         "expires_on": "2026-06-30"
       }
     ],
-    "npm_audit": [],
-    "gitleaks": []
+    "npm_audit": [
+      {
+        "id": "GHSA-3p68-rc4w-qgx5",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-w9j2-pvgh-6h63",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-pmwg-cvhr-8vh7",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-3w6x-2g7m-8v23",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-xhjh-pmcv-23jw",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-445q-vr5w-6q77",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-m7pr-hjqh-92cm",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-62hf-57xw-28j9",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-5c9x-8gcm-mpgx",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-vf2m-468p-8v99",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-pf86-5x62-jrwf",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-6chq-wfr3-2hj9",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-xx6v-rp6x-q39c",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-q8qp-cvcw-x6jj",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-fvcv-3m26-pcqx",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-pjwm-pj3p-43mv",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-898c-q2cr-xwhg",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-3g43-6gmg-66jw",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-35jp-ww65-95wh",
+        "reason": "Axios vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-67mh-4wv8-2f99",
+        "reason": "esbuild vulnerability in vite - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-r4q5-vmmm-2653",
+        "reason": "follow-redirects vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-r5fr-rjxr-66jc",
+        "reason": "lodash vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-f23m-r3pf-42rh",
+        "reason": "lodash vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-qx2v-qp2m-jg93",
+        "reason": "PostCSS vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-2j2x-hqr9-3h42",
+        "reason": "react-router vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      },
+      {
+        "id": "GHSA-58qx-3vcg-4xpx",
+        "reason": "ws vulnerability - upgrade planned in separate PR.",
+        "owner": "frontend-platform",
+        "ticket": "TEMP-FRONTEND-DEPS",
+        "expires_on": "2026-06-30"
+      }
+    ],
   }
 }

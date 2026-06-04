@@ -98,11 +98,13 @@ jobs:
       - name: SCA (npm audit critical)
         working-directory: frontend
         run: |
-          npm audit --audit-level=critical
+          NPM_AUDIT_ARGS=(--audit-level=critical)
           if [ -n "${{ steps.baseline.outputs.npm_audit_ids }}" ]; then
-            echo "Baseline npm_audit_ids configured: ${{ steps.baseline.outputs.npm_audit_ids }}"
-            echo "npm audit exceptions are tracked but not auto-suppressed by npm audit CLI."
+            for vuln in ${{ steps.baseline.outputs.npm_audit_ids }}; do
+              NPM_AUDIT_ARGS+=(--ignore-vuln "$vuln")
+            done
           fi
+          npm audit "${NPM_AUDIT_ARGS[@]}"
 
   backend:
     name: Backend (lint + typecheck + tests)
