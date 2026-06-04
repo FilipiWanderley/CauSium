@@ -97,36 +97,48 @@ class TestBuildSslContextCaFile:
         # OpenSSL cert validation is trusted to the standard library.
         import subprocess
 
+        import time
+
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as tmp:
             pem_path = tmp.name
-            # Generate a throw-away self-signed cert just for the path check.
-            # If openssl is not available, fall back to writing a stub file.
+        # Close the handle immediately so Windows can release the file.
+        del tmp
+
+        # Generate a throw-away self-signed cert just for the path check.
+        # If openssl is not available, fall back to writing a stub file.
+        try:
+            subprocess.run(
+                [
+                    "openssl", "req", "-x509", "-newkey", "rsa:2048",
+                    "-keyout", "/dev/null", "-out", pem_path,
+                    "-days", "1", "-nodes",
+                    "-subj", "/CN=test",
+                ],
+                check=True,
+                capture_output=True,
+            )
+            ctx = build_ssl_context(ca_file=pem_path)
+            assert isinstance(ctx, ssl.SSLContext)
+            del ctx  # release file handle on Windows
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # openssl CLI not available — just write a non-empty stub
+            # to verify that FileNotFoundError is NOT raised for existing files.
+            Path(pem_path).write_text("stub")
+            # A real SSLContext.load_verify_locations would fail here, but
+            # we only want to assert that our path-existence guard works.
+            # Wrap in try/except for the SSL load error.
             try:
-                subprocess.run(
-                    [
-                        "openssl", "req", "-x509", "-newkey", "rsa:2048",
-                        "-keyout", "/dev/null", "-out", pem_path,
-                        "-days", "1", "-nodes",
-                        "-subj", "/CN=test",
-                    ],
-                    check=True,
-                    capture_output=True,
-                )
-                ctx = build_ssl_context(ca_file=pem_path)
-                assert isinstance(ctx, ssl.SSLContext)
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                # openssl CLI not available — just write a non-empty stub
-                # to verify that FileNotFoundError is NOT raised for existing files.
-                Path(pem_path).write_text("stub")
-                # A real SSLContext.load_verify_locations would fail here, but
-                # we only want to assert that our path-existence guard works.
-                # Wrap in try/except for the SSL load error.
+                build_ssl_context(ca_file=pem_path)
+            except ssl.SSLError:
+                pass  # Expected: stub PEM is not valid.
+        finally:
+            # Retry cleanup on Windows (file may still be locked briefly)
+            for _ in range(10):
                 try:
-                    build_ssl_context(ca_file=pem_path)
-                except ssl.SSLError:
-                    pass  # Expected: stub PEM is not valid.
-            finally:
-                Path(pem_path).unlink(missing_ok=True)
+                    Path(pem_path).unlink(missing_ok=True)
+                    break
+                except PermissionError:
+                    time.sleep(0.1)
 
 
 # ---------------------------------------------------------------------------
