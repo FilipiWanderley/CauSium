@@ -61,7 +61,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: poetry install
+        run: poetry install --no-root
 
       - name: SAST (Bandit)
         working-directory: backend
