@@ -992,9 +992,41 @@ class CloudLedgerService:
         account_id: str | None = None,
         provider: str | None = None,
     ) -> SubscriptionCostSummary:
+        from sqlalchemy import select
+        from app.domains.cloud_accounts.models import CloudAccountSubscription, CloudProvider
+        from app.domains.cloud_accounts.service import CloudAccountService
+
         end = date.today()
         start = end - timedelta(days=days)
 
+        # 1. Fetch ALL discovered subscriptions from PostgreSQL
+        discovered_subs: dict[str, dict] = {}
+        try:
+            sub_query = select(CloudAccountSubscription).where(
+                CloudAccountSubscription.org_id == org_id
+            )
+            if account_id:
+                sub_query = sub_query.where(
+                    CloudAccountSubscription.cloud_account_id == UUID(account_id)
+                )
+            result = await self.db.execute(sub_query)
+            for sub in result.scalars().all():
+                discovered_subs[str(sub.subscription_id)] = {
+                    "subscription_name": sub.subscription_name,
+                    "display_name": sub.display_name,
+                    "status": sub.status.value if sub.status else None,
+                }
+            log.info(
+                "ledger.subscription_breakdown.discovered_subs",
+                count=len(discovered_subs),
+            )
+        except Exception as exc:
+            log.warning(
+                "ledger.subscription_breakdown.discovered_subs_failed",
+                error=str(exc),
+            )
+
+        # 2. Query cost_facts for subscriptions with data
         where_parts = [
             "org_id = {org_id:String}",
             "date >= {start:Date}",
@@ -1011,37 +1043,39 @@ class CloudLedgerService:
 
         where_clause = " AND ".join(where_parts)
 
+        cost_data: dict[str, dict] = {}
         try:
             rows = execute_query(
                 f"""
                 SELECT
                     subscription_id,
                     sum(cost_usd)   AS total_cost_usd,
-                    count()         AS row_count,
-                    max(date)       AS max_date
+                    count()          AS row_count,
+                    max(date)        AS max_date
                 FROM cost_facts
                 WHERE {where_clause}
                   AND subscription_id != ''
                   AND subscription_id IS NOT NULL
                 GROUP BY subscription_id
-                ORDER BY total_cost_usd DESC
                 """,
                 params,
             )
+            for r in rows:
+                if r["subscription_id"] != "aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa":
+                    cost_data[r["subscription_id"]] = {
+                        "total_cost_usd": float(r["total_cost_usd"]),
+                        "row_count": int(r["row_count"]),
+                        "max_date": r["max_date"],
+                    }
         except Exception as exc:
-            log.warning("ledger.subscription_breakdown.failed", error=str(exc))
-            return SubscriptionCostSummary(
-                days=days, total_cost_usd=0.0, subscription_count=0, items=[]
+            log.warning(
+                "ledger.subscription_breakdown.cost_query_failed",
+                error=str(exc),
             )
 
-        # Best-effort lookup of Azure subscription display names.
-        # Tries the first Azure account in the org; silently falls back to None on any error.
+        # 3. Try to get subscription names from Azure API (best-effort)
         name_map: dict[str, str] = {}
         try:
-            from app.domains.cloud_accounts.models import CloudProvider
-            from app.domains.cloud_accounts.service import CloudAccountService
-            from app.domains.connectors.azure.client import AzureConnectorClient
-
             account_service = CloudAccountService(self.db)
             accounts, _ = await account_service.list_accounts(org_id)
             azure_accounts = [a for a in accounts if a.provider == CloudProvider.AZURE]
@@ -1052,6 +1086,7 @@ class CloudLedgerService:
                 )
                 creds = await account_service.get_azure_credentials(target)
                 if creds:
+                    from app.domains.connectors.azure.client import AzureConnectorClient
                     client = AzureConnectorClient(
                         tenant_id=creds.tenant_id,
                         client_id=creds.client_id,
@@ -1059,27 +1094,59 @@ class CloudLedgerService:
                     )
                     pairs = await client.list_accessible_subscriptions_with_names()
                     name_map = {sub_id: name for sub_id, name in pairs}
-                    log.info("ledger.subscription_breakdown.names_fetched", count=len(name_map))
         except Exception as exc:
-            log.warning("ledger.subscription_breakdown.names_lookup_failed", error=str(exc))
-
-        grand_total = sum(float(r["total_cost_usd"]) for r in rows)
-        items = [
-            SubscriptionCostBreakdown(
-                subscription_id=r["subscription_id"],
-                subscription_name=name_map.get(r["subscription_id"]) or None,
-                total_cost_usd=float(r["total_cost_usd"]),
-                row_count=int(r["row_count"]),
-                max_date=r["max_date"],
-                percentage_of_total=(
-                    round(float(r["total_cost_usd"]) / grand_total * 100, 2)
-                    if grand_total > 0
-                    else 0.0
-                ),
+            log.warning(
+                "ledger.subscription_breakdown.azure_names_failed",
+                error=str(exc),
             )
-            for r in rows
-            if r["subscription_id"] != "aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa"
-        ]
+
+        # 4. Build items — include ALL discovered subscriptions
+        all_subscription_ids = set(discovered_subs.keys()) | set(cost_data.keys())
+        grand_total = sum(c["total_cost_usd"] for c in cost_data.values())
+
+        items = []
+        for sub_id in sorted(
+            all_subscription_ids,
+            key=lambda x: cost_data.get(x, {}).get("total_cost_usd", 0),
+            reverse=True,
+        ):
+            # Priority: Azure API > PostgreSQL.subscription_name > PostgreSQL.display_name
+            name = (
+                name_map.get(sub_id)
+                or discovered_subs.get(sub_id, {}).get("subscription_name")
+                or discovered_subs.get(sub_id, {}).get("display_name")
+            )
+
+            if sub_id in cost_data:
+                # Subscription with cost data
+                cost = cost_data[sub_id]
+                items.append(
+                    SubscriptionCostBreakdown(
+                        subscription_id=sub_id,
+                        subscription_name=name,
+                        total_cost_usd=cost["total_cost_usd"],
+                        row_count=cost["row_count"],
+                        max_date=cost["max_date"],
+                        percentage_of_total=(
+                            round(cost["total_cost_usd"] / grand_total * 100, 2)
+                            if grand_total > 0
+                            else 0.0
+                        ),
+                    )
+                )
+            else:
+                # Discovered subscription with zero cost in period
+                items.append(
+                    SubscriptionCostBreakdown(
+                        subscription_id=sub_id,
+                        subscription_name=name,
+                        total_cost_usd=0.0,
+                        row_count=0,
+                        max_date=None,
+                        percentage_of_total=0.0,
+                    )
+                )
+
         return SubscriptionCostSummary(
             days=days,
             total_cost_usd=grand_total,

@@ -139,7 +139,7 @@ class SubscriptionCostBreakdown(BaseModel):
     subscription_name: str | None = None
     total_cost_usd: float
     row_count: int
-    max_date: date
+    max_date: date | None = None  # None for subscriptions with zero cost
     percentage_of_total: float
 
 
