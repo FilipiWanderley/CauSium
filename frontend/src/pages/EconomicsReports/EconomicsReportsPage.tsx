@@ -41,11 +41,12 @@ export function EconomicsReportsPage() {
     enabled: !!exportJobId,
     refetchInterval: (query) => {
       const exportStatus = query.state.data?.status
-      const jobCreatedAt = query.state.data?.created_at
-      console.log('[Export] Status polling:', exportStatus, 'jobId:', exportJobId, 'created_at:', jobCreatedAt)
 
       // Parar polling se status for terminal
       if (exportStatus === 'completed' || exportStatus === 'failed') {
+        if (exportStatus === 'failed') {
+          console.error('[Export] Job falhou:', query.state.data?.error_message)
+        }
         return false
       }
 
@@ -66,31 +67,15 @@ export function EconomicsReportsPage() {
         file_format: fileFormat,
         window_days: days,
       }
-      console.log('[Export] Iniciando export:', {
-        fileFormat,
-        payload,
-        isExporting,
-        mutationStatus: createExportMutation.status,
-      })
       return economicsApi
         .createReportExport(payload)
-        .then((r) => {
-          console.log('[Export] Sucesso - job criado:', r.data)
-          return r.data
-        })
+        .then((r) => r.data)
         .catch((err) => {
-          console.error('[Export] Erro na criação do job:', {
-            error: err,
-            response: err.response?.data,
-            status: err.response?.status,
-            fileFormat,
-            payload,
-          })
+          console.error('[Export] Erro na criação do job:', err.response?.data || err.message)
           throw err
         })
     },
     onSuccess: (job) => {
-      console.log('[Export] onSuccess - job:', job.id, 'file_format:', job.file_format)
       setExportJobId(job.id)
       setDownloadedJobId(null)
       setExportStartedAt(Date.now())
@@ -106,7 +91,6 @@ export function EconomicsReportsPage() {
 
   useEffect(() => {
     const job = exportJobQuery.data
-    console.log('[Export] Effect download - job:', job?.id, 'status:', job?.status, 'downloadedJobId:', downloadedJobId, 'exportJobId:', exportJobId)
     if (!exportJobId || !job || job.status !== 'completed' || downloadedJobId === exportJobId) {
       return
     }
@@ -116,16 +100,9 @@ export function EconomicsReportsPage() {
     let cancelled = false
 
     async function downloadExport() {
-      console.log('[Export] Iniciando download do job:', currentJobId, 'file_format:', completedJob.file_format)
       try {
         const response = await economicsApi.downloadReportExport(currentJobId)
         if (cancelled) return
-        console.log('[Export] Download response:', {
-          status: response.status,
-          contentType: response.headers['content-type'],
-          dataType: typeof response.data,
-          dataSize: response.data?.size,
-        })
         const blob = response.data
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -133,13 +110,11 @@ export function EconomicsReportsPage() {
         link.download =
           completedJob.file_name ||
           `causium-spend-report-${new Date().toISOString().slice(0, 10)}.${completedJob.file_format}`
-        console.log('[Export] Download filename:', link.download)
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
         URL.revokeObjectURL(url)
         setDownloadedJobId(currentJobId)
-        console.log('[Export] Download concluído com sucesso')
       } catch (err) {
         console.error('[Export] Erro no download:', err)
       }
@@ -157,16 +132,7 @@ export function EconomicsReportsPage() {
   const isExporting = createExportMutation.isPending || exportStatus === 'queued' || exportStatus === 'running'
 
   function handleExport(fileFormat: 'csv' | 'xlsx') {
-    console.log('[Export] handleExport chamado:', {
-      fileFormat,
-      isLoading,
-      isExporting,
-      mutationIsPending: createExportMutation.isPending,
-      exportStatus,
-      exportJobId,
-    })
     if (isLoading || isExporting) {
-      console.warn('[Export] Bloqueado - já exportando ou carregando')
       return
     }
     createExportMutation.mutate(fileFormat)
