@@ -299,6 +299,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
             opportunities=opportunities,
             total_monthly_savings=total_monthly_savings,
             total_annual_savings=total_annual_savings,
+            subscription_summary=subscription_summary,
             gov_summary=gov_summary,
             gov_unowned=gov_unowned,
             gov_compliance=gov_compliance,
@@ -374,6 +375,7 @@ def _build_csv_zip(
     opportunities,
     total_monthly_savings: float,
     total_annual_savings: float,
+    subscription_summary,
     gov_summary,
     gov_unowned,
     gov_compliance,
@@ -475,16 +477,66 @@ def _build_csv_zip(
     ]
     green_csv = _csv_bytes_br(["Mês", "Emissões (kgCO2e)", "Custo", "Variação (%)"], green_rows)
 
+    # 8. Subscriptions (CRITICAL - alinhado com XLSX)
+    sub_rows = []
+    if subscription_summary and subscription_summary.items:
+        for item in subscription_summary.items:
+            sub_rows.append([
+                item.subscription_id,
+                item.subscription_name or "—",
+                round(item.total_cost_usd, 2),
+                round(item.percentage_of_total, 2),
+                item.row_count,
+                item.max_date.strftime("%d/%m/%Y") if item.max_date else "",
+            ])
+    sub_csv = _csv_bytes_br(
+        ["Subscription ID", "Nome", "Custo Total (R$)", "% do Total", "Registros", "Última Data"],
+        sub_rows,
+    )
+
+    # 9. Recomendações (alinhado com XLSX)
+    rec_rows = []
+    if opportunities:
+        for i, op in enumerate(sorted(opportunities, key=lambda x: x.estimated_annual_savings_usd, reverse=True)[:20], 1):
+            rec_rows.append([
+                i,
+                op.title,
+                _format_category(op.category.value),
+                round(op.estimated_annual_savings_usd, 2),
+                op.risk_level.value.capitalize(),
+                f"Implementar {_format_category(op.category.value).lower()}",
+            ])
+    rec_csv = _csv_bytes_br(
+        ["Prioridade", "Título", "Categoria", "Economia Anual (R$)", "Risco", "Justificativa"],
+        rec_rows,
+    )
+
+    # 10. Recursos (alinhado com XLSX)
+    res_rows = []
+    if top_services:
+        total_svc_cost = sum(s.cost_usd for s in top_services)
+        for svc in top_services:
+            pct = (svc.cost_usd / total_svc_cost * 100) if total_svc_cost > 0 else 0
+            res_rows.append([
+                svc.service,
+                "Recurso principal",
+                round(svc.cost_usd, 2),
+                round(pct, 2),
+            ])
+    res_csv = _csv_bytes_br(
+        ["Serviço", "Descrição", "Gasto Mensal (R$)", "% do Total"],
+        res_rows,
+    )
+
     # Build ZIP
     zip_buf = io.BytesIO()
     with ZipFile(zip_buf, "w", compression=ZIP_DEFLATED) as zf:
-        zf.writestr("resumo_executivo.csv", summary_csv)
-        zf.writestr("custos_por_servico.csv", svc_csv)
-        zf.writestr("custos_por_equipe.csv", team_csv)
-        zf.writestr("tendencia_diaria.csv", trend_csv)
-        zf.writestr("oportunidades.csv", opp_csv)
-        zf.writestr("governanca.csv", gov_combined)
-        zf.writestr("sustentabilidade.csv", green_csv)
+        zf.writestr("executive_summary.csv", summary_csv)
+        zf.writestr("subscriptions.csv", sub_csv)
+        zf.writestr("recommendations.csv", rec_csv)
+        zf.writestr("resources.csv", res_csv)
+        zf.writestr("governance.csv", gov_combined)
+        zf.writestr("sustainability.csv", green_csv)
     return zip_buf.getvalue()
 
 
