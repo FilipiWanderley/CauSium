@@ -193,7 +193,7 @@ class DecisionEngineService:
             monthly_cost = float(row.get("monthly_cost", 0))
             service = str(row.get("service", "unknown"))
             env = str(row.get("environment", "unknown"))
-            team = str(row.get("owner_team", "untagged"))
+            team = str(row.get("owner_team", "Sem equipe identificada"))
             resource_id = str(row.get("resource_id", ""))
             resource_name = str(row.get("resource_name", ""))
             sku_name = (row.get("sku_name") or "").strip()
@@ -379,7 +379,7 @@ class DecisionEngineService:
         for candidate in aks_candidates:
             service = "Azure Kubernetes Service"
             env = candidate.environment or "unknown"
-            team = candidate.owner_team or "untagged"
+            team = candidate.owner_team or "Sem equipe identificada"
             region = candidate.region or ""
             monthly_cost = float(candidate.monthly_cost)
             resource_id = _build_aks_nodepool_resource_id(
@@ -841,7 +841,7 @@ class DecisionEngineService:
                     service=service,
                     region="",
                     environment="production",
-                    owner_team="untagged",
+                    owner_team="Sem equipe identificada",
                     score_rationale=score.rationale,
                     decision_evidence=decision_evidence,
                     playbook=PLAYBOOKS.get(category),
@@ -1307,7 +1307,7 @@ class DecisionEngineService:
                     memory_p95=memory_p95,
                     monthly_cost=monthly_cost,
                     history_days=history_days,
-                    owner_team=str(row.get("owner_team") or "untagged").strip() or "untagged",
+                    owner_team=str(row.get("owner_team") or "Sem equipe identificada").strip() or "Sem equipe identificada",
                     environment=str(row.get("environment") or "unknown").strip() or "unknown",
                     allocated_cpu=_coerce_float(row.get("allocated_cpu")),
                     allocated_memory=_coerce_float(row.get("allocated_memory")),

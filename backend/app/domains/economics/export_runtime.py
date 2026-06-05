@@ -486,8 +486,10 @@ def _build_csv_zip(
         ["Equipe", "Custo Total", "Custo sem Tag", "Compliance (%)"],
         gov_compliance_rows,
     )
+    # Nota sobre custos sem equipe
+    _NOTE_TEAM = "\r\n".encode("utf-8") + b"NOTA: Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Para classificar, configure tags team/owner/squad nos recursos Azure."
     # Merge governance into one file with a section separator
-    gov_combined = gov_csv + "\r\n".encode("utf-8") + b"SECAO:COMPLIANCE POR EQUIPE\r\n" + gov_compliance_csv
+    gov_combined = gov_csv + "\r\n".encode("utf-8") + b"SECAO:COMPLIANCE POR EQUIPE\r\n" + gov_compliance_csv + _NOTE_TEAM
 
     # 7. Sustentabilidade (defensive: handle None)
     green_rows = []
@@ -1208,6 +1210,13 @@ def _build_governance_sheet(ws, gov_summary, gov_unowned, gov_compliance) -> Non
         _apply_table_style(ws, header_row + 1, row - 1, 4, currency_cols=[2, 3], pct_cols=[4])
     else:
         ws.cell(row=row, column=1, value="Dados de compliance não disponíveis.")
+
+    # Nota sobre custos sem equipe
+    row += 2
+    ws.cell(row=row, column=1, value="Nota:").font = Font(bold=True, color="808080")
+    ws.cell(row=row, column=2, value="Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Para classificar, configure tags team/owner/squad nos recursos Azure.")
+    ws.cell(row=row, column=2).alignment = Alignment(wrap_text=True)
+    ws.row_dimensions[row].height = 30
 
     ws.freeze_panes = "A3"
     _auto_width(ws)

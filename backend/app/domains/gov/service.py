@@ -219,7 +219,7 @@ class GovService:
         rows = _safe_query(
             """
             SELECT
-                if(owner_team = '' OR owner_team IS NULL, '(untagged)', owner_team) AS team,
+                if(owner_team = '' OR owner_team IS NULL, 'Sem equipe identificada', owner_team) AS team,
                 sum(cost_usd)                                                        AS total,
                 sumIf(cost_usd, owner_team = '' OR owner_team IS NULL)              AS untagged
             FROM cost_facts
@@ -238,7 +238,7 @@ class GovService:
             pct = round(100.0 * (1.0 - untagged / max(total, 0.01)), 1) if total > 0 else 100.0
             result.append(
                 LabelComplianceRow(
-                    team=r.get("team") or "(untagged)",
+                    team=r.get("team") or "Sem equipe identificada",
                     total_cost_usd=round(total, 2),
                     untagged_cost_usd=round(untagged, 2),
                     compliance_pct=pct,
@@ -415,7 +415,7 @@ class GovService:
                 resource_group=r.get("resource_group") or "",
                 location=r.get("location") or "",
                 environment=r.get("environment") or "",
-                owner_team=r.get("owner_team") or "untagged",
+                owner_team=r.get("owner_team") or "Sem equipe identificada",
                 sku_name=r.get("sku_name") or "",
                 provisioning_state=r.get("provisioning_state") or "",
             )

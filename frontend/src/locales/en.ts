@@ -2230,7 +2230,7 @@ export const en: Translations = {
     colState: 'State',
     stateSucceeded: 'Succeeded',
     stateFailed: 'Failed',
-    untagged: 'No team mapped',
+    untagged: 'Sem equipe identificada',
     errorInventory: 'Failed to load inventory data.',
     noInventory: 'No inventory data yet. Trigger a sync to populate.',
     governanceMetric: 'Governance metric',

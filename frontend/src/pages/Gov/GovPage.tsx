@@ -326,6 +326,15 @@ export function GovPage() {
                 ))}
               </tbody>
             </table>
+            {/* Nota sobre custos sem equipe */}
+            {(complianceQ.data as LabelComplianceRow[])?.some(r =>
+              r.team === 'Sem equipe identificada' || r.team === 'No team mapped'
+            ) && (
+              <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 text-xs text-blue-700">
+                <strong>Nota:</strong> Custos sem tags de equipe no Azure foram agrupados como "Sem equipe identificada".
+                Para classificar, configure tags <code>team</code>, <code>owner</code> ou <code>squad</code> nos recursos Azure.
+              </div>
+            )}
            )}
         </div>
       )}
