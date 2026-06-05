@@ -265,6 +265,9 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     decision_engine = DecisionEngineService(db)
     opportunities, _ = await decision_engine.list_opportunities(job.org_id, limit=50)
 
+    # Defensive: ensure all iterables are never None
+    opportunities = opportunities or []
+
     total_monthly_savings = sum(op.estimated_monthly_savings_usd for op in opportunities)
     total_annual_savings = sum(op.estimated_annual_savings_usd for op in opportunities)
 
@@ -283,12 +286,12 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
 
     gov = GovService()
     gov_summary = gov.get_summary(job.org_id, days=job.window_days)
-    gov_unowned = gov.get_unowned_costs(job.org_id, days=job.window_days, limit=30)
-    gov_compliance = gov.get_label_compliance(job.org_id, days=job.window_days)
+    gov_unowned = gov.get_unowned_costs(job.org_id, days=job.window_days, limit=30) or []
+    gov_compliance = gov.get_label_compliance(job.org_id, days=job.window_days) or []
 
     green = GreenService()
     green_summary = green.get_summary(job.org_id, months=6)
-    green_monthly = green.get_emissions_monthly(job.org_id, months=6)
+    green_monthly = green.get_emissions_monthly(job.org_id, months=6) or []
 
     if job.file_format == ReportExportFormat.CSV:
         content = _build_csv_zip(
@@ -385,6 +388,15 @@ def _build_csv_zip(
     window_days: int,
     org_name: str,
 ) -> bytes:
+    # Defensive: ensure all optional iterables are never None
+    top_services = top_services or []
+    top_teams = top_teams or []
+    trend = trend or []
+    opportunities = opportunities or []
+    gov_unowned = gov_unowned or []
+    gov_compliance = gov_compliance or []
+    green_monthly = green_monthly or []
+
     # 1. Resumo Executivo
     summary_rows = [
         ["Gasto Mensal Atual", round(dashboard.current_month_cost, 2)],
@@ -445,21 +457,27 @@ def _build_csv_zip(
                 f"Implementar {_format_category(op.category.value).lower()}",
             ])
 
-    # 6. Governança
+    # 6. Governança (defensive: handle None)
     gov_rows = []
-    for item in gov_unowned:
-        gov_rows.append([
-            item.service,
-            item.resource_id,
-            item.region,
-            item.environment,
-            round(item.cost_usd, 2),
-            item.days_active,
-        ])
-    gov_compliance_rows = [
-        [item.team, round(item.total_cost_usd, 2), round(item.untagged_cost_usd, 2), round(item.compliance_pct, 1)]
-        for item in gov_compliance
-    ]
+    if gov_unowned:
+        for item in gov_unowned:
+            gov_rows.append([
+                item.service,
+                item.resource_id,
+                item.region,
+                item.environment,
+                round(item.cost_usd, 2),
+                item.days_active,
+            ])
+    gov_compliance_rows = []
+    if gov_compliance:
+        for item in gov_compliance:
+            gov_compliance_rows.append([
+                item.team,
+                round(item.total_cost_usd, 2),
+                round(item.untagged_cost_usd, 2),
+                round(item.compliance_pct, 1),
+            ])
     gov_csv = _csv_bytes_br(
         ["Serviço", "Recurso", "Região", "Ambiente", "Custo sem Dono", "Dias Ativo"],
         gov_rows,
@@ -471,11 +489,16 @@ def _build_csv_zip(
     # Merge governance into one file with a section separator
     gov_combined = gov_csv + "\r\n".encode("utf-8") + b"SECAO:COMPLIANCE POR EQUIPE\r\n" + gov_compliance_csv
 
-    # 7. Sustentabilidade
-    green_rows = [
-        [m.month, round(m.kg_co2e, 1), round(m.cost_usd, 2), round(m.delta_pct, 1) if m.delta_pct else ""]
-        for m in green_monthly
-    ]
+    # 7. Sustentabilidade (defensive: handle None)
+    green_rows = []
+    if green_monthly:
+        for m in green_monthly:
+            green_rows.append([
+                m.month,
+                round(m.kg_co2e, 1),
+                round(m.cost_usd, 2),
+                round(m.delta_pct, 1) if m.delta_pct else "",
+            ])
     green_csv = _csv_bytes_br(["Mês", "Emissões (kgCO2e)", "Custo", "Variação (%)"], green_rows)
 
     # 8. Subscriptions (CRITICAL - alinhado com XLSX)
@@ -612,6 +635,15 @@ def _build_professional_xlsx(
 ) -> bytes:
     wb = Workbook()
 
+    # Defensive: ensure all optional iterables are never None
+    top_services = top_services or []
+    top_teams = top_teams or []
+    trend = trend or []
+    opportunities = opportunities or []
+    gov_unowned = gov_unowned or []
+    gov_compliance = gov_compliance or []
+    green_monthly = green_monthly or []
+
     # --- Sheet 1: Resumo Executivo ---
     ws = wb.active
     ws.title = "Resumo Executivo"
@@ -623,35 +655,35 @@ def _build_professional_xlsx(
 
     # --- Sheet 2: Custos por Subscription ---
     ws2 = wb.create_sheet("Custos por Subscription")
-    _build_subscription_sheet(ws2, subscription_summary)
+    _build_subscription_sheet(ws2, subscription_summary or None)
 
     # --- Sheet 3: Custos por Serviço ---
     ws3 = wb.create_sheet("Custos por Serviço")
-    _build_services_sheet(ws3, top_services, top_teams)
+    _build_services_sheet(ws3, top_services or [], top_teams or [])
 
     # --- Sheet 4: Tendência de Gastos ---
     ws4 = wb.create_sheet("Tendência de Gastos")
-    _build_trend_sheet(ws4, trend)
+    _build_trend_sheet(ws4, trend or [])
 
     # --- Sheet 5: Oportunidades de Economia ---
     ws5 = wb.create_sheet("Oportunidades de Economia")
-    _build_opportunities_sheet(ws5, opportunities, total_monthly_savings, total_annual_savings)
+    _build_opportunities_sheet(ws5, opportunities or [], total_monthly_savings, total_annual_savings)
 
     # --- Sheet 6: Recomendações ---
     ws6 = wb.create_sheet("Recomendações")
-    _build_recommendations_sheet(ws6, opportunities)
+    _build_recommendations_sheet(ws6, opportunities or [])
 
     # --- Sheet 7: Recursos ---
     ws7 = wb.create_sheet("Recursos")
-    _build_resources_sheet(ws7, top_services)
+    _build_resources_sheet(ws7, top_services or [])
 
     # --- Sheet 8: Governança ---
     ws8 = wb.create_sheet("Governança")
-    _build_governance_sheet(ws8, gov_summary, gov_unowned, gov_compliance)
+    _build_governance_sheet(ws8, gov_summary, gov_unowned or [], gov_compliance or [])
 
     # --- Sheet 9: Sustentabilidade ---
     ws9 = wb.create_sheet("Sustentabilidade")
-    _build_sustainability_sheet(ws9, green_summary, green_monthly)
+    _build_sustainability_sheet(ws9, green_summary, green_monthly or [])
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -771,13 +803,21 @@ def _build_executive_summary(ws, dashboard, top_services, top_teams, opportuniti
     _auto_width(ws)
 
 
-def _build_subscription_sheet(ws, subscription_summary: SubscriptionCostSummary) -> None:
+def _build_subscription_sheet(ws, subscription_summary) -> None:
     ws.merge_cells("A1:E1")
     ws.row_dimensions[1].height = 30
     title = ws.cell(row=1, column=1, value="Custos por Subscription")
     title.font = _TITLE_FONT
     title.fill = PatternFill(start_color=_BRAND_DARK, end_color=_BRAND_DARK, fill_type="solid")
     title.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Handle None gracefully
+    if subscription_summary is None:
+        ws.cell(row=3, column=1, value="Nenhum dado de subscription disponível.")
+        ws.cell(row=3, column=1).font = Font(italic=True, color="666666")
+        ws.freeze_panes = "A5"
+        _auto_width(ws)
+        return
 
     # Summary KPIs
     row = 3
@@ -800,7 +840,7 @@ def _build_subscription_sheet(ws, subscription_summary: SubscriptionCostSummary)
     header_row = row
     row += 1
 
-    for item in subscription_summary.items:
+    for item in (subscription_summary.items or []):
         ws.cell(row=row, column=1, value=item.subscription_id)
         ws.cell(row=row, column=2, value=item.subscription_name or "—")
         c = ws.cell(row=row, column=3, value=item.total_cost_usd)
