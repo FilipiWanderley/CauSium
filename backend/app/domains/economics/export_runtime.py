@@ -401,40 +401,49 @@ def _build_csv_zip(
     ]
     summary_csv = _csv_bytes_br(["Indicador", "Valor"], summary_rows)
 
-    # 2. Custos por Serviço (usado em resources.csv)
-    svc_rows = [
-        [svc.service, round(svc.cost_usd, 2), round(svc.percentage, 1)]
-        for svc in top_services
-    ]
+    # 2. Custos por Serviço (inline para resources.csv)
+    res_rows = []
+    if top_services:
+        total_svc_cost = sum(s.cost_usd for s in top_services)
+        for svc in top_services:
+            pct = (svc.cost_usd / total_svc_cost * 100) if total_svc_cost > 0 else 0
+            res_rows.append([
+                svc.service,
+                "Recurso principal",
+                round(svc.cost_usd, 2),
+                round(pct, 2),
+            ])
 
-    # 3. Custos por Equipe (mantido para compatibilidade)
-    team_rows = [
-        [team.service, round(team.cost_usd, 2), round(team.percentage, 1)]
-        for team in top_teams
-    ]
+    # 3. Custos por Equipe (inline)
+    team_rows = []
+    for team in top_teams:
+        team_rows.append([
+            team.service,
+            round(team.cost_usd, 2),
+            round(team.percentage, 1),
+        ])
 
-    # 4. Tendência Diária
-    trend_rows = [
-        [_format_date_br(row.date), round(row.cost_usd, 2), row.provider or "Todos"]
-        for row in trend
-    ]
+    # 4. Tendência Diária (inline)
+    trend_rows = []
+    for row in trend:
+        trend_rows.append([
+            _format_date_br(row.date),
+            round(row.cost_usd, 2),
+            row.provider or "Todos",
+        ])
 
-    # 5. Oportunidades (usado em recommendations.csv)
-    opp_rows = [
-        [
-            op.title,
-            _format_category(op.category.value),
-            round(op.estimated_monthly_savings_usd, 2),
-            round(op.estimated_annual_savings_usd, 2),
-            op.risk_level.value.capitalize(),
-            op.effort_level.value.capitalize(),
-            op.service or "",
-            op.resource_name or "",
-            op.region or "",
-            _format_status(op.status.value),
-        ]
-        for op in opportunities
-    ]
+    # 5. Oportunidades (inline para recommendations.csv)
+    rec_rows = []
+    if opportunities:
+        for i, op in enumerate(sorted(opportunities, key=lambda x: x.estimated_annual_savings_usd, reverse=True)[:20], 1):
+            rec_rows.append([
+                i,
+                op.title,
+                _format_category(op.category.value),
+                round(op.estimated_annual_savings_usd, 2),
+                op.risk_level.value.capitalize(),
+                f"Implementar {_format_category(op.category.value).lower()}",
+            ])
 
     # 6. Governança
     gov_rows = []
@@ -487,37 +496,19 @@ def _build_csv_zip(
     )
 
     # 9. Recomendações (alinhado com XLSX)
-    rec_rows = []
-    if opportunities:
-        for i, op in enumerate(sorted(opportunities, key=lambda x: x.estimated_annual_savings_usd, reverse=True)[:20], 1):
-            rec_rows.append([
-                i,
-                op.title,
-                _format_category(op.category.value),
-                round(op.estimated_annual_savings_usd, 2),
-                op.risk_level.value.capitalize(),
-                f"Implementar {_format_category(op.category.value).lower()}",
-            ])
-    rec_csv = _csv_bytes_br(
-        ["Prioridade", "Título", "Categoria", "Economia Anual (R$)", "Risco", "Justificativa"],
-        rec_rows,
-    )
+    # rec_rows already built above from opportunities
 
     # 10. Recursos (alinhado com XLSX)
-    res_rows = []
-    if top_services:
-        total_svc_cost = sum(s.cost_usd for s in top_services)
-        for svc in top_services:
-            pct = (svc.cost_usd / total_svc_cost * 100) if total_svc_cost > 0 else 0
-            res_rows.append([
-                svc.service,
-                "Recurso principal",
-                round(svc.cost_usd, 2),
-                round(pct, 2),
-            ])
+    # res_rows already built above from top_services
+
     res_csv = _csv_bytes_br(
         ["Serviço", "Descrição", "Gasto Mensal (R$)", "% do Total"],
         res_rows,
+    )
+
+    rec_csv = _csv_bytes_br(
+        ["Prioridade", "Título", "Categoria", "Economia Anual (R$)", "Risco", "Justificativa"],
+        rec_rows,
     )
 
     # Build ZIP
