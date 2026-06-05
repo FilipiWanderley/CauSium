@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
+import type { AxiosError } from 'axios'
 import { economicsApi } from '../../api/economics'
 import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
@@ -32,33 +33,80 @@ export function EconomicsReportsPage() {
     queryFn: () => ledgerApi.topTeamsPaginated(days, 1, 15).then((r) => r.data.items),
   })
 
+  const [exportStartedAt, setExportStartedAt] = useState<number | null>(null)
+
   const exportJobQuery = useQuery({
     queryKey: ['economics-report-export', exportJobId],
     queryFn: () => economicsApi.getReportExport(exportJobId as string).then((r) => r.data),
     enabled: !!exportJobId,
     refetchInterval: (query) => {
       const exportStatus = query.state.data?.status
+      const jobCreatedAt = query.state.data?.created_at
+      console.log('[Export] Status polling:', exportStatus, 'jobId:', exportJobId, 'created_at:', jobCreatedAt)
+
+      // Parar polling se status for terminal
+      if (exportStatus === 'completed' || exportStatus === 'failed') {
+        return false
+      }
+
+      // Timeout de 5 minutos para jobs em queued/running
+      if (exportStartedAt && Date.now() - exportStartedAt > 5 * 60 * 1000) {
+        console.warn('[Export] Timeout - job não completou em 5 minutos')
+        return false
+      }
+
       return exportStatus === 'queued' || exportStatus === 'running' ? 2000 : false
     },
   })
 
   const createExportMutation = useMutation({
-    mutationFn: (fileFormat: 'csv' | 'xlsx') =>
-      economicsApi
-        .createReportExport({
-          report_type: 'summary',
-          file_format: fileFormat,
-          window_days: days,
+    mutationFn: (fileFormat: 'csv' | 'xlsx') => {
+      const payload = {
+        report_type: 'summary' as const,
+        file_format: fileFormat,
+        window_days: days,
+      }
+      console.log('[Export] Iniciando export:', {
+        fileFormat,
+        payload,
+        isExporting,
+        mutationStatus: createExportMutation.status,
+      })
+      return economicsApi
+        .createReportExport(payload)
+        .then((r) => {
+          console.log('[Export] Sucesso - job criado:', r.data)
+          return r.data
         })
-        .then((r) => r.data),
+        .catch((err) => {
+          console.error('[Export] Erro na criação do job:', {
+            error: err,
+            response: err.response?.data,
+            status: err.response?.status,
+            fileFormat,
+            payload,
+          })
+          throw err
+        })
+    },
     onSuccess: (job) => {
+      console.log('[Export] onSuccess - job:', job.id, 'file_format:', job.file_format)
       setExportJobId(job.id)
       setDownloadedJobId(null)
+      setExportStartedAt(Date.now())
+    },
+    onError: (error: unknown) => {
+      console.error('[Export] onError:', error)
+      // Mostrar erro visualmente - o renderExportStatus já mostra er.errorEnqueue
+      const axiosError = error as AxiosError<{ detail?: string }>
+      const message = axiosError?.response?.data?.detail || (error as Error)?.message || 'Erro desconhecido'
+      window.alert(`Erro ao gerar relatório: ${message}`)
     },
   })
 
   useEffect(() => {
     const job = exportJobQuery.data
+    console.log('[Export] Effect download - job:', job?.id, 'status:', job?.status, 'downloadedJobId:', downloadedJobId, 'exportJobId:', exportJobId)
     if (!exportJobId || !job || job.status !== 'completed' || downloadedJobId === exportJobId) {
       return
     }
@@ -68,20 +116,33 @@ export function EconomicsReportsPage() {
     let cancelled = false
 
     async function downloadExport() {
-      const response = await economicsApi.downloadReportExport(currentJobId)
-      if (cancelled) return
-      const blob = response.data
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download =
-        completedJob.file_name ||
-        `causium-spend-report-${new Date().toISOString().slice(0, 10)}.${completedJob.file_format}`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      setDownloadedJobId(currentJobId)
+      console.log('[Export] Iniciando download do job:', currentJobId, 'file_format:', completedJob.file_format)
+      try {
+        const response = await economicsApi.downloadReportExport(currentJobId)
+        if (cancelled) return
+        console.log('[Export] Download response:', {
+          status: response.status,
+          contentType: response.headers['content-type'],
+          dataType: typeof response.data,
+          dataSize: response.data?.size,
+        })
+        const blob = response.data
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download =
+          completedJob.file_name ||
+          `causium-spend-report-${new Date().toISOString().slice(0, 10)}.${completedJob.file_format}`
+        console.log('[Export] Download filename:', link.download)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        setDownloadedJobId(currentJobId)
+        console.log('[Export] Download concluído com sucesso')
+      } catch (err) {
+        console.error('[Export] Erro no download:', err)
+      }
     }
 
     void downloadExport()
@@ -96,6 +157,18 @@ export function EconomicsReportsPage() {
   const isExporting = createExportMutation.isPending || exportStatus === 'queued' || exportStatus === 'running'
 
   function handleExport(fileFormat: 'csv' | 'xlsx') {
+    console.log('[Export] handleExport chamado:', {
+      fileFormat,
+      isLoading,
+      isExporting,
+      mutationIsPending: createExportMutation.isPending,
+      exportStatus,
+      exportJobId,
+    })
+    if (isLoading || isExporting) {
+      console.warn('[Export] Bloqueado - já exportando ou carregando')
+      return
+    }
     createExportMutation.mutate(fileFormat)
   }
 
@@ -106,6 +179,12 @@ export function EconomicsReportsPage() {
     if (!exportJobQuery.data) {
       return er.asyncNote
     }
+
+    // Verificar timeout
+    if (exportStartedAt && Date.now() - exportStartedAt > 5 * 60 * 1000) {
+      return '⏱️ Timeout - geração demorou mais de 5 minutos. Tente novamente.'
+    }
+
     if (exportJobQuery.data.status === 'queued') {
       return er.queued
     }
@@ -115,7 +194,10 @@ export function EconomicsReportsPage() {
     if (exportJobQuery.data.status === 'completed') {
       return downloadedJobId === exportJobId ? er.completedDownload : er.completed
     }
-    return exportJobQuery.data.error_message || 'Export failed.'
+    if (exportJobQuery.data.status === 'failed') {
+      return `❌ ${exportJobQuery.data.error_message || 'Falha na geração do relatório'}`
+    }
+    return exportJobQuery.data.error_message || 'Status desconhecido.'
   }
 
   return (
@@ -143,7 +225,10 @@ export function EconomicsReportsPage() {
           <div className="flex flex-col gap-2 md:items-end">
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleExport('csv')}
+                onClick={() => {
+                  console.log('[Export] Clique no botão CSV', { isLoading, isExporting })
+                  handleExport('csv')
+                }}
                 disabled={isLoading || isExporting}
                 className="inline-flex items-center gap-2 rounded bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
               >
@@ -151,7 +236,10 @@ export function EconomicsReportsPage() {
                 {isExporting ? er.processing : er.exportCsv}
               </button>
               <button
-                onClick={() => handleExport('xlsx')}
+                onClick={() => {
+                  console.log('[Export] Clique no botão XLSX', { isLoading, isExporting })
+                  handleExport('xlsx')
+                }}
                 disabled={isLoading || isExporting}
                 className="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-400 disabled:opacity-60"
               >
@@ -160,6 +248,20 @@ export function EconomicsReportsPage() {
               </button>
             </div>
             <div className="text-right text-xs text-gray-500">{renderExportStatus()}</div>
+            {import.meta.env.DEV && (
+              <div className="mt-2 rounded bg-gray-100 p-2 text-xs font-mono">
+                <div>isLoading: {String(isLoading)}</div>
+                <div>isExporting: {String(isExporting)}</div>
+                <div>exportStatus: {exportStatus || 'null'}</div>
+                <div>mutationPending: {String(createExportMutation.isPending)}</div>
+                <div>mutationError: {(createExportMutation.error as Error)?.message || 'null'}</div>
+                <div>exportJobId: {exportJobId || 'null'}</div>
+                <div>downloadedJobId: {downloadedJobId || 'null'}</div>
+                <div>exportStartedAt: {exportStartedAt ? new Date(exportStartedAt).toLocaleTimeString() : 'null'}</div>
+                <div>timeout: {exportStartedAt && Date.now() - exportStartedAt > 5 * 60 * 1000 ? 'SIM' : 'não'}</div>
+                <div>jobError: {exportJobQuery.data?.error_message || 'null'}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

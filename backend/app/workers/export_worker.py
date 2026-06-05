@@ -14,6 +14,7 @@ from app.core.observability import observe_worker_job
 from app.core.redis import get_redis_pool
 from app.core.slack import SlackService
 from app.domains.economics.export_runtime import build_report_export_artifact, persist_report_export_file
+from app.domains.economics.models import ReportExportStatus
 from app.domains.economics.service import EconomicsService
 from app.workers.job_runtime import MAX_RETRIES, push_to_dlq, retry_key
 
@@ -21,6 +22,51 @@ log = get_logger(__name__)
 
 QUEUE_KEY = "economics:reports:queue"
 LOCK_TTL = 3600
+STUCK_JOB_TIMEOUT_MINUTES = 10  # Jobs em running por mais de 10min são considerados órfãos
+
+
+async def _cleanup_stuck_jobs() -> int:
+    """Reset jobs órfãos em 'running' que estão lá há mais de STUCK_JOB_TIMEOUT_MINUTES."""
+    try:
+        async with async_session_factory() as db:
+            stuck_cutoff = datetime.now(timezone.utc) - timedelta(minutes=STUCK_JOB_TIMEOUT_MINUTES)
+
+            # Buscar jobs órfãos
+            from sqlalchemy import select, update
+            from app.domains.economics.models import ReportExportJob
+
+            result = await db.execute(
+                select(ReportExportJob).where(
+                    ReportExportJob.status == ReportExportStatus.RUNNING,
+                    ReportExportJob.started_at < stuck_cutoff,
+                )
+            )
+            stuck_jobs = result.scalars().all()
+
+            if stuck_jobs:
+                job_ids = [str(j.id) for j in stuck_jobs]
+                log.warning(
+                    "economics.report_export.cleanup_stuck_jobs",
+                    count=len(stuck_jobs),
+                    job_ids=job_ids,
+                )
+
+                # Reset para queued
+                await db.execute(
+                    update(ReportExportJob)
+                    .where(ReportExportJob.id.in_([j.id for j in stuck_jobs]))
+                    .values(
+                        status=ReportExportStatus.QUEUED,
+                        started_at=None,
+                        error_message="Job was stuck in running, auto-reset by worker cleanup",
+                    )
+                )
+                await db.commit()
+                return len(stuck_jobs)
+            return 0
+    except Exception as exc:
+        log.error("economics.report_export.cleanup_stuck_jobs.error", error=str(exc))
+        return 0
 
 
 def _parse_payload(raw_payload: str) -> tuple[UUID, UUID]:
@@ -122,8 +168,18 @@ async def process_report_export(raw_payload: str) -> None:
 async def run_export_worker() -> None:
     redis = get_redis_pool()
     log.info("economics_export_worker.started")
+    cleanup_counter = 0
+
     while True:
         try:
+            # Limpar jobs órfãos a cada 10 iterações (~50 segundos)
+            cleanup_counter += 1
+            if cleanup_counter >= 10:
+                cleaned = await _cleanup_stuck_jobs()
+                if cleaned > 0:
+                    log.info("economics.report_export.cleanup_completed", count=cleaned)
+                cleanup_counter = 0
+
             item = await redis.brpop(QUEUE_KEY, timeout=5)
             if item:
                 _, raw_payload = item
