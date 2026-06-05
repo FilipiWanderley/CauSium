@@ -306,35 +306,36 @@ export function GovPage() {
            ) : (complianceQ.data ?? []).length === 0 ? (
             <EmptyState icon={AlertTriangle} message={g.noCompliance} />
            ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-100 bg-gray-50">
-                <tr>
-                  {[g.colTeam, g.colTotalCost, g.colUntaggedCost, g.colCompliance, ''].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {(complianceQ.data as LabelComplianceRow[]).map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800">{row.team}</td>
-                    <td className="px-4 py-3 text-gray-700">{formatMoney(row.total_cost_usd)}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatMoney(row.untagged_cost_usd)}</td>
-                    <td className="px-4 py-3"><ComplianceBadge pct={row.compliance_pct} /></td>
-                    <td className="w-32 px-4 py-3"><ComplianceBar pct={row.compliance_pct} /></td>
+            <>
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-100 bg-gray-50">
+                  <tr>
+                    {[g.colTeam, g.colTotalCost, g.colUntaggedCost, g.colCompliance, ''].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {/* Nota sobre custos sem equipe */}
-            {(complianceQ.data as LabelComplianceRow[])?.some(r =>
-              r.team === 'Sem equipe identificada' || r.team === 'No team mapped'
-            ) && (
-              <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 text-xs text-blue-700">
-                <strong>Nota:</strong> Custos sem tags de equipe no Azure foram agrupados como "Sem equipe identificada".
-                Para classificar, configure tags <code>team</code>, <code>owner</code> ou <code>squad</code> nos recursos Azure.
-              </div>
-            )}
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {(complianceQ.data as LabelComplianceRow[]).map((row, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800">{row.team}</td>
+                      <td className="px-4 py-3 text-gray-700">{formatMoney(row.total_cost_usd)}</td>
+                      <td className="px-4 py-3 text-gray-500">{formatMoney(row.untagged_cost_usd)}</td>
+                      <td className="px-4 py-3"><ComplianceBadge pct={row.compliance_pct} /></td>
+                      <td className="w-32 px-4 py-3"><ComplianceBar pct={row.compliance_pct} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(complianceQ.data as LabelComplianceRow[])?.some(r =>
+                r.team === 'Sem equipe identificada' || r.team === 'No team mapped'
+              ) && (
+                <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 text-xs text-blue-700">
+                  <strong>Nota:</strong> Custos sem tags de equipe no Azure foram agrupados como &quot;Sem equipe identificada&quot;.
+                  Para classificar, configure tags <code>team</code>, <code>owner</code> ou <code>squad</code> nos recursos Azure.
+                </div>
+              )}
+            </>
            )}
         </div>
       )}
