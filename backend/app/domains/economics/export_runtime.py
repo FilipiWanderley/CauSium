@@ -1262,7 +1262,7 @@ def _build_sustainability_sheet(ws, green_summary, green_monthly) -> None:
             c = ws.cell(row=row, column=3, value=m.cost_usd)
             c.number_format = _BRL_FORMAT
             c = ws.cell(row=row, column=4, value=(m.delta_pct or 0) / 100.0 if m.delta_pct else None)
-            c.number_format = _PCT_FORMAT if m.delta_pct else None
+            c.number_format = _PCT_FORMAT if m.delta_pct else "General"
             row += 1
         _apply_table_style(ws, header_row + 1, row - 1, 4, currency_cols=[3], pct_cols=[4])
 
