@@ -6,6 +6,10 @@ from uuid import UUID
 
 from app.core.clickhouse import execute_query
 from app.core.logging import get_logger
+from app.domains.economics.team_inference import (
+    TeamClassificationSource,
+    infer_team_from_resource,
+)
 
 log = get_logger(__name__)
 
@@ -110,6 +114,8 @@ class GovService:
         )
         total = int(total_rows[0]["total"]) if total_rows else 0
 
+        # Count "unowned" with inference: only truly unclassified resources
+        # Uses same logic as team_inference to determine which are truly without team
         unowned_rows = _safe_query(
             """
             SELECT
@@ -119,43 +125,102 @@ class GovService:
             WHERE org_id = {org_id:String}
               AND date  >= {cutoff:String}
               AND resource_id != ''
-              AND (owner_team = '' OR owner_team IS NULL)
+              AND (
+                  (owner_team = '' OR owner_team IS NULL OR owner_team = 'untagged')
+                  AND (
+                      resource_name = '' OR resource_name IS NULL
+                      OR resource_name LIKE 'networkwatcherrg%'
+                      OR resource_name LIKE 'azurebackuprg%'
+                      OR resource_name LIKE '$system%'
+                      OR resource_name LIKE 'defaultresourcegroup%'
+                      OR resource_name LIKE 'cloud%'
+                      OR resource_name LIKE 'veeam-linux-helper%'
+                      OR resource_name LIKE 'causiumcost%'
+                  )
+              )
             """,
             {"org_id": str(org_id), "cutoff": cutoff},
         )
         unowned_cnt = int(unowned_rows[0]["cnt"]) if unowned_rows else 0
         unowned_cost = float(unowned_rows[0]["cost"] or 0) if unowned_rows else 0.0
 
+        # Count distinct inferred teams (using same logic as label compliance)
         teams_rows = _safe_query(
             """
-            SELECT uniqExact(owner_team) AS cnt
-            FROM cost_facts
-            WHERE org_id = {org_id:String}
-              AND date >= {cutoff:String}
-              AND owner_team != ''
-              AND owner_team IS NOT NULL
+            SELECT count(DISTINCT team_label) AS cnt
+            FROM (
+                SELECT
+                    multiIf(
+                        owner_team != '' AND owner_team IS NOT NULL AND owner_team != 'untagged', owner_team,
+                        resource_name != '' AND resource_name IS NOT NULL
+                            AND resource_name NOT LIKE 'networkwatcherrg%'
+                            AND resource_name NOT LIKE 'azurebackuprg%'
+                            AND resource_name NOT LIKE '$system%'
+                            AND resource_name NOT LIKE 'defaultresourcegroup%'
+                            AND resource_name NOT LIKE 'cloud%'
+                            AND resource_name NOT LIKE 'veeam-linux-helper%'
+                            AND resource_name NOT LIKE 'causiumcost%'
+                            AND resource_name NOT LIKE 'projeto%',
+                        multiIf(
+                            startsWith(lower(resource_name), 'csc'), 'CSC',
+                            startsWith(lower(resource_name), 'cqg'), 'CQG',
+                            startsWith(lower(resource_name), 'engetec'), 'Engetec',
+                            startsWith(lower(resource_name), 'vital'), 'Vital',
+                            startsWith(lower(resource_name), 'qgi'), 'QGI',
+                            startsWith(lower(resource_name), 'qggn'), 'QGGN',
+                            startsWith(lower(resource_name), 'qgsa'), 'QGSA',
+                            startsWith(lower(resource_name), 'frontis'), 'Frontis',
+                            startsWith(lower(resource_name), 'projeto'), 'Datalake',
+                            ''
+                        ),
+                        ''
+                    ) AS team_label
+                FROM cost_facts
+                WHERE org_id = {org_id:String}
+                  AND date >= {cutoff:String}
+            )
+            WHERE team_label != ''
             """,
             {"org_id": str(org_id), "cutoff": cutoff},
         )
         teams = int(teams_rows[0]["cnt"]) if teams_rows else 0
 
+        # Calculate avg compliance with inference
         compliance = _safe_query(
             """
             SELECT
                 owner_team,
-                sum(cost_usd)                                           AS total,
-                sumIf(cost_usd, owner_team = '' OR owner_team IS NULL) AS untagged
+                resource_name,
+                sum(cost_usd) AS total,
+                sumIf(cost_usd, owner_team = '' OR owner_team IS NULL OR owner_team = 'untagged') AS untagged
             FROM cost_facts
             WHERE org_id = {org_id:String}
               AND date >= {cutoff:String}
-            GROUP BY owner_team
+            GROUP BY owner_team, resource_name
             """,
             {"org_id": str(org_id), "cutoff": cutoff},
         )
+
+        # Apply inference and aggregate by inferred team
+        team_data: dict[str, dict] = {}
+        for r in compliance:
+            owner_team = str(r.get("owner_team") or "")
+            resource_name = str(r.get("resource_name") or "")
+            total = float(r.get("total") or 0)
+            untagged = float(r.get("untagged") or 0)
+
+            result = infer_team_from_resource(resource_name, owner_team)
+            team_label = result.team_label
+
+            if team_label not in team_data:
+                team_data[team_label] = {"total": 0.0, "untagged": 0.0}
+            team_data[team_label]["total"] += total
+            team_data[team_label]["untagged"] += untagged
+
         pcts = [
-            100.0 * (1.0 - float(r.get("untagged", 0) or 0) / max(float(r.get("total", 1) or 1), 0.01))
-            for r in compliance
-            if float(r.get("total", 0) or 0) > 0
+            100.0 * (1.0 - data["untagged"] / max(data["total"], 0.01))
+            for data in team_data.values()
+            if data["total"] > 0
         ]
         avg_pct = sum(pcts) / len(pcts) if pcts else 100.0
 
@@ -176,6 +241,7 @@ class GovService:
         self, org_id: UUID, days: int = _DAYS, limit: int = 50
     ) -> list[UnownedCostRow]:
         cutoff = (date.today() - timedelta(days=days)).isoformat()
+        # Only truly unclassified resources (no tag AND no inference pattern)
         rows = _safe_query(
             """
             SELECT
@@ -189,7 +255,17 @@ class GovService:
             WHERE org_id = {org_id:String}
               AND date  >= {cutoff:String}
               AND resource_id != ''
-              AND (owner_team = '' OR owner_team IS NULL)
+              AND (owner_team = '' OR owner_team IS NULL OR owner_team = 'untagged')
+              AND (
+                  resource_name = '' OR resource_name IS NULL
+                  OR resource_name LIKE 'networkwatcherrg%'
+                  OR resource_name LIKE 'azurebackuprg%'
+                  OR resource_name LIKE '$system%'
+                  OR resource_name LIKE 'defaultresourcegroup%'
+                  OR resource_name LIKE 'cloud%'
+                  OR resource_name LIKE 'veeam-linux-helper%'
+                  OR resource_name LIKE 'causiumcost%'
+              )
             GROUP BY service, resource_id, region, environment
             ORDER BY cost_usd DESC
             LIMIT {limit:UInt32}
@@ -216,29 +292,50 @@ class GovService:
         self, org_id: UUID, days: int = _DAYS
     ) -> list[LabelComplianceRow]:
         cutoff = (date.today() - timedelta(days=days)).isoformat()
+        # Query includes resource_name to enable team inference fallback
         rows = _safe_query(
             """
             SELECT
-                if(owner_team = '' OR owner_team IS NULL, 'Sem equipe identificada', owner_team) AS team,
-                sum(cost_usd)                                                        AS total,
-                sumIf(cost_usd, owner_team = '' OR owner_team IS NULL)              AS untagged
+                owner_team,
+                resource_name,
+                sum(cost_usd) AS total,
+                sumIf(cost_usd, owner_team = '' OR owner_team IS NULL OR owner_team = 'untagged') AS untagged
             FROM cost_facts
             WHERE org_id = {org_id:String}
               AND date >= {cutoff:String}
-            GROUP BY team
+            GROUP BY owner_team, resource_name
             ORDER BY total DESC
-            LIMIT 100
+            LIMIT 500
             """,
             {"org_id": str(org_id), "cutoff": cutoff},
         )
-        result = []
+
+        # Apply inference and aggregate by inferred team
+        team_data: dict[str, dict] = {}
         for r in rows:
+            owner_team = str(r.get("owner_team") or "")
+            resource_name = str(r.get("resource_name") or "")
             total = float(r.get("total") or 0)
             untagged = float(r.get("untagged") or 0)
+
+            result = infer_team_from_resource(resource_name, owner_team)
+            team_label = result.team_label
+
+            if team_label not in team_data:
+                team_data[team_label] = {"total": 0.0, "untagged": 0.0}
+            team_data[team_label]["total"] += total
+            team_data[team_label]["untagged"] += untagged
+
+        # Sort by total cost and build result
+        sorted_teams = sorted(team_data.items(), key=lambda x: -x[1]["total"])
+        result = []
+        for team_label, data in sorted_teams:
+            total = data["total"]
+            untagged = data["untagged"]
             pct = round(100.0 * (1.0 - untagged / max(total, 0.01)), 1) if total > 0 else 100.0
             result.append(
                 LabelComplianceRow(
-                    team=r.get("team") or "Sem equipe identificada",
+                    team=team_label,
                     total_cost_usd=round(total, 2),
                     untagged_cost_usd=round(untagged, 2),
                     compliance_pct=pct,

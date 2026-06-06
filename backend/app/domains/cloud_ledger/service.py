@@ -1294,6 +1294,98 @@ class CloudLedgerService:
             log.warning("ledger.top_teams.failed", error=str(e))
             return [], 0
 
+    def get_top_teams_with_inference(
+        self,
+        org_id: UUID,
+        days: int = 30,
+        limit: int = 10,
+        offset: int = 0,
+        provider: str | None = None,
+        subscription_id: str | None = None,
+    ) -> tuple[list[ServiceBreakdown], int]:
+        """
+        Get top teams with Resource Group inference fallback.
+
+        When owner_team = 'untagged', attempts to infer team from resource_name prefix.
+        Does NOT change database - only affects display labels.
+        """
+        from app.domains.economics.team_inference import (
+            TeamClassificationSource,
+            infer_team_from_resource,
+        )
+
+        end = date.today()
+        start = end - timedelta(days=days)
+        provider_where = "AND provider = {provider:String}" if provider else ""
+        subscription_where = "AND subscription_id = {subscription_id:String}" if subscription_id else ""
+        params = {
+            "org_id": str(org_id),
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "offset": offset,
+        }
+        if provider:
+            params["provider"] = provider
+        if subscription_id:
+            params["subscription_id"] = subscription_id
+        try:
+            # Query with resource_name to enable inference
+            rows = execute_query(
+                f"""
+                SELECT
+                    owner_team,
+                    resource_name,
+                    sum(cost_usd) as cost_usd
+                FROM cost_facts
+                WHERE org_id = {{org_id:String}}
+                  AND date >= {{start:Date}}
+                  AND date <= {{end:Date}}
+                  {provider_where}
+                  {subscription_where}
+                GROUP BY owner_team, resource_name
+                ORDER BY cost_usd DESC
+                LIMIT 2000
+                """,
+                params,
+            )
+
+            # Apply inference and aggregate by inferred team
+            team_costs: dict[str, dict] = {}
+            for r in rows:
+                owner_team = str(r.get("owner_team") or "")
+                resource_name = str(r.get("resource_name") or "")
+                cost = float(r.get("cost_usd") or 0)
+
+                result = infer_team_from_resource(resource_name, owner_team)
+                team_label = result.team_label
+
+                if team_label not in team_costs:
+                    team_costs[team_label] = {
+                        "cost": 0.0,
+                        "source": result.source.value,
+                    }
+                team_costs[team_label]["cost"] += cost
+
+            # Sort by cost and take top N
+            sorted_teams = sorted(team_costs.items(), key=lambda x: -x[1]["cost"])
+            total = len(sorted_teams)
+            paginated = sorted_teams[offset : offset + limit]
+
+            cost_total = sum(v["cost"] for _, v in paginated) or 1
+            items = [
+                ServiceBreakdown(
+                    service=team_label,
+                    cost_usd=round(cost_info["cost"], 2),
+                    percentage=round(cost_info["cost"] / cost_total * 100, 1),
+                )
+                for team_label, cost_info in paginated
+            ]
+            return items, total
+        except Exception as e:
+            log.warning("ledger.top_teams_inference.failed", error=str(e))
+            return [], 0
+
     def get_month_cost(
         self,
         org_id: UUID,
@@ -1664,7 +1756,7 @@ class CloudLedgerService:
         )
 
         top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
-        top_teams, _ = self.get_top_teams(org_id, provider=provider, subscription_id=subscription_id)
+        top_teams, _ = self.get_top_teams_with_inference(org_id, provider=provider, subscription_id=subscription_id)
         currency = self.get_dominant_currency(org_id, provider=provider, subscription_id=subscription_id)
         metadata = self._get_month_metadata(org_id, today.year, today.month, provider=provider, subscription_id=subscription_id)
         return DashboardMetrics(

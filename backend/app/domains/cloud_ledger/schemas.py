@@ -42,6 +42,14 @@ class ServiceBreakdown(BaseModel):
     percentage: float
 
 
+class TeamBreakdown(BaseModel):
+    """Team breakdown with classification source for inference support."""
+    team: str
+    cost_usd: float
+    percentage: float
+    source: str = "Tag Azure"  # "Tag Azure" | "Resource Group inferido" | "Sem equipe identificada"
+
+
 class DashboardMetrics(BaseModel):
     current_month_cost: float
     previous_month_cost: float
