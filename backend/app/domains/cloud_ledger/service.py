@@ -1310,7 +1310,6 @@ class CloudLedgerService:
         Does NOT change database - only affects display labels.
         """
         from app.domains.economics.team_inference import (
-            TeamClassificationSource,
             infer_team_from_resource,
         )
 

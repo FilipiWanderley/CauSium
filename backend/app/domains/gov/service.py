@@ -7,7 +7,6 @@ from uuid import UUID
 from app.core.clickhouse import execute_query
 from app.core.logging import get_logger
 from app.domains.economics.team_inference import (
-    TeamClassificationSource,
     infer_team_from_resource,
 )
 
