@@ -205,16 +205,16 @@ class GovService:
         for r in compliance:
             owner_team = str(r.get("owner_team") or "")
             resource_name = str(r.get("resource_name") or "")
-            total = float(r.get("total") or 0)
-            untagged = float(r.get("untagged") or 0)
+            team_cost = float(r.get("total") or 0)
+            team_untagged = float(r.get("untagged") or 0)
 
-            result = infer_team_from_resource(resource_name, owner_team)
-            team_label = result.team_label
+            inference_result = infer_team_from_resource(resource_name, owner_team)
+            team_label = inference_result.team_label
 
             if team_label not in team_data:
                 team_data[team_label] = {"total": 0.0, "untagged": 0.0}
-            team_data[team_label]["total"] += total
-            team_data[team_label]["untagged"] += untagged
+            team_data[team_label]["total"] += team_cost
+            team_data[team_label]["untagged"] += team_untagged
 
         pcts = [
             100.0 * (1.0 - data["untagged"] / max(data["total"], 0.01))
@@ -314,33 +314,33 @@ class GovService:
         for r in rows:
             owner_team = str(r.get("owner_team") or "")
             resource_name = str(r.get("resource_name") or "")
-            total = float(r.get("total") or 0)
-            untagged = float(r.get("untagged") or 0)
+            team_cost = float(r.get("total") or 0)
+            team_untagged = float(r.get("untagged") or 0)
 
-            result = infer_team_from_resource(resource_name, owner_team)
-            team_label = result.team_label
+            inference_result = infer_team_from_resource(resource_name, owner_team)
+            team_label = inference_result.team_label
 
             if team_label not in team_data:
                 team_data[team_label] = {"total": 0.0, "untagged": 0.0}
-            team_data[team_label]["total"] += total
-            team_data[team_label]["untagged"] += untagged
+            team_data[team_label]["total"] += team_cost
+            team_data[team_label]["untagged"] += team_untagged
 
         # Sort by total cost and build result
         sorted_teams = sorted(team_data.items(), key=lambda x: -x[1]["total"])
-        result = []
+        compliance_rows: list[LabelComplianceRow] = []
         for team_label, data in sorted_teams:
-            total = data["total"]
-            untagged = data["untagged"]
-            pct = round(100.0 * (1.0 - untagged / max(total, 0.01)), 1) if total > 0 else 100.0
-            result.append(
+            cost_total = data["total"]
+            cost_untagged = data["untagged"]
+            pct = round(100.0 * (1.0 - cost_untagged / max(cost_total, 0.01)), 1) if cost_total > 0 else 100.0
+            compliance_rows.append(
                 LabelComplianceRow(
                     team=team_label,
-                    total_cost_usd=round(total, 2),
-                    untagged_cost_usd=round(untagged, 2),
+                    total_cost_usd=round(cost_total, 2),
+                    untagged_cost_usd=round(cost_untagged, 2),
                     compliance_pct=pct,
                 )
             )
-        return result
+        return compliance_rows
 
     # ------------------------------------------------------------------
     # Advisor recommendations
