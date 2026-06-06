@@ -124,8 +124,8 @@ async def top_teams(
     page_params: PageParams = Depends(PageParams),
 ):
     service = CloudLedgerService(db)
-    # Use inference-enabled method to show inferred team labels
-    items, total = service.get_top_teams_with_inference(current_user.org_id, days=days, limit=page_params.limit, offset=page_params.offset)
+    # Official data: use real Azure tags, show "Sem equipe identificada" when untagged
+    items, total = service.get_top_teams(current_user.org_id, days=days, limit=page_params.limit, offset=page_params.offset)
     return Page.of(items, total, page_params)
 
 

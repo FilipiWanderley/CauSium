@@ -1755,7 +1755,7 @@ class CloudLedgerService:
         )
 
         top_services, _ = self.get_top_services(org_id, provider=provider, subscription_id=subscription_id)
-        top_teams, _ = self.get_top_teams_with_inference(org_id, provider=provider, subscription_id=subscription_id)
+        top_teams, _ = self.get_top_teams(org_id, provider=provider, subscription_id=subscription_id)
         currency = self.get_dominant_currency(org_id, provider=provider, subscription_id=subscription_id)
         metadata = self._get_month_metadata(org_id, today.year, today.month, provider=provider, subscription_id=subscription_id)
         return DashboardMetrics(

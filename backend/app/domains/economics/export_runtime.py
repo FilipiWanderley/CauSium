@@ -254,7 +254,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     ledger = CloudLedgerService(db)
     dashboard = await ledger.get_dashboard_metrics(job.org_id, active_accounts)
     top_services, _ = ledger.get_top_services(job.org_id, days=job.window_days, limit=15)
-    top_teams, _ = ledger.get_top_teams_with_inference(job.org_id, days=job.window_days, limit=15)
+    top_teams, _ = ledger.get_top_teams(job.org_id, days=job.window_days, limit=15)
     trend = ledger.get_cost_trend(job.org_id, days=job.window_days)
 
     # Get subscription breakdown (NEW)
@@ -487,7 +487,7 @@ def _build_csv_zip(
         gov_compliance_rows,
     )
     # Nota sobre custos sem equipe
-    _NOTE_TEAM = "\r\n".encode("utf-8") + b"NOTA: Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Equipes exibidas com outros nomes (CSC, CQG, Engetec, Vital, etc.) foram inferidas por padrao de Resource Group quando tags Azure nao estao disponiveis. Para classificar corretamente, configure tags team/owner/squad nos recursos Azure."
+    _NOTE_TEAM = "\r\n".encode("utf-8") + b"NOTA: Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Para classificar, configure tags team/owner/squad nos recursos Azure."
     # Merge governance into one file with a section separator
     gov_combined = gov_csv + "\r\n".encode("utf-8") + b"SECAO:COMPLIANCE POR EQUIPE\r\n" + gov_compliance_csv + _NOTE_TEAM
 
@@ -1214,9 +1214,9 @@ def _build_governance_sheet(ws, gov_summary, gov_unowned, gov_compliance) -> Non
     # Nota sobre custos sem equipe
     row += 2
     ws.cell(row=row, column=1, value="Nota:").font = Font(bold=True, color="808080")
-    ws.cell(row=row, column=2, value="Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Equipes exibidas com outros nomes (CSC, CQG, Engetec, Vital, etc.) foram inferidas por padrão de Resource Group quando tags Azure não estão disponíveis. Para classificar corretamente, configure tags team/owner/squad nos recursos Azure.")
+    ws.cell(row=row, column=2, value="Custos classificados como 'Sem equipe identificada' indicam registros sem tags de equipe no Azure. Para classificar, configure tags team/owner/squad nos recursos Azure.")
     ws.cell(row=row, column=2).alignment = Alignment(wrap_text=True)
-    ws.row_dimensions[row].height = 40
+    ws.row_dimensions[row].height = 30
 
     ws.freeze_panes = "A3"
     _auto_width(ws)

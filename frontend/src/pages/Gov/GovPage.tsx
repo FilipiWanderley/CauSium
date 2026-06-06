@@ -13,7 +13,7 @@ import { usePageTitle } from '../../hooks/usePageTitle'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
 import { ExplainTooltip } from '../../components/UX/ExplainTooltip'
 import { DEFAULT_DISPLAY_CURRENCY, formatCurrency } from '../../utils/currency'
-import { isKnownTeamLabel, UNMAPPED_TEAM_LABEL } from '../../utils/teamDisplay'
+import { UNMAPPED_TEAM_LABEL } from '../../utils/teamDisplay'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -333,8 +333,7 @@ export function GovPage() {
               ) && (
                 <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 text-xs text-blue-700">
                   <strong>Nota:</strong> Custos sem tags de equipe no Azure foram agrupados como &quot;{UNMAPPED_TEAM_LABEL}&quot;.
-                  Equipes exibidas com outros nomes (CSC, CQG, Engetec, Vital, QGI, QGGN, QGSA, Frontis, Datalake) foram inferidas por padrão de Resource Group.
-                  Para classificar corretamente, configure tags <code>team</code>, <code>owner</code> ou <code>squad</code> nos recursos Azure.
+                  Para classificar, configure tags <code>team</code>, <code>owner</code> ou <code>squad</code> nos recursos Azure.
                 </div>
               )}
             </>
