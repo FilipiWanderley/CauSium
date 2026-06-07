@@ -82,6 +82,27 @@ class InventorySummary:
     unowned_resources: int
 
 
+@dataclass
+class TopUntaggedRow:
+    name: str
+    cost_usd: float
+    record_count: int
+
+
+@dataclass
+class TagComplianceMetrics:
+    configured_tag_key: str
+    total_cost: float
+    tagged_cost: float
+    untagged_cost: float
+    coverage_pct: float
+    total_records: int
+    tagged_records: int
+    untagged_records: int
+    top_untagged_resource_groups: list[TopUntaggedRow]
+    top_untagged_services: list[TopUntaggedRow]
+
+
 def _safe_query(query: str, params: dict) -> list[dict]:
     try:
         return execute_query(query, params) or []
@@ -449,4 +470,131 @@ class GovService:
             resource_types=int(r.get("types") or 0),
             resource_groups=int(r.get("groups") or 0),
             unowned_resources=int(r.get("unowned") or 0),
+        )
+
+    # ------------------------------------------------------------------
+    # Tag Compliance (monitored tag visibility)
+    # ------------------------------------------------------------------
+
+    def get_tag_compliance(
+        self,
+        org_id: UUID,
+        *,
+        tag_key: str = "team",
+        days: int = _DAYS,
+    ) -> TagComplianceMetrics:
+        """Returns compliance metrics for a monitored tag key (default: team).
+
+        Uses cost_facts.tags Map to check if the configured key is present.
+        Does NOT use owner_team or Resource Group inference.
+        """
+        cutoff = (date.today() - timedelta(days=days)).isoformat()
+
+        # Main compliance query using tags Map
+        main_rows = _safe_query(
+            """
+            SELECT
+                count()                            AS total_records,
+                sum(cost_usd)                      AS total_cost,
+                sumIf(1, mapContains(tags, {tag_key:String})) AS tagged_records,
+                sumIf(cost_usd, mapContains(tags, {tag_key:String})) AS tagged_cost,
+                sumIf(1, NOT mapContains(tags, {tag_key:String})) AS untagged_records,
+                sumIf(cost_usd, NOT mapContains(tags, {tag_key:String})) AS untagged_cost
+            FROM cost_facts
+            WHERE org_id = {org_id:String}
+              AND date >= {cutoff:String}
+              AND resource_id != ''
+            """,
+            {"org_id": str(org_id), "cutoff": cutoff, "tag_key": tag_key},
+        )
+
+        if not main_rows or main_rows[0].get("total_records", 0) == 0:
+            return TagComplianceMetrics(
+                configured_tag_key=tag_key,
+                total_cost=0.0,
+                tagged_cost=0.0,
+                untagged_cost=0.0,
+                coverage_pct=100.0,
+                total_records=0,
+                tagged_records=0,
+                untagged_records=0,
+                top_untagged_resource_groups=[],
+                top_untagged_services=[],
+            )
+
+        r = main_rows[0]
+        total_records = int(r.get("total_records") or 0)
+        total_cost = float(r.get("total_cost") or 0)
+        tagged_records = int(r.get("tagged_records") or 0)
+        tagged_cost = float(r.get("tagged_cost") or 0)
+        untagged_records = int(r.get("untagged_records") or 0)
+        untagged_cost = float(r.get("untagged_cost") or 0)
+
+        coverage_pct = round(100.0 * tagged_records / max(total_records, 1), 1)
+
+        # Top untagged resource groups
+        rg_rows = _safe_query(
+            """
+            SELECT
+                if(resource_group = '' OR resource_group IS NULL, 'N/A', resource_group) AS name,
+                sum(cost_usd) AS cost_usd,
+                count()       AS record_count
+            FROM cost_facts
+            WHERE org_id = {org_id:String}
+              AND date >= {cutoff:String}
+              AND resource_id != ''
+              AND NOT mapContains(tags, {tag_key:String})
+            GROUP BY name
+            ORDER BY cost_usd DESC
+            LIMIT 10
+            """,
+            {"org_id": str(org_id), "cutoff": cutoff, "tag_key": tag_key},
+        )
+        top_untagged_resource_groups = [
+            TopUntaggedRow(
+                name=r.get("name") or "N/A",
+                cost_usd=round(float(r.get("cost_usd") or 0), 2),
+                record_count=int(r.get("record_count") or 0),
+            )
+            for r in rg_rows
+        ]
+
+        # Top untagged services
+        svc_rows = _safe_query(
+            """
+            SELECT
+                if(service = '' OR service IS NULL, 'N/A', service) AS name,
+                sum(cost_usd) AS cost_usd,
+                count()       AS record_count
+            FROM cost_facts
+            WHERE org_id = {org_id:String}
+              AND date >= {cutoff:String}
+              AND resource_id != ''
+              AND NOT mapContains(tags, {tag_key:String})
+            GROUP BY name
+            ORDER BY cost_usd DESC
+            LIMIT 10
+            """,
+            {"org_id": str(org_id), "cutoff": cutoff, "tag_key": tag_key},
+        )
+        top_untagged_services = [
+            TopUntaggedRow(
+                name=r.get("name") or "N/A",
+                cost_usd=round(float(r.get("cost_usd") or 0), 2),
+                record_count=int(r.get("record_count") or 0),
+            )
+            for r in svc_rows
+        ]
+
+        return TagComplianceMetrics(
+            configured_tag_key=tag_key,
+            total_cost=round(total_cost, 2),
+            tagged_cost=round(tagged_cost, 2),
+            untagged_cost=round(untagged_cost, 2),
+            coverage_pct=coverage_pct,
+            total_records=total_records,
+            tagged_records=tagged_records,
+            untagged_records=untagged_records,
+            top_untagged_resource_groups=top_untagged_resource_groups,
+            top_untagged_services=top_untagged_services,
         )

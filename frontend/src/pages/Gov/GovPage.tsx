@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Landmark, Tag, AlertTriangle, Lightbulb, Server } from 'lucide-react'
+import { Landmark, Tag, AlertTriangle, Lightbulb, Server, ShieldCheck } from 'lucide-react'
 import {
   govApi,
   type LabelComplianceRow,
   type RecommendationRow,
   type ResourceRow,
+  type TagComplianceMetrics,
   type UnownedCostRow,
 } from '../../api/gov'
 import { useI18n } from '../../contexts/I18nContext'
@@ -105,7 +106,7 @@ function SkeletonRows() {
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory'
+type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory' | 'tag-compliance'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export function GovPage() {
     { id: 'compliance',      label: g.tabCompliance      },
     { id: 'recommendations', label: g.tabRecommendations },
     { id: 'inventory',       label: g.tabInventory       },
+    { id: 'tag-compliance',  label: g.tabTagCompliance   },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -178,6 +180,12 @@ export function GovPage() {
     queryKey: ['gov-inventory'],
     queryFn: () => govApi.getInventory({ limit: 200 }),
     enabled: tab === 'inventory',
+  })
+
+  const tagComplianceQ = useQuery({
+    queryKey: ['gov-tag-compliance', days],
+    queryFn: () => govApi.getTagCompliance('team', days),
+    enabled: tab === 'tag-compliance',
   })
 
   const s = summaryQ.data
@@ -450,6 +458,147 @@ export function GovPage() {
               </tbody>
             </table>
            )}
+        </div>
+      )}
+
+      {/* ── Tag Compliance tab ─────────────────────────────────────────────── */}
+      {tab === 'tag-compliance' && (
+        <div className="space-y-4">
+          {/* Header info */}
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">
+                {g.tagMonitored}: <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-sm">{tagComplianceQ.data?.configured_tag_key ?? 'team'}</code>
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-blue-600">{g.tagMonitoredNote}</p>
+          </div>
+
+          {/* KPI cards */}
+          {tagComplianceQ.isPending ? <SkeletonRows /> :
+           tagComplianceQ.isError ? (
+            <div className="rounded-xl border border-gray-100 bg-white p-8 text-center text-sm text-red-500">{g.tagError}</div>
+           ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {/* Coverage */}
+                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{g.tagCoverage}</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">
+                    {tagComplianceQ.data?.coverage_pct.toFixed(1) ?? '—'}%
+                  </p>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+                    <div
+                      className={`h-1.5 rounded-full ${(tagComplianceQ.data?.coverage_pct ?? 0) >= 90 ? 'bg-emerald-500' : (tagComplianceQ.data?.coverage_pct ?? 0) >= 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(tagComplianceQ.data?.coverage_pct ?? 0, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Cost with tag */}
+                <div className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{g.tagCostWithTag}</p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-700">
+                    {formatMoney(tagComplianceQ.data?.tagged_cost ?? 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {tagComplianceQ.data?.tagged_records?.toLocaleString() ?? '—'} {g.tagRecordsWithoutTag.replace(' sem tag', '')}
+                  </p>
+                </div>
+
+                {/* Cost without tag */}
+                <div className="rounded-xl border border-amber-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{g.tagCostWithoutTag}</p>
+                  <p className="mt-1 text-2xl font-bold text-amber-600">
+                    {formatMoney(tagComplianceQ.data?.untagged_cost ?? 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {tagComplianceQ.data?.untagged_records?.toLocaleString() ?? '—'} {g.tagRecordsWithoutTag}
+                  </p>
+                </div>
+
+                {/* Total cost */}
+                <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{g.tagTotalCost}</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">
+                    {formatMoney(tagComplianceQ.data?.total_cost ?? 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {tagComplianceQ.data?.total_records?.toLocaleString() ?? '—'} {g.tagTotalRecords}
+                  </p>
+                </div>
+              </div>
+
+              {/* Top tables */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Top Resource Groups without tag */}
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-gray-700">{g.tagTopResourceGroups}</h3>
+                  </div>
+                  {(tagComplianceQ.data?.top_untagged_resource_groups?.length ?? 0) === 0 ? (
+                    <div className="p-6 text-center text-sm text-gray-500">—</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-50">
+                          <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColName}</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColCost}</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColRecords}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {tagComplianceQ.data?.top_untagged_resource_groups.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-medium text-gray-800 truncate max-w-[180px]">{row.name}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(row.cost_usd)}</td>
+                            <td className="px-4 py-2 text-right text-gray-500">{row.record_count.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Top Services without tag */}
+                <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-gray-700">{g.tagTopServices}</h3>
+                  </div>
+                  {(tagComplianceQ.data?.top_untagged_services?.length ?? 0) === 0 ? (
+                    <div className="p-6 text-center text-sm text-gray-500">—</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-50">
+                          <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColName}</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColCost}</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{g.tagColRecords}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {tagComplianceQ.data?.top_untagged_services.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-medium text-gray-800 truncate max-w-[180px]">{row.name}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-gray-900">{formatMoney(row.cost_usd)}</td>
+                            <td className="px-4 py-2 text-right text-gray-500">{row.record_count.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                <p className="text-xs text-gray-600">
+                  <span className="font-medium">ℹ️ {g.tagNote}</span>
+                </p>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

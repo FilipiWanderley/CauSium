@@ -27,7 +27,26 @@ export interface LabelComplianceRow {
   compliance_pct: number
 }
 
-// ── Recommendations ────────────────────────────────────────────────────────────
+// ── Tag Compliance ─────────────────────────────────────────────────────────────
+
+export interface TopUntaggedRow {
+  name: string
+  cost_usd: number
+  record_count: number
+}
+
+export interface TagComplianceMetrics {
+  configured_tag_key: string
+  total_cost: number
+  tagged_cost: number
+  untagged_cost: number
+  coverage_pct: number
+  total_records: number
+  tagged_records: number
+  untagged_records: number
+  top_untagged_resource_groups: TopUntaggedRow[]
+  top_untagged_services: TopUntaggedRow[]
+}
 
 export interface RecommendationRow {
   recommendation_id: string
@@ -102,4 +121,7 @@ export const govApi = {
     offset?: number
   }): Promise<ResourceRow[]> =>
     apiClient.get('/gov/inventory', { params }).then((r) => r.data),
+
+  getTagCompliance: (tagKey = 'team', days = 30): Promise<TagComplianceMetrics> =>
+    apiClient.get('/gov/tag-compliance', { params: { tag_key: tagKey, days } }).then((r) => r.data),
 }

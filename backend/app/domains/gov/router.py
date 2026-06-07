@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,11 +15,16 @@ from app.domains.gov.schemas import (
     RecommendationRowOut,
     RecommendationsSummaryOut,
     ResourceRowOut,
+    TagComplianceOut,
+    TopUntaggedRow,
     UnownedCostRowOut,
 )
 from app.domains.gov.service import GovService
 
 router = APIRouter(prefix="/gov", tags=["gov"])
+
+# Tag key validation: alphanumeric, underscore, hyphen, max 64 chars
+_TAG_KEY_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 @router.get("/summary", response_model=GovSummaryOut)
@@ -53,6 +59,37 @@ def get_label_compliance(
     svc = GovService()
     rows = svc.get_label_compliance(current_user.org_id, days=days)
     return [LabelComplianceRowOut(**vars(r)) for r in rows]
+
+
+# ── Tag Compliance (monitored tag) ─────────────────────────────────────────────
+
+@router.get("/tag-compliance", response_model=TagComplianceOut)
+def get_tag_compliance(
+    tag_key: str = Query(default="team", description="Monitored tag key (alphanumeric, underscore, hyphen). Max 64 chars."),
+    days: int = Query(default=30, ge=7, le=365),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user=Depends(get_current_user),
+) -> TagComplianceOut:
+    # Validate tag_key: alphanumeric, underscore, hyphen, 1-64 chars
+    if not _TAG_KEY_PATTERN.match(tag_key):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid tag_key '{tag_key}'. Must be 1-64 chars, alphanumeric with underscore or hyphen only.",
+        )
+    svc = GovService()
+    metrics = svc.get_tag_compliance(current_user.org_id, tag_key=tag_key, days=days)
+    return TagComplianceOut(
+        configured_tag_key=metrics.configured_tag_key,
+        total_cost=metrics.total_cost,
+        tagged_cost=metrics.tagged_cost,
+        untagged_cost=metrics.untagged_cost,
+        coverage_pct=metrics.coverage_pct,
+        total_records=metrics.total_records,
+        tagged_records=metrics.tagged_records,
+        untagged_records=metrics.untagged_records,
+        top_untagged_resource_groups=[TopUntaggedRow(**vars(r)) for r in metrics.top_untagged_resource_groups],
+        top_untagged_services=[TopUntaggedRow(**vars(r)) for r in metrics.top_untagged_services],
+    )
 
 
 # ── Recommendations ────────────────────────────────────────────────────────────

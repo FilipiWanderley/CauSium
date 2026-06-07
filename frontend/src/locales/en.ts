@@ -825,6 +825,27 @@ export interface Translations {
     sectionTitle: string
     sectionSubtitle: string
     noGovernanceIssues: string
+    // Tag Compliance (monitored tag)
+    tabTagCompliance: string
+    tagComplianceTitle: string
+    tagComplianceSubtitle: string
+    tagMonitored: string
+    tagMonitoredNote: string
+    tagCoverage: string
+    tagWithTag: string
+    tagWithoutTag: string
+    tagRecordsWithoutTag: string
+    tagTopResourceGroups: string
+    tagTopServices: string
+    tagCostWithTag: string
+    tagCostWithoutTag: string
+    tagTotalCost: string
+    tagTotalRecords: string
+    tagNote: string
+    tagError: string
+    tagColName: string
+    tagColCost: string
+    tagColRecords: string
   }
   green: {
     title: string
@@ -2240,6 +2261,27 @@ export const en: Translations = {
     sectionTitle: 'Governance & Ownership',
     sectionSubtitle: 'Team mapping, allocation tags, and governance coverage across the organization.',
     noGovernanceIssues: 'No governance or ownership issues found.',
+    // Tag Compliance (monitored tag)
+    tabTagCompliance: 'Monitored Tag',
+    tagComplianceTitle: 'Monitored Tag Compliance',
+    tagComplianceSubtitle: 'Coverage of the configured tag for cost allocation.',
+    tagMonitored: 'Monitored tag',
+    tagMonitoredNote: 'The current monitored tag is team. This configuration will soon be tenant-configurable.',
+    tagCoverage: 'Coverage',
+    tagWithTag: 'With Tag',
+    tagWithoutTag: 'Without Tag',
+    tagRecordsWithoutTag: 'Records without tag',
+    tagTopResourceGroups: 'Top Resource Groups without tag',
+    tagTopServices: 'Top Services without tag',
+    tagCostWithTag: 'Spend with tag',
+    tagCostWithoutTag: 'Spend without tag',
+    tagTotalCost: 'Total spend',
+    tagTotalRecords: 'Total records',
+    tagNote: '"Without tag" means the monitored tag is absent — not necessarily that the resource has no tags at all.',
+    tagError: 'Failed to load tag compliance data.',
+    tagColName: 'Name',
+    tagColCost: 'Spend',
+    tagColRecords: 'Records',
   },
   green: {
     title: 'Sustainability',

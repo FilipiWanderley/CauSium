@@ -288,6 +288,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
     gov_summary = gov.get_summary(job.org_id, days=job.window_days)
     gov_unowned = gov.get_unowned_costs(job.org_id, days=job.window_days, limit=30) or []
     gov_compliance = gov.get_label_compliance(job.org_id, days=job.window_days) or []
+    tag_compliance = gov.get_tag_compliance(job.org_id, tag_key='team', days=job.window_days)
 
     green = GreenService()
     green_summary = green.get_summary(job.org_id, months=6)
@@ -306,6 +307,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
             gov_summary=gov_summary,
             gov_unowned=gov_unowned,
             gov_compliance=gov_compliance,
+            tag_compliance=tag_compliance,
             green_summary=green_summary,
             green_monthly=green_monthly,
             generated_at=generated_at,
@@ -331,6 +333,7 @@ async def build_report_export_artifact(db, job: ReportExportJob) -> ReportExport
         gov_summary=gov_summary,
         gov_unowned=gov_unowned,
         gov_compliance=gov_compliance,
+        tag_compliance=tag_compliance,
         green_summary=green_summary,
         green_monthly=green_monthly,
         generated_at=generated_at,
@@ -382,6 +385,7 @@ def _build_csv_zip(
     gov_summary,
     gov_unowned,
     gov_compliance,
+    tag_compliance,
     green_summary,
     green_monthly,
     generated_at: datetime,
@@ -536,6 +540,38 @@ def _build_csv_zip(
         rec_rows,
     )
 
+    # 9. Tag Compliance (Compliance da Tag Monitorada)
+    tag_rows = []
+    if tag_compliance:
+        tag_rows = [
+            ["Tag Monitorada", tag_compliance.configured_tag_key],
+            ["Cobertura (%)", round(tag_compliance.coverage_pct, 1)],
+            ["Custo com Tag (R$)", round(tag_compliance.tagged_cost, 2)],
+            ["Custo sem Tag (R$)", round(tag_compliance.untagged_cost, 2)],
+            ["Custo Total (R$)", round(tag_compliance.total_cost, 2)],
+            ["Registros com Tag", tag_compliance.tagged_records],
+            ["Registros sem Tag", tag_compliance.untagged_records],
+            ["Total de Registros", tag_compliance.total_records],
+        ]
+        # Top Resource Groups
+        if tag_compliance.top_untagged_resource_groups:
+            tag_rows.append([])  # blank row
+            tag_rows.append(["TOP RESOURCE GROUPS SEM TAG"])
+            tag_rows.append(["Resource Group", "Custo (R$)", "Registros"])
+            for rg in tag_compliance.top_untagged_resource_groups:
+                tag_rows.append([rg.name, round(rg.cost_usd, 2), rg.record_count])
+        # Top Services
+        if tag_compliance.top_untagged_services:
+            tag_rows.append([])  # blank row
+            tag_rows.append(["TOP SERVICES SEM TAG"])
+            tag_rows.append(["Serviço", "Custo (R$)", "Registros"])
+            for svc in tag_compliance.top_untagged_services:
+                tag_rows.append([svc.name, round(svc.cost_usd, 2), svc.record_count])
+        # Note
+        tag_rows.append([])
+        tag_rows.append(["Nota:", '"Sem tag" significa ausência da tag monitorada, não ausência de todas as tags.'])
+    tag_csv = _csv_bytes_br(["Indicador", "Valor"], tag_rows) if tag_rows else b""
+
     # Build ZIP
     zip_buf = io.BytesIO()
     with ZipFile(zip_buf, "w", compression=ZIP_DEFLATED) as zf:
@@ -545,6 +581,7 @@ def _build_csv_zip(
         zf.writestr("resources.csv", res_csv)
         zf.writestr("governance.csv", gov_combined)
         zf.writestr("sustainability.csv", green_csv)
+        zf.writestr("tag_compliance.csv", tag_csv)
     return zip_buf.getvalue()
 
 
@@ -628,6 +665,7 @@ def _build_professional_xlsx(
     gov_summary,
     gov_unowned,
     gov_compliance,
+    tag_compliance,
     green_summary,
     green_monthly,
     generated_at: datetime,
@@ -686,6 +724,10 @@ def _build_professional_xlsx(
     # --- Sheet 9: Sustentabilidade ---
     ws9 = wb.create_sheet("Sustentabilidade")
     _build_sustainability_sheet(ws9, green_summary, green_monthly or [])
+
+    # --- Sheet 10: Compliance da Tag Monitorada ---
+    ws10 = wb.create_sheet("Compliance da Tag")
+    _build_tag_compliance_sheet(ws10, tag_compliance)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -1291,6 +1333,108 @@ def _build_sustainability_sheet(ws, green_summary, green_monthly) -> None:
             ws.add_chart(chart, f"F{header_row}")
     else:
         ws.cell(row=row, column=1, value="Dados de emissões não disponíveis para este período.")
+
+    ws.freeze_panes = "A3"
+    _auto_width(ws)
+
+
+def _build_tag_compliance_sheet(ws, tag_compliance) -> None:
+    """Build the Monitored Tag Compliance sheet."""
+    ws.merge_cells("A1:E1")
+    ws.row_dimensions[1].height = 30
+    title = ws.cell(row=1, column=1, value="Compliance da Tag Monitorada")
+    title.font = _TITLE_FONT
+    title.fill = PatternFill(start_color=_BRAND_DARK, end_color=_BRAND_DARK, fill_type="solid")
+    title.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Handle None gracefully
+    if tag_compliance is None:
+        ws.cell(row=3, column=1, value="Dados de tag compliance não disponíveis.")
+        ws.cell(row=3, column=1).font = Font(italic=True, color="666666")
+        ws.freeze_panes = "A5"
+        _auto_width(ws)
+        return
+
+    # Header info
+    row = 3
+    ws.cell(row=row, column=1, value="Tag Monitorada:").font = Font(bold=True, color=_BRAND_DARK)
+    ws.cell(row=row, column=2, value=tag_compliance.configured_tag_key)
+    row += 1
+    ws.cell(row=row, column=1, value="Nota:").font = Font(italic=True, color="666666")
+    ws.cell(row=row, column=2, value='"Sem tag" significa ausência da tag monitorada, não ausência de todas as tags.')
+    ws.cell(row=row, column=2).alignment = Alignment(wrap_text=True)
+    ws.row_dimensions[row].height = 25
+    row += 2
+
+    # Summary KPIs
+    ws.cell(row=row, column=1, value="RESUMO").font = _SUBTITLE_FONT
+    ws.merge_cells(f"A{row}:E{row}")
+    row += 1
+    kpis = [
+        ("Cobertura (%)", tag_compliance.coverage_pct / 100.0, _PCT_FORMAT),
+        ("Custo com Tag (R$)", tag_compliance.tagged_cost, _BRL_FORMAT),
+        ("Custo sem Tag (R$)", tag_compliance.untagged_cost, _BRL_FORMAT),
+        ("Custo Total (R$)", tag_compliance.total_cost, _BRL_FORMAT),
+        ("Registros com Tag", tag_compliance.tagged_records, None),
+        ("Registros sem Tag", tag_compliance.untagged_records, None),
+        ("Total de Registros", tag_compliance.total_records, None),
+    ]
+    for label, value, fmt in kpis:
+        ws.cell(row=row, column=1, value=label).font = _KPI_LABEL_FONT
+        c = ws.cell(row=row, column=2, value=value)
+        c.font = _KPI_VALUE_FONT
+        if fmt:
+            c.number_format = fmt
+        row += 1
+
+    # Top Resource Groups without tag
+    row += 1
+    ws.cell(row=row, column=1, value="TOP RESOURCE GROUPS SEM TAG").font = _SUBTITLE_FONT
+    ws.merge_cells(f"A{row}:E{row}")
+    row += 1
+    if tag_compliance.top_untagged_resource_groups:
+        headers = ["Resource Group", "Custo (R$)", "Registros"]
+        _write_table_header(ws, row, headers, 3)
+        header_row = row
+        row += 1
+        for item in tag_compliance.top_untagged_resource_groups:
+            ws.cell(row=row, column=1, value=item.name)
+            c = ws.cell(row=row, column=2, value=item.cost_usd)
+            c.number_format = _BRL_FORMAT
+            ws.cell(row=row, column=3, value=item.record_count)
+            row += 1
+        _apply_table_style(ws, header_row + 1, row - 1, 3, currency_cols=[2])
+    else:
+        ws.cell(row=row, column=1, value="Nenhum resource group sem tag encontrado.")
+        row += 1
+
+    # Top Services without tag
+    row += 1
+    ws.cell(row=row, column=1, value="TOP SERVICES SEM TAG").font = _SUBTITLE_FONT
+    ws.merge_cells(f"A{row}:E{row}")
+    row += 1
+    if tag_compliance.top_untagged_services:
+        headers = ["Serviço", "Custo (R$)", "Registros"]
+        _write_table_header(ws, row, headers, 3)
+        header_row = row
+        row += 1
+        for item in tag_compliance.top_untagged_services:
+            ws.cell(row=row, column=1, value=item.name)
+            c = ws.cell(row=row, column=2, value=item.cost_usd)
+            c.number_format = _BRL_FORMAT
+            ws.cell(row=row, column=3, value=item.record_count)
+            row += 1
+        _apply_table_style(ws, header_row + 1, row - 1, 3, currency_cols=[2])
+    else:
+        ws.cell(row=row, column=1, value="Nenhum serviço sem tag encontrado.")
+        row += 1
+
+    # Note
+    row += 2
+    ws.cell(row=row, column=1, value="Nota:").font = Font(bold=True, color="808080")
+    ws.cell(row=row, column=2, value='"Sem tag" significa ausência da tag monitorada, não ausência de todas as tags. Um recurso pode possuir outras tags e ainda assim aparecer como sem tag nesta análise caso não tenha a tag monitorada (team).')
+    ws.cell(row=row, column=2).alignment = Alignment(wrap_text=True)
+    ws.row_dimensions[row].height = 35
 
     ws.freeze_panes = "A3"
     _auto_width(ws)
