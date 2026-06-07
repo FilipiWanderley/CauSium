@@ -532,11 +532,12 @@ class GovService:
 
         coverage_pct = round(100.0 * tagged_records / max(total_records, 1), 1)
 
-        # Top untagged resource groups
+        # Top untagged resource groups (extracted from Azure resource_id via regex)
+        # Pattern: /subscriptions/.../resourcegroups/NOME_RG/providers/...
         rg_rows = _safe_query(
             """
             SELECT
-                if(resource_group = '' OR resource_group IS NULL, 'N/A', resource_group) AS name,
+                regexpExtract(resource_id, 'resourcegroups/([^/]+)', 1) AS name,
                 sum(cost_usd) AS cost_usd,
                 count()       AS record_count
             FROM cost_facts
@@ -545,6 +546,7 @@ class GovService:
               AND resource_id != ''
               AND NOT mapContains(tags, {tag_key:String})
             GROUP BY name
+            HAVING name != '' AND name IS NOT NULL
             ORDER BY cost_usd DESC
             LIMIT 10
             """,
