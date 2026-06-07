@@ -65,18 +65,20 @@ def get_label_compliance(
 
 @router.get("/tag-compliance", response_model=TagComplianceOut)
 def get_tag_compliance(
-    tag_key: str = Query(default="team", description="Monitored tag key (alphanumeric, underscore, hyphen). Max 64 chars."),
+    tag_key: str | None = Query(default=None, description="Monitored tag key. If omitted, reads from tenant settings."),
     days: int = Query(default=30, ge=7, le=365),
     db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(get_current_user),
 ) -> TagComplianceOut:
-    # Validate tag_key: alphanumeric, underscore, hyphen, 1-64 chars
-    if not _TAG_KEY_PATTERN.match(tag_key):
+    # Validate tag_key if provided: alphanumeric, underscore, hyphen, 1-64 chars
+    if tag_key is not None and not _TAG_KEY_PATTERN.match(tag_key):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid tag_key '{tag_key}'. Must be 1-64 chars, alphanumeric with underscore or hyphen only.",
         )
     svc = GovService()
+    # If tag_key is provided in URL, it overrides tenant settings
+    # If tag_key is None, service will read from tenant_settings
     metrics = svc.get_tag_compliance(current_user.org_id, tag_key=tag_key, days=days)
     return TagComplianceOut(
         configured_tag_key=metrics.configured_tag_key,

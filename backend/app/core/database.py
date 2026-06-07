@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker as sync_sessionmaker
 
 from app.core.config import get_settings
 
@@ -53,6 +53,24 @@ async_session_factory = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
 )
+
+
+# Sync engine/session for internal non-critical queries (e.g., settings reads)
+_sync_engine = None
+_sync_session_factory = None
+
+
+def get_sync_session_factory():
+    """Get or create a sync session factory for internal queries."""
+    global _sync_engine, _sync_session_factory
+    if _sync_session_factory is None:
+        settings = get_settings()
+        database_url = settings.database_url_effective
+        # Convert async URL to sync URL (strip aiosqlite prefix)
+        sync_url = database_url.replace("+aiosqlite", "").replace("sqlite:", "sqlite:")
+        _sync_engine = create_async_engine(sync_url, echo=False)
+        _sync_session_factory = sync_sessionmaker(_sync_engine, expire_on_commit=False)
+    return _sync_session_factory
 
 
 async def ensure_sqlite_schema() -> None:

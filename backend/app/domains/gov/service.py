@@ -476,18 +476,45 @@ class GovService:
     # Tag Compliance (monitored tag visibility)
     # ------------------------------------------------------------------
 
+    # Sync-safe fallback: query settings using sync session
+    def _get_monitored_tag_key_sync(self, org_id: UUID) -> str:
+        """Get monitored tag key from tenant_settings (sync version)."""
+        from sqlalchemy import select
+        from app.core.database import get_sync_session_factory
+        from app.domains.settings.models import TenantSetting
+
+        SessionFactory = get_sync_session_factory()
+        with SessionFactory() as db:
+            result = db.execute(
+                select(TenantSetting).where(
+                    TenantSetting.org_id == org_id,
+                    TenantSetting.setting_key == "monitored_tag_key",
+                )
+            )
+            row = result.scalar_one_or_none()
+            return row.setting_value if row else "team"
+
     def get_tag_compliance(
         self,
         org_id: UUID,
         *,
-        tag_key: str = "team",
+        tag_key: str | None = None,
         days: int = _DAYS,
     ) -> TagComplianceMetrics:
-        """Returns compliance metrics for a monitored tag key (default: team).
+        """Returns compliance metrics for a monitored tag key.
 
         Uses cost_facts.tags Map to check if the configured key is present.
         Does NOT use owner_team or Resource Group inference.
+
+        Args:
+            org_id: Organization UUID
+            tag_key: If provided, overrides tenant settings (URL param use case).
+                    If None, reads from tenant_settings.
         """
+        # Resolve effective tag key
+        if tag_key is None:
+            tag_key = self._get_monitored_tag_key_sync(org_id)
+
         cutoff = (date.today() - timedelta(days=days)).isoformat()
 
         # Main compliance query using tags Map
