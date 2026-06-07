@@ -93,6 +93,7 @@ export default function App() {
           <Route path="settings/team" element={lazyRoute(<SettingsPage />)} />
           <Route path="settings/cloud" element={lazyRoute(<SettingsPage />)} />
           <Route path="settings/security" element={lazyRoute(<SettingsPage />)} />
+          <Route path="settings/finops" element={lazyRoute(<SettingsPage />)} />
           <Route path="platform/workspaces" element={lazyRoute(<WorkspacesPage />)} />
           <Route path="platform/sync" element={lazyRoute(<SyncStatusPage />)} />
           <Route path="platform/integration-health" element={lazyRoute(<IntegrationHealthPage />)} />

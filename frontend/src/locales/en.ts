@@ -28,6 +28,7 @@ export interface Translations {
     settingsTeam: string
     settingsCloud: string
     settingsSecurity: string
+    settingsFinops: string
     platformWorkspaces: string
     platformSync: string
     platformSlo: string
@@ -1461,6 +1462,7 @@ export const en: Translations = {
     settingsTeam: 'Team',
     settingsCloud: 'Cloud Accounts',
     settingsSecurity: 'Security',
+    settingsFinops: 'FinOps',
     platformWorkspaces: 'Customer Workspaces',
     platformSync: 'Data Sync',
     platformSlo: 'Service Reliability',

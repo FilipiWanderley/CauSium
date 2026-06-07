@@ -184,7 +184,7 @@ export function GovPage() {
 
   const tagComplianceQ = useQuery({
     queryKey: ['gov-tag-compliance', days],
-    queryFn: () => govApi.getTagCompliance('team', days),
+    queryFn: () => govApi.getTagCompliance({ days }),
     enabled: tab === 'tag-compliance',
   })
 

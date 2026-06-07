@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation } from 'react-router-dom'
 import { authApi } from '../../api/auth'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
+import { settingsApi, TAG_OPTIONS } from '../../api/settings'
 import type { CloudAccount } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -83,7 +84,9 @@ export function SettingsPage() {
         ? 'team'
         : pathname.endsWith('/settings/security')
           ? 'security'
-          : 'general'
+          : pathname.endsWith('/settings/finops')
+            ? 'finops'
+            : 'general'
 
   const {
     data: passkeys,
@@ -1030,6 +1033,115 @@ export function SettingsPage() {
     )
   }
 
+  if (section === 'finops') {
+    const {
+      data: finopsSettings,
+      isLoading: finopsLoading,
+      isError: finopsError,
+      refetch: refetchFinopsSettings,
+    } = useQuery({
+      queryKey: ['settings-finops'],
+      queryFn: () => settingsApi.getFinOpsSettings(),
+      enabled: isAdmin,
+    })
+
+    const updateFinopsMutation = useMutation({
+      mutationFn: (tagKey: string) =>
+        settingsApi.updateFinOpsSettings({ monitored_tag_key: tagKey }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['settings-finops'] })
+        queryClient.invalidateQueries({ queryKey: ['gov-tag-compliance'] })
+      },
+    })
+
+    const selectedTag = finopsSettings?.monitored_tag_key || 'team'
+
+    return (
+      <div className="page-container">
+        <PageHeader
+          title={t.nav.settingsFinops}
+          subtitle="Configure FinOps visibility settings for tag compliance and cost allocation."
+          meta={
+            <>
+              <span>Workspace administration</span>
+              <span>FinOps configuration</span>
+            </>
+          }
+        />
+        <SectionIntro
+          title="Tag monitoring configuration"
+          subtitle="Configure which Azure tag key is used to calculate tag compliance in Governance."
+          badges={[
+            { label: 'Per-tenant configuration', tone: 'organization' },
+            { label: 'Affects compliance visibility', tone: 'secondary' },
+          ]}
+          compact
+        />
+        <Panel>
+          <PanelHeader
+            title="Monitored Tag for Cost Allocation"
+            subtitle="Select the tag key used to measure tag compliance across your cloud resources."
+          />
+          <PanelSection className="mt-0 border-t-0 pt-0">
+            {finopsLoading && <SkeletonSection />}
+            {finopsError && (
+              <ErrorState
+                title="Failed to load FinOps settings"
+                description="Unable to retrieve settings. Please try again."
+                onRetry={refetchFinopsSettings}
+              />
+            )}
+            {finopsSettings && (
+              <div className="space-y-4">
+                <div className="max-w-md">
+                  <label
+                    htmlFor="monitored-tag"
+                    className="block text-sm font-medium text-slate-700"
+                  >
+                    Monitored Tag Key
+                  </label>
+                  <select
+                    id="monitored-tag"
+                    value={selectedTag}
+                    onChange={(e) => {
+                      // Show confirmation before saving
+                      if (window.confirm(`Change monitored tag from "${selectedTag}" to "${e.target.value}"?`)) {
+                        updateFinopsMutation.mutate(e.target.value)
+                      }
+                    }}
+                    disabled={updateFinopsMutation.isPending}
+                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    {TAG_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {updateFinopsMutation.isSuccess && (
+                  <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+                    Settings saved successfully. The Governance → Monitored Tag tab will now use "{selectedTag}" for compliance calculations.
+                  </div>
+                )}
+                {updateFinopsMutation.isError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+                    Failed to save settings. Please try again.
+                  </div>
+                )}
+                <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> This tag is used to calculate tag compliance in Governance. Resources without this specific tag will appear as untagged for this analysis, even if they have other tags.
+                  </p>
+                </div>
+              </div>
+            )}
+          </PanelSection>
+        </Panel>
+      </div>
+    )
+  }
+
   return (
     <div className="page-container">
       <PageHeader
@@ -1038,7 +1150,7 @@ export function SettingsPage() {
         meta={
           <>
             <span>Workspace administration</span>
-            <span>Access, security & cloud accounts</span>
+            <span>Access, security, cloud accounts & FinOps</span>
           </>
         }
       />
@@ -1053,7 +1165,7 @@ export function SettingsPage() {
             subtitle="Each area keeps a specific responsibility together so workspace administration stays clear, auditable, and easy to navigate."
             compact
           />
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <Link
               to="/app/settings/cloud"
               className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
@@ -1074,6 +1186,13 @@ export function SettingsPage() {
             >
               <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsTeam}</span>
               <span className="mt-1 block text-xs text-slate-500">Open the dedicated workspace access governance surface.</span>
+            </Link>
+            <Link
+              to="/app/settings/finops"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            >
+              <span className="block text-sm font-semibold text-slate-900">{t.nav.settingsFinops}</span>
+              <span className="mt-1 block text-xs text-slate-500">Configure monitored tag for compliance visibility.</span>
             </Link>
           </div>
         </div>

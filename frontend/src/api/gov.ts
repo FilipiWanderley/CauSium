@@ -122,6 +122,6 @@ export const govApi = {
   }): Promise<ResourceRow[]> =>
     apiClient.get('/gov/inventory', { params }).then((r) => r.data),
 
-  getTagCompliance: (tagKey = 'team', days = 30): Promise<TagComplianceMetrics> =>
-    apiClient.get('/gov/tag-compliance', { params: { tag_key: tagKey, days } }).then((r) => r.data),
+  getTagCompliance: (params?: { tag_key?: string; days?: number }): Promise<TagComplianceMetrics> =>
+    apiClient.get('/gov/tag-compliance', { params }).then((r) => r.data),
 }
