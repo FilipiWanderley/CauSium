@@ -6,6 +6,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# --- Log environment for debugging ---
+echo "[startup] Environment:"
+echo "  APP_ENV=${APP_ENV}"
+echo "  DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
+echo "  REDIS_URL set: $([ -n "$REDIS_URL" ] && echo 'YES' || echo 'NO')"
+echo "  CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
+echo "  ENCRYPTION_KEY set: $([ -n "$ENCRYPTION_KEY" ] && echo 'YES' || echo 'NO')"
+echo "  SECRET_KEY length: ${#SECRET_KEY}"
+
 # --- Resolve system Python ---
 PY="python3"
 if ! command -v python3 &>/dev/null; then
@@ -17,7 +26,6 @@ fi
 echo "[startup] Python: $($PY --version 2>&1)"
 
 # --- Install dependencies if not already installed ---
-# Use antenv if it exists (from CI build), otherwise install fresh
 SITE_PACKAGES="$SCRIPT_DIR/antenv/lib/python3.12/site-packages"
 if [ -d "$SITE_PACKAGES" ] && [ -f "$SITE_PACKAGES/fastapi/__init__.py" ]; then
     export PYTHONPATH="${SITE_PACKAGES}:${SCRIPT_DIR}:${PYTHONPATH:-}"
@@ -25,7 +33,10 @@ if [ -d "$SITE_PACKAGES" ] && [ -f "$SITE_PACKAGES/fastapi/__init__.py" ]; then
 else
     echo "[startup] Installing dependencies from requirements.txt..."
     $PY -m pip install --quiet --upgrade pip
-    $PY -m pip install --quiet -r "$SCRIPT_DIR/requirements.txt"
+    $PY -m pip install --quiet -r "$SCRIPT_DIR/requirements.txt" 2>&1 || {
+        echo "[startup] Pip install failed, trying with more output..."
+        $PY -m pip install -r "$SCRIPT_DIR/requirements.txt"
+    }
     echo "[startup] Dependencies installed"
 fi
 
@@ -39,7 +50,7 @@ if echo "$DATABASE_URL" | grep -q "^sqlite"; then
     WORKERS=1
 else
     echo "[startup] PostgreSQL mode — running alembic upgrade head..."
-    $PY -m alembic upgrade head
+    $PY -m alembic upgrade head 2>&1 || echo "[startup] Alembic failed, continuing..."
     WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 
