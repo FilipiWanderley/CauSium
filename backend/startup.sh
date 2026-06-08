@@ -1,12 +1,12 @@
 #!/bin/bash
 # Azure App Service startup script for CauSium backend.
-# Uses system Python and loads dependencies from antenv site-packages via PYTHONPATH.
+# Uses system Python and installs dependencies from requirements.txt.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# --- Resolve system Python (never use antenv/bin/python — glibc mismatch) ---
+# --- Resolve system Python ---
 PY="python3"
 if ! command -v python3 &>/dev/null; then
     for p in /opt/python/3.12*/bin/python3 /opt/python/3.*/bin/python3; do
@@ -16,14 +16,17 @@ fi
 
 echo "[startup] Python: $($PY --version 2>&1)"
 
-# --- Set PYTHONPATH to antenv site-packages (pre-built deps) ---
+# --- Install dependencies if not already installed ---
+# Use antenv if it exists (from CI build), otherwise install fresh
 SITE_PACKAGES="$SCRIPT_DIR/antenv/lib/python3.12/site-packages"
-if [ -d "$SITE_PACKAGES" ]; then
+if [ -d "$SITE_PACKAGES" ] && [ -f "$SITE_PACKAGES/fastapi/__init__.py" ]; then
     export PYTHONPATH="${SITE_PACKAGES}:${SCRIPT_DIR}:${PYTHONPATH:-}"
-    echo "[startup] PYTHONPATH includes antenv site-packages"
+    echo "[startup] Using pre-built antenv dependencies"
 else
-    export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
-    echo "[startup] WARNING: antenv site-packages not found at $SITE_PACKAGES"
+    echo "[startup] Installing dependencies from requirements.txt..."
+    $PY -m pip install --quiet --upgrade pip
+    $PY -m pip install --quiet -r "$SCRIPT_DIR/requirements.txt"
+    echo "[startup] Dependencies installed"
 fi
 
 # --- Database ---
