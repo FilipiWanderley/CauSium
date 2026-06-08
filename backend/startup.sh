@@ -8,25 +8,26 @@ echo "[startup] =========================================="
 echo "[startup] CauSium Backend Startup"
 echo "[startup] =========================================="
 echo "[startup] Current directory: $(pwd)"
-echo "[startup] APP_ENV=${APP_ENV}"
-echo "[startup] DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
 
-# Use Python from PYTHONPATH or system
-if [ -n "$PYTHONPATH" ]; then
-    PY_DIR="${PYTHONPATH%%/antenv*}"
-    if [ -x "$PY_DIR/python" ]; then
-        PY="$PY_DIR/python"
-    elif [ -x "$PY_DIR/python3" ]; then
-        PY="$PY_DIR/python3"
-    fi
+# Check if antenv exists
+ANTENV_DIR="$SCRIPT_DIR/antenv"
+if [ ! -d "$ANTENV_DIR" ]; then
+    echo "[startup] Creating virtual environment..."
+    python3 -m venv "$ANTENV_DIR"
+    echo "[startup] Virtual environment created"
 fi
-PY="${PY:-python3}"
 
-echo "[startup] Using Python: $PY"
-$PY --version 2>&1
+# Activate virtual environment
+source "$ANTENV_DIR/bin/activate"
+
+# Install dependencies
+echo "[startup] Installing dependencies..."
+pip install --upgrade pip
+pip install -r "$SCRIPT_DIR/requirements.txt"
+echo "[startup] Dependencies installed"
 
 # Set PYTHONPATH
-export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+export PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/antenv/lib/python3.12/site-packages:${PYTHONPATH:-}"
 
 # Database
 if [ -z "$DATABASE_URL" ]; then
@@ -41,20 +42,21 @@ if echo "$DATABASE_URL" | grep -q "^sqlite"; then
 else
     echo "[startup] PostgreSQL mode - running alembic migrations..."
 
+    cd "$SCRIPT_DIR"
     echo "[startup] alembic current:"
-    $PY -m alembic current 2>&1
+    python -m alembic current 2>&1
 
     echo "[startup] alembic heads:"
-    $PY -m alembic heads 2>&1
+    python -m alembic heads 2>&1
 
     echo "[startup] alembic upgrade head:"
-    $PY -m alembic upgrade head 2>&1
+    python -m alembic upgrade head 2>&1
 
     WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 
 echo "[startup] Starting gunicorn (workers=$WORKERS)..."
-exec $PY -m gunicorn app.main:app \
+exec gunicorn app.main:app \
     -k uvicorn.workers.UvicornWorker \
     --bind "0.0.0.0:${PORT:-8000}" \
     --workers "$WORKERS" \
