@@ -18,3 +18,5 @@
 ^backend/app/domains/decision_engine/service\.py$::resize::Classificacao textual de recomendacao Advisor (string match, nao execucao cloud)
 ^backend/app/domains/dev/service\.py$::scale::Texto de seed/demo sem chamada mutativa cloud
 ^backend/app/domains/dev/service\.py$::delete_::Mensagem de log interna de seed local (nao cloud mutation)
+^backend/app/domains/business_mapping/router\.py$::delete_::Operacao de exclusao de regra de negocio interna (nao recurso cloud)
+^backend/app/domains/business_mapping/service\.py$::delete_::Exclusao de regra de negocio do tenant (nao mutacao cloud provider)
