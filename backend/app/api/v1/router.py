@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.core.config import get_settings
 from app.domains.auth.router import router as auth_router
+from app.domains.business_mapping.router import router as business_mapping_router
 from app.domains.cloud_accounts.router import router as accounts_router
 from app.domains.cloud_ledger.router import router as ledger_router
 from app.domains.decision_engine.router import router as opportunities_router
@@ -25,6 +26,7 @@ from app.domains.settings.router import router as settings_router
 api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(auth_router)
+api_router.include_router(business_mapping_router)
 api_router.include_router(accounts_router)
 api_router.include_router(ledger_router)
 api_router.include_router(opportunities_router)
