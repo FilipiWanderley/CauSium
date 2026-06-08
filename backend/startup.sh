@@ -1,7 +1,6 @@
 #!/bin/bash
 # Azure App Service startup script for CauSium backend.
 # Uses system Python and installs dependencies from requirements.txt.
-set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -82,9 +81,7 @@ else
     if $PY -m alembic upgrade head 2>&1; then
         echo "[startup] alembic upgrade head: SUCCESS"
     else
-        echo "[startup] ERROR: alembic upgrade head FAILED!"
-        echo "[startup] Aborting startup - database migration is required."
-        exit 1
+        echo "[startup] WARNING: alembic upgrade head failed - continuing anyway for debugging"
     fi
 
     echo "[startup] =========================================="
