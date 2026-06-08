@@ -1,5 +1,6 @@
 #!/bin/bash
 # Azure App Service startup script for CauSium backend.
+# Assumes Oryx builder has already created the virtual environment.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -8,26 +9,25 @@ echo "[startup] =========================================="
 echo "[startup] CauSium Backend Startup"
 echo "[startup] =========================================="
 echo "[startup] Current directory: $(pwd)"
+echo "[startup] APP_ENV=${APP_ENV}"
+echo "[startup] DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
 
-# Check if antenv exists
+# Try to use existing venv first, skip pip install if already done
 ANTENV_DIR="$SCRIPT_DIR/antenv"
-if [ ! -d "$ANTENV_DIR" ]; then
-    echo "[startup] Creating virtual environment..."
-    python3 -m venv "$ANTENV_DIR"
-    echo "[startup] Virtual environment created"
+SITE_PKGS="$ANTENV_DIR/lib/python3.12/site-packages"
+
+if [ -d "$SITE_PKGS" ] && [ -f "$SITE_PKGS/fastapi/__init__.py" ]; then
+    echo "[startup] Using existing venv from Oryx build"
+    export PYTHONPATH="${SCRIPT_DIR}:${SITE_PKGS}:${PYTHONPATH:-}"
+    PY="python3"
+else
+    echo "[startup] WARNING: No pre-built venv found, trying to use system Python"
+    export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+    PY="python3"
 fi
 
-# Activate virtual environment
-source "$ANTENV_DIR/bin/activate"
-
-# Install dependencies
-echo "[startup] Installing dependencies..."
-pip install --upgrade pip
-pip install -r "$SCRIPT_DIR/requirements.txt"
-echo "[startup] Dependencies installed"
-
-# Set PYTHONPATH
-export PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/antenv/lib/python3.12/site-packages:${PYTHONPATH:-}"
+echo "[startup] Using Python: $PY"
+$PY --version 2>&1
 
 # Database
 if [ -z "$DATABASE_URL" ]; then
@@ -44,19 +44,19 @@ else
 
     cd "$SCRIPT_DIR"
     echo "[startup] alembic current:"
-    python -m alembic current 2>&1
+    $PY -m alembic current 2>&1 || echo "alembic current failed"
 
     echo "[startup] alembic heads:"
-    python -m alembic heads 2>&1
+    $PY -m alembic heads 2>&1 || echo "alembic heads failed"
 
     echo "[startup] alembic upgrade head:"
-    python -m alembic upgrade head 2>&1
+    $PY -m alembic upgrade head 2>&1 || echo "alembic upgrade failed"
 
     WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 
 echo "[startup] Starting gunicorn (workers=$WORKERS)..."
-exec gunicorn app.main:app \
+exec $PY -m gunicorn app.main:app \
     -k uvicorn.workers.UvicornWorker \
     --bind "0.0.0.0:${PORT:-8000}" \
     --workers "$WORKERS" \
