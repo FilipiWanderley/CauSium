@@ -34,7 +34,6 @@ jobs:
         working-directory: backend
         run: |
           zip -r ../deploy.zip . \
-            -x ".venv/*" \
             -x "__pycache__/*" \
             -x ".pytest_cache/*" \
             -x "tests/*"
