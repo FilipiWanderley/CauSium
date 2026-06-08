@@ -17,15 +17,21 @@ echo "[startup] CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
 echo "[startup] ENCRYPTION_KEY set: $([ -n "$ENCRYPTION_KEY" ] && echo 'YES' || echo 'NO')"
 echo "[startup] SECRET_KEY length: ${#SECRET_KEY}"
 
-# --- Resolve system Python ---
-PY="python3"
-if ! command -v python3 &>/dev/null; then
+# --- Resolve Python from PYTHONPATH env or system ---
+PYTHON_BIN="${PYTHONPATH%%:*}"
+if [ -n "$PYTHON_BIN" ] && [ -x "$PYTHON_BIN/python" ]; then
+    PY="$PYTHON_BIN/python"
+elif command -v python3 &>/dev/null; then
+    PY="python3"
+else
     for p in /opt/python/3.12*/bin/python3 /opt/python/3.*/bin/python3; do
         if [ -x "$p" ]; then PY="$p"; break; fi
     done
 fi
 
-echo "[startup] Python: $($PY --version 2>&1)"
+PY="${PY:-python3}"
+echo "[startup] Using Python: $PY"
+$PY --version 2>&1 || echo "[startup] Python not found!"
 
 # --- Install dependencies if not already installed ---
 SITE_PACKAGES="$SCRIPT_DIR/antenv/lib/python3.12/site-packages"
@@ -43,7 +49,9 @@ else
 fi
 
 # --- Database ---
-DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:////home/causium-data/causium.db}"
+if [ -z "$DATABASE_URL" ]; then
+    DATABASE_URL="sqlite+aiosqlite:////home/causium-data/causium.db"
+fi
 export DATABASE_URL
 mkdir -p /home/causium-data
 
@@ -53,7 +61,7 @@ if echo "$DATABASE_URL" | grep -q "^sqlite"; then
 else
     echo "[startup] PostgreSQL mode — running alembic migrations..."
 
-    # Remove versions_backup from Python path to avoid duplicate migrations
+    # Set PYTHONPATH correctly
     export PYTHONPATH="${SCRIPT_DIR}:${SITE_PACKAGES}:${PYTHONPATH:-}"
 
     # Navigate to backend directory for alembic
