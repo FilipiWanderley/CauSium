@@ -7,13 +7,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # --- Log environment for debugging ---
-echo "[startup] Environment:"
-echo "  APP_ENV=${APP_ENV}"
-echo "  DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
-echo "  REDIS_URL set: $([ -n "$REDIS_URL" ] && echo 'YES' || echo 'NO')"
-echo "  CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
-echo "  ENCRYPTION_KEY set: $([ -n "$ENCRYPTION_KEY" ] && echo 'YES' || echo 'NO')"
-echo "  SECRET_KEY length: ${#SECRET_KEY}"
+echo "[startup] =========================================="
+echo "[startup] CauSium Backend Startup"
+echo "[startup] =========================================="
+echo "[startup] Current directory: $(pwd)"
+echo "[startup] APP_ENV=${APP_ENV}"
+echo "[startup] DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
+echo "[startup] REDIS_URL set: $([ -n "$REDIS_URL" ] && echo 'YES' || echo 'NO')"
+echo "[startup] CLICKHOUSE_HOST=${CLICKHOUSE_HOST}"
+echo "[startup] ENCRYPTION_KEY set: $([ -n "$ENCRYPTION_KEY" ] && echo 'YES' || echo 'NO')"
+echo "[startup] SECRET_KEY length: ${#SECRET_KEY}"
 
 # --- Resolve system Python ---
 PY="python3"
@@ -49,8 +52,45 @@ if echo "$DATABASE_URL" | grep -q "^sqlite"; then
     echo "[startup] SQLite mode — skipping alembic."
     WORKERS=1
 else
-    echo "[startup] PostgreSQL mode — running alembic upgrade head..."
-    $PY -m alembic upgrade head 2>&1 || echo "[startup] Alembic failed, continuing..."
+    echo "[startup] PostgreSQL mode — running alembic migrations..."
+
+    # Remove versions_backup from Python path to avoid duplicate migrations
+    export PYTHONPATH="${SCRIPT_DIR}:${SITE_PACKAGES}:${PYTHONPATH:-}"
+
+    # Navigate to backend directory for alembic
+    cd "$SCRIPT_DIR"
+
+    # Log alembic status
+    echo "[startup] =========================================="
+    echo "[startup] Alembic Migration Status"
+    echo "[startup] =========================================="
+    echo "[startup] Current directory: $(pwd)"
+    echo "[startup] PYTHONPATH: ${PYTHONPATH}"
+    echo "[startup] DATABASE_URL: ${DATABASE_URL%%@*}@***"  # Hide password
+
+    echo "[startup] Running: python -m alembic current"
+    $PY -m alembic current 2>&1 || echo "[startup] alembic current failed: $?"
+
+    echo "[startup] Running: python -m alembic heads"
+    $PY -m alembic heads 2>&1 || echo "[startup] alembic heads failed: $?"
+
+    echo "[startup] =========================================="
+    echo "[startup] Running: python -m alembic upgrade head"
+    echo "[startup] =========================================="
+
+    # Run migrations and capture output
+    if $PY -m alembic upgrade head 2>&1; then
+        echo "[startup] alembic upgrade head: SUCCESS"
+    else
+        echo "[startup] ERROR: alembic upgrade head FAILED!"
+        echo "[startup] Aborting startup - database migration is required."
+        exit 1
+    fi
+
+    echo "[startup] =========================================="
+    echo "[startup] Migration complete, starting server..."
+    echo "[startup] =========================================="
+
     WORKERS="${GUNICORN_WORKERS:-2}"
 fi
 

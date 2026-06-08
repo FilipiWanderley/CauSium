@@ -1,0 +1,4 @@
+versions_backup
+__pycache__
+*.pyc
+*.pyo
