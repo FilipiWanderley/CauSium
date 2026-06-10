@@ -1401,6 +1401,15 @@ class CloudLedgerService:
         if subscription_id:
             params["subscription_id"] = subscription_id
         try:
+            print("=" * 80)
+            print("GET MONTH COST")
+            print("ORG ID:", org_id)
+            print("YEAR:", year)
+            print("MONTH:", month)
+            print("PROVIDER:", provider)
+            print("SUBSCRIPTION ID:", subscription_id)
+            print("PARAMS:", params)
+            print("=" * 80)
             rows = execute_query(
                 f"""
                 SELECT sum(cost_usd) as total
@@ -1413,8 +1422,12 @@ class CloudLedgerService:
                 """,
                 params,
             )
+            print("QUERY RESULT:", rows)
             return float(rows[0]["total"]) if rows else 0.0
-        except Exception:
+        except Exception as e:
+            print("GET_MONTH_COST ERROR:", str(e))
+            import traceback
+            traceback.print_exc()
             return 0.0
 
     def get_event_count(
@@ -1741,6 +1754,13 @@ class CloudLedgerService:
         subscription_id: str | None = None,
     ) -> DashboardMetrics:
         today = date.today()
+        print("=" * 80)
+        print("DASHBOARD METRICS")
+        print("ORG ID:", org_id)
+        print("ACTIVE ACCOUNTS:", active_accounts)
+        print("PROVIDER:", provider)
+        print("SUBSCRIPTION ID:", subscription_id)
+        print("=" * 80)
         current_month = self.get_month_cost(org_id, today.year, today.month, provider=provider, subscription_id=subscription_id)
         prev_month = today.replace(day=1) - timedelta(days=1)
         previous_month = self.get_month_cost(
