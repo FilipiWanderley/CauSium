@@ -335,8 +335,8 @@ class NotificationsService:
             .where(
                 AlertRecord.org_id == org_id,
                 AlertRecord.created_at >= cutoff,
-                AlertRecord.extra_metadata["event_type"].as_string() == event_type,
-                AlertRecord.extra_metadata["account_id"].as_string() == account_id,
+                func.jsonb_extract_path_text(AlertRecord.extra_metadata, "event_type") == event_type,
+                func.jsonb_extract_path_text(AlertRecord.extra_metadata, "account_id") == account_id,
             )
             .order_by(AlertRecord.created_at.desc())
             .limit(1)
@@ -449,10 +449,10 @@ class NotificationsService:
         filters = [
             AlertRecord.org_id == org_id,
             AlertRecord.category == category,
-            AlertRecord.extra_metadata["event_type"].as_string() == event_type,
+            func.jsonb_extract_path_text(AlertRecord.extra_metadata, "event_type") == event_type,
         ]
         for key, value in signature.items():
-            filters.append(AlertRecord.extra_metadata[key].as_string() == value)
+            filters.append(func.jsonb_extract_path_text(AlertRecord.extra_metadata, key) == value)
 
         result = await self.db.execute(
             select(AlertRecord)
