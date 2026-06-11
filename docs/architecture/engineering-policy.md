@@ -1,277 +1,379 @@
 # Engineering Policy - CauSium
 
-**Versão:** 1.0.0  
+**Versão:** 2.0.0  
 **Data:** 2026-06-11  
-**Status:** Obrigatório  
+**Status:** OBRIGATÓRIO para todos os ambientes  
 
 ---
 
-## 1. Princípios Fundamentais
+## PRIORIDADE MÁXIMA
 
-### 1.1 Produção é Sagrada
+| Prioridade | Descrição |
+|------------|-----------|
+| **1º** | Disponibilidade do dashboard |
+| **2º** | Integridade dos dados |
+| **3º** | Segurança do ambiente |
+| **4º** | Estabilidade do cliente |
 
-O dashboard do cliente **NUNCA** pode ser derrubado por mudanças de desenvolvimento.
-
-### 1.2 Zero Tolerance para Downtime Não Planejado
-
-Cada incidente de produção deve ser documentado e aprendido.
-
-### 1.3 Mudanças Graduais e Reversíveis
-
-Toda alteração deve poder ser revertida.
+> **Nenhuma funcionalidade nova vale mais que a estabilidade da produção.**
 
 ---
 
-## 2. Fluxo de Alterações
+# REGRAS DE ENGENHARIA
 
-### 2.1 Fluxo Obrigatório
+## REGRA 1 - PRODUÇÃO É SAGRADA
+
+O Dashboard do cliente é o **ativo mais importante** do sistema.
+
+- ✅ Nenhuma alteração pode colocar produção em risco
+- ✅ Produção NÃO é ambiente de testes
+- ✅ Produção apenas recebe código já validado localmente
+
+### Proibido em produção:
+
+- ❌ Deploy apenas para "testar"
+- ❌ Assumir que funciona sem evidência
+- ❌ Alterar produção diretamente
+- ❌ Executar migrations automaticamente
+- ❌ Alterar banco em produção sem validação local
+
+---
+
+## REGRA 2 - FLUXO OBRIGATÓRIO DE QUALQUER ALTERAÇÃO
+
+Antes de qualquer modificação, seguir **exatamente**:
 
 ```
-DIAGNÓSTICO → PLANO → DIFF → TESTE LOCAL → VALIDAÇÃO → APROVAÇÃO → COMMIT → DEPLOY
+1. DIAGNÓSTICO COMPLETO
+    ↓
+2. Explicar causa raiz
+    ↓
+3. APRESENTAR PLANO DE EXECUÇÃO
+    ↓
+4. Listar arquivos afetados
+    ↓
+5. MOSTRAR DIFF
+    ↓
+6. Explicar riscos
+    ↓
+7. Explicar rollback
+    ↓
+8. EXECUTAR TESTES LOCAIS
+    ↓
+9. APRESENTAR RESULTADO DOS TESTES
+    ↓
+10. AGUARDAR APROVAÇÃO EXPLÍCITA
+    ↓
+11. Commit
+    ↓
+12. Deploy
 ```
 
-### 2.2 Diagnóstico
+**Nenhuma exceção.**
 
-Antes de qualquer alteração, documentar:
+### Template de Diagnóstico
 
-- **Causa Raiz:** O que está causando o problema?
-- **Impacto:** Quem será afetado? Por quanto tempo?
-- **Arquivos Afetados:** Quais arquivos precisam mudar?
-- **Alternativas:** Existem outras formas de resolver?
+```markdown
+## Diagnóstico
 
-### 2.3 Plano
+### Problema
+- Descrição clara do problema
+- Quando ocorreu
+- Quem foi afetado
 
-Apresentar antes de qualquer alteração:
+### Causa Raiz
+- O que causou o problema
+- Por que aconteceu
+- Como foi identificado
 
-- **O que será alterado:** Descrição clara
-- **Riscos:** O que pode dar errado?
-- **Dependências:** O que precisa estar pronto antes?
-- **Impacto esperado:** O que vai melhorar?
-- **Rollback:** Como reverter se algo der errado?
+### Arquivos Afetados
+- Lista de arquivos que precisam mudar
 
-### 2.4 Diff
+### Impacto
+- O que pode quebrar
+- Quais funcionalidades são afetadas
+- Severidade do impacto
 
-Mostrar as alterações propostas antes de executar.
+## Plano
 
-### 2.5 Teste Local
+### Solução Proposta
+- O que será alterado
+- Como será feito
 
-Toda alteração deve ser testada localmente antes de qualquer commit:
+### Riscos
+- O que pode dar errado
+- Probabilidade de ocorrência
+- Impacto se falhar
 
-- [ ] Testes unitários passando
-- [ ] Testes de integração passando
-- [ ] Build succeeds
-- [ ] Lint passing
-- [ ] Type check passing
-- [ ] Startup da aplicação funciona
-
-### 2.6 Validação
-
-Verificar que a alteração funciona corretamente.
-
-### 2.7 Aprovação
-
-Obter aprovação explícita antes de fazer commit.
-
-### 2.8 Commit
-
-Fazer commit seguindoConventional Commits.
-
-### 2.9 Deploy
-
-Seguir checklist de deploy (ver `docs/runbooks/deployment-checklist.md`).
+### Rollback
+- Como reverter
+- Commit de retorno
+- Passos documentados
+```
 
 ---
 
-## 3. Regras de Database
+## REGRA 3 - BANCO DE DADOS
 
-### 3.1 Migrations Automáticas em Produção
+### É PROIBIDO executar em produção:
 
-**PROIBIDO** executar migrations automaticamente no startup.
+| Comando | Proibido |
+|---------|----------|
+| migrations | ❌ |
+| alter table | ❌ |
+| drop table | ❌ |
+| truncate | ❌ |
+| delete em massa | ❌ |
+| update em massa | ❌ |
+| mudanças de schema | ❌ |
 
-### 3.2 Antes de qualquer migration
+### Sem todos estes itens:
+
+1. ✅ **Backup validado** - backup recente foi restaurado e verificado
+2. ✅ **Teste local executado** - testes passaram localmente
+3. ✅ **Plano de rollback documentado** - rollback está escrito e testado
+4. ✅ **Aprovação explícita** - usuário aprovou formalmente
+
+**Se houver dúvida: NÃO EXECUTAR.**
+
+### Checklist de Segurança para Banco
 
 ```bash
-# Verificar estado atual
+# 1. Backup
+make backup
+
+# 2. Verificar backup
+make restore BACKUP=backups/YYYY-MM-DD_HHMMSS --dry-run
+
+# 3. Testar localmente
+cd backend && pytest
+
+# 4. Documentar rollback
+# - Identificar commit de retorno
+# - Listar passos para reversão
+# - Identificar quem pode executar
+```
+
+---
+
+## REGRA 4 - ALEMBIC
+
+### Antes de qualquer migration, executar:
+
+```bash
+cd backend
 alembic current
-
-# Verificar heads
 alembic heads
-
-# Verificar branches
 alembic branches
-
-# Verificar merge points
 alembic history --verbose
 ```
 
-### 3.3 Se existir múltiplas heads
+### Se existir mais de uma head:
 
-1. **PARAR IMEDIATAMENTE**
-2. **NÃO executar `alembic upgrade head`**
-3. Documentar o problema
-4. Resolver as múltiplas heads antes de continuar
+**🚨 PARAR IMEDIATAMENTE**
 
-### 3.4 Documentação de Migration
+**NÃO executar:**
 
-Toda migration deve incluir:
+```bash
+alembic upgrade head
+alembic upgrade heads
+```
 
-- **Descrição:** O que a migration faz?
-- **Rollback:** Como reverter?
-- **Impacto:** Quais tabelas são afetadas?
-- **Tempo estimado:** Quanto tempo vai demorar?
+até que:
+1. O problema seja identificado localmente
+2. A solução seja implementada
+3. Testes locais passem
+4. Aprovação seja obtida
 
-### 3.5 Rollback
+### Fluxo de Resolução de Múltiplas Heads
 
-Toda mudança de banco deve possuir rollback documentado.
+```
+1. Identificar branches com: alembic branches
+2. Identificar merge points: alembic history --verbose
+3. Criar merge migration: alembic merge -m "merge branches"
+4. Testar localmente: alembic upgrade head
+5. Validar banco: alembic current
+6. Commit e push
+7. Deploy via CI/CD
+```
 
 ---
 
-## 4. Regras de Deploy
+## REGRA 5 - ÁREAS CRÍTICAS
 
-### 4.1 Checklist Obrigatório
+Se a alteração impactar qualquer uma destas áreas:
 
-Ver `docs/runbooks/deployment-checklist.md`
+| Área | Impacto |
+|------|---------|
+| **Login** | Autenticação de usuários |
+| **Autenticação** | Sistema de login |
+| **Dashboard** | Visibilidade de custos do cliente |
+| **APIs** | Comunicação com cliente |
+| **FinOps** | Recomendações de otimização |
+| **Ledger** | Dados financeiros |
+| **Advisor** | Sistema de recomendações |
+| **Billing** | Sistema de cobrança |
+| **Ingestion** | Ingestão de dados de custos |
+| **Workers** | Processamento em background |
+| **Banco de Dados** | Persistência de dados |
 
-### 4.2 Pré-Deploy
+### O Claude deve apresentar **obrigatoriamente**:
 
-- [ ] Build OK
-- [ ] Testes OK
-- [ ] Banco validado
-- [ ] Rollback definido
-- [ ] Healthcheck validado
+1. ✅ **Diagnóstico** - Causa raiz e impacto
+2. ✅ **Plano** - O que será alterado
+3. ✅ **Diff** - Alterações específicas
+4. ✅ **Impacto** - O que pode quebrar
+5. ✅ **Riscos** - O que pode dar errado
+6. ✅ **Rollback** - Como reverter
 
-### 4.3 Pós-Deploy
+**antes de alterar qualquer arquivo.**
 
-Validar OBRIGATORIAMENTE:
+---
 
+## REGRA 6 - TESTES
+
+### Nenhum deploy pode ocorrer sem validação local.
+
+#### Obrigatório para todo deploy:
+
+- ✅ Testes unitários passando
+- ✅ Testes de integração (quando aplicável)
+- ✅ Validação manual da funcionalidade alterada
+
+#### Checklist de Testes
+
+```bash
+# 1. Backend - Testes unitários
+cd backend && pytest -v
+
+# 2. Backend - Testes de integração
+cd backend && pytest tests/integration/ -v
+
+# 3. Backend - Build validation
+cd backend && python -c "from app.main import app"
+
+# 4. Backend - Type check
+cd backend && mypy app/
+
+# 5. Frontend - Testes
+cd frontend && npm test
+
+# 6. Frontend - Build
+cd frontend && npm run build
+
+# 7. Health check
+curl -s https://causium-api-2026.azurewebsites.net/health
+```
+
+**Deploy não pode ser usado como teste.**
+
+---
+
+## REGRA 7 - ROLLBACK
+
+### Toda alteração deve possuir:
+
+- ✅ **Estratégia de rollback documentada**
+- ✅ **Commit de retorno identificado**
+- ✅ **Passos documentados para reversão**
+
+#### Template de Rollback
+
+```markdown
+## Rollback
+
+### Estratégia
+- Descrição da estratégia de rollback
+
+### Commit de Retorno
+- SHA do commit anterior: xxxxxxx
+- Tag se aplicável: v1.2.3
+
+### Passos para Reversão
+
+1. `git revert <sha>`
+2. `git push origin main`
+3. Aguardar GitHub Actions
+4. Validar health check
+
+### Validação
+- Health check retorna OK
+- Dashboard carrega
+- APIs respondem
+
+### Responsável
+- Nome do responsável pelo rollback
+```
+
+---
+
+## REGRA 8 - INCIDENTE DE 11/06/2026
+
+### Registrar como lição permanente do projeto:
+
+| Item | Descrição |
+|------|-----------|
+| **Data** | 2026-06-11 |
+| **Incidente** | Dashboard indisponível |
+| **Duração** | ~8 horas |
+| **Causa** | Execução automática de Alembic no startup |
+| **Root Cause** | Múltiplas heads no Alembic |
+| **Ação Corretiva** | Remoção da execução automática de migrations do entrypoint |
+| **Lição** | Migrations nunca devem ser executadas automaticamente em produção sem validação prévia |
+
+### Evidências do Incidente
+
+```
+Site's appCommandLine: startup.sh
+Launching oryx with: create-script -appPath /home/site/wwwroot -output /opt/startup/startup.sh
+Writing output script to '/opt/startup/startup.sh'
+[startup] PostgreSQL mode — running alembic upgrade head...
+ERROR [alembic.util.messaging] Multiple head revisions are present for given argument 'head'
+```
+
+### Prevenção Implementada
+
+1. ✅ Entrypoint desabilitou migrations
+2. ✅ Políticas de engenharia documentadas
+3. ✅ Checklist de deploy criado
+4. ✅ Incidente registrado como lição aprendida
+
+---
+
+# CHECKLIST PRÉ-DEPLOY
+
+## Obrigatório antes de qualquer deploy
+
+- [ ] Diagnóstico completo apresentado
+- [ ] Plano aprovado
+- [ ] Diff mostrado e aprovado
+- [ ] Testes locais passando
+- [ ] Rollback documentado
+- [ ] Aprovação explícita obtida
+
+---
+
+# CHECKLIST PÓS-DEPLOY
+
+## Obrigatório após qualquer deploy
+
+- [ ] Health check: `GET /health` retorna `{"status":"ok"}`
 - [ ] Login funciona
 - [ ] Dashboard carrega
 - [ ] Spend Analysis funciona
 - [ ] Spend Stability funciona
 - [ ] Spend by SKU funciona
 - [ ] Savings Opportunities funciona
-- [ ] Health Check (`/health`) retorna OK
-
-### 4.4 Rollback
-
-Se algo der errado:
-
-1. Identificar a versão anterior
-2. Executar rollback
-3. Validar que o sistema voltou ao normal
-4. Documentar o incidente
+- [ ] Sem erros nos logs
 
 ---
 
-## 5. Regras de Produção
+# REFERÊNCIAS
 
-### 5.1 Proibido
-
-- ❌ Deploy sem validação local
-- ❌ Alterar banco de produção diretamente
-- ❌ Executar migrations automaticamente em startup
-- ❌ Executar comandos destrutivos
-- ❌ Apagar tabelas
-- ❌ Alterar schemas sem aprovação
-- ❌ Fazer hotfix sem explicar o risco
-- ❌ Testar em produção
-
-### 5.2 Permitido (com aprovação)
-
-- ✅ Deploy via GitHub Actions (CI/CD)
-- ✅ Migrations via pipeline de deploy (não no startup)
-- ✅ Rollback via GitHub Actions
-
----
-
-## 6. Estrutura de Ambientes
-
-| Ambiente | Propósito | Acesso |
-|----------|-----------|--------|
-| Production | Cliente real | Somente via CI/CD |
-| Staging | Testes pré-deploy | Dev team |
-| Local | Desenvolvimento | Dev |
-
----
-
-## 7. Infraestrutura
-
-### 7.1 Azure App Service
-
-- **Backend:** `causium-api-2026`
-- **Frontend:** Azure Static Web Apps
-- **Database:** PostgreSQL (Azure)
-- **Analytics:** ClickHouse (Azure)
-
-### 7.2 Variáveis de Ambiente
-
-Todas as variáveis de produção estão no Azure App Service Settings.
-
-**NUNCA** commitar secrets no git.
-
----
-
-## 8. Monitoramento
-
-### 8.1 Health Check
-
-```
-GET /health
-```
-
-Resposta esperada:
-```json
-{"status": "ok", "version": "0.1.0"}
-```
-
-### 8.2 Logs
-
-Ver `docs/runbooks/backup-restore.md` para instruções de acesso aos logs.
-
----
-
-## 9. Incidentes
-
-### 9.1 Registro de Incidentes
-
-Todo incidente deve ser documentado em `docs/incidents/`.
-
-Formato: `YYYY-MM-DD-descricao.md`
-
-### 9.2 Estrutura do Registro
-
-```markdown
-# Incidente: [Título]
-
-**Data:** YYYY-MM-DD  
-**Severidade:** Alta/Média/Baixa  
-**Status:** Resolvido/Pendente
-
-## Timeline
-- HH:MM - Evento
-
-## Impacto
-- O que foi afetado?
-
-## Causa Raiz
-- O que causou o problema?
-
-## Resolução
-- Como foi resolvido?
-
-## Lições Aprendidas
-- O que podemos melhorar?
-
-## Ação Corretiva
-- O que precisa ser feito para evitar recurrence?
-```
-
----
-
-## 10. Referências
-
-- `CLAUDE.md` - Regras de engenharia resumidas
-- `CONTRIBUTING.md` - Guia para contribuidores
-- `docs/runbooks/deployment-checklist.md` - Checklist de deploy
-- `docs/runbooks/backup-restore.md` - Backup e restore
-- `docs/incidents/` - Registro de incidentes
+| Documento | Descrição |
+|-----------|-----------|
+| `CLAUDE.md` | Regras de engenharia resumidas |
+| `CONTRIBUTING.md` | Guia para contribuidores |
+| `docs/runbooks/deployment-checklist.md` | Checklist de deploy |
+| `docs/runbooks/backup-restore.md` | Backup e restore |
+| `docs/incidents/2026-06-11-dashboard-outage.md` | Registro do incidente |
