@@ -2450,4 +2450,72 @@ This roadmap is **incremental and honest**:
 | Multi-subscription support | No tag-based cost allocation |
 
 > **Principle**: It is better to show 3 validated opportunities with real numbers than 50 hypothetical ones with inflated estimates. Credibility compounds; hype erodes trust.
-| **PulseLab** | Módulo de criação e tracking de experimentos de otimização (state machine 7 estados) |
+
+---
+
+## 🔧 Regras de Engenharia - PRODUÇÃO
+
+**ATENÇÃO:** Estas regras são OBRIGATÓRIAS para todos os ambientes de produção.
+
+### Fluxo Obrigatório de Alterações
+
+```
+DIAGNÓSTICO → PLANO → DIFF → TESTE LOCAL → VALIDAÇÃO → APROVAÇÃO → COMMIT → DEPLOY
+```
+
+### Regras de Ouro
+
+| Regra | Descrição |
+|-------|-----------|
+| **Produção é sagrada** | O dashboard do cliente NUNCA pode ser derrubado |
+| **Zero migrations no startup** | Migrations automáticas em produção são PROIBIDAS |
+| **Validação local obrigatória** | Nenhum deploy sem teste local |
+| **Rollback documentado** | Toda mudança deve poder ser revertida |
+
+### Antes de qualquer deploy
+
+```bash
+# Verificar estado do Alembic
+cd backend && alembic current && alembic heads && alembic branches
+```
+
+**Se existirem múltiplas heads:** PARAR IMEDIATAMENTE, NÃO executar upgrade.
+
+### Após deploy, validar OBRIGATORIAMENTE
+
+- [ ] Login funciona
+- [ ] Dashboard carrega
+- [ ] Spend Analysis funciona
+- [ ] Spend Stability funciona
+- [ ] Spend by SKU funciona
+- [ ] Savings Opportunities funciona
+- [ ] Health Check (`/health`) retorna OK
+
+### Documentação de Engenharia
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `CLAUDE.md` | Regras de engenharia resumidas |
+| `CONTRIBUTING.md` | Guia para contribuidores |
+| `docs/architecture/engineering-policy.md` | Políticas detalhadas |
+| `docs/runbooks/deployment-checklist.md` | Checklist de deploy |
+| `docs/incidents/2026-06-11-dashboard-outage.md` | Registro do incidente |
+
+### Incidentes
+
+#### 2026-06-11 - Dashboard Indisponível
+
+O dashboard do cliente ficou indisponível por ~8 horas porque o startup executava `alembic upgrade head` com múltiplas heads no Alembic.
+
+**Lição aprendida:** Migrations automáticas em produção são proibidas.
+
+---
+
+## Referências
+
+- [CLAUDE.md](CLAUDE.md) - Regras de engenharia
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Guia para contribuidores
+- [docs/architecture/engineering-policy.md](docs/architecture/engineering-policy.md) - Políticas detalhadas
+- [docs/runbooks/deployment-checklist.md](docs/runbooks/deployment-checklist.md) - Checklist de deploy
+- [docs/runbooks/backup-restore.md](docs/runbooks/backup-restore.md) - Backup e restore
+- [docs/incidents/2026-06-11-dashboard-outage.md](docs/incidents/2026-06-11-dashboard-outage.md) - Registro do incidente
