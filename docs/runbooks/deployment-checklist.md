@@ -290,6 +290,90 @@ curl -s https://causium-api-2026.azurewebsites.net/health
 
 ---
 
+## REGRA 9 - STAGING OBRIGATÓRIO
+
+### Áreas que requerem validação em Staging
+
+| Área | Requer Staging |
+|------|----------------|
+| Banco de Dados | ✅ |
+| Autenticação | ✅ |
+| Login | ✅ |
+| Dashboard | ✅ |
+| APIs Públicas | ✅ |
+| FinOps | ✅ |
+| Billing | ✅ |
+| Ledger | ✅ |
+| Advisor | ✅ |
+| Workers | ✅ |
+| Ingestion | ✅ |
+| Segurança | ✅ |
+
+### Fluxo obrigatório
+
+```
+Desenvolvimento Local → Testes Locais → Staging → Validação → Aprovação → Produção
+```
+
+---
+
+## REGRA 10 - INCIDENTES E PÓS-MORTEM
+
+### Todo incidente deve gerar documentação
+
+1. ✅ Root Cause Analysis
+2. ✅ Timeline do incidente
+3. ✅ Impacto ao cliente
+4. ✅ Ação corretiva
+5. ✅ Ação preventiva
+6. ✅ Plano para evitar recorrência
+
+### Registro em: `docs/incidents/YYYY-MM-DD-descricao.md`
+
+---
+
+## REGRA 11 - PROTEÇÃO DE PRODUÇÃO
+
+### Validações obrigatórias antes do deploy
+
+| Validação | Status |
+|-----------|--------|
+| Health Check OK | ⬜ |
+| Banco acessível | ⬜ |
+| APIs funcionando | ⬜ |
+| Login funcionando | ⬜ |
+| Dashboard funcionando | ⬜ |
+| Rollback disponível | ⬜ |
+
+**Se qualquer validação falhar: PARAR O DEPLOY**
+
+---
+
+## REGRA 12 - MUDANÇAS DE ALTO RISCO
+
+### Áreas de alto risco
+
+| Área | Risco |
+|------|-------|
+| Alembic |可能导致停机 |
+| Banco de dados | 数据丢失风险 |
+| Autenticação | 影响用户访问 |
+| Infraestrutura | 影响系统稳定性 |
+| Deploy | 影响生产环境 |
+| Billing | 影响计费系统 |
+
+### 7 itens obrigatórios
+
+1. Diagnóstico
+2. Plano
+3. Diff
+4. Impacto
+5. Riscos
+6. Rollback
+7. Evidências dos testes
+
+---
+
 ## CONTATOS DE EMERGÊNCIA
 
 | Papel | Contato |
@@ -306,3 +390,4 @@ curl -s https://causium-api-2026.azurewebsites.net/health
 - `docs/architecture/engineering-policy.md` - Políticas detalhadas
 - `docs/runbooks/backup-restore.md` - Backup e restore
 - `docs/incidents/2026-06-11-dashboard-outage.md` - Registro do incidente
+- `docs/technical-tasks/alembic-multiple-heads.md` - Task técnica Alembic

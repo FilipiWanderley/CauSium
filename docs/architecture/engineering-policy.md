@@ -368,6 +368,270 @@ ERROR [alembic.util.messaging] Multiple head revisions are present for given arg
 
 ---
 
+# REGRA 9 - STAGING OBRIGATÓRIO
+
+## Mudanças que impactam áreas críticas devem passar por Staging
+
+### Áreas que requerem validação em Staging
+
+| Área | Requer Staging |
+|------|----------------|
+| Banco de Dados | ✅ |
+| Autenticação | ✅ |
+| Login | ✅ |
+| Dashboard | ✅ |
+| APIs Públicas | ✅ |
+| FinOps | ✅ |
+| Billing | ✅ |
+| Ledger | ✅ |
+| Advisor | ✅ |
+| Workers | ✅ |
+| Ingestion | ✅ |
+| Segurança | ✅ |
+
+### Fluxo obrigatório
+
+```
+Desenvolvimento Local
+    ↓
+Testes Locais
+    ↓
+Staging
+    ↓
+Validação
+    ↓
+Aprovação
+    ↓
+Produção
+```
+
+**Produção nunca deve ser o primeiro ambiente a receber alterações críticas.**
+
+### Validação em Staging
+
+```bash
+# 1. Deploy para staging
+az webapp deployment slot swap --resource-group rg-causium-staging-01 --name causium-api-2026 --slot staging --action swap
+
+# 2. Validar em staging
+curl -s https://causium-api-2026-staging.azurewebsites.net/health
+
+# 3. Testar funcionalidades críticas
+# - Login
+# - Dashboard
+# - APIs
+# - Ledger
+# - Ingestion
+
+# 4. Somente após validação → produção
+```
+
+---
+
+# REGRA 10 - INCIDENTES E PÓS-MORTEM
+
+## Todo incidente de produção deve gerar documentação completa
+
+### 6 itens obrigatórios
+
+1. ✅ **Root Cause Analysis** - Identificar causa raiz
+2. ✅ **Timeline do incidente** - Cronologia de eventos
+3. ✅ **Impacto ao cliente** - O que foi afetado
+4. ✅ **Ação corretiva** - Como foi resolvido
+5. ✅ **Ação preventiva** - O que fazer para evitar
+6. ✅ **Plano para evitar recorrência** - Medidas implementadas
+
+### Estrutura do registro
+
+```markdown
+# Incidente: [Título]
+
+**Data:** YYYY-MM-DD
+**Severidade:** Alta/Média/Baixa
+**Status:** Resolvido/Pendente
+
+## Timeline
+- HH:MM - Evento
+
+## Root Cause
+- Causa raiz identificada
+
+## Impacto
+- O que foi afetado
+
+## Ação Corretiva
+- Como foi resolvido
+
+## Ação Preventiva
+- O que fazer para evitar
+
+## Plano
+- Medidas implementadas
+```
+
+### Local de registro
+
+```
+docs/incidents/YYYY-MM-DD-descricao.md
+```
+
+---
+
+# REGRA 11 - PROTEÇÃO DE PRODUÇÃO
+
+## Antes de qualquer deploy em produção, validar
+
+### Checklist de proteção
+
+| Validação | Comando |
+|-----------|---------|
+| Health Check OK | `curl /health` |
+| Banco acessível | `alembic current` |
+| APIs funcionando | `curl /api/v1/health` |
+| Login funcionando | Teste manual |
+| Dashboard funcionando | Teste manual |
+| Rollback disponível | `git log --oneline -3` |
+
+### Se qualquer validação falhar
+
+**🚨 PARAR O DEPLOY**
+
+```bash
+# Health check
+curl -s https://causium-api-2026.azurewebsites.net/health
+
+# Verificar banco
+cd backend && alembic current
+
+# APIs
+curl -s https://causium-api-2026.azurewebsites.net/api/v1/health
+
+# Verificar rollback
+git log --oneline -3
+
+# Verificar logs
+az webapp log tail --resource-group rg-causium-staging-01 --name causium-api-2026
+```
+
+---
+
+# REGRA 12 - MUDANÇAS DE ALTO RISCO
+
+## Mudanças envolvendo áreas de risco alto
+
+### Áreas de alto risco
+
+| Área | Risco |
+|------|-------|
+| Alembic |可能导致停机 |
+| Banco de dados | 数据丢失风险 |
+| Autenticação | 影响用户访问 |
+| Infraestrutura | 影响系统稳定性 |
+| Deploy | 影响生产环境 |
+| Billing | 影响计费系统 |
+
+### 7 itens obrigatórios
+
+1. ✅ **Diagnóstico** - Causa raiz e problema
+2. ✅ **Plano** - O que será alterado
+3. ✅ **Diff** - Alterações específicas
+4. ✅ **Impacto** - O que pode quebrar
+5. ✅ **Riscos** - O que pode dar errado
+6. ✅ **Rollback** - Como reverter
+7. ✅ **Evidências dos testes** - Testes passaram localmente
+
+### Template para mudanças de alto risco
+
+```markdown
+## Mudança de Alto Risco - [Título]
+
+### 1. Diagnóstico
+- Problema:
+- Causa raiz:
+- Impacto:
+
+### 2. Plano
+- O que será alterado:
+- Como será feito:
+
+### 3. Diff
+\`\`\`diff
+# mostrar alterações
+\`\`\`
+
+### 4. Impacto
+- Funcionalidades afetadas:
+- Usuários impactados:
+
+### 5. Riscos
+- O que pode dar errado:
+- Probabilidade:
+- Impacto:
+
+### 6. Rollback
+- Commit de retorno:
+- Passos:
+
+### 7. Evidências dos Testes
+- [x] Testes unitários passando
+- [x] Testes de integração passando
+- [x] Validação manual concluída
+```
+
+---
+
+# TASK TÉCNICA - ALEMBIC MÚLTIPLAS HEADS
+
+## Objetivo
+
+Resolver múltiplas heads do Alembic para permitir migrations normais.
+
+## Passos planejados (NÃO EXECUTAR AINDA)
+
+1. **Identificar heads existentes**
+   ```bash
+   cd backend && alembic heads
+   cd backend && alembic branches
+   ```
+
+2. **Criar merge migration correta**
+   ```bash
+   cd backend && alembic merge -m "merge branches"
+   ```
+
+3. **Validar upgrade local**
+   ```bash
+   cd backend && alembic upgrade head
+   ```
+
+4. **Validar downgrade local**
+   ```bash
+   cd backend && alembic downgrade -1
+   cd backend && alembic upgrade head
+   ```
+
+5. **Executar testes**
+   ```bash
+   cd backend && pytest
+   ```
+
+6. **Documentar rollback**
+   ```markdown
+   ## Rollback
+   - Commit: xxxxxxx
+   - Passos: ...
+   ```
+
+7. **Somente após aprovação considerar reabilitar migrations**
+
+## ⚠️ IMPORTANTE
+
+**NÃO executar nenhuma ação em produção relacionada ao Alembic.**
+
+**Apenas documentar e criar a task técnica.**
+
+---
+
 # REFERÊNCIAS
 
 | Documento | Descrição |
