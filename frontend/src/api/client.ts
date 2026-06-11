@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 const ENV_BASE_URL = (import.meta.env.VITE_API_URL || '').trim()
+const FORCE_REMOTE_API = import.meta.env.VITE_FORCE_REMOTE_API === 'true'
 const IS_LOCALHOST_RUNTIME =
   typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
@@ -9,7 +10,8 @@ const IS_LOCALHOST_RUNTIME =
 
 // In local runtime, force same-origin `/api` (Vite proxy) to avoid
 // cross-origin auth/cookie issues when VITE_API_URL points to a different port.
-const BASE_URL = IS_LOCALHOST_RUNTIME ? '' : ENV_BASE_URL
+// Exception: if VITE_FORCE_REMOTE_API=true, use VITE_API_URL for local testing with remote API.
+const BASE_URL = IS_LOCALHOST_RUNTIME && !FORCE_REMOTE_API ? '' : ENV_BASE_URL
 
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
