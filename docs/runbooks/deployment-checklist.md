@@ -145,6 +145,58 @@ Aguardar jobs:
 
 ---
 
+## SWA PREVIEW (FRONTEND ONLY) — Feature `feature/staging-pipeline`
+
+A partir de 2026-06-12, o workflow `deploy-frontend-swa.yml` foi estendido para
+gerar **URLs de preview por Pull Request** no Azure Static Web Apps, sem custo
+adicional de infra.
+
+### O que isso faz
+
+- Cada PR aberto contra `main` dispara o workflow de deploy do frontend.
+- O SWA gera uma **URL de preview única** (anônima ou com auth, conforme config
+  do SWA) com o build do branch.
+- O comentário do bot no PR inclui a URL de preview.
+
+### O que isso **NÃO** faz (limites)
+
+- ❌ **Não valida backend.** O preview é só frontend estático (HTML/CSS/JS).
+  Chamadas para `/api/v1/...` no preview **falham** porque não há staging
+  backend deployado.
+- ❌ **Não substitui staging real.** Esta é uma medida de validação visual/
+  frontend apenas.
+- ❌ **Não muda o fluxo de deploy em produção.** Merge em `main` continua
+  deployando o frontend no SWA de produção, e o backend no App Service de
+  produção, sem gate de aprovação.
+- ❌ **Não protege contra deploy direto em produção.** Para isso, é preciso
+  branch protection em `main` + GitHub environment `production` com required
+  reviewers — trabalho de sprint futura (escopo desta branch é só o preview).
+
+### Quando usar
+
+- Para revisar **HTML/CSS/i18n strings** de um PR antes de mergear.
+- Para validar **layout responsivo** sem subir backend.
+- Para smoke visual rápido de uma feature UI-only.
+
+### Quando **NÃO** usar como substituto
+
+- Validação de fluxos que dependem de API (`/gov`, `/ledger`, `/auth`, etc.).
+- Validação de novos endpoints ou mudanças de backend.
+- Validação fim-a-fim de feature completa.
+- Decisão de merge em `main`. **Merge em `main` continua exigindo staging
+  backend real + gate manual, não implementado nesta branch.**
+
+### Como abrir um PR para testar
+
+1. Crie uma branch de feature.
+2. Faça push.
+3. Abra PR contra `main`.
+4. Aguarde o workflow `Deploy Frontend – Azure Static Web Apps` rodar.
+5. O bot do SWA comenta no PR com a URL de preview.
+6. Abra a URL e valide.
+
+---
+
 ## PÓS-DEPLOY
 
 ### 1. Health Check
