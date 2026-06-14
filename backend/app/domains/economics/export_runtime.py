@@ -25,6 +25,16 @@ from app.domains.economics.models import ReportExportFormat, ReportExportJob
 log = get_logger(__name__)
 
 
+def _safe_set_number_format(cell, fmt: str | None) -> None:
+    """Safely set number_format on a cell, avoiding None or empty string errors.
+
+    openpyxl raises TypeError when formatCode is None or not a string.
+    Only sets the format if fmt is a valid non-empty string.
+    """
+    if fmt and isinstance(fmt, str) and fmt.strip():
+        cell.number_format = fmt
+
+
 @dataclass
 class ReportExportArtifact:
     file_name: str
@@ -1286,8 +1296,7 @@ def _build_sustainability_sheet(ws, green_summary, green_monthly) -> None:
         ws.cell(row=row, column=1, value=label).font = _KPI_LABEL_FONT
         c = ws.cell(row=row, column=2, value=value)
         c.font = _KPI_VALUE_FONT
-        if fmt:
-            c.number_format = fmt
+        _safe_set_number_format(c, fmt)
         row += 1
 
     # Note
@@ -1312,8 +1321,12 @@ def _build_sustainability_sheet(ws, green_summary, green_monthly) -> None:
             c.number_format = "#,##0.0"
             c = ws.cell(row=row, column=3, value=m.cost_usd)
             c.number_format = _BRL_FORMAT
-            c = ws.cell(row=row, column=4, value=(m.delta_pct or 0) / 100.0 if m.delta_pct else None)
-            c.number_format = _PCT_FORMAT if m.delta_pct else "General"
+            # Only set value and format if delta_pct is not None
+            if m.delta_pct is not None:
+                c = ws.cell(row=row, column=4, value=m.delta_pct / 100.0)
+                c.number_format = _PCT_FORMAT
+            else:
+                ws.cell(row=row, column=4, value=None)
             row += 1
         _apply_table_style(ws, header_row + 1, row - 1, 4, currency_cols=[3], pct_cols=[4])
 
@@ -1383,8 +1396,7 @@ def _build_tag_compliance_sheet(ws, tag_compliance) -> None:
         ws.cell(row=row, column=1, value=label).font = _KPI_LABEL_FONT
         c = ws.cell(row=row, column=2, value=value)
         c.font = _KPI_VALUE_FONT
-        if fmt:
-            c.number_format = fmt
+        _safe_set_number_format(c, fmt)
         row += 1
 
     # Top Resource Groups without tag
