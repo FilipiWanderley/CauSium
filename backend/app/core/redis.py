@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import ssl
 from typing import Any, AsyncGenerator
 
 import redis.asyncio as aioredis
@@ -89,20 +88,13 @@ def get_redis_pool() -> aioredis.Redis | DisabledRedis:
             "encoding": "utf-8",
             "decode_responses": True,
         }
-        if redis_url.startswith("rediss://"):
-            tls_version_map: dict[str, ssl.TLSVersion] = {
-                "TLSv1.2": ssl.TLSVersion.TLSv1_2,
-                "TLSv1.3": ssl.TLSVersion.TLSv1_3,
-            }
-            kwargs["ssl_cert_reqs"] = "required" if settings.redis_ssl_verify else "none"
-            kwargs["ssl_check_hostname"] = settings.redis_ssl_verify
-            if settings.redis_ssl_ca_file:
-                kwargs["ssl_ca_certs"] = settings.redis_ssl_ca_file
-            kwargs["ssl_min_version"] = tls_version_map.get(
-                settings.redis_ssl_min_version,
-                ssl.TLSVersion.TLSv1_3,
-            )
         _redis_pool = aioredis.from_url(redis_url, **kwargs)
+        # redis-py 8.x adds ssl=True to connection_kwargs automatically for rediss:// URLs,
+        # but passes it to Connection.__init__ which doesn't accept ssl parameter.
+        # Remove ssl from kwargs to avoid TypeError.
+        if redis_url.startswith("rediss://") and hasattr(_redis_pool, "connection_pool"):
+            if "ssl" in _redis_pool.connection_pool.connection_kwargs:
+                del _redis_pool.connection_pool.connection_kwargs["ssl"]
         _redis_pool_loop_id = current_loop_id
         log.info("redis.pool_created", scheme=url_scheme, host=url_host)
     return _redis_pool
