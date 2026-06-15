@@ -54,6 +54,7 @@ class ResourceContext(BaseModel):
     tags_summary: dict[str, str] | None = None
     granularity_tier: Literal["resource", "service", "subscription", "unknown"]
     data_sources: list[str]
+    portal_url: str | None = None
 
 
 class PerformanceContext(BaseModel):
