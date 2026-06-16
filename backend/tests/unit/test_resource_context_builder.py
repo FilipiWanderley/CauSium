@@ -6,7 +6,6 @@ are handled correctly without inventing data.
 """
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
 from app.domains.decision_engine.resource_context_builder import (
@@ -14,12 +13,6 @@ from app.domains.decision_engine.resource_context_builder import (
     build_portal_url,
     parse_arm_resource_id,
     build_resource_context,
-)
-from app.domains.decision_engine.models import (
-    EffortLevel,
-    OpportunityCategory,
-    OpportunityStatus,
-    RiskLevel,
 )
 
 

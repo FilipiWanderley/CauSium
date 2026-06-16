@@ -6,14 +6,11 @@ generate correct savings evidence without inventing data.
 """
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
 from app.domains.decision_engine.savings_evidence_builder import build_savings_evidence
 from app.domains.decision_engine.models import (
-    EffortLevel,
     OpportunityCategory,
-    OpportunityStatus,
     RiskLevel,
 )
 
