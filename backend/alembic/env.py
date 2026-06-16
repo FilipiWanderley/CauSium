@@ -1,8 +1,11 @@
 import asyncio
+import ssl as _ssl
 from logging.config import fileConfig
+from urllib.parse import urlencode
 
 from alembic import context
 from sqlalchemy import pool
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
@@ -77,14 +80,34 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
-    import ssl as _ssl
-
     settings = get_settings()
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = settings.database_url
+
+    # Parse URL and remove SSL query params that asyncpg doesn't accept
+    raw_url = settings.database_url
+    url = make_url(raw_url)
+    query = dict(url.query)
+
+    # Extract SSL-related query params to pass via connect_args instead
+    ssl_from_query = query.pop("ssl", None)
+    query.pop("sslmode", None)
+
+    # Rebuild URL without SSL query params
+    if query:
+        url = url.set(query=urlencode(query, doseq=True))
+    else:
+        url = url.set(query=None)
+
+    configuration["sqlalchemy.url"] = str(url)
 
     connect_args: dict = {}
-    if settings.db_ssl_enabled or settings.is_production:
+    # Enable SSL if: explicit ?ssl=true in URL, or db_ssl_enabled, or production
+    ssl_enabled = (
+        ssl_from_query is not None
+        or settings.db_ssl_enabled
+        or settings.is_production
+    )
+    if ssl_enabled:
         ssl_ctx = _ssl.create_default_context()
         if settings.db_ssl_ca_file:
             ssl_ctx.load_verify_locations(cafile=settings.db_ssl_ca_file)

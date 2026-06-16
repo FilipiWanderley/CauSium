@@ -70,8 +70,18 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
       evidence.recommended_node_count != null ||
       evidence.recommended_min_count != null ||
       evidence.recommended_max_count != null)
+
+  // Detect subscription-level recommendations (Savings Plans, Reserved Instances) - must be before hasRightsizingEvidence
+  const isSubscriptionLevelAdvisor =
+    !!evidence &&
+    evidence.source === 'azure_advisor' &&
+    (evidence.is_subscription_level === true ||
+     evidence.recommendation_type === 'savings_plan' ||
+     evidence.recommendation_type === 'reserved_instance')
+
   const hasRightsizingEvidence =
     !hasAksNodePoolEvidence &&
+    !isSubscriptionLevelAdvisor &&  // Don't show rightsizing for subscription-level
     !!evidence &&
     (evidence.current_sku || evidence.recommended_sku || evidence.cpu_p95 != null || evidence.memory_p95 != null)
   const hasGroupedAdvisorEvidence =
@@ -79,6 +89,7 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
     evidence.source === 'azure_advisor' &&
     evidence.is_grouped === true &&
     (evidence.recommendation_count ?? 0) > 1
+
   const [advisorExpanded, setAdvisorExpanded] = useState(false)
 
   return (
@@ -288,6 +299,23 @@ export function OpportunityCard({ opportunity: op, onClick, onExplain }: Props) 
               )}
             </>
           )}
+        </div>
+      )}
+
+      {isSubscriptionLevelAdvisor && (
+        <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-gray-700">
+          <p className="font-semibold text-gray-800">
+            {evidence!.recommendation_type === 'savings_plan' ? 'Azure Savings Plan' : 'Reserved Instances'} - Subscription Level
+          </p>
+          <p className="mt-1">
+            Scope: <strong>Subscription</strong>
+          </p>
+          <p className="mt-1">
+            Impact: <strong>{evidence!.advisor_impact || 'N/A'}</strong>
+          </p>
+          <p className="mt-1 text-slate-500">
+            Resource metrics (CPU, memory) are not applicable for subscription-level recommendations.
+          </p>
         </div>
       )}
 

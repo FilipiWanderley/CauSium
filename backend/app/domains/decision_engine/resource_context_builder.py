@@ -21,14 +21,171 @@ if TYPE_CHECKING:
 
 
 # ── Azure ARM resource ID regex ────────────────────────────────────────────────
-# Example: /subscriptions/abc-123/resourceGroups/rg-platform/providers/Microsoft.Compute/virtualMachines/vm-01
-_ARM_PATTERN = re.compile(
-    r"^/subscriptions/(?P<sub>[^/]+)"
-    r"/resourceGroups/(?P<rg>[^/]+)"
-    r"/providers/(?P<type>[^/]+/[^/]+)"
-    r"/(?P<name>.+)$",
-    re.IGNORECASE,
-)
+# Supports:
+# - Full resource: /subscriptions/{sub}/resourceGroups/{rg}/providers/{type}/{name}
+# - Child resources: /subscriptions/{sub}/resourceGroups/{rg}/providers/{ns}/{type1}/{name1}/{type2}/{name2}
+# - Subscription-only: /subscriptions/{sub}
+
+
+def is_subscription_level_resource_id(resource_id: str | None) -> bool:
+    """
+    Check if resource_id is subscription-only (no resourceGroups).
+
+    Azure Savings Plans and Reserved Instances are scoped to subscriptions,
+    not individual resources, so their resource_id is just /subscriptions/{id}.
+    """
+    if not resource_id:
+        return False
+    rid_lower = resource_id.lower()
+    return (
+        rid_lower.startswith("/subscriptions/")
+        and "resourcegroups" not in rid_lower
+    )
+
+
+def build_portal_url(resource_id: str | None) -> str | None:
+    """
+    Build Azure Portal URL for a resource.
+
+    Handles both resource-level and subscription-level IDs.
+
+    Args:
+        resource_id: Azure ARM resource ID
+
+    Returns:
+        Azure Portal URL or None if not a valid Azure resource ID
+    """
+    if not resource_id:
+        return None
+
+    rid_lower = resource_id.lower()
+
+    # Subscription-level URL (e.g., /subscriptions/{id} for Savings Plans)
+    if rid_lower.startswith("/subscriptions/") and "resourcegroups" not in rid_lower:
+        return f"https://portal.azure.com/#resource{resource_id}"
+
+    # Resource-level URL (requires /subscriptions/ AND resourceGroups AND providers)
+    if not rid_lower.startswith("/subscriptions/"):
+        return None
+
+    has_resource_groups = "resourcegroups" in rid_lower
+    has_providers = "providers" in rid_lower
+
+    if not (has_resource_groups and has_providers):
+        return None
+
+    return f"https://portal.azure.com/#resource{resource_id}"
+
+
+def parse_arm_resource_id(resource_id: str | None) -> dict | None:
+    """
+    Parse Azure ARM resource ID into components.
+
+    Supports:
+    - Full resource: /subscriptions/{sub}/resourceGroups/{rg}/providers/{type}/{name}
+    - Child resources: /subscriptions/{sub}/resourceGroups/{rg}/providers/{ns}/{type1}/{name1}/{type2}/{name2}
+    - Subscription-only: /subscriptions/{sub}
+
+    Args:
+        resource_id: Azure ARM resource ID
+
+    Returns:
+        Dict with subscription_id, resource_group, resource_type, resource_name
+        or None if parsing fails
+    """
+    if not resource_id:
+        return None
+
+    # Normalize to lowercase for case-insensitive key matching
+    rid_lower = resource_id.lower()
+    parts = resource_id.split("/")
+
+    # Must start with /subscriptions/
+    if len(parts) < 2 or parts[1].lower() != "subscriptions":
+        return None
+
+    subscription_id = parts[2]
+
+    # Check if this is subscription-only (no resourceGroups means subscription-level)
+    has_resource_groups = "resourcegroups" in rid_lower
+
+    if not has_resource_groups:
+        # Subscription-only ID
+        return {
+            "provider": "azure",
+            "subscription_id": subscription_id,
+            "resource_group": None,
+            "resource_type": None,
+            "resource_name": None,
+        }
+
+    # Find indices (case-insensitive)
+    resource_groups_idx = None
+    providers_idx = None
+
+    for i, part in enumerate(parts):
+        if part.lower() == "resourcegroups":
+            resource_groups_idx = i
+        elif part.lower() == "providers":
+            providers_idx = i
+
+    if resource_groups_idx is None or providers_idx is None:
+        return {
+            "provider": "azure",
+            "subscription_id": subscription_id,
+            "resource_group": None,
+            "resource_type": None,
+            "resource_name": None,
+        }
+
+    # Extract resource_group (preserve original case)
+    resource_group = parts[resource_groups_idx + 1] if len(parts) > resource_groups_idx + 1 else None
+
+    # Extract resource_type and resource_name from segments after providers
+    # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/{namespace}/{type1}/{name1}/{type2}/{name2}/...
+    # Last segment is always resource_name
+    # Everything between providers and last segment forms the resource_type
+
+    after_providers = parts[providers_idx + 1:]
+
+    if len(after_providers) == 0:
+        return {
+            "provider": "azure",
+            "subscription_id": subscription_id,
+            "resource_group": resource_group,
+            "resource_type": None,
+            "resource_name": None,
+        }
+
+    # Last segment is resource_name
+    resource_name = after_providers[-1]
+
+    # Build resource_type from namespace and type segments
+    # After_providers format: [namespace, type1, name1, type2, name2, ...]
+    # Types are at even indices (1, 3, 5, ...)
+    # Names are at odd indices (2, 4, 6, ...)
+    if len(after_providers) >= 2:
+        namespace = after_providers[0]
+        type_segments = []
+        # Start from index 1, step by 2 to get types only
+        for i in range(1, len(after_providers) - 1, 2):
+            if i < len(after_providers) - 1:
+                type_segments.append(after_providers[i])
+        if type_segments:
+            resource_type = f"{namespace}/{'/'.join(type_segments)}"
+        else:
+            resource_type = namespace
+    else:
+        resource_type = after_providers[0]
+
+    return {
+        "provider": "azure",
+        "subscription_id": subscription_id,
+        "resource_group": resource_group,
+        "resource_type": resource_type,
+        "resource_name": resource_name,
+    }
+
 
 # AKS composite resource_id: aks:{cluster_arm_path}:{node_pool_name}
 _AKS_COMPOSITE_PATTERN = re.compile(
@@ -60,14 +217,20 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
 
     Always returns a ResourceContext (never None) — worst case is
     granularity_tier="unknown" with nulls.
+
+    For subscription-level recommendations (Savings Plans, Reserved Instances),
+    resource_id is just /subscriptions/{id} and we provide appropriate defaults.
     """
     from app.domains.decision_engine.schemas import ResourceContext
 
     resource_id = (opportunity.resource_id or "").strip()
     data_sources: list[str] = []
 
+    # Detect subscription-level recommendations
+    is_subscription_level = is_subscription_level_resource_id(resource_id)
+
     # Try provider-specific parsing
-    parsed = _try_parse_arm(resource_id)
+    parsed = parse_arm_resource_id(resource_id)
     if parsed:
         data_sources.append("resource_id_arm_parse")
     else:
@@ -96,14 +259,45 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
     subscription_id = parsed.get("subscription_id") or model_fields.get("subscription_id")
     resource_group = parsed.get("resource_group")
     resource_type = parsed.get("resource_type")
-    resource_name = parsed.get("resource_name") or model_fields.get("resource_name")
+    resource_name = parsed.get("resource_name")
+
+    # For subscription-level recommendations, provide sensible defaults
+    if is_subscription_level:
+        if not resource_type:
+            resource_type = "Azure Subscription"
+        # Check if opportunity has a valid resource_name
+        existing_name = (opportunity.resource_name or "").strip()
+        if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
+            resource_name = existing_name
+        elif not resource_name:
+            # Use short subscription ID as resource name
+            sub_short = subscription_id[:8] if subscription_id else "unknown"
+            resource_name = f"Subscription {sub_short}"
+        # resource_group stays null for subscription-level
+
+    # Priority for resource_name (non-subscription):
+    # 1. Existing resource_name from model (if valid)
+    # 2. Parsed from ARM resource_id
+    # 3. None (avoid showing subscription_id as resource name)
+    else:
+        existing_name = (opportunity.resource_name or "").strip()
+        if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
+            # Only use if it's not a subscription_id
+            if existing_name != subscription_id:
+                resource_name = existing_name
+            # else: keep parsed resource_name or None
+        # If parsed has a valid resource_name, it's already set above
+
     sku = model_fields.get("sku")
     sku_tier = model_fields.get("sku_tier")
     region = parsed.get("region") or model_fields.get("region")
     environment = model_fields.get("environment")
-    owner = model_fields.get("owner")
+    owner = model_fields.get("owner")  # Will be None if no inventory
     workload = parsed.get("workload") or model_fields.get("workload")
-    tags_summary = _extract_tags(opportunity)
+    tags_summary = _extract_tags(opportunity)  # Will be None if no inventory
+
+    # Generate portal URL (handles both resource and subscription level)
+    portal_url = build_portal_url(resource_id)
 
     # Determine granularity tier
     granularity_tier = _determine_tier(
@@ -113,6 +307,7 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
         service=opportunity.service,
         region=region,
         subscription_id=subscription_id,
+        is_subscription_level=is_subscription_level,
     )
 
     return ResourceContext(
@@ -131,24 +326,11 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
         tags_summary=tags_summary if tags_summary else None,
         granularity_tier=granularity_tier,
         data_sources=data_sources if data_sources else ["none"],
+        portal_url=portal_url,
     )
 
 
 # ── Parsers ────────────────────────────────────────────────────────────────────
-
-
-def _try_parse_arm(resource_id: str) -> dict | None:
-    """Parse Azure ARM resource ID."""
-    match = _ARM_PATTERN.match(resource_id)
-    if not match:
-        return None
-    return {
-        "provider": "azure",
-        "subscription_id": match.group("sub"),
-        "resource_group": match.group("rg"),
-        "resource_type": match.group("type"),
-        "resource_name": match.group("name"),
-    }
 
 
 def _try_parse_aks_composite(resource_id: str) -> dict | None:
@@ -247,7 +429,7 @@ def _extract_model_fields(opportunity: "OptimizationOpportunity") -> dict:
     if env and env not in ("unknown", ""):
         result["environment"] = env
 
-    # Owner
+    # Owner - only if valid (not empty, not untagged, etc.)
     owner = (opportunity.owner_team or "").strip().lower()
     if owner and owner not in _EMPTY_OWNER_VALUES:
         result["owner"] = opportunity.owner_team.strip()
@@ -257,9 +439,9 @@ def _extract_model_fields(opportunity: "OptimizationOpportunity") -> dict:
     if sku:
         result["sku"] = sku
 
-    # Resource name
+    # Resource name - keep original, let caller decide priority
     rname = (opportunity.resource_name or "").strip()
-    if rname:
+    if rname and rname not in _EMPTY_OWNER_VALUES:
         result["resource_name"] = rname
 
     # Service → workload hint
@@ -331,11 +513,26 @@ def _determine_tier(
     service: str | None,
     region: str | None,
     subscription_id: str | None,
+    is_subscription_level: bool = False,
 ) -> str:
     """Determine the granularity tier based on available context."""
+    # Subscription-level recommendations (Savings Plans, Reserved Instances)
+    if is_subscription_level:
+        return "subscription"
+
     # Resource tier: we have a specific, identifiable resource
     if resource_type and resource_name:
         return "resource"
+
+    # If we have resource_id but no resource_type/resource_name, check if it's subscription-only
+    # or if it's a resource-level ID that couldn't be parsed
+    if resource_id and resource_type is None and resource_name is None:
+        # Subscription-only level (e.g., /subscriptions/{id} for Savings Plans)
+        if subscription_id and resource_id == f"/subscriptions/{subscription_id}":
+            return "subscription"
+        # Otherwise it's an unparseable resource_id
+        return "resource"
+
     if resource_id and len(resource_id) > 10:
         # Has a meaningful resource_id even if not fully parsed
         return "resource"

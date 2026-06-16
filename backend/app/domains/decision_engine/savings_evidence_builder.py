@@ -124,11 +124,15 @@ def build_savings_evidence(opportunity: "OptimizationOpportunity") -> "SavingsEv
     """
     Build a structured SavingsEvidence from an opportunity's existing data.
 
-    Returns None only if the opportunity has zero cost (nothing to analyze).
+    Returns None only if the opportunity has zero savings and no cost data.
+    For subscription-level recommendations, generates evidence even without current_cost.
     """
 
     current_cost = float(opportunity.current_monthly_cost_usd or 0.0)
-    if current_cost <= 0:
+    monthly_savings = float(opportunity.estimated_monthly_savings_usd or 0.0)
+
+    # If no savings and no cost, nothing to analyze
+    if monthly_savings <= 0 and current_cost <= 0:
         return None
 
     category = opportunity.category
@@ -291,28 +295,29 @@ def _build_from_advisor(
     category: OpportunityCategory,
     risk_level: RiskLevel,
 ) -> "SavingsEvidence":
-    """Build SavingsEvidence from Azure Advisor data (real provider-calculated savings)."""
+    """Build SavingsEvidence from Azure Advisor data (real provider-calculated savings).
+
+    For subscription-level recommendations (Savings Plans, Reserved Instances):
+    - Uses currentSpend from Advisor if available
+    - Does NOT invent current_cost if not provided
+    - Generates explanatory message about subscription-level scope
+    """
     from app.domains.decision_engine.schemas import SavingsEvidence
 
     monthly_savings = float(opportunity.estimated_monthly_savings_usd or 0.0)
-    projected_cost = round(current_cost - monthly_savings, 2) if monthly_savings > 0 else None
+
+    # Check if Advisor provided currentSpend
+    advisor_current_spend = evidence.get("current_spend")
+    if advisor_current_spend is not None:
+        current_cost = float(advisor_current_spend)
+        projected_cost = round(current_cost - monthly_savings, 2) if monthly_savings > 0 else None
+    else:
+        # Do NOT invent current_cost - keep as provided (may be 0)
+        projected_cost = None
 
     advisor_desc = evidence.get("advisor_description") or ""
     advisor_impact = evidence.get("advisor_impact") or "N/A"
-
-    calculation_basis = (
-        f"Azure Advisor recommendation (impact: {advisor_impact}). "
-        f"Savings calculated by the cloud provider based on actual resource usage and pricing."
-    )
-
-    evidence_summary = (
-        f"Economia de {monthly_savings:,.2f}/mês calculada pelo Azure Advisor. "
-        f"{advisor_desc}"
-    )
-
-    limitations: list[str] = []
-    if advisor_impact == "Low":
-        limitations.append("Azure Advisor classifies this as low-impact")
+    is_subscription_level = evidence.get("is_subscription_level", False)
 
     # Map Advisor impact to confidence
     confidence_map = {"High": 0.90, "Medium": 0.80, "Low": 0.70}
@@ -320,8 +325,35 @@ def _build_from_advisor(
 
     tier = _confidence_tier(confidence, 30)
 
+    # Generate appropriate calculation basis and evidence summary
+    if is_subscription_level:
+        calculation_basis = (
+            f"Azure Advisor subscription-level recommendation (impact: {advisor_impact}). "
+            f"Savings calculated by the cloud provider based on subscription usage patterns."
+        )
+        evidence_summary = (
+            f"Azure Advisor estimates monthly savings of {monthly_savings:,.2f} "
+            f"for this subscription-level recommendation. "
+            f"{advisor_desc}"
+        )
+    else:
+        calculation_basis = (
+            f"Azure Advisor recommendation (impact: {advisor_impact}). "
+            f"Savings calculated by the cloud provider based on actual resource usage and pricing."
+        )
+        evidence_summary = (
+            f"Economia de {monthly_savings:,.2f}/mês calculada pelo Azure Advisor. "
+            f"{advisor_desc}"
+        )
+
+    limitations: list[str] = []
+    if advisor_impact == "Low":
+        limitations.append("Azure Advisor classifies this as low-impact")
+    if is_subscription_level:
+        limitations.append("Subscription-level recommendation - resource metrics not applicable")
+
     return SavingsEvidence(
-        current_monthly_cost_estimate=round(current_cost, 2),
+        current_monthly_cost_estimate=round(current_cost, 2) if current_cost > 0 else 0.0,
         projected_monthly_cost_estimate=projected_cost,
         estimated_monthly_savings=round(monthly_savings, 2),
         estimated_annual_savings=round(monthly_savings * 12, 2),
