@@ -98,6 +98,24 @@ function inferOpportunityProvider(opportunity: Opportunity): ProviderKey {
   if (rid.startsWith('projects/') || svc.includes('google') || svc.includes('gcp')) return 'gcp'
   return 'unknown'
 }
+
+/**
+ * Detects if an opportunity is subscription-level (Savings Plan, Reserved Instance).
+ * These recommendations are scoped to subscriptions, not individual resources.
+ */
+function isSubscriptionLevelOpportunity(opportunity: Opportunity): boolean {
+  const evidence = opportunity.decision_evidence
+  // Check explicit flag from backend
+  if (evidence?.is_subscription_level === true) return true
+  // Check recommendation type for subscription-level recommendations
+  if (evidence?.recommendation_type === 'savings_plan' || evidence?.recommendation_type === 'reserved_instance') return true
+  // Check granularity tier
+  if (opportunity.resource_context?.granularity_tier === 'subscription') return true
+  // Check if resource_id is just /subscriptions/{id} (no resourceGroups)
+  const rid = opportunity.resource_id?.toLowerCase() ?? ''
+  if (rid.startsWith('/subscriptions/') && !rid.includes('resourcegroups')) return true
+  return false
+}
 function getOpportunityScope(opportunity: Opportunity, unknownLabel: string) {
   const rc = opportunity.resource_context
   const parsed = parseAzureResourceId(opportunity.resource_id)
@@ -238,6 +256,7 @@ export function OpportunitiesPage() {
   const selectedSavingsEvidence = selectedOpp?.savings_evidence
   const selectedIsAksAutoscaler = selectedOpp?.category === 'aks_autoscaler_recommendation'
   const selectedIsAksEvidence = selectedEvidence?.resource_type === 'aks_node_pool' || !!selectedEvidence?.node_pool || selectedEvidence?.current_node_count != null
+  const selectedIsSubscriptionLevel = selectedOpp ? isSubscriptionLevelOpportunity(selectedOpp) : false
   const selectedProviderKey = normalizeProviderKey(selectedResourceContext?.provider)
   const selectedProviderLabel = providerLabels[selectedProviderKey === 'unknown' ? (selectedOpp ? inferOpportunityProvider(selectedOpp) : 'unknown') : selectedProviderKey]
 
@@ -656,28 +675,61 @@ export function OpportunitiesPage() {
               {/* Decision Evidence */}
               {selectedEvidence && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                  <h4 className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">{selectedIsAksEvidence ? o.aksEvidenceTitle : o.rightsizingEvidenceTitle}</h4>
-                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {!selectedIsAksEvidence && (
-                      <>
-                        <EvidenceMetric label={o.currentLabel} value={selectedEvidence.current_sku ?? selectedMachineSku} />
-                        <EvidenceMetric label={o.recommendedLabel} value={selectedEvidence.recommended_sku ?? o.unknownResource} />
-                        <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
-                        <EvidenceMetric label={o.memoryP95Label} value={`${selectedEvidence.memory_p95 ?? '-'}%`} />
-                      </>
-                    )}
-                    {selectedIsAksEvidence && (
-                      <>
-                        <EvidenceMetric label={o.clusterLabel} value={selectedEvidence.cluster_name ?? o.unknownResource} />
-                        <EvidenceMetric label={o.nodePoolLabel} value={selectedEvidence.node_pool ?? o.unknownResource} />
-                        <EvidenceMetric label={o.skuLabel} value={selectedEvidence.node_sku ?? selectedMachineSku} />
-                        <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
-                        {!selectedIsAksAutoscaler && <EvidenceMetric label={o.nodesLabel} value={String(selectedEvidence.current_node_count ?? '-')} />}
-                        {selectedIsAksAutoscaler && <EvidenceMetric label={o.recommendedLabel} value={`min=${selectedEvidence.recommended_min_count ?? '-'}, max=${selectedEvidence.recommended_max_count ?? '-'}`} />}
-                      </>
-                    )}
-                  </div>
-                  {selectedEvidence.reason && <p className="mt-3 text-xs text-slate-600"><span className="font-medium">{o.reasonLabel}:</span> {selectedEvidence.reason}</p>}
+                  {selectedIsSubscriptionLevel ? (
+                    // Subscription Context - for Savings Plans, Reserved Instances
+                    <>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">{o.subscriptionContextTitle || 'Subscription Context'}</h4>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <EvidenceMetric
+                          label={o.recommendationTypeLabel || 'Recommendation type'}
+                          value={selectedEvidence.recommendation_type === 'savings_plan'
+                            ? (o.savingsPlanLabel || 'Savings Plan')
+                            : (o.reservedInstanceLabel || 'Reserved Instances')}
+                        />
+                        <EvidenceMetric
+                          label={o.scopeLabel || 'Scope'}
+                          value={o.subscriptionScope || 'Subscription'}
+                        />
+                        <EvidenceMetric
+                          label={o.impactLabel || 'Impact'}
+                          value={selectedEvidence.advisor_impact || 'N/A'}
+                        />
+                        <EvidenceMetric
+                          label={o.confidenceLabel}
+                          value={`${Math.round((selectedEvidence.confidence ?? 0.8) * 100)}%`}
+                        />
+                      </div>
+                      <p className="mt-3 text-xs text-slate-600">
+                        {o.subscriptionLevelNote || 'This is a subscription-level recommendation. Resource metrics (CPU, memory) are not applicable.'}
+                      </p>
+                    </>
+                  ) : (
+                    // Rightsizing / AKS Evidence - for resource-level opportunities
+                    <>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">{selectedIsAksEvidence ? o.aksEvidenceTitle : o.rightsizingEvidenceTitle}</h4>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {!selectedIsAksEvidence && (
+                          <>
+                            <EvidenceMetric label={o.currentLabel} value={selectedEvidence.current_sku ?? selectedMachineSku} />
+                            <EvidenceMetric label={o.recommendedLabel} value={selectedEvidence.recommended_sku ?? o.unknownResource} />
+                            <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
+                            <EvidenceMetric label={o.memoryP95Label} value={`${selectedEvidence.memory_p95 ?? '-'}%`} />
+                          </>
+                        )}
+                        {selectedIsAksEvidence && (
+                          <>
+                            <EvidenceMetric label={o.clusterLabel} value={selectedEvidence.cluster_name ?? o.unknownResource} />
+                            <EvidenceMetric label={o.nodePoolLabel} value={selectedEvidence.node_pool ?? o.unknownResource} />
+                            <EvidenceMetric label={o.skuLabel} value={selectedEvidence.node_sku ?? selectedMachineSku} />
+                            <EvidenceMetric label="CPU p95" value={`${selectedEvidence.cpu_p95 ?? '-'}%`} />
+                            {!selectedIsAksAutoscaler && <EvidenceMetric label={o.nodesLabel} value={String(selectedEvidence.current_node_count ?? '-')} />}
+                            {selectedIsAksAutoscaler && <EvidenceMetric label={o.recommendedLabel} value={`min=${selectedEvidence.recommended_min_count ?? '-'}, max=${selectedEvidence.recommended_max_count ?? '-'}`} />}
+                          </>
+                        )}
+                      </div>
+                      {selectedEvidence.reason && <p className="mt-3 text-xs text-slate-600"><span className="font-medium">{o.reasonLabel}:</span> {selectedEvidence.reason}</p>}
+                    </>
+                  )}
                   <button type="button" onClick={() => openExplain(selectedOpp)} className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-brand-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50">{o.explainWithAI}</button>
                 </div>
               )}

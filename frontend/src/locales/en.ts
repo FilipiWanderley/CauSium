@@ -375,6 +375,14 @@ export interface Translations {
     decisionEvidenceTitle: string
     decisionEvidenceShow: string
     decisionEvidenceHide: string
+    subscriptionContextTitle: string
+    recommendationTypeLabel: string
+    scopeLabel: string
+    impactLabel: string
+    subscriptionLevelNote: string
+    savingsPlanLabel: string
+    reservedInstanceLabel: string
+    subscriptionScope: string
   }
   optimizationPlan: {
     title: string
@@ -1812,6 +1820,14 @@ export const en: Translations = {
     decisionEvidenceTitle: 'Detailed Evidence',
     decisionEvidenceShow: 'Show technical details',
     decisionEvidenceHide: 'Hide technical details',
+    subscriptionContextTitle: 'Subscription Context',
+    recommendationTypeLabel: 'Recommendation type',
+    scopeLabel: 'Scope',
+    impactLabel: 'Impact',
+    subscriptionLevelNote: 'This is a subscription-level recommendation. Resource metrics (CPU, memory) are not applicable.',
+    savingsPlanLabel: 'Savings Plan',
+    reservedInstanceLabel: 'Reserved Instances',
+    subscriptionScope: 'Subscription',
   },
   optimizationPlan: {
     title: 'Savings Plan',

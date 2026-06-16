@@ -32,6 +32,7 @@ class SavingsEvidence(BaseModel):
         "deterministic_node_reduction",
         "deterministic_autoscaler",
         "heuristic_category_rate",
+        "azure_advisor",
     ]
     limitations: list[str]
 

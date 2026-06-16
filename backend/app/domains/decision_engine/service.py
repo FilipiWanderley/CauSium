@@ -740,9 +740,20 @@ class DecisionEngineService:
                 for r in group_recs
             ]
 
+            # Detect subscription-level (resource_id is just /subscriptions/{id})
+            is_subscription_level = bool(best_rid) and best_rid.lower().startswith("/subscriptions/") and "resourcegroups" not in best_rid.lower()
+
+            # Extract currentSpend from extendedProperties if available
+            current_spend = None
+            extended_props = best.get("extended_properties") or {}
+            if extended_props:
+                current_spend = extended_props.get("currentSpend") or extended_props.get("current_spend")
+
             decision_evidence = {
                 "source": "azure_advisor",
                 "is_grouped": True,
+                "is_subscription_level": is_subscription_level,
+                "recommendation_type": norm_type,
                 "recommendation_count": rec_count,
                 "best_recommendation_id": best_rec_id,
                 "total_potential_savings": round(sum(r["_monthly_savings"] for r in group_recs), 2),
@@ -753,6 +764,7 @@ class DecisionEngineService:
                 "savings_period": best.get("_period") or "annual",
                 "estimated_savings": best_monthly,
                 "estimated_annual_savings": round(best_monthly * 12, 2),
+                "current_spend": current_spend,  # May be None - do NOT invent
                 "confidence": 0.90,
             }
 

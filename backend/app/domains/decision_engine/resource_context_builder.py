@@ -26,24 +26,48 @@ if TYPE_CHECKING:
 # - Child resources: /subscriptions/{sub}/resourceGroups/{rg}/providers/{ns}/{type1}/{name1}/{type2}/{name2}
 # - Subscription-only: /subscriptions/{sub}
 
+
+def is_subscription_level_resource_id(resource_id: str | None) -> bool:
+    """
+    Check if resource_id is subscription-only (no resourceGroups).
+
+    Azure Savings Plans and Reserved Instances are scoped to subscriptions,
+    not individual resources, so their resource_id is just /subscriptions/{id}.
+    """
+    if not resource_id:
+        return False
+    rid_lower = resource_id.lower()
+    return (
+        rid_lower.startswith("/subscriptions/")
+        and "resourcegroups" not in rid_lower
+    )
+
+
 def build_portal_url(resource_id: str | None) -> str | None:
     """
     Build Azure Portal URL for a resource.
 
-    Only generates URL for resource-level IDs (not subscription-only).
+    Handles both resource-level and subscription-level IDs.
 
     Args:
         resource_id: Azure ARM resource ID
 
     Returns:
-        Azure Portal URL or None if not a resource-level ID
+        Azure Portal URL or None if not a valid Azure resource ID
     """
     if not resource_id:
         return None
 
     rid_lower = resource_id.lower()
 
-    # Only generate URL for resource-level IDs (contain resourceGroups AND providers)
+    # Subscription-level URL (e.g., /subscriptions/{id} for Savings Plans)
+    if rid_lower.startswith("/subscriptions/") and "resourcegroups" not in rid_lower:
+        return f"https://portal.azure.com/#resource{resource_id}"
+
+    # Resource-level URL (requires /subscriptions/ AND resourceGroups AND providers)
+    if not rid_lower.startswith("/subscriptions/"):
+        return None
+
     has_resource_groups = "resourcegroups" in rid_lower
     has_providers = "providers" in rid_lower
 
@@ -193,11 +217,17 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
 
     Always returns a ResourceContext (never None) — worst case is
     granularity_tier="unknown" with nulls.
+
+    For subscription-level recommendations (Savings Plans, Reserved Instances),
+    resource_id is just /subscriptions/{id} and we provide appropriate defaults.
     """
     from app.domains.decision_engine.schemas import ResourceContext
 
     resource_id = (opportunity.resource_id or "").strip()
     data_sources: list[str] = []
+
+    # Detect subscription-level recommendations
+    is_subscription_level = is_subscription_level_resource_id(resource_id)
 
     # Try provider-specific parsing
     parsed = parse_arm_resource_id(resource_id)
@@ -231,17 +261,32 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
     resource_type = parsed.get("resource_type")
     resource_name = parsed.get("resource_name")
 
-    # Priority for resource_name:
+    # For subscription-level recommendations, provide sensible defaults
+    if is_subscription_level:
+        if not resource_type:
+            resource_type = "Azure Subscription"
+        # Check if opportunity has a valid resource_name
+        existing_name = (opportunity.resource_name or "").strip()
+        if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
+            resource_name = existing_name
+        elif not resource_name:
+            # Use short subscription ID as resource name
+            sub_short = subscription_id[:8] if subscription_id else "unknown"
+            resource_name = f"Subscription {sub_short}"
+        # resource_group stays null for subscription-level
+
+    # Priority for resource_name (non-subscription):
     # 1. Existing resource_name from model (if valid)
     # 2. Parsed from ARM resource_id
     # 3. None (avoid showing subscription_id as resource name)
-    existing_name = (opportunity.resource_name or "").strip()
-    if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
-        # Only use if it's not a subscription_id
-        if existing_name != subscription_id:
-            resource_name = existing_name
-        # else: keep parsed resource_name or None
-    # If parsed has a valid resource_name, it's already set above
+    else:
+        existing_name = (opportunity.resource_name or "").strip()
+        if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
+            # Only use if it's not a subscription_id
+            if existing_name != subscription_id:
+                resource_name = existing_name
+            # else: keep parsed resource_name or None
+        # If parsed has a valid resource_name, it's already set above
 
     sku = model_fields.get("sku")
     sku_tier = model_fields.get("sku_tier")
@@ -251,7 +296,7 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
     workload = parsed.get("workload") or model_fields.get("workload")
     tags_summary = _extract_tags(opportunity)  # Will be None if no inventory
 
-    # Generate portal URL (only for resource-level IDs)
+    # Generate portal URL (handles both resource and subscription level)
     portal_url = build_portal_url(resource_id)
 
     # Determine granularity tier
@@ -262,6 +307,7 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
         service=opportunity.service,
         region=region,
         subscription_id=subscription_id,
+        is_subscription_level=is_subscription_level,
     )
 
     return ResourceContext(
@@ -467,8 +513,13 @@ def _determine_tier(
     service: str | None,
     region: str | None,
     subscription_id: str | None,
+    is_subscription_level: bool = False,
 ) -> str:
     """Determine the granularity tier based on available context."""
+    # Subscription-level recommendations (Savings Plans, Reserved Instances)
+    if is_subscription_level:
+        return "subscription"
+
     # Resource tier: we have a specific, identifiable resource
     if resource_type and resource_name:
         return "resource"

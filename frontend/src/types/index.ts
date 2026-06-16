@@ -438,6 +438,9 @@ export interface OpportunityDecisionEvidence {
   advisor_impact?: string | null
   subscription_id?: string | null
   savings_period?: string | null
+  is_subscription_level?: boolean | null
+  recommendation_type?: string | null
+  current_spend?: number | null
 }
 
 export interface OpportunityExplainResponse {
