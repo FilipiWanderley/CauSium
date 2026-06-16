@@ -3,12 +3,14 @@ from typing import Annotated, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.core.schemas import Page, PageParams
 from app.domains.auth.models import UserRole
+from app.domains.cloud_accounts.models import CloudAccountSubscription
 from app.domains.decision_engine.explanation_service import OpportunityExplanationService
 from app.domains.decision_engine.models import OpportunityCategory, OpportunityStatus
 from app.domains.decision_engine.savings_evidence_builder import build_savings_evidence
@@ -27,12 +29,53 @@ from app.domains.intel.schemas import ExplainRecommendationOut
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
-def _enrich_opportunity(opp_out: OpportunityOut, opp_model) -> OpportunityOut:
+async def _fetch_subscription_names_batch(
+    db: AsyncSession,
+    org_id: UUID,
+    subscription_ids: set[str],
+) -> dict[str, str]:
+    """
+    Batch fetch subscription names from CloudAccountSubscription.
+
+    Returns a dict mapping subscription_id -> subscription_name.
+    Only returns entries where subscription_name is not null.
+    """
+    if not subscription_ids:
+        return {}
+
+    stmt = (
+        select(CloudAccountSubscription.subscription_id, CloudAccountSubscription.subscription_name)
+        .where(CloudAccountSubscription.org_id == org_id)
+        .where(CloudAccountSubscription.subscription_id.in_(subscription_ids))
+        .where(CloudAccountSubscription.subscription_name.isnot(None))
+    )
+    result = await db.execute(stmt)
+    rows = result.fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+def _enrich_opportunity(
+    opp_out: OpportunityOut,
+    opp_model,
+    subscription_names_by_id: dict[str, str],
+) -> OpportunityOut:
     """Attach computed savings_evidence, resource_context, and performance_context."""
     evidence = build_savings_evidence(opp_model)
     if evidence is not None:
         opp_out.savings_evidence = evidence
-    context = build_resource_context(opp_model)
+
+    # Get subscription_name from batch lookup if available
+    subscription_name = None
+    if opp_model.resource_id:
+        # Extract subscription_id from resource_id
+        rid_lower = opp_model.resource_id.lower()
+        if rid_lower.startswith("/subscriptions/") and "resourcegroups" not in rid_lower:
+            parts = opp_model.resource_id.split("/")
+            if len(parts) >= 3:
+                sub_id = parts[2]
+                subscription_name = subscription_names_by_id.get(sub_id)
+
+    context = build_resource_context(opp_model, subscription_name=subscription_name)
     if context is not None:
         opp_out.resource_context = context
     perf = build_performance_context(opp_model)
@@ -59,7 +102,25 @@ async def list_opportunities(
         limit=page_params.limit,
         offset=page_params.offset,
     )
-    items = [_enrich_opportunity(OpportunityOut.model_validate(o), o) for o in opps]
+
+    # Batch fetch subscription names to avoid N+1 queries
+    subscription_ids = set()
+    for opp in opps:
+        if opp.resource_id:
+            rid_lower = opp.resource_id.lower()
+            if rid_lower.startswith("/subscriptions/") and "resourcegroups" not in rid_lower:
+                parts = opp.resource_id.split("/")
+                if len(parts) >= 3:
+                    subscription_ids.add(parts[2])
+
+    subscription_names_by_id = await _fetch_subscription_names_batch(
+        db, current_user.org_id, subscription_ids
+    )
+
+    items = [
+        _enrich_opportunity(OpportunityOut.model_validate(o), o, subscription_names_by_id)
+        for o in opps
+    ]
     return Page.of(items, total, page_params)
 
 
@@ -103,12 +164,12 @@ async def export_opportunities_csv(
 @router.post("", response_model=OpportunityOut, status_code=status.HTTP_201_CREATED)
 async def create_opportunity(
     req: OpportunityCreate,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
     current_user=Depends(require_roles(UserRole.ADMIN, UserRole.ENGINEER, UserRole.FINOPS)),
 ):
     service = DecisionEngineService(db)
     op = await service.create_opportunity(current_user.org_id, req)
-    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op, {})
 
 
 @router.get("/{opp_id}", response_model=OpportunityOut)
@@ -121,7 +182,7 @@ async def get_opportunity(
     op = await service.get_opportunity(current_user.org_id, opp_id)
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
-    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op, {})
 
 
 @router.patch("/{opp_id}/status", response_model=OpportunityOut)
@@ -140,7 +201,7 @@ async def update_status(
     )
     if not op:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
-    return _enrich_opportunity(OpportunityOut.model_validate(op), op)
+    return _enrich_opportunity(OpportunityOut.model_validate(op), op, {})
 
 
 @router.get("/{opp_id}/explain", response_model=ExplainRecommendationOut)
