@@ -265,23 +265,13 @@ def build_resource_context(
     resource_name = parsed.get("resource_name")
 
     # For subscription-level recommendations, provide sensible defaults
+    # and remove resource_name to avoid duplication with subscription_name
     if is_subscription_level:
         if not resource_type:
             resource_type = "Azure Subscription"
-        # Priority for resource_name:
-        # 1. subscription_name from CloudAccountSubscription (if available)
-        # 2. existing resource_name from model (if valid)
-        # 3. fallback to "Subscription {short_id}"
-        if subscription_name:
-            resource_name = subscription_name
-        else:
-            existing_name = (opportunity.resource_name or "").strip()
-            if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
-                resource_name = existing_name
-            elif not resource_name:
-                # Use short subscription ID as resource name
-                sub_short = subscription_id[:8] if subscription_id else "unknown"
-                resource_name = f"Subscription {sub_short}"
+        # For subscription-level, resource_name should be None (not shown)
+        # to avoid duplication with subscription_name in the UI
+        resource_name = None
         # resource_group stays null for subscription-level
 
     # Priority for resource_name (non-subscription):

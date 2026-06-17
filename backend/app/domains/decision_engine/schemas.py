@@ -16,7 +16,7 @@ from app.domains.decision_engine.models import (
 class SavingsEvidence(BaseModel):
     """Structured savings evidence projection — computed at read time, no DB storage."""
 
-    current_monthly_cost_estimate: float
+    current_monthly_cost_estimate: float | None = None  # None when Advisor doesn't provide it
     projected_monthly_cost_estimate: float | None = None
     estimated_monthly_savings: float
     estimated_annual_savings: float

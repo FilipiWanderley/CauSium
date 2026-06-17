@@ -14,6 +14,7 @@ from app.domains.decision_engine.models import (
     OpportunityStatus,
     RiskLevel,
 )
+from app.domains.cloud_accounts.models import CloudAccountSubscription
 from app.domains.notifications.models import AlertCategory, AlertSeverity
 from app.domains.notifications.service import NotificationsService
 from app.domains.audit_chain.service import AuditChainService
@@ -77,6 +78,25 @@ class AksNodePoolCandidate:
 class DecisionEngineService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def _get_subscription_names_map(
+        self, org_id: UUID, subscription_ids: set[str]
+    ) -> dict[str, str]:
+        """Fetch subscription names for a set of subscription IDs."""
+        if not subscription_ids:
+            return {}
+        stmt = (
+            select(
+                CloudAccountSubscription.subscription_id,
+                CloudAccountSubscription.subscription_name,
+            )
+            .where(CloudAccountSubscription.org_id == org_id)
+            .where(CloudAccountSubscription.subscription_id.in_(subscription_ids))
+            .where(CloudAccountSubscription.subscription_name.isnot(None))
+        )
+        result = await self.db.execute(stmt)
+        rows = result.fetchall()
+        return {row[0]: row[1] for row in rows}
 
     async def generate_opportunities_for_account(
         self, org_id: UUID, account_id: UUID
@@ -706,9 +726,16 @@ class DecisionEngineService:
             group_key = f"{sub_id}|{norm_type}"
             advisor_groups.setdefault(group_key, []).append(ar)
 
-        # Step 3: Create one opportunity per group
+        # Step 3: Fetch subscription names for all groups
+        all_sub_ids = {key.split("|")[0] for key in advisor_groups.keys()}
+        subscription_names_map = await self._get_subscription_names_map(org_id, all_sub_ids)
+
+        # Step 4: Create one opportunity per group
         for group_key, group_recs in advisor_groups.items():
             sub_id, norm_type = group_key.split("|", 1)
+
+            # Get subscription name if available
+            sub_name = subscription_names_map.get(sub_id)
 
             # Sort by monthly savings descending — best option first
             group_recs.sort(key=lambda r: r["_monthly_savings"], reverse=True)
@@ -725,8 +752,8 @@ class DecisionEngineService:
             if advisor_dedupe_key in seen_keys_in_run:
                 continue
 
-            # Classify category and generate title
-            category, title = _advisor_group_category_title(norm_type, sub_id, rec_count)
+            # Classify category and generate title (use real subscription name if available)
+            category, title = _advisor_group_category_title(norm_type, sub_id, rec_count, sub_name)
 
             # Build child recommendations list
             child_recommendations = [
@@ -1653,35 +1680,35 @@ def _normalize_advisor_type(desc_lower: str) -> str:
 
 
 def _advisor_group_category_title(
-    norm_type: str, subscription_id: str, rec_count: int
+    norm_type: str, subscription_id: str, rec_count: int, subscription_name: str | None = None
 ) -> tuple[OpportunityCategory, str]:
     """Return (category, title) for a grouped Advisor opportunity."""
-    sub_display = f"{subscription_id[:8]}..."
+    sub_display = subscription_name if subscription_name else f"{subscription_id[:8]}..."
     count_suffix = f" ({rec_count} options)" if rec_count > 1 else ""
 
     if norm_type == "savings_plan":
         return (
             OpportunityCategory.RESERVED_INSTANCES,
-            f"Azure Savings Plan for subscription {sub_display}{count_suffix}",
+            f"Azure Savings Plan for {sub_display}{count_suffix}",
         )
     if norm_type == "reserved_instance":
         return (
             OpportunityCategory.RESERVED_INSTANCES,
-            f"Reserved Instance coverage for subscription {sub_display}{count_suffix}",
+            f"Reserved Instance coverage for {sub_display}{count_suffix}",
         )
     if norm_type == "idle_resource":
         return (
             OpportunityCategory.IDLE_RESOURCES,
-            f"Idle resources in subscription {sub_display}{count_suffix}",
+            f"Idle resources in {sub_display}{count_suffix}",
         )
     if norm_type == "rightsizing":
         return (
             OpportunityCategory.RIGHTSIZING,
-            f"Rightsizing opportunities in subscription {sub_display}{count_suffix}",
+            f"Rightsizing opportunities in {sub_display}{count_suffix}",
         )
     return (
         OpportunityCategory.ARCHITECTURE_CHANGE,
-        f"Azure Advisor: cost optimization for subscription {sub_display}{count_suffix}",
+        f"Azure Advisor: cost optimization for {sub_display}{count_suffix}",
     )
 
 

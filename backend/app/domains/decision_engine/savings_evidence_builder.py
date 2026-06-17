@@ -299,8 +299,8 @@ def _build_from_advisor(
 
     For subscription-level recommendations (Savings Plans, Reserved Instances):
     - Uses currentSpend from Advisor if available
-    - Does NOT invent current_cost if not provided
-    - Generates explanatory message about subscription-level scope
+    - Returns None for current_monthly_cost_estimate when Advisor doesn't provide it
+    - This prevents showing R$ 0.00 which is misinterpreted by users
     """
     from app.domains.decision_engine.schemas import SavingsEvidence
 
@@ -311,9 +311,12 @@ def _build_from_advisor(
     if advisor_current_spend is not None:
         current_cost = float(advisor_current_spend)
         projected_cost = round(current_cost - monthly_savings, 2) if monthly_savings > 0 else None
+        current_monthly_cost_estimate = round(current_cost, 2)
     else:
-        # Do NOT invent current_cost - keep as provided (may be 0)
+        # Advisor does NOT provide currentSpend for Savings Plans/Reserved Instances
+        # Return None to show "N/A" in frontend instead of "R$ 0.00"
         projected_cost = None
+        current_monthly_cost_estimate = None
 
     advisor_desc = evidence.get("advisor_description") or ""
     advisor_impact = evidence.get("advisor_impact") or "N/A"
@@ -353,7 +356,7 @@ def _build_from_advisor(
         limitations.append("Subscription-level recommendation - resource metrics not applicable")
 
     return SavingsEvidence(
-        current_monthly_cost_estimate=round(current_cost, 2) if current_cost > 0 else 0.0,
+        current_monthly_cost_estimate=current_monthly_cost_estimate,
         projected_monthly_cost_estimate=projected_cost,
         estimated_monthly_savings=round(monthly_savings, 2),
         estimated_annual_savings=round(monthly_savings * 12, 2),
