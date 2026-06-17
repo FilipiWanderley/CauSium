@@ -591,6 +591,52 @@ class CloudAccountService:
             "skipped_subscriptions": skipped,
         }
 
+    async def _fetch_azure_subscription_names(
+        self,
+        accounts: list[CloudAccount],
+    ) -> dict[str, dict[str, str]]:
+        """
+        Fetch subscription names from Azure API for all Azure accounts.
+
+        Returns a dict mapping cloud_account_id -> {subscription_id: display_name}.
+        Only fetches names for Azure accounts to avoid unnecessary API calls.
+        """
+        from app.domains.connectors.azure.client import AzureConnectorClient
+
+        result: dict[str, dict[str, str]] = {}
+
+        azure_accounts = [a for a in accounts if a.provider == CloudProvider.AZURE]
+        if not azure_accounts:
+            return result
+
+        for account in azure_accounts:
+            try:
+                creds = await self.get_azure_credentials(account)
+                if not creds:
+                    continue
+
+                client = AzureConnectorClient(
+                    tenant_id=creds.tenant_id,
+                    client_id=creds.client_id,
+                    client_secret=creds.client_secret,
+                )
+                pairs = await client.list_accessible_subscriptions_with_names()
+                result[str(account.id)] = {sub_id: name for sub_id, name in pairs}
+                log.info(
+                    "subscription.azure_names.fetched",
+                    account_id=str(account.id),
+                    count=len(pairs),
+                )
+            except Exception as exc:
+                log.warning(
+                    "subscription.azure_names.failed",
+                    account_id=str(account.id),
+                    error=str(exc),
+                )
+                continue
+
+        return result
+
     async def backfill_subscriptions_from_cost_facts(
         self,
         org_id: UUID,
@@ -629,9 +675,12 @@ class CloudAccountService:
             for s in existing
         }
 
-        # Load cloud_accounts for tenant_id resolution
+        # Load cloud_accounts for tenant_id resolution and Azure names
         accounts, _ = await self.list_accounts(org_id)
         account_map = {str(a.id): a for a in accounts}
+
+        # Fetch subscription names from Azure API (cached per account)
+        azure_name_map = await self._fetch_azure_subscription_names(accounts)
 
         now = datetime.now(timezone.utc)
         inserted = 0
@@ -698,14 +747,19 @@ class CloudAccountService:
                 except ValueError:
                     skipped += 1
                     continue
+
+                # Get subscription name from Azure API if available
+                azure_names = azure_name_map.get(acc_id, {})
+                sub_name = azure_names.get(sub_id)
+
                 new_sub = CloudAccountSubscription(
                     org_id=org_id,
                     cloud_account_id=acct.id,
                     provider=prov_enum,
                     cloud_tenant_id=tenant_id,
                     subscription_id=sub_id,
-                    subscription_name=None,
-                    display_name=None,
+                    subscription_name=sub_name,
+                    display_name=sub_name,
                     status=SubscriptionStatus.DISCOVERED,
                     last_seen_at=now,
                 )
@@ -716,11 +770,17 @@ class CloudAccountService:
                 already.last_seen_at = now
                 if already.status == SubscriptionStatus.DISCOVERED:
                     pass  # keep as discovered — no promotion without explicit action
-                # Fill empty name fields if still blank
-                if not already.subscription_name:
-                    already.subscription_name = None
-                if not already.display_name:
-                    already.display_name = None
+
+                # Fill empty name fields from Azure API if available
+                azure_names = azure_name_map.get(acc_id, {})
+                azure_sub_name = azure_names.get(sub_id)
+
+                if azure_sub_name:
+                    if not already.subscription_name:
+                        already.subscription_name = azure_sub_name
+                    if not already.display_name:
+                        already.display_name = azure_sub_name
+
                 updated += 1
 
         if not dry_run:
