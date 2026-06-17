@@ -194,3 +194,45 @@ class TestBuildResourceContextSubscriptionLevel:
         ctx = build_resource_context(opp)
 
         assert ctx.resource_group is None
+
+    def test_subscription_level_with_subscription_name(self):
+        """Subscription-level should use subscription_name when provided."""
+        opp = MockOpportunity(
+            resource_id="/subscriptions/180203f3-abcd-1234-5678-90abcdef1234",
+        )
+        ctx = build_resource_context(opp, subscription_name="Production Subscription")
+
+        assert ctx.resource_name == "Production Subscription"
+        assert ctx.subscription_name == "Production Subscription"
+        assert ctx.subscription_id == "180203f3-abcd-1234-5678-90abcdef1234"
+
+    def test_subscription_level_with_subscription_name_priority(self):
+        """subscription_name should take priority over existing resource_name."""
+        opp = MockOpportunity(
+            resource_id="/subscriptions/abc123",
+            resource_name="Old Name",
+        )
+        ctx = build_resource_context(opp, subscription_name="Production Subscription")
+
+        assert ctx.resource_name == "Production Subscription"
+        assert ctx.subscription_name == "Production Subscription"
+
+    def test_subscription_level_without_subscription_name_uses_fallback(self):
+        """Without subscription_name, should fall back to Subscription {short_id}."""
+        opp = MockOpportunity(
+            resource_id="/subscriptions/180203f3-abcd-1234-5678-90abcdef1234",
+        )
+        ctx = build_resource_context(opp, subscription_name=None)
+
+        assert ctx.resource_name == "Subscription 180203f3"
+        assert ctx.subscription_name is None
+
+    def test_subscription_level_empty_subscription_name_uses_fallback(self):
+        """Empty subscription_name should fall back to Subscription {short_id}."""
+        opp = MockOpportunity(
+            resource_id="/subscriptions/abc123",
+        )
+        ctx = build_resource_context(opp, subscription_name="")
+
+        assert ctx.resource_name == "Subscription abc123"
+        assert ctx.subscription_name == ""

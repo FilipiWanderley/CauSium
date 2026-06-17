@@ -211,7 +211,10 @@ _GCP_PATTERN = re.compile(
 _EMPTY_OWNER_VALUES = frozenset({"", "untagged", "unknown", "none", "n/a"})
 
 
-def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceContext":
+def build_resource_context(
+    opportunity: "OptimizationOpportunity",
+    subscription_name: str | None = None,
+) -> "ResourceContext":
     """
     Build a normalized ResourceContext from an opportunity's existing fields.
 
@@ -265,14 +268,20 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
     if is_subscription_level:
         if not resource_type:
             resource_type = "Azure Subscription"
-        # Check if opportunity has a valid resource_name
-        existing_name = (opportunity.resource_name or "").strip()
-        if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
-            resource_name = existing_name
-        elif not resource_name:
-            # Use short subscription ID as resource name
-            sub_short = subscription_id[:8] if subscription_id else "unknown"
-            resource_name = f"Subscription {sub_short}"
+        # Priority for resource_name:
+        # 1. subscription_name from CloudAccountSubscription (if available)
+        # 2. existing resource_name from model (if valid)
+        # 3. fallback to "Subscription {short_id}"
+        if subscription_name:
+            resource_name = subscription_name
+        else:
+            existing_name = (opportunity.resource_name or "").strip()
+            if existing_name and existing_name not in _EMPTY_OWNER_VALUES:
+                resource_name = existing_name
+            elif not resource_name:
+                # Use short subscription ID as resource name
+                sub_short = subscription_id[:8] if subscription_id else "unknown"
+                resource_name = f"Subscription {sub_short}"
         # resource_group stays null for subscription-level
 
     # Priority for resource_name (non-subscription):
@@ -313,7 +322,7 @@ def build_resource_context(opportunity: "OptimizationOpportunity") -> "ResourceC
     return ResourceContext(
         provider=provider,
         subscription_id=subscription_id,
-        subscription_name=None,  # Not available without lookup
+        subscription_name=subscription_name,
         resource_group=resource_group,
         resource_type=resource_type,
         resource_name=resource_name,
