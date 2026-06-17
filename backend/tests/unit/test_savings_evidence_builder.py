@@ -38,7 +38,11 @@ class TestSavingsEvidenceSubscriptionLevel:
     """Tests for savings evidence building for subscription-level opportunities."""
 
     def test_advisor_subscription_level_without_current_spend(self):
-        """Should NOT invent current_cost when Advisor does not provide currentSpend."""
+        """Should return None for current_monthly_cost_estimate when Advisor doesn't provide currentSpend.
+
+        This prevents showing 'R$ 0.00' which is misinterpreted by users.
+        Frontend should display 'N/A' when this value is None.
+        """
         opp = MockOpportunity(
             category=OpportunityCategory.RESERVED_INSTANCES,
             current_monthly_cost_usd=0.0,
@@ -54,8 +58,8 @@ class TestSavingsEvidenceSubscriptionLevel:
         result = build_savings_evidence(opp)
 
         assert result is not None
-        assert result.current_monthly_cost_estimate == 0.0
-        assert result.projected_monthly_cost_estimate is None  # Do NOT invent
+        assert result.current_monthly_cost_estimate is None  # None = "N/A" in frontend
+        assert result.projected_monthly_cost_estimate is None  # Not available
         assert result.estimated_monthly_savings == 150.0
         assert "subscription-level" in result.evidence_summary.lower()
 

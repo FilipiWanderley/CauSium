@@ -141,29 +141,31 @@ class TestBuildResourceContextSubscriptionLevel:
         ctx = build_resource_context(opp)
 
         assert ctx.resource_type == "Azure Subscription"
-        assert ctx.resource_name == "Subscription abc123"
+        assert ctx.resource_name is None  # Removed to avoid duplication with subscription_name
         assert ctx.resource_group is None
         assert ctx.granularity_tier == "subscription"
         assert ctx.portal_url == "https://portal.azure.com/#resource/subscriptions/abc123"
 
     def test_subscription_level_uses_short_id(self):
-        """Subscription-level should use short ID in resource_name."""
+        """Subscription-level should have None resource_name (no duplication)."""
         opp = MockOpportunity(
             resource_id="/subscriptions/180203f3-abcd-1234-5678-90abcdef1234",
         )
         ctx = build_resource_context(opp)
 
-        assert ctx.resource_name == "Subscription 180203f3"
+        # resource_name is None for subscription-level to avoid duplication
+        assert ctx.resource_name is None
 
     def test_subscription_level_preserves_existing_resource_name(self):
-        """If resource_name is provided, use it instead of generating."""
+        """For subscription-level, resource_name is always None (no duplication)."""
         opp = MockOpportunity(
             resource_id="/subscriptions/abc123",
             resource_name="My Savings Plan",
         )
         ctx = build_resource_context(opp)
 
-        assert ctx.resource_name == "My Savings Plan"
+        # resource_name is None to avoid duplication with subscription_name
+        assert ctx.resource_name is None
 
     def test_resource_level_does_not_override_resource_name(self):
         """Resource-level should not override resource_name with Subscription prefix."""
@@ -196,43 +198,47 @@ class TestBuildResourceContextSubscriptionLevel:
         assert ctx.resource_group is None
 
     def test_subscription_level_with_subscription_name(self):
-        """Subscription-level should use subscription_name when provided."""
+        """Subscription-level should use subscription_name (not resource_name to avoid duplication)."""
         opp = MockOpportunity(
             resource_id="/subscriptions/180203f3-abcd-1234-5678-90abcdef1234",
         )
         ctx = build_resource_context(opp, subscription_name="Production Subscription")
 
-        assert ctx.resource_name == "Production Subscription"
+        # resource_name is None for subscription-level, subscription_name is used separately
+        assert ctx.resource_name is None
         assert ctx.subscription_name == "Production Subscription"
         assert ctx.subscription_id == "180203f3-abcd-1234-5678-90abcdef1234"
 
     def test_subscription_level_with_subscription_name_priority(self):
-        """subscription_name should take priority over existing resource_name."""
+        """For subscription-level, resource_name is None regardless of subscription_name."""
         opp = MockOpportunity(
             resource_id="/subscriptions/abc123",
             resource_name="Old Name",
         )
         ctx = build_resource_context(opp, subscription_name="Production Subscription")
 
-        assert ctx.resource_name == "Production Subscription"
+        # resource_name is None to avoid duplication
+        assert ctx.resource_name is None
         assert ctx.subscription_name == "Production Subscription"
 
     def test_subscription_level_without_subscription_name_uses_fallback(self):
-        """Without subscription_name, should fall back to Subscription {short_id}."""
+        """Without subscription_name, resource_name is still None (no fallback to ID)."""
         opp = MockOpportunity(
             resource_id="/subscriptions/180203f3-abcd-1234-5678-90abcdef1234",
         )
         ctx = build_resource_context(opp, subscription_name=None)
 
-        assert ctx.resource_name == "Subscription 180203f3"
+        # resource_name is None - no fallback to Subscription {short_id}
+        assert ctx.resource_name is None
         assert ctx.subscription_name is None
 
     def test_subscription_level_empty_subscription_name_uses_fallback(self):
-        """Empty subscription_name should fall back to Subscription {short_id}."""
+        """Empty subscription_name: resource_name is still None (no fallback to ID)."""
         opp = MockOpportunity(
             resource_id="/subscriptions/abc123",
         )
         ctx = build_resource_context(opp, subscription_name="")
 
-        assert ctx.resource_name == "Subscription abc123"
+        # resource_name is None even with empty subscription_name
+        assert ctx.resource_name is None
         assert ctx.subscription_name == ""
