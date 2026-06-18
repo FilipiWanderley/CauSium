@@ -9,7 +9,14 @@
     "check:auth-token-storage": "node scripts/assert-no-auth-token-storage.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit",
+    "audit:lighthouse": "lhci autorun --config=lighthouserc.json || echo 'Lighthouse CI not configured for local runs. Use: npx lhci autorun'",
+    "test:visual": "playwright test --config=playwright.config.ts",
+    "test:a11y": "playwright test --config=playwright.config.ts e2e/accessibility/",
+    "analyze:bundle": "node scripts/analyze-bundle.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.56.2",
@@ -20,10 +27,14 @@
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-icons": "^5.6.0",
     "react-router-dom": "^6.30.4",
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
+    "@lhci/cli": "^0.14.0",
+    "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^18.3.5",
@@ -31,7 +42,9 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "jsdom": "^25.0.1",
+    "playwright": "^1.61.0",
     "postcss": "^8.5.15",
+    "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^3.4.12",
     "typescript": "^5.5.3",
     "vite": "^5.4.8",
