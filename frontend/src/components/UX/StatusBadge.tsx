@@ -13,24 +13,24 @@ interface StatusBadgeProps {
 }
 
 const STATUS_STYLES: Record<OpportunityStatus, string> = {
-  open: 'bg-sky-100 text-sky-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  resolved: 'bg-emerald-100 text-emerald-700',
-  dismissed: 'bg-gray-100 text-gray-700',
-  validated: 'bg-blue-100 text-blue-700',
+  open: 'bg-teal-50 text-teal-700',
+  in_progress: 'bg-amber-50 text-amber-700',
+  resolved: 'bg-teal-50 text-teal-800',
+  dismissed: 'bg-gray-light text-gray-cool',
+  validated: 'bg-teal-50 text-teal-700',
 }
 
 const RISK_STYLES: Record<RiskLevel, string> = {
-  low: 'bg-emerald-50 text-emerald-700',
+  low: 'bg-teal-50 text-teal-700',
   medium: 'bg-amber-50 text-amber-700',
-  high: 'bg-red-50 text-red-700',
+  high: 'bg-rose-50 text-rose-700',
 }
 
 const CONFIDENCE_STYLES: Record<ConfidenceTier, string> = {
-  high: 'bg-slate-100 text-slate-700',
-  medium: 'bg-slate-50 text-slate-600',
+  high: 'bg-teal-50 text-teal-700',
+  medium: 'bg-gray-light text-gray-cool',
   low: 'bg-amber-50 text-amber-700',
-  insufficient: 'bg-gray-100 text-gray-500',
+  insufficient: 'bg-gray-light text-gray-cool',
 }
 
 const EFFORT_STYLES: Record<EffortLevel, string> = {
@@ -42,15 +42,15 @@ const EFFORT_STYLES: Record<EffortLevel, string> = {
 function getStyle(variant: BadgeVariant, value: string): string {
   switch (variant) {
     case 'status':
-      return STATUS_STYLES[value as OpportunityStatus] ?? 'bg-gray-100 text-gray-600'
+      return STATUS_STYLES[value as OpportunityStatus] ?? 'bg-gray-light text-gray-cool'
     case 'risk':
-      return RISK_STYLES[value as RiskLevel] ?? 'bg-gray-100 text-gray-600'
+      return RISK_STYLES[value as RiskLevel] ?? 'bg-gray-light text-gray-cool'
     case 'confidence':
-      return CONFIDENCE_STYLES[value as ConfidenceTier] ?? 'bg-gray-100 text-gray-600'
+      return CONFIDENCE_STYLES[value as ConfidenceTier] ?? 'bg-gray-light text-gray-cool'
     case 'effort':
-      return EFFORT_STYLES[value as EffortLevel] ?? 'bg-gray-100 text-gray-600'
+      return EFFORT_STYLES[value as EffortLevel] ?? 'bg-gray-light text-gray-cool'
     default:
-      return 'bg-gray-100 text-gray-600'
+      return 'bg-gray-light text-gray-cool'
   }
 }
 

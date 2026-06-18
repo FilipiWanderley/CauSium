@@ -5,20 +5,53 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+        // ── CauSium Brand Palette ──────────────────────────────────────────────
+        navy: {
+          DEFAULT: '#001B2A',
+          50: '#e6f0f5',
+          100: '#cce1eb',
+          200: '#99c3d7',
+          300: '#66a5c3',
+          400: '#3387af',
+          500: '#00699b',
+          600: '#00547c',
+          700: '#003f5e',
+          800: '#001B2A',
+          900: '#001424',
+          950: '#000d19',
         },
         slate: {
+          struct: '#334155', // Slate estrutural - elementos estruturais
           150: '#e8ecf1',
+        },
+        gray: {
+          cool: '#64748B', // Cool Gray - labels, legendas, eixos
+          light: '#E5E7EB', // Light Gray - fundos, divisórias
+        },
+        teal: {
+          DEFAULT: '#0FA287',
+          50: '#e6f7f4',
+          100: '#cceee9',
+          200: '#99dddd',
+          300: '#66ccd1',
+          400: '#33bbc5',
+          500: '#0FA287',
+          600: '#0d826c',
+          700: '#0a6151',
+          800: '#084136',
+          900: '#05211b',
+        },
+        brand: {
+          50: '#e6f7f4',
+          100: '#cceee9',
+          200: '#99dddd',
+          300: '#66ccd1',
+          400: '#33bbc5',
+          500: '#0FA287',
+          600: '#0d826c',
+          700: '#0a6151',
+          800: '#084136',
+          900: '#05211b',
         },
       },
       fontFamily: {
@@ -32,8 +65,9 @@ export default {
       },
       boxShadow: {
         'panel': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'panel-hover': '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.04)',
-        'panel-elevated': '0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.03)',
+        'panel-hover': '0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        'panel-elevated': '0 8px 24px -4px rgb(0 0 0 / 0.1), 0 4px 8px -2px rgb(0 0 0 / 0.06)',
+        'card-premium': '0 2px 8px -2px rgb(0 27 42 / 0.06), 0 1px 3px -1px rgb(0 27 42 / 0.04)',
       },
       borderRadius: {
         'panel': '0.75rem',
