@@ -90,7 +90,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     <header
       className={
         enterpriseShellEnabled
-          ? 'border-b border-slate-200 bg-white px-4 py-3 shadow-sm lg:px-5'
+          ? 'border-b border-gray-light bg-white px-4 py-3 shadow-card-premium lg:px-5'
           : 'flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm lg:px-6'
       }
     >
@@ -114,11 +114,11 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           {enterpriseShellEnabled ? (
             <div className="min-w-0 flex-1">
               {showBreadcrumbs && (
-                <nav className="mb-1.5 flex min-w-0 max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[11px] font-medium text-slate-400 xl:max-w-[720px]">
+                <nav className="mb-1.5 flex min-w-0 max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[11px] font-medium text-gray-cool xl:max-w-[720px]">
                   {breadcrumbs.map((crumb, index) => (
                     <span key={`${crumb}-${index}`} className="flex items-center gap-1.5">
-                      {index > 0 && <ChevronRight className="h-3 w-3 text-slate-300" />}
-                      <span className={index === breadcrumbs.length - 1 ? 'text-slate-600' : undefined}>{crumb}</span>
+                      {index > 0 && <ChevronRight className="h-3 w-3 text-gray-light" />}
+                      <span className={index === breadcrumbs.length - 1 ? 'text-navy' : undefined}>{crumb}</span>
                     </span>
                   ))}
                 </nav>
@@ -126,14 +126,14 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
               <div className="flex min-w-0 flex-col gap-2">
                 {showScopeSelector && (
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className="font-medium text-slate-400">{t.header.scopeProvider}</span>
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-600">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-gray-cool">
+                    <span className="font-medium text-gray-cool">{t.header.scopeProvider}</span>
+                    <span className="rounded-md border border-gray-light bg-gray-light/30 px-2.5 py-1 text-slate-struct">
                       {providerContextLabel}
                     </span>
                   </div>
                 )}
-                <div className="text-[11px] text-slate-400">{t.header.operationalConsole}</div>
+                <div className="text-[11px] font-semibold text-navy">{t.header.operationalConsole}</div>
               </div>
             </div>
           ) : null}
@@ -152,10 +152,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             <div className="flex min-w-0 items-center gap-2.5">
               <UserAvatar name={user.full_name} />
               <div className="hidden min-w-0 max-w-[180px] leading-tight sm:block lg:max-w-[220px]">
-                <p className="truncate text-sm font-medium text-gray-900">{user.full_name}</p>
-                <p className="hidden truncate text-xs text-gray-400 md:block">{user.org_name}</p>
+                <p className="truncate text-sm font-semibold text-navy">{user.full_name}</p>
+                <p className="hidden truncate text-xs text-gray-cool md:block">{user.org_name}</p>
               </div>
-              <span className="hidden rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 xl:inline-flex">
+              <span className="hidden rounded bg-gray-light px-2 py-0.5 text-xs font-medium text-slate-struct xl:inline-flex">
                 {user.role}
               </span>
             </div>

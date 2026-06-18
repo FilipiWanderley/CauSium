@@ -61,8 +61,8 @@ const ACTIVE_CLASS = 'bg-brand-600 text-white'
 const INACTIVE_CLASS = 'text-gray-300 hover:bg-gray-800 hover:text-white'
 const ENTERPRISE_NAV_LINK_CLASS =
   'flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150'
-const ENTERPRISE_ACTIVE_CLASS = 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-700/80'
-const ENTERPRISE_INACTIVE_CLASS = 'text-slate-300 hover:bg-slate-900/80 hover:text-white'
+const ENTERPRISE_ACTIVE_CLASS = 'bg-teal-500/20 text-teal-300 shadow-sm ring-1 ring-teal-500/30'
+const ENTERPRISE_INACTIVE_CLASS = 'text-slate-300 hover:bg-navy-800 hover:text-white'
 
 function pathMatches(pathname: string, to: string) {
   return pathname === to || pathname.startsWith(`${to}/`)
@@ -262,22 +262,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <aside
       className={clsx(
-        'flex w-60 flex-col bg-gray-900 text-white',
-        enterpriseShellEnabled && 'w-72 border-r border-slate-800 bg-slate-950/95 text-slate-100',
+        'flex w-60 flex-col bg-navy text-white',
+        enterpriseShellEnabled && 'w-72 border-r border-navy-800 bg-navy-950 text-slate-100',
       )}
     >
       <div
         className={clsx(
-          'flex items-center gap-2 border-b border-gray-700 px-5 py-5',
-          enterpriseShellEnabled && 'justify-between border-slate-800 px-4 py-4',
+          'flex items-center gap-2 border-b border-navy-700 px-5 py-5',
+          enterpriseShellEnabled && 'justify-between border-navy-800 px-4 py-4',
         )}
       >
         <div className="flex items-center gap-3">
-          <div className={clsx('rounded-xl bg-white/5 p-2', enterpriseShellEnabled && 'border border-slate-800 bg-slate-900')}>
-            <Cpu className="h-5 w-5 text-white" strokeWidth={1.5} />
+          <div className={clsx('rounded-xl bg-teal-500/20 p-2', enterpriseShellEnabled && 'border border-teal-500/30 bg-navy-900')}>
+            <Cpu className="h-5 w-5 text-teal-400" strokeWidth={1.5} />
           </div>
           <div className="min-w-0">
-            <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-white">CauSium</span>
+            <span className="block text-xs font-bold uppercase tracking-[0.15em] text-teal-400">CauSium</span>
             {enterpriseShellEnabled && (
               <span className="block truncate text-[11px] text-slate-400">{t.header.operationalConsole}</span>
             )}
@@ -300,7 +300,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <div
           className={clsx(
             'pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b transition-opacity duration-200',
-            enterpriseShellEnabled ? 'from-slate-950 to-transparent' : 'from-gray-900 to-transparent',
+            enterpriseShellEnabled ? 'from-navy-950 to-transparent' : 'from-gray-900 to-transparent',
             showTopFade ? 'opacity-100' : 'opacity-0',
           )}
         />
@@ -364,8 +364,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 <section
                   key={group.id}
                   className={clsx(
-                    'rounded-2xl border border-slate-900/70 bg-slate-950/30 px-1.5 py-1.5',
-                    hasActiveItem && 'border-slate-800 bg-slate-900/60 shadow-sm',
+                    'rounded-2xl border border-navy-800/70 bg-navy-950/50 px-1.5 py-1.5',
+                    hasActiveItem && 'border-teal-500/30 bg-navy-900/60 shadow-sm',
                   )}
                 >
                   <button
@@ -374,8 +374,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     className={clsx(
                       'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors',
                       hasActiveItem
-                        ? 'text-white'
-                        : 'text-slate-500 hover:bg-slate-900 hover:text-slate-200',
+                        ? 'text-teal-400'
+                        : 'text-slate-500 hover:bg-navy-800 hover:text-slate-200',
                     )}
                   >
                     <span className="flex-1 truncate">{group.label}</span>
@@ -404,7 +404,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <div
           className={clsx(
             'pointer-events-none absolute inset-x-0 bottom-0 z-10 h-10 bg-gradient-to-t transition-opacity duration-200',
-            enterpriseShellEnabled ? 'from-slate-950 to-transparent' : 'from-gray-900 to-transparent',
+            enterpriseShellEnabled ? 'from-navy-950 to-transparent' : 'from-gray-900 to-transparent',
             showBottomFade ? 'opacity-100' : 'opacity-0',
           )}
         />
@@ -412,8 +412,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       <div
         className={clsx(
-          'border-t border-gray-700 px-5 py-4 text-xs text-gray-400',
-          enterpriseShellEnabled && 'border-slate-800 px-4 py-3 text-[11px] text-slate-500',
+          'border-t border-navy-700 px-5 py-4 text-xs text-slate-400',
+          enterpriseShellEnabled && 'border-t border-navy-800 px-4 py-3 text-[11px] text-slate-500',
         )}
       >
         {enterpriseShellEnabled ? t.header.enterpriseShellVersion : 'v0.1.0'}

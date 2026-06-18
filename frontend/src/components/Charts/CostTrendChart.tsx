@@ -11,6 +11,7 @@ import {
 import type { CostTrend, ChangeEvent, ChangeEventType } from '../../types'
 import { format, parseISO } from 'date-fns'
 import { formatCurrency, getCurrencyLocale } from '../../utils/currency'
+import clsx from 'clsx'
 
 // ── Event type styling ────────────────────────────────────────────────────────
 
@@ -74,34 +75,34 @@ function CustomTooltip({ active, payload }: any) {
   const deltaPct = previousCost == null || previousCost === 0 ? null : (delta! / previousCost) * 100
 
   return (
-    <div className="min-w-[240px] rounded-xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm">
+    <div className="min-w-[240px] rounded-xl border-2 border-gray-light bg-white/98 p-4 shadow-panel-elevated">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Cost trend</p>
-          <p className="mt-1 text-sm font-semibold text-slate-800">{point?.dateFullLabel ?? point?.dateLabel}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-600">Cost</p>
+          <p className="mt-1 text-sm font-semibold text-navy">{point?.dateFullLabel ?? point?.dateLabel}</p>
         </div>
         {events.length > 0 && (
-          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
+          <span className="rounded-md border border-teal-200 bg-teal-50 px-2 py-1 text-[11px] font-medium text-teal-700">
             {events.length} event{events.length > 1 ? 's' : ''}
           </span>
         )}
       </div>
 
-      <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Daily cost</div>
-        <div className="mt-1 text-xl font-semibold text-slate-900">{formatMoney(cost, currency)}</div>
+      <div className="mt-3 rounded-lg bg-gradient-to-r from-teal-50 to-teal-100/50 px-3 py-2.5">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-teal-600/70">Daily cost</div>
+        <div className="mt-1 text-xl font-bold text-navy">{formatMoney(cost, currency)}</div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg border border-slate-100 px-3 py-2">
-          <div className="text-slate-400">Prior point</div>
+        <div className="rounded-lg border border-gray-light bg-gray-light/30 px-3 py-2">
+          <div className="text-gray-cool">Prior point</div>
           <div className="mt-1 font-semibold text-slate-700">
             {previousCost == null ? '—' : formatMoney(previousCost, currency)}
           </div>
         </div>
-        <div className="rounded-lg border border-slate-100 px-3 py-2">
-          <div className="text-slate-400">Delta</div>
-          <div className={delta == null ? 'mt-1 font-semibold text-slate-700' : delta >= 0 ? 'mt-1 font-semibold text-rose-600' : 'mt-1 font-semibold text-emerald-600'}>
+        <div className="rounded-lg border border-gray-light bg-gray-light/30 px-3 py-2">
+          <div className="text-gray-cool">Delta</div>
+          <div className={delta == null ? 'mt-1 font-semibold text-slate-700' : delta >= 0 ? 'mt-1 font-semibold text-rose-600' : 'mt-1 font-semibold text-teal-600'}>
             {delta == null
               ? '—'
               : `${delta > 0 ? '+' : ''}${formatMoney(delta, currency)}${deltaPct == null ? '' : ` · ${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%`}`}
@@ -110,8 +111,8 @@ function CustomTooltip({ active, payload }: any) {
       </div>
 
       {events.length > 0 && (
-        <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="mt-3 border-t border-gray-light pt-3 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-cool">
             Events on this day
           </p>
           {events.map((ev) => (
@@ -206,6 +207,7 @@ interface Props {
 }
 
 export function CostTrendChart({ data, events = [], height = 248, currency = 'USD' }: Props) {
+
   // Group events by YYYY-MM-DD
   const eventsByDate: Record<string, ChangeEvent[]> = {}
   for (const ev of events) {
@@ -240,34 +242,39 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
       ? (periodDelta / firstPoint.cost_usd) * 100
       : null
 
+  // Desktop-optimized margins and tick sizes
+  const margin = { top: 14, right: 8, left: -10, bottom: 6 }
+  const tickFontSize = 11
+  const yAxisWidth = 72
+
   return (
     <div className="space-y-3">
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={formatted} margin={{ top: 14, right: 8, left: -10, bottom: 6 }}>
+        <AreaChart data={formatted} margin={margin}>
           <defs>
             <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563eb" stopOpacity={0.26} />
-              <stop offset="55%" stopColor="#3b82f6" stopOpacity={0.1} />
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+              <stop offset="0%" stopColor="#0FA287" stopOpacity={0.2} />
+              <stop offset="55%" stopColor="#0FA287" stopOpacity={0.08} />
+              <stop offset="95%" stopColor="#0FA287" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="#e5e7eb" />
+          <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="#E5E7EB" />
           <XAxis
             dataKey="dateLabel"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: tickFontSize, fill: '#64748B' }}
             tickLine={false}
             axisLine={false}
             interval="preserveStartEnd"
             minTickGap={24}
-            tickMargin={10}
+            tickMargin={8}
           />
           <YAxis
             tickFormatter={(value) => formatAxisValue(value, currency)}
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: tickFontSize, fill: '#64748B' }}
             tickLine={false}
             axisLine={false}
-            width={72}
-            tickMargin={10}
+            width={yAxisWidth}
+            tickMargin={8}
           />
           <Tooltip content={<CustomTooltip />} />
           {averageCost > 0 && (
@@ -282,11 +289,11 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
           <Area
             type="monotone"
             dataKey="cost_usd"
-            stroke="#2563eb"
+            stroke="#0FA287"
             strokeWidth={2.5}
             fill="url(#costGradient)"
             dot={<EventDot />}
-            activeDot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: '#0FA287', stroke: '#fff', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -299,14 +306,13 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
         )}
         {formatted.length > 0 && (
           <span className="text-slate-500">
-            Average: <span className="font-medium text-slate-700">{formatMoney(averageCost, currency)}</span>
+            Avg: <span className="font-medium text-slate-700">{formatMoney(averageCost, currency)}</span>
           </span>
         )}
         {latestPoint && firstPoint && (
-          <span className={periodDelta >= 0 ? 'text-rose-600' : 'text-emerald-600'}>
-            Period delta: {periodDelta > 0 ? '+' : ''}
-            {formatMoney(periodDelta, currency)}
-            {periodDeltaPct == null ? '' : ` · ${periodDeltaPct > 0 ? '+' : ''}${periodDeltaPct.toFixed(1)}%`}
+          <span className={periodDelta >= 0 ? 'text-rose-600' : 'text-teal-600'}>
+            Δ {periodDelta > 0 ? '+' : ''}{formatMoney(periodDelta, currency)}
+            {periodDeltaPct == null ? '' : ` (${periodDeltaPct > 0 ? '+' : ''}${periodDeltaPct.toFixed(1)}%)`}
           </span>
         )}
       </div>

@@ -39,7 +39,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className={enterpriseShellEnabled ? 'flex h-screen overflow-hidden bg-slate-100' : 'flex h-screen overflow-hidden bg-gray-50'}>
+    <div className={enterpriseShellEnabled ? 'flex h-screen overflow-hidden bg-gray-light' : 'flex h-screen overflow-hidden bg-gray-50'}>
       <NotificationsRealtimeBridge />
       <div className="hidden lg:flex">
         <Sidebar />
