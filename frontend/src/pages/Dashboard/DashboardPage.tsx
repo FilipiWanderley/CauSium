@@ -26,6 +26,7 @@ import { ErrorState } from '../../components/UX/ErrorState'
 import { SkeletonMetricCards, SkeletonPrioritizedList, SkeletonSection } from '../../components/UX/Skeleton'
 import { ledgerApi } from '../../api/ledger'
 import { cloudAccountsApi } from '../../api/cloudAccounts'
+import { CloudProviderIconBranded } from '../../components/cloud/CloudProviderIcon'
 import { opportunitiesApi } from '../../api/opportunities'
 import { changeEventsApi } from '../../api/changeEvents'
 import { intelApi } from '../../api/intel'
@@ -481,7 +482,29 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ═══ B. KPI Row ═══ */}
+      {/* ═══ B. Provider Status Chips ═══ */}
+      {filteredAccounts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {(['azure', 'aws', 'gcp'] as const).map((provider) => {
+            const providerAccounts = filteredAccounts.filter((a) => a.provider === provider)
+            if (providerAccounts.length === 0) return null
+            return (
+              <div
+                key={provider}
+                className="inline-flex items-center gap-2 rounded-panel border border-gray-light bg-white px-3 py-2 shadow-card-premium"
+              >
+                <CloudProviderIconBranded provider={provider} size={18} />
+                <span className="text-xs font-medium text-navy capitalize">{provider}</span>
+                <span className="rounded-full bg-gray-light px-2 py-0.5 text-[10px] font-semibold text-gray-cool">
+                  {providerAccounts.length}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ═══ C. KPI Row ═══ */}
       <div className="kpi-grid">
         <KpiCard
           title={d.currentMonthCost}
@@ -492,7 +515,7 @@ export function DashboardPage() {
           sparkline={sparklineData}
           icon={<DollarSign className="h-5 w-5" />}
           footer={
-            <button type="button" className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:text-violet-900"
+            <button type="button" className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:text-teal-900"
               onClick={() => { setExplainOpen(true); explainMutation.mutate({ start_date: explainWindow.start_date, end_date: explainWindow.end_date, language: lang, ...(providerParam ? { provider: providerParam } : {}) }) }}>
               <Lightbulb className="h-3 w-3" />{d.explainCostCta}
             </button>
@@ -542,7 +565,7 @@ export function DashboardPage() {
           <PanelHeader
             title={d.insightsTitle}
             badge={insightsDisplayData ? (
-              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">AI</span>
+              <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">AI</span>
             ) : undefined}
           />
           {intelInsightsLoading ? (
@@ -564,16 +587,16 @@ export function DashboardPage() {
             />
           ) : (
             <div className="mt-4 flex flex-1 flex-col gap-3">
-              <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">{d.insightsAction}</p>
-                <p className="mt-1 text-sm font-medium text-violet-900">{insightsDisplayData.recommended_action}</p>
+              <div className="rounded-lg border border-teal-200 bg-teal-50/60 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-600">{d.insightsAction}</p>
+                <p className="mt-1 text-sm font-medium text-teal-900">{insightsDisplayData.recommended_action}</p>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{d.insightsTopSaving}</p>
+              <div className="rounded-lg border border-gray-light bg-gray-light/30 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-cool">{d.insightsTopSaving}</p>
                 <p className="mt-1 text-xs text-slate-700">{insightsDisplayData.top_saving_opportunity}</p>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{d.insightsMainRisk}</p>
+              <div className="rounded-lg border border-gray-light bg-gray-light/30 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-cool">{d.insightsMainRisk}</p>
                 <p className="mt-1 text-xs text-slate-700">{insightsDisplayData.main_risk}</p>
               </div>
               <div className="mt-auto pt-2 border-t border-slate-100">

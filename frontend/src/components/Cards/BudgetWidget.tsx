@@ -81,7 +81,7 @@ function ConfigureForm({
           step="any"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full rounded-lg border border-gray-light px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           placeholder="10000"
           required
         />
@@ -91,7 +91,7 @@ function ConfigureForm({
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value as FinancialBudgetPeriod)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full rounded-lg border border-gray-light px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           {PERIODS.map((p) => (
             <option key={p} value={p}>
@@ -108,7 +108,7 @@ function ConfigureForm({
           type="text"
           value={thresholds}
           onChange={(e) => setThresholds(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full rounded-lg border border-gray-light px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           placeholder="50, 80, 90"
         />
       </div>
@@ -159,8 +159,8 @@ export function BudgetWidget() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
-        <div className="h-4 w-32 rounded bg-gray-100" />
+      <div className="rounded-panel border border-gray-light bg-white p-5 shadow-card-premium animate-pulse">
+        <div className="h-4 w-32 rounded bg-gray-light" />
       </div>
     )
   }
@@ -181,11 +181,13 @@ export function BudgetWidget() {
       : 'bg-yellow-500'
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-panel border border-gray-light bg-white p-5 shadow-card-premium">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-brand-500" />
-          <h2 className="text-sm font-semibold text-gray-900">
+          <div className="rounded-lg bg-gray-light p-1.5">
+            <DollarSign className="h-4 w-4 text-teal-600" />
+          </div>
+          <h2 className="text-sm font-semibold text-navy">
             {b.title}
             {periodLabel && (
               <span className="ml-1.5 text-xs font-normal text-gray-400">
@@ -198,7 +200,7 @@ export function BudgetWidget() {
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="text-xs text-brand-600 hover:underline"
+            className="text-xs text-teal-600 hover:underline"
           >
             {b.configure}
           </button>
@@ -208,8 +210,8 @@ export function BudgetWidget() {
       {budget ? (
         <>
           {/* Amount row */}
-          <div className="flex items-baseline gap-1 mb-3">
-            <span className="text-2xl font-bold text-gray-900">
+          <div className="mb-3 flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-navy">
               {fmt(budget.consumed_usd)}
             </span>
             <span className="text-sm text-gray-400">
@@ -218,7 +220,7 @@ export function BudgetWidget() {
           </div>
 
           {/* Progress bar */}
-          <div className="relative h-2.5 rounded-full bg-gray-100 overflow-hidden mb-1">
+          <div className="relative mb-1 h-2.5 overflow-hidden rounded-full bg-gray-light">
             <div
               className={clsx('h-full rounded-full transition-all', barColor)}
               style={{ width: `${Math.min(pct, 100)}%` }}
@@ -229,9 +231,9 @@ export function BudgetWidget() {
           </div>
 
           {/* Stats row */}
-          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+          <div className="mt-2 flex items-center justify-between text-xs text-gray-cool">
             <span>
-              <span className="font-semibold text-gray-700">{pct.toFixed(1)}%</span>{' '}
+              <span className="font-semibold text-navy">{pct.toFixed(1)}%</span>{' '}
               {b.consumed}
             </span>
             {budget.projected_eom_usd != null && (
@@ -244,8 +246,8 @@ export function BudgetWidget() {
                   className={clsx(
                     'font-semibold',
                     budget.projected_eom_usd > budget.amount_usd
-                      ? 'text-red-600'
-                      : 'text-gray-700'
+                      ? 'text-rose-600'
+                      : 'text-navy'
                   )}
                 >
                   {fmt(budget.projected_eom_usd)}
@@ -261,7 +263,7 @@ export function BudgetWidget() {
           </div>
         </>
       ) : (
-        <p className="text-sm text-gray-400">{b.notConfigured}</p>
+        <p className="text-sm text-gray-cool">{b.notConfigured}</p>
       )}
 
       {showForm && (

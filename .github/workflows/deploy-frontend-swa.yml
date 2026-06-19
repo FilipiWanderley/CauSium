@@ -25,6 +25,9 @@ jobs:
         working-directory: frontend
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_FF_ENTERPRISE_SHELL: true
+          VITE_FF_BREADCRUMBS: true
+          VITE_FF_SCOPE_SELECTOR: true
         run: npm run build
 
       - name: Deploy to Azure Static Web Apps
