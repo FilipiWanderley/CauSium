@@ -1,11 +1,11 @@
 /**
  * CloudProviderIcon - Ícones oficiais de cloud providers
  *
- * Usa react-icons para logos de provedores de nuvem.
- * Mantém consistência visual com Lucide React para ícones genéricos.
+ * Usa react-icons para AWS e GCP.
+ * Usa SVG inline para Azure (logo oficial).
  */
 
-import { FaAws, FaMicrosoft } from 'react-icons/fa'
+import { FaAws } from 'react-icons/fa'
 import { SiGooglecloud } from 'react-icons/si'
 import type { CloudProvider } from '../../types'
 
@@ -39,24 +39,34 @@ const PROVIDER_TITLES: Record<CloudProvider, string> = {
 }
 
 /**
+ * Logo SVG inline do Azure (logo oficial simplificado)
+ * Representa o "A" do Azure com as cores corretas
+ */
+function AzureIcon({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Azure logo - triângulo stylizado */}
+      <path
+        d="M3 18L12 6L21 18H3Z"
+        fill="#0078D4"
+      />
+      <path
+        d="M3 18L12 10L21 18H3Z"
+        fill="#00A4EF"
+      />
+    </svg>
+  )
+}
+
+/**
  * CloudProviderIcon - Componente para exibir logos de cloud providers
- *
- * @example
- * ```tsx
- * // Ícone básico
- * <CloudProviderIcon provider="aws" />
- *
- * // Com tamanho customizado
- * <CloudProviderIcon provider="azure" size={24} />
- *
- * // Com classes e título
- * <CloudProviderIcon
- *   provider="gcp"
- *   size={16}
- *   className="text-blue-500"
- *   title="Google Cloud"
- * />
- * ```
  */
 export function CloudProviderIcon({
   provider,
@@ -66,9 +76,17 @@ export function CloudProviderIcon({
 }: CloudProviderIconProps) {
   const computedTitle = title ?? PROVIDER_TITLES[provider]
 
+  if (provider === 'azure') {
+    return (
+      <AzureIcon
+        size={size}
+        className={className}
+      />
+    )
+  }
+
   const IconComponent = {
     aws: FaAws,
-    azure: FaMicrosoft,
     gcp: SiGooglecloud,
   }[provider]
 
@@ -92,9 +110,14 @@ export function CloudProviderIconRaw({
   size = 20,
   className = '',
 }: Omit<CloudProviderIconProps, 'title'>) {
+  if (provider === 'azure') {
+    return (
+      <AzureIcon size={size} className={className} />
+    )
+  }
+
   const IconComponent = {
     aws: FaAws,
-    azure: FaMicrosoft,
     gcp: SiGooglecloud,
   }[provider]
 
@@ -119,9 +142,20 @@ export function CloudProviderIconBranded({
   const color = PROVIDER_COLORS[provider]
   const computedTitle = title ?? PROVIDER_TITLES[provider]
 
+  if (provider === 'azure') {
+    return (
+      <span
+        className={`inline-flex items-center justify-center ${className}`}
+        style={{ color }}
+        title={computedTitle}
+      >
+        <AzureIcon size={size} />
+      </span>
+    )
+  }
+
   const IconComponent = {
     aws: FaAws,
-    azure: FaMicrosoft,
     gcp: SiGooglecloud,
   }[provider]
 

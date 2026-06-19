@@ -412,54 +412,106 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ═══ A. Page Header ═══ */}
-      <PageHeader
-        title={d.title}
-        subtitle={d.operationsSection}
-        actions={
-          <div className="flex items-center gap-2">
-            {/* Provider filter */}
-            <div className="relative">
-              <button type="button" onClick={() => setProviderMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300">
-                <span>{providerLabelMap[providerFilter]}</span>
-                <ChevronDown className={clsx('h-3 w-3 text-slate-400 transition-transform', providerMenuOpen && 'rotate-180')} />
-              </button>
-              {providerMenuOpen && (
-                <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
-                  {DASHBOARD_PROVIDERS.map((opt) => (
-                    <button key={opt} type="button" onClick={() => { setProviderFilterRaw(opt); setProviderMenuOpen(false) }}
-                      className={clsx('w-full rounded px-2 py-1.5 text-left text-sm', opt === providerFilter ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50')}>
-                      {providerLabelMap[opt]}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Subscription filter */}
-            <select value={hasMultipleSubscriptions ? subscriptionId : ''} onChange={(e) => setSubscriptionId(e.target.value)}
-              disabled={!hasMultipleSubscriptions || subscriptionsLoading || subscriptionsError}
-              className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">
-              {subscriptionsLoading ? <option value="">{d.subscriptionLoading}</option>
-                : subscriptionsError ? <option value="">{d.subscriptionUnavailable}</option>
-                : hasMultipleSubscriptions ? (<><option value="">{d.allSubscriptionsConsolidated}</option>{subscriptionsData?.items.map((s) => <option key={s.subscription_id} value={s.subscription_id}>{s.subscription_name || `${s.subscription_id.slice(0, 8)}…`}</option>)}</>)
-                : <option value="">{singleSubscriptionName}</option>}
-            </select>
-            <div className="hidden sm:block h-5 w-px bg-slate-200" />
-            <button type="button" onClick={() => queueIngestionMutation.mutate()} disabled={queueIngestionMutation.isPending || !accounts}
-              className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60">
-              {queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}
-            </button>
-            <button type="button" onClick={() => refreshDashboardMutation.mutate()} disabled={refreshDashboardMutation.isPending}
-              className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60" title={d.refreshData}>
-              <RefreshCw className={clsx('h-3.5 w-3.5', refreshDashboardMutation.isPending && 'animate-spin')} />
-            </button>
+      {/* ═══ A. Toolbar - Filters & Actions ═══ */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Left: Breadcrumb hint + Action message */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-gray-cool">
+            <span className="font-medium text-navy">{d.title}</span>
+            <ChevronRight className="h-3 w-3 text-gray-light" />
+            <span>{providerLabelMap[providerFilter]}</span>
           </div>
-        }
-        meta={actionMessage ? (
-          <span className={clsx('text-xs', actionMessage.kind === 'success' ? 'text-emerald-700' : 'text-rose-700')}>{actionMessage.text}</span>
-        ) : undefined}
-      />
+          {actionMessage && (
+            <span className={clsx(
+              'hidden sm:inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
+              actionMessage.kind === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            )}>
+              {actionMessage.text}
+            </span>
+          )}
+        </div>
+
+        {/* Right: Filter controls */}
+        <div className="flex items-center gap-2">
+          {/* Provider filter - Premium dropdown with accessibility */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setProviderMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={providerMenuOpen}
+              aria-label={`Filter by provider. Current: ${providerLabelMap[providerFilter]}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+            >
+              <CloudProviderIconBranded provider={providerFilter === 'all' ? 'azure' : providerFilter as CloudProvider} size={16} />
+              <span className="hidden sm:inline">{providerLabelMap[providerFilter]}</span>
+              <span className="sm:hidden">{providerFilter === 'all' ? 'All' : providerFilter}</span>
+              <ChevronDown className={clsx('h-3 w-3 text-gray-cool transition-transform', providerMenuOpen && 'rotate-180')} />
+            </button>
+            {providerMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-light bg-white p-1 shadow-panel-elevated"
+              >
+                {DASHBOARD_PROVIDERS.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setProviderFilterRaw(opt); setProviderMenuOpen(false) }}
+                    className={clsx(
+                      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
+                      opt === providerFilter ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-gray-light/50'
+                    )}
+                  >
+                    <CloudProviderIconBranded provider={opt === 'all' ? 'azure' : opt as CloudProvider} size={16} />
+                    <span>{providerLabelMap[opt]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Subscription filter */}
+          <select
+            value={hasMultipleSubscriptions ? subscriptionId : ''}
+            onChange={(e) => setSubscriptionId(e.target.value)}
+            disabled={!hasMultipleSubscriptions || subscriptionsLoading || subscriptionsError}
+            aria-label="Filter by subscription"
+            className="rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-gray-light/50 disabled:text-gray-cool"
+          >
+            {subscriptionsLoading ? <option value="">{d.subscriptionLoading}</option>
+              : subscriptionsError ? <option value="">{d.subscriptionUnavailable}</option>
+              : hasMultipleSubscriptions ? (<><option value="">{d.allSubscriptionsConsolidated}</option>{subscriptionsData?.items.map((s) => <option key={s.subscription_id} value={s.subscription_id}>{s.subscription_name || `${s.subscription_id.slice(0, 8)}…`}</option>)}</>)
+              : <option value="">{singleSubscriptionName}</option>}
+          </select>
+
+          {/* Divider */}
+          <div className="hidden sm:block h-6 w-px bg-gray-light" />
+
+          {/* Action buttons */}
+          <button
+            type="button"
+            onClick={() => queueIngestionMutation.mutate()}
+            disabled={queueIngestionMutation.isPending || !accounts}
+            aria-label="Sync cloud data"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
+          >
+            <RefreshCw className={clsx('h-3.5 w-3.5', queueIngestionMutation.isPending && 'animate-spin')} />
+            <span className="hidden sm:inline">{queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => refreshDashboardMutation.mutate()}
+            disabled={refreshDashboardMutation.isPending}
+            aria-label={d.refreshData}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
+          >
+            <RefreshCw className={clsx('h-3.5 w-3.5', refreshDashboardMutation.isPending && 'animate-spin')} />
+          </button>
+        </div>
+      </div>
 
       {/* ═══ Connect prompt ═══ */}
       {accounts?.length === 0 && (
@@ -482,22 +534,40 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ═══ B. Provider Status Chips ═══ */}
+      {/* ═══ B. Provider Status Cards ═══ */}
       {filteredAccounts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {(['azure', 'aws', 'gcp'] as const).map((provider) => {
             const providerAccounts = filteredAccounts.filter((a) => a.provider === provider)
             if (providerAccounts.length === 0) return null
+
+            const providerColors = {
+              azure: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: '#0078D4' },
+              aws: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', icon: '#FF9900' },
+              gcp: { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700', icon: '#4285F4' },
+            }
+            const colors = providerColors[provider]
+
             return (
               <div
                 key={provider}
-                className="inline-flex items-center gap-2 rounded-panel border border-gray-light bg-white px-3 py-2 shadow-card-premium"
+                className={clsx(
+                  'flex items-center gap-3 rounded-panel border bg-white p-4 shadow-card-premium transition-all hover:shadow-panel-hover',
+                  colors.border
+                )}
               >
-                <CloudProviderIconBranded provider={provider} size={18} />
-                <span className="text-xs font-medium text-navy capitalize">{provider}</span>
-                <span className="rounded-full bg-gray-light px-2 py-0.5 text-[10px] font-semibold text-gray-cool">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+                  <CloudProviderIconBranded provider={provider} size={28} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={clsx('text-sm font-semibold capitalize', colors.text)}>{provider}</p>
+                  <p className="text-xs text-gray-cool">
+                    {providerAccounts.length} account{providerAccounts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className={clsx('rounded-full px-2.5 py-1 text-xs font-bold', colors.bg, colors.text)}>
                   {providerAccounts.length}
-                </span>
+                </div>
               </div>
             )
           })}
