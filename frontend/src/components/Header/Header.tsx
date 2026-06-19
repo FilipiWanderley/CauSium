@@ -25,9 +25,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const enterpriseShellEnabled = featureFlags.enterpriseShell
   const showBreadcrumbs = enterpriseShellEnabled && featureFlags.breadcrumbs
   const showScopeSelector = enterpriseShellEnabled && featureFlags.scopeSelector
-  // Hide header text section on dashboard routes - it's redundant with the sidebar
-  const normalizedPath = location.pathname.replace(/\/$/, '')
-  const isFinOpsDashboard = normalizedPath === '/app/dashboard' || normalizedPath === '/app/economics'
+  // Hide header text section on all /app routes - it's redundant with the sidebar
+  const isAppRoute = location.pathname.startsWith('/app')
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
@@ -114,7 +113,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             <Menu className="h-5 w-5" />
           </button>
 
-          {enterpriseShellEnabled && !isFinOpsDashboard ? (
+          {enterpriseShellEnabled && !isAppRoute ? (
             <div className="min-w-0 flex-1">
               {showBreadcrumbs && (
                 <nav className="mb-1.5 flex min-w-0 max-w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[11px] font-medium text-gray-cool xl:max-w-[720px]">
