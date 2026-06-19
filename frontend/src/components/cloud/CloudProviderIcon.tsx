@@ -2,12 +2,13 @@
  * CloudProviderIcon - Ícones oficiais de cloud providers
  *
  * Usa react-icons para AWS e GCP.
- * Usa SVG inline para Azure (logo oficial).
+ * Usa SVG oficial para Azure.
  */
 
 import { FaAws } from 'react-icons/fa'
 import { SiGooglecloud } from 'react-icons/si'
 import type { CloudProvider } from '../../types'
+import azureLogoSvg from '../../assets/cloud/azure.svg'
 
 export interface CloudProviderIconProps {
   /** Provedor de nuvem */
@@ -39,29 +40,18 @@ const PROVIDER_TITLES: Record<CloudProvider, string> = {
 }
 
 /**
- * Logo SVG inline do Azure (logo oficial simplificado)
- * Representa o "A" do Azure com as cores corretas
+ * Ícone do Azure usando SVG oficial
  */
 function AzureIcon({ size, className }: { size: number; className?: string }) {
   return (
-    <svg
+    <img
+      src={azureLogoSvg}
+      alt="Azure"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
       className={className}
-      aria-hidden="true"
-    >
-      {/* Azure logo - triângulo stylizado */}
-      <path
-        d="M3 18L12 6L21 18H3Z"
-        fill="#0078D4"
-      />
-      <path
-        d="M3 18L12 10L21 18H3Z"
-        fill="#00A4EF"
-      />
-    </svg>
+      style={{ objectFit: 'contain' }}
+    />
   )
 }
 

@@ -243,30 +243,35 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
       : null
 
   // Desktop-optimized margins and tick sizes
-  const margin = { top: 14, right: 8, left: -10, bottom: 6 }
+  const margin = { top: 16, right: 12, left: -8, bottom: 8 }
   const tickFontSize = 11
   const yAxisWidth = 72
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 [&_.recharts-wrapper]:!overflow-visible">
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={formatted} margin={margin}>
           <defs>
             <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0FA287" stopOpacity={0.2} />
-              <stop offset="55%" stopColor="#0FA287" stopOpacity={0.08} />
-              <stop offset="95%" stopColor="#0FA287" stopOpacity={0} />
+              <stop offset="0%" stopColor="#0FA287" stopOpacity={0.25} />
+              <stop offset="40%" stopColor="#0FA287" stopOpacity={0.12} />
+              <stop offset="100%" stopColor="#0FA287" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid vertical={false} strokeDasharray="2 4" stroke="#E5E7EB" />
+          <CartesianGrid
+            vertical={false}
+            strokeDasharray="1 3"
+            stroke="#E5E7EB"
+            strokeOpacity={0.8}
+          />
           <XAxis
             dataKey="dateLabel"
             tick={{ fontSize: tickFontSize, fill: '#64748B' }}
             tickLine={false}
             axisLine={false}
             interval="preserveStartEnd"
-            minTickGap={24}
-            tickMargin={8}
+            minTickGap={28}
+            tickMargin={10}
           />
           <YAxis
             tickFormatter={(value) => formatAxisValue(value, currency)}
@@ -274,15 +279,26 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
             tickLine={false}
             axisLine={false}
             width={yAxisWidth}
-            tickMargin={8}
+            tickMargin={10}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            content={<CustomTooltip />}
+            wrapperStyle={{ zIndex: 9999, position: 'relative' }}
+            cursor={{ stroke: '#0FA287', strokeWidth: 1.5, strokeDasharray: '3 3', strokeOpacity: 0.5 }}
+          />
           {averageCost > 0 && (
             <ReferenceLine
               y={averageCost}
               stroke="#94a3b8"
-              strokeDasharray="4 4"
-              strokeOpacity={0.6}
+              strokeDasharray="5 5"
+              strokeOpacity={0.5}
+              label={{
+                value: 'Avg',
+                position: 'insideTopRight',
+                fill: '#94a3b8',
+                fontSize: 10,
+                className: 'text-slate-400',
+              }}
             />
           )}
           {buildRefLines(refEvents)}
@@ -293,32 +309,41 @@ export function CostTrendChart({ data, events = [], height = 248, currency = 'US
             strokeWidth={2.5}
             fill="url(#costGradient)"
             dot={<EventDot />}
-            activeDot={{ r: 6, fill: '#0FA287', stroke: '#fff', strokeWidth: 2 }}
+            activeDot={{ r: 7, fill: '#0FA287', stroke: '#fff', strokeWidth: 2.5 }}
           />
         </AreaChart>
       </ResponsiveContainer>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs">
-        {latestPoint && (
-          <span className="font-medium text-slate-700">
-            Latest: <span className="text-slate-900">{formatMoney(latestPoint.cost_usd, currency)}</span>
-          </span>
-        )}
-        {formatted.length > 0 && (
-          <span className="text-slate-500">
-            Avg: <span className="font-medium text-slate-700">{formatMoney(averageCost, currency)}</span>
-          </span>
-        )}
+      {/* Legend - Premium style */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-light/60 bg-slate-50/50 px-1 py-3 -mx-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-teal-500" />
+            <span className="text-slate-600">Daily Cost</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-px w-4 border-t-2 border-dashed border-slate-400" />
+            <span className="text-slate-500">Average</span>
+          </div>
+          {events.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              <span className="text-slate-500">Event</span>
+            </div>
+          )}
+        </div>
         {latestPoint && firstPoint && (
-          <span className={periodDelta >= 0 ? 'text-rose-600' : 'text-teal-600'}>
-            Δ {periodDelta > 0 ? '+' : ''}{formatMoney(periodDelta, currency)}
-            {periodDeltaPct == null ? '' : ` (${periodDeltaPct > 0 ? '+' : ''}${periodDeltaPct.toFixed(1)}%)`}
+          <span className={clsx(
+            'mr-3 text-sm font-semibold tabular-nums',
+            periodDelta >= 0 ? 'text-rose-600' : 'text-teal-600'
+          )}>
+            {periodDelta >= 0 ? '↑' : '↓'} {Math.abs(periodDeltaPct ?? 0).toFixed(1)}%
           </span>
         )}
       </div>
 
       {events.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-slate-100 pt-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
           {(Object.keys(EVENT_COLOR) as ChangeEventType[])
             .filter((t) => events.some((e) => e.event_type === t))
             .map((t) => (

@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from 'recharts'
+import {
   AlertTriangle,
   ArrowRight,
   ChevronDown,
@@ -413,105 +420,102 @@ export function DashboardPage() {
       )}
 
       {/* ═══ A. Toolbar - Filters & Actions ═══ */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left: Breadcrumb hint + Action message */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-cool">
-            <span className="font-medium text-navy">{d.title}</span>
-            <ChevronRight className="h-3 w-3 text-gray-light" />
-            <span>{providerLabelMap[providerFilter]}</span>
-          </div>
-          {actionMessage && (
-            <span className={clsx(
-              'hidden sm:inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
-              actionMessage.kind === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-            )}>
-              {actionMessage.text}
-            </span>
-          )}
-        </div>
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				{/* Left: Title + Action message */}
+				<div className="flex flex-wrap items-center gap-2 gap-x-3">
+					<h1 className="text-sm font-semibold text-navy">{d.title}</h1>
+					{actionMessage && (
+						<span className={clsx(
+							'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
+							actionMessage.kind === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+						)}>
+							{actionMessage.text}
+						</span>
+					)}
+				</div>
 
-        {/* Right: Filter controls */}
-        <div className="flex items-center gap-2">
-          {/* Provider filter - Premium dropdown with accessibility */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setProviderMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={providerMenuOpen}
-              aria-label={`Filter by provider. Current: ${providerLabelMap[providerFilter]}`}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-            >
-              <CloudProviderIconBranded provider={providerFilter === 'all' ? 'azure' : providerFilter as CloudProvider} size={16} />
-              <span className="hidden sm:inline">{providerLabelMap[providerFilter]}</span>
-              <span className="sm:hidden">{providerFilter === 'all' ? 'All' : providerFilter}</span>
-              <ChevronDown className={clsx('h-3 w-3 text-gray-cool transition-transform', providerMenuOpen && 'rotate-180')} />
-            </button>
-            {providerMenuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-light bg-white p-1 shadow-panel-elevated"
-              >
-                {DASHBOARD_PROVIDERS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { setProviderFilterRaw(opt); setProviderMenuOpen(false) }}
-                    className={clsx(
-                      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
-                      opt === providerFilter ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-gray-light/50'
-                    )}
-                  >
-                    <CloudProviderIconBranded provider={opt === 'all' ? 'azure' : opt as CloudProvider} size={16} />
-                    <span>{providerLabelMap[opt]}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+				{/* Right: Filter controls */}
+				<div className="flex flex-wrap items-center gap-2">
+					{/* Provider filter */}
+					<div className="relative">
+						<button
+							type="button"
+							onClick={() => setProviderMenuOpen((v) => !v)}
+							aria-haspopup="menu"
+							aria-expanded={providerMenuOpen}
+							aria-label={`Filter by provider. Current: ${providerLabelMap[providerFilter]}`}
+							className="inline-flex items-center gap-2 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+						>
+							<CloudProviderIconBranded provider={providerFilter === 'all' ? 'azure' : providerFilter as CloudProvider} size={16} />
+							<span className="hidden sm:inline">{providerLabelMap[providerFilter]}</span>
+							<span className="sm:hidden">{providerFilter === 'all' ? 'All' : providerFilter}</span>
+							<ChevronDown className={clsx('h-3 w-3 text-gray-cool transition-transform', providerMenuOpen && 'rotate-180')} />
+						</button>
+						{providerMenuOpen && (
+							<div
+								role="menu"
+								className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-light bg-white p-1 shadow-panel-elevated"
+							>
+								{DASHBOARD_PROVIDERS.map((opt) => (
+									<button
+										key={opt}
+										type="button"
+										role="menuitem"
+										onClick={() => { setProviderFilterRaw(opt); setProviderMenuOpen(false) }}
+										className={clsx(
+											'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
+											opt === providerFilter ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-gray-light/50'
+										)}
+									>
+										<CloudProviderIconBranded provider={opt === 'all' ? 'azure' : opt as CloudProvider} size={16} />
+										<span>{providerLabelMap[opt]}</span>
+									</button>
+								))}
+							</div>
+						)}
+					</div>
 
-          {/* Subscription filter */}
-          <select
-            value={hasMultipleSubscriptions ? subscriptionId : ''}
-            onChange={(e) => setSubscriptionId(e.target.value)}
-            disabled={!hasMultipleSubscriptions || subscriptionsLoading || subscriptionsError}
-            aria-label="Filter by subscription"
-            className="rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-gray-light/50 disabled:text-gray-cool"
-          >
-            {subscriptionsLoading ? <option value="">{d.subscriptionLoading}</option>
-              : subscriptionsError ? <option value="">{d.subscriptionUnavailable}</option>
-              : hasMultipleSubscriptions ? (<><option value="">{d.allSubscriptionsConsolidated}</option>{subscriptionsData?.items.map((s) => <option key={s.subscription_id} value={s.subscription_id}>{s.subscription_name || `${s.subscription_id.slice(0, 8)}…`}</option>)}</>)
-              : <option value="">{singleSubscriptionName}</option>}
-          </select>
+					{/* Subscription filter */}
+					<select
+						value={hasMultipleSubscriptions ? subscriptionId : ''}
+						onChange={(e) => setSubscriptionId(e.target.value)}
+						disabled={!hasMultipleSubscriptions || subscriptionsLoading || subscriptionsError}
+						aria-label="Filter by subscription"
+						className="rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 disabled:cursor-not-allowed disabled:bg-gray-light/50 disabled:text-gray-cool"
+					>
+						{subscriptionsLoading ? <option value="">{d.subscriptionLoading}</option>
+							: subscriptionsError ? <option value="">{d.subscriptionUnavailable}</option>
+							: hasMultipleSubscriptions ? (<><option value="">{d.allSubscriptionsConsolidated}</option>{subscriptionsData?.items.map((s) => <option key={s.subscription_id} value={s.subscription_id}>{s.subscription_name || `${s.subscription_id.slice(0, 8)}…`}</option>)}</>)
+							: <option value="">{singleSubscriptionName}</option>}
+					</select>
 
-          {/* Divider */}
-          <div className="hidden sm:block h-6 w-px bg-gray-light" />
+					{/* Divider */}
+					<div className="hidden sm:block h-6 w-px bg-gray-light" />
 
-          {/* Action buttons */}
-          <button
-            type="button"
-            onClick={() => queueIngestionMutation.mutate()}
-            disabled={queueIngestionMutation.isPending || !accounts}
-            aria-label="Sync cloud data"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
-          >
-            <RefreshCw className={clsx('h-3.5 w-3.5', queueIngestionMutation.isPending && 'animate-spin')} />
-            <span className="hidden sm:inline">{queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}</span>
-          </button>
+					{/* Sync button */}
+					<button
+						type="button"
+						onClick={() => queueIngestionMutation.mutate()}
+						disabled={queueIngestionMutation.isPending || !accounts}
+						aria-label="Sync cloud data"
+						className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
+					>
+						<RefreshCw className={clsx('h-3.5 w-3.5', queueIngestionMutation.isPending && 'animate-spin')} />
+						<span className="hidden sm:inline">{queueIngestionMutation.isPending ? d.queueingIngestion : d.queueIngestion}</span>
+					</button>
 
-          <button
-            type="button"
-            onClick={() => refreshDashboardMutation.mutate()}
-            disabled={refreshDashboardMutation.isPending}
-            aria-label={d.refreshData}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
-          >
-            <RefreshCw className={clsx('h-3.5 w-3.5', refreshDashboardMutation.isPending && 'animate-spin')} />
-          </button>
-        </div>
-      </div>
+					{/* Refresh button */}
+					<button
+						type="button"
+						onClick={() => refreshDashboardMutation.mutate()}
+						disabled={refreshDashboardMutation.isPending}
+						aria-label={d.refreshData}
+						className="inline-flex items-center gap-1.5 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-light disabled:hover:shadow-card-premium"
+					>
+						<RefreshCw className={clsx('h-3.5 w-3.5', refreshDashboardMutation.isPending && 'animate-spin')} />
+					</button>
+				</div>
+			</div>
 
       {/* ═══ Connect prompt ═══ */}
       {accounts?.length === 0 && (
@@ -730,25 +734,88 @@ export function DashboardPage() {
           <BudgetWidget />
         </div>
 
-        {/* Top Services Composition */}
+        {/* Top Services Composition with Donut */}
         <Panel compact>
           <PanelHeader title={d.topServices} />
           {metrics?.top_services && metrics.top_services.length > 0 ? (
-            <ul className="mt-3 space-y-2.5">
-              {metrics.top_services.slice(0, 5).map((s) => (
-                <li key={s.service} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium text-slate-700 truncate">{s.service}</p>
-                      <span className="text-xs font-semibold tabular-nums text-slate-600 shrink-0">{s.percentage.toFixed(1)}%</span>
+            <div className="mt-3">
+              {/* Desktop: Donut + List side by side */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                {/* Donut Chart */}
+                <div className="flex-shrink-0 mx-auto sm:mx-0">
+                  <ResponsiveContainer width={140} height={140}>
+                    <PieChart>
+                      <Pie
+                        data={metrics.top_services.slice(0, 5).map((s) => ({
+                          name: s.service,
+                          value: s.percentage,
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={42}
+                        outerRadius={60}
+                        paddingAngle={2}
+                        dataKey="value"
+                        strokeWidth={0}
+                      >
+                        {metrics.top_services.slice(0, 5).map((_, i) => (
+                          <Cell
+                            key={`cell-${i}`}
+                            fill={i === 0 ? '#0FA287' : i === 1 ? '#0FA287cc' : i === 2 ? '#0FA28788' : '#64748Baa'}
+                          />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(value: number) => [`${value.toFixed(1)}%`, 'Share']}
+                        contentStyle={{
+                          background: 'white',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        }}
+                      />
+                      {/* Center label */}
+                      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-navy" style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {metrics.top_services.length > 0 ? `${metrics.top_services.length}` : '5'}
+                      </text>
+                      <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-gray-cool" style={{ fontSize: '10px' }}>
+                        services
+                      </text>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Service List with Bars */}
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  {metrics.top_services.slice(0, 5).map((s, i) => (
+                    <div key={s.service} className="group">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{
+                              backgroundColor: i === 0 ? '#0FA287' : i === 1 ? '#0FA287cc' : i === 2 ? '#0FA28788' : '#64748Baa'
+                            }}
+                          />
+                          <p className="text-xs font-medium text-slate-700 truncate">{s.service}</p>
+                        </div>
+                        <span className="text-xs font-bold tabular-nums text-navy shrink-0">{s.percentage.toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden ml-4">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out group-hover:opacity-80"
+                          style={{
+                            width: `${s.percentage}%`,
+                            backgroundColor: i === 0 ? '#0FA287' : i === 1 ? '#0FA287cc' : i === 2 ? '#0FA28788' : '#64748Baa'
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-1 h-1 rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${s.percentage}%` }} />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="flex h-36 items-center justify-center text-xs text-slate-400">{d.noServiceData}</div>
           )}
