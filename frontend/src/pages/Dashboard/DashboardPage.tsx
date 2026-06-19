@@ -26,7 +26,6 @@ import { BudgetWidget } from '../../components/Cards/BudgetWidget'
 import { CostTrendChart } from '../../components/Charts/CostTrendChart'
 import { ChartPanel } from '../../components/Charts/ChartPanel'
 import { Panel, PanelHeader } from '../../components/Layout/Panel'
-import { PageHeader } from '../../components/Layout/PageHeader'
 import { ReconciliationBadge } from '../../components/UX/ReconciliationBadge'
 import { EmptyState } from '../../components/UX/EmptyState'
 import { ErrorState } from '../../components/UX/ErrorState'
@@ -228,12 +227,18 @@ export function DashboardPage() {
     },
   })
 
+  // Build set of connected providers for UI chips
+  const connectedProviders = new Set(
+    (accounts ?? [])
+      .map((a) => a.provider)
+      .filter((p): p is CloudProvider => p === 'azure' || p === 'aws' || p === 'gcp')
+  )
+
   useEffect(() => {
     if (!accounts || accounts.length === 0 || providerFilter === 'all') return
-    const connected = new Set(accounts.map((a) => a.provider).filter((p): p is CloudProvider => p === 'azure' || p === 'aws' || p === 'gcp'))
-    if (connected.has(providerFilter)) return
-    setProviderFilterRaw(connected.size === 1 ? [...connected][0] : 'all')
-  }, [accounts, providerFilter, setProviderFilterRaw])
+    if (connectedProviders.has(providerFilter)) return
+    setProviderFilterRaw(connectedProviders.size === 1 ? [...connectedProviders][0] : 'all')
+  }, [accounts, providerFilter, setProviderFilterRaw, connectedProviders])
 
   const { data: summary } = useQuery({
     queryKey: ['opportunities', 'summary'],
@@ -279,7 +284,6 @@ export function DashboardPage() {
   if (metricsLoading) {
     return (
       <div className="page-container">
-        <PageHeader title={d.title} subtitle={d.operationsSection} />
         <SkeletonMetricCards count={4} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
           <SkeletonSection lines={8} />
@@ -419,11 +423,45 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ═══ A. Toolbar - Filters & Actions ═══ */}
+      {/* ═══ A. Toolbar - Providers & Actions ═══ */}
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				{/* Left: Title + Action message */}
-				<div className="flex flex-wrap items-center gap-2 gap-x-3">
-					<h1 className="text-sm font-semibold text-navy">{d.title}</h1>
+				{/* Left: Cloud Provider chips */}
+				<div className="flex flex-wrap items-center gap-2">
+					{(['azure', 'aws', 'gcp'] as CloudProvider[]).map((p) => {
+						const isConnected = connectedProviders.has(p)
+						const isSelected = providerFilter === p
+						const isAllSelected = providerFilter === 'all'
+						const isActive = isSelected || (isAllSelected && isConnected)
+
+						return (
+							<button
+								key={p}
+								type="button"
+								onClick={() => isConnected && setProviderFilterRaw(p)}
+								disabled={!isConnected}
+								aria-label={isConnected ? `Filter by ${providerLabelMap[p]}` : `${providerLabelMap[p]} - not connected`}
+								aria-pressed={isActive}
+								className={clsx(
+									'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150',
+									isActive && isConnected
+										? 'border-teal-400 bg-teal-50/80 text-teal-700 shadow-sm ring-1 ring-teal-400/30'
+										: isConnected
+										? 'border-gray-light bg-white text-navy shadow-card-premium hover:border-teal-300 hover:bg-teal-50/50 hover:shadow-panel-hover focus:outline-none focus:ring-2 focus:ring-teal-500/30'
+										: 'border-gray-light/50 bg-gray-light/20 text-gray-cool cursor-not-allowed'
+								)}
+							>
+								<CloudProviderIconBranded
+									provider={p}
+									size={14}
+									className={isConnected ? '' : 'opacity-40'}
+								/>
+								<span className="hidden sm:inline">{providerLabelMap[p]}</span>
+								{!isConnected && (
+									<span className="text-[10px] font-normal italic opacity-60">Not connected</span>
+								)}
+							</button>
+						)
+					})}
 					{actionMessage && (
 						<span className={clsx(
 							'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium',
@@ -436,45 +474,6 @@ export function DashboardPage() {
 
 				{/* Right: Filter controls */}
 				<div className="flex flex-wrap items-center gap-2">
-					{/* Provider filter */}
-					<div className="relative">
-						<button
-							type="button"
-							onClick={() => setProviderMenuOpen((v) => !v)}
-							aria-haspopup="menu"
-							aria-expanded={providerMenuOpen}
-							aria-label={`Filter by provider. Current: ${providerLabelMap[providerFilter]}`}
-							className="inline-flex items-center gap-2 rounded-lg border border-gray-light bg-white px-3 py-2 text-xs font-medium text-navy shadow-card-premium transition-all hover:border-teal-400 hover:shadow-panel-hover focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-						>
-							<CloudProviderIconBranded provider={providerFilter === 'all' ? 'azure' : providerFilter as CloudProvider} size={16} />
-							<span className="hidden sm:inline">{providerLabelMap[providerFilter]}</span>
-							<span className="sm:hidden">{providerFilter === 'all' ? 'All' : providerFilter}</span>
-							<ChevronDown className={clsx('h-3 w-3 text-gray-cool transition-transform', providerMenuOpen && 'rotate-180')} />
-						</button>
-						{providerMenuOpen && (
-							<div
-								role="menu"
-								className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-light bg-white p-1 shadow-panel-elevated"
-							>
-								{DASHBOARD_PROVIDERS.map((opt) => (
-									<button
-										key={opt}
-										type="button"
-										role="menuitem"
-										onClick={() => { setProviderFilterRaw(opt); setProviderMenuOpen(false) }}
-										className={clsx(
-											'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors',
-											opt === providerFilter ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-gray-light/50'
-										)}
-									>
-										<CloudProviderIconBranded provider={opt === 'all' ? 'azure' : opt as CloudProvider} size={16} />
-										<span>{providerLabelMap[opt]}</span>
-									</button>
-								))}
-							</div>
-						)}
-					</div>
-
 					{/* Subscription filter */}
 					<select
 						value={hasMultipleSubscriptions ? subscriptionId : ''}
