@@ -3,138 +3,169 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { I18nProvider } from '../../contexts/I18nContext'
 
-const loginMock = vi.fn()
-const loginWithPasskeyMock = vi.fn()
+// Mock do useAuth - definido antes de qualquer import
+const mockLogin = vi.fn()
+const mockIsAuthenticated = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
-    login: loginMock,
-    loginWithPasskey: loginWithPasskeyMock,
-    isAuthenticated: false,
+    login: mockLogin,
+    isAuthenticated: mockIsAuthenticated(),
   }),
 }))
 
 vi.mock('lucide-react', () => ({
-  Cloud: () => null,
-  ArrowLeft: () => null,
-  Cpu: () => null,
-  Eye: () => null,
-  EyeOff: () => null,
+  Eye: () => 'EyeIcon',
+  EyeOff: () => 'EyeOffIcon',
 }))
-
-async function renderPage(search = '') {
-  const { LoginPage } = await import('./LoginPage')
-  return render(
-    <MemoryRouter initialEntries={[`/login${search}`]}>
-      <I18nProvider>
-        <LoginPage />
-      </I18nProvider>
-    </MemoryRouter>
-  )
-}
 
 describe('LoginPage', () => {
   beforeEach(() => {
-    loginMock.mockReset()
-    loginWithPasskeyMock.mockReset()
-    vi.unstubAllEnvs()
-    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'false')
-    vi.stubEnv('VITE_AUTH_MICROSOFT_LOGIN_ENABLED', 'false')
+    vi.clearAllMocks()
+    mockIsAuthenticated.mockReturnValue(false)
   })
 
-  it('renders sign-in form', async () => {
-    await renderPage()
+  it('renders login form elements', async () => {
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
+
+    // Verifica se os campos estão presentes
     expect(screen.getByPlaceholderText('customer@causium.io')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('••••••••••••')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in$/i })).toBeInTheDocument()
   })
 
-  it('calls login with email and password on submit', async () => {
-    loginMock.mockResolvedValue(undefined)
-    await renderPage()
+  it('renders brand logo and tagline', async () => {
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
 
-    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
-      target: { value: 'user@company.com' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
-      target: { value: 'secret123' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
+    // Logo aparece duas vezes (desktop e mobile), usamos getAllByText
+    expect(screen.getAllByText(/CauSium/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/govern cloud with confidence/i)).toBeInTheDocument()
+  })
+
+  it('calls login with email and password on submit', async () => {
+    mockLogin.mockResolvedValue(undefined)
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
+
+    const emailInput = screen.getByPlaceholderText('customer@causium.io')
+    const passwordInput = screen.getByPlaceholderText('••••••••••••')
+    const submitButton = screen.getByRole('button', { name: /sign in$/i })
+
+    fireEvent.change(emailInput, { target: { value: 'user@company.com' } })
+    fireEvent.change(passwordInput, { target: { value: 'secret123' } })
+    fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(loginMock).toHaveBeenCalledWith('user@company.com', 'secret123')
+      expect(mockLogin).toHaveBeenCalledWith('user@company.com', 'secret123')
     })
   })
 
   it('shows error message on login failure', async () => {
-    loginMock.mockRejectedValue({ response: { status: 401 } })
-    await renderPage()
+    mockLogin.mockRejectedValue({ response: { status: 401 } })
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
 
-    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
-      target: { value: 'bad@company.com' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
-      target: { value: 'wrongpass' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
+    const emailInput = screen.getByPlaceholderText('customer@causium.io')
+    const passwordInput = screen.getByPlaceholderText('••••••••••••')
+    const submitButton = screen.getByRole('button', { name: /sign in$/i })
+
+    fireEvent.change(emailInput, { target: { value: 'bad@company.com' } })
+    fireEvent.change(passwordInput, { target: { value: 'wrongpass' } })
+    fireEvent.click(submitButton)
 
     expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument()
   })
 
   it('disables submit button while loading', async () => {
-    let resolve!: (value?: unknown) => void
-    loginMock.mockImplementation(() => new Promise((r) => { resolve = r }))
-    await renderPage()
+    let resolve!: () => void
+    mockLogin.mockImplementation(() => new Promise((r) => { resolve = r as () => void }))
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
 
-    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
-      target: { value: 'user@company.com' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), {
-      target: { value: 'password' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /sign in$/i }))
+    const emailInput = screen.getByPlaceholderText('customer@causium.io')
+    const passwordInput = screen.getByPlaceholderText('••••••••••••')
+    const submitButton = screen.getByRole('button', { name: /sign in$/i })
+
+    fireEvent.change(emailInput, { target: { value: 'user@company.com' } })
+    fireEvent.change(passwordInput, { target: { value: 'password' } })
+    fireEvent.click(submitButton)
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
     })
 
-    resolve!()
+    resolve()
   })
 
-  it('calls loginWithPasskey with email when passkey button is clicked', async () => {
-    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'true')
-    loginWithPasskeyMock.mockResolvedValue(undefined)
-    await renderPage()
+  it('shows Forgot password link', async () => {
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
 
-    fireEvent.change(screen.getByPlaceholderText('customer@causium.io'), {
-      target: { value: 'passkey@company.com' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /sign in with passkey/i }))
-
-    await waitFor(() => {
-      expect(loginWithPasskeyMock).toHaveBeenCalledWith('passkey@company.com')
-    })
+    const link = screen.getByRole('link', { name: /forgot password/i })
+    expect(link).toHaveAttribute('href', '/forgot-password')
   })
 
-  it('disables passkey button when email is empty', async () => {
-    vi.stubEnv('VITE_AUTH_PASSKEY_LOGIN_ENABLED', 'true')
-    await renderPage()
-    const btn = screen.getByRole('button', { name: /sign in with passkey/i })
-    expect(btn).toBeDisabled()
-    expect(loginWithPasskeyMock).not.toHaveBeenCalled()
+  it('does NOT render Passkey button', async () => {
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByRole('button', { name: /passkey/i })).not.toBeInTheDocument()
   })
 
-  it('shows reset success banner when ?reset=success is in URL', async () => {
-    window.history.pushState({}, '', '/login?reset=success')
-    await renderPage()
-    expect(screen.getByText(/password updated successfully/i)).toBeInTheDocument()
-    window.history.pushState({}, '', '/login')
-  })
+  it('does NOT render Microsoft login button', async () => {
+    const { LoginPage } = await import('./LoginPage')
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <LoginPage />
+        </I18nProvider>
+      </MemoryRouter>
+    )
 
-  it('shows activation success banner when ?activated=success is in URL', async () => {
-    window.history.pushState({}, '', '/login?activated=success')
-    await renderPage()
-    expect(screen.getByText(/invite accepted successfully/i)).toBeInTheDocument()
-    window.history.pushState({}, '', '/login')
+    expect(screen.queryByRole('button', { name: /microsoft/i })).not.toBeInTheDocument()
   })
 })

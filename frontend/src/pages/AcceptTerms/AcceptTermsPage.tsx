@@ -1,8 +1,39 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Cpu, FileText } from 'lucide-react'
+import { ArrowLeft, FileText } from 'lucide-react'
 import { authApi } from '../../api/auth'
 import { useAuth } from '../../hooks/useAuth'
+
+// CauSium Enterprise Logo SVG
+function CausiumLogo({ variant = 'dark' }: { variant?: 'dark' | 'light' }) {
+  const textColor = variant === 'dark' ? '#0f172a' : '#ffffff'
+  const accentColor = '#0d9488'
+
+  return (
+    <svg
+      width="130"
+      height="30"
+      viewBox="0 0 130 30"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="CauSium"
+    >
+      <g transform="translate(0, 2)">
+        <path
+          d="M4 18C2 18 0.5 16.5 0.5 14.5C0.5 12.8 1.6 11.4 3.1 11C3 10.6 2.95 10.2 2.95 9.75C2.95 7.4 4.85 5.5 7.2 5.5C9.55 5.5 11.45 7.4 11.45 9.75C11.45 10.2 11.4 10.6 11.3 11C12.8 11.4 13.9 12.8 13.9 14.5C13.9 16.5 12.4 18 10.4 18H4Z"
+          fill={accentColor}
+          opacity="0.9"
+        />
+        <rect x="1.5" y="19" width="2" height="6" rx="0.5" fill={accentColor} opacity="0.7" />
+        <rect x="5" y="20" width="1.5" height="5" rx="0.5" fill={accentColor} opacity="0.6" />
+        <rect x="8" y="19" width="2" height="6" rx="0.5" fill={accentColor} opacity="0.7" />
+      </g>
+      <text x="22" y="21" fontFamily="system-ui, -apple-system, sans-serif" fontSize="18" fontWeight="600" fill={textColor}>
+        CauSium
+      </text>
+    </svg>
+  )
+}
 
 export function AcceptTermsPage() {
   const { refreshUser } = useAuth()
@@ -29,151 +60,138 @@ export function AcceptTermsPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#020202] text-white">
-      <style>{`
-        .login-app-container { isolation: isolate; }
-        .login-tech-grid {
-          background-image:
-            linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-          background-size: 60px 60px;
-          background-position: center;
-          mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 10%, transparent 80%);
-          -webkit-mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 10%, transparent 80%);
-        }
-        .login-beam {
-          position: absolute;
-          width: 1px;
-          background: linear-gradient(to bottom, transparent, rgba(70, 75, 140, 0.4), transparent);
-          box-shadow: 0 0 20px rgba(70, 75, 140, 0.2);
-          animation: loginBeamDrop linear infinite;
-          opacity: 0;
-          will-change: transform, opacity;
-        }
-        .login-beam-purple {
-          background: linear-gradient(to bottom, transparent, rgba(95, 75, 140, 0.4), transparent);
-          box-shadow: 0 0 20px rgba(95, 75, 140, 0.2);
-        }
-        .login-beam-1 { left: 20%; animation-duration: 8s; animation-delay: 1s; height: 180px; }
-        .login-beam-2 { left: 35%; animation-duration: 11s; animation-delay: 4s; height: 260px; }
-        .login-beam-3 { left: 50%; animation-duration: 7s; animation-delay: 0.5s; height: 140px; }
-        .login-beam-4 { left: 68%; animation-duration: 9s; animation-delay: 3s; height: 220px; }
-        .login-beam-5 { left: 85%; animation-duration: 6.5s; animation-delay: 2s; height: 190px; }
-        @keyframes loginBeamDrop {
-          0% { transform: translateY(-20vh); opacity: 0; }
-          20% { opacity: 1; }
-          80% { opacity: 1; }
-          100% { transform: translateY(120vh); opacity: 0; }
-        }
-        .login-glass-card {
-          background: rgba(6, 6, 18, 0.84);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.08), inset 0 1px 0 rgba(255,255,255,0.06);
-        }
-      `}</style>
+    <div className="min-h-screen w-full bg-slate-50">
+      <div className="flex min-h-screen">
+        {/* LEFT COLUMN - Enterprise branding (hidden on mobile) */}
+        <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col justify-center bg-[#0f172a] p-10 xl:p-16 relative overflow-hidden">
+          {/* Background gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-[#0d9488]/10 via-transparent to-transparent" />
 
-      <div className="login-app-container flex min-h-screen flex-col items-center justify-center">
-        <div className="absolute inset-0 -z-20 bg-[#020202]" />
-        <div className="login-tech-grid pointer-events-none absolute inset-0 z-0" />
-        <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="login-beam login-beam-1" />
-          <div className="login-beam login-beam-2 login-beam-purple" />
-          <div className="login-beam login-beam-3" />
-          <div className="login-beam login-beam-4 login-beam-purple" />
-          <div className="login-beam login-beam-5" />
-        </div>
-        <div className="pointer-events-none absolute inset-0 z-0 bg-[#020202]/40" />
+          {/* Grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+              backgroundSize: '60px 60px',
+            }}
+          />
 
-        <div className="relative z-10 flex w-full max-w-xl flex-col items-center px-6">
-          <button
-            type="button"
-            onClick={() => navigate('/login')}
-            className="fixed left-8 top-8 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white group"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Back to sign in
-          </button>
-
-          <div className="mb-9 w-full text-center">
-            <div
-              className="absolute left-1/2 -z-[1] h-64 w-96 -translate-x-1/2 -translate-y-8 rounded-full"
-              style={{ background: 'radial-gradient(ellipse at center, rgba(2,2,8,0.75) 0%, transparent 72%)' }}
-            />
-            <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/40 px-4 py-2 backdrop-blur-sm">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/[0.08]">
-                <Cpu className="h-4.5 w-4.5 text-white" strokeWidth={1.5} />
-              </span>
-              <span className="text-sm font-semibold uppercase tracking-[0.18em] text-white">CauSium</span>
+          {/* Content */}
+          <div className="relative z-10 max-w-md">
+            {/* Logo */}
+            <div className="mb-10">
+              <CausiumLogo variant="light" />
             </div>
-            <h1 className="text-[25px] font-semibold tracking-tight text-white" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>
-              Terms of Service Updated
+
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-[#0d9488]/15 flex items-center justify-center mb-6">
+              <FileText className="w-8 h-8 text-teal-400" />
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-3xl xl:text-4xl font-semibold text-white leading-tight mb-6">
+              Termos de uso
+              <br />
+              <span className="text-teal-400">atualizados</span>.
             </h1>
-            <p
-              className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed tracking-wide text-gray-200"
-              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.95)' }}
-            >
-              Review the updated legal terms and confirm acceptance before continuing to your workspace.
+
+            {/* Subtitle */}
+            <p className="text-slate-300 text-base xl:text-lg leading-relaxed">
+              Revise os termos legais atualizados e confirme a aceitação antes de continuar ao seu workspace.
             </p>
           </div>
+        </div>
 
-          <div className="login-glass-card w-full rounded-[20px] p-8 sm:p-9">
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-blue-300/20 bg-blue-500/10 p-4">
-              <FileText className="mt-0.5 h-5 w-5 shrink-0 text-blue-200" />
-              <div className="text-sm text-blue-100">
-                <p className="font-medium">What changed</p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-blue-100/90">
-                  <li>Updated data processing terms in accordance with LGPD requirements</li>
-                  <li>Clarified data retention and anonymization policies</li>
-                  <li>Added details about your data protection rights</li>
-                </ul>
-                <p className="mt-3">
-                  Full terms are available at{' '}
-                  <a href="/legal/terms" className="text-blue-200 underline hover:text-white">
-                    /legal/terms
-                  </a>
-                  . For data protection inquiries, contact our DPO at{' '}
-                  <a href="/legal/dpo-contact" className="text-blue-200 underline hover:text-white">
-                    /legal/dpo-contact
-                  </a>
-                  .
-                </p>
-              </div>
+        {/* RIGHT COLUMN - Form */}
+        <div className="flex w-full lg:w-1/2 xl:w-[45%] flex-col justify-center px-6 py-12 sm:px-8 lg:px-16 xl:px-20">
+          <div className="w-full max-w-md mx-auto">
+            {/* Mobile logo */}
+            <div className="lg:hidden mb-8 text-center">
+              <CausiumLogo variant="dark" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="w-12 h-12 rounded-xl bg-[#0d9488]/10 flex items-center justify-center mb-4">
+                <FileText className="w-6 h-6 text-teal-600" />
+              </div>
+              <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+                Terms of Service Updated
+              </h2>
+              <p className="text-slate-500 text-sm">
+                Review the updated legal terms and confirm acceptance before continuing to your workspace.
+              </p>
+            </div>
+
+            {/* Info box */}
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm font-medium text-blue-900 mb-2">What changed</p>
+              <ul className="text-sm text-blue-800 space-y-1.5 list-disc list-inside">
+                <li>Updated data processing terms in accordance with LGPD requirements</li>
+                <li>Clarified data retention and anonymization policies</li>
+                <li>Added details about your data protection rights</li>
+              </ul>
+              <p className="mt-3 text-sm text-blue-800">
+                Full terms are available at{' '}
+                <a href="/legal/terms" className="text-blue-700 underline hover:text-blue-900">
+                  /legal/terms
+                </a>
+                . For data protection inquiries, contact our DPO at{' '}
+                <a href="/legal/dpo-contact" className="text-blue-700 underline hover:text-blue-900">
+                  /legal/dpo-contact
+                </a>
+                .
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={accepted}
                   onChange={(e) => setAccepted(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/10 text-brand-600 focus:ring-brand-500"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                 />
-                <span className="text-sm leading-relaxed text-gray-200">
+                <span className="text-sm text-slate-600 leading-relaxed">
                   I have read and accept the updated Terms of Service and Privacy Policy. I understand
                   that CauSium processes my data in accordance with LGPD (Lei nº 13.709/2018).
                 </span>
               </label>
 
-              {error && (
-                <div className="rounded-lg border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                  {error}
-                </div>
-              )}
-
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={!accepted || loading}
-                className="mt-2 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full rounded-lg bg-[#0f172a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#0f172a]/50 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading ? 'Processing...' : 'Accept and continue'}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-[12px] text-gray-400">
+            {/* Footer */}
+            <p className="mt-6 text-center text-xs text-slate-400">
               CauSium is a decision support system. Your data rights remain protected under LGPD.
             </p>
+
+            {/* Back to login */}
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to sign in
+              </button>
+            </div>
           </div>
         </div>
       </div>

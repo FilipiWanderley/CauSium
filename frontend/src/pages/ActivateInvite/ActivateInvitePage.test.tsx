@@ -24,6 +24,8 @@ vi.mock('lucide-react', () => ({
   Cloud: () => null,
   ArrowLeft: () => null,
   Cpu: () => null,
+  Eye: () => null,
+  EyeOff: () => null,
 }))
 
 const PENDING_PREVIEW = {

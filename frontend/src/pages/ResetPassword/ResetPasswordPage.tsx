@@ -1,8 +1,39 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Cpu, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../../api/auth'
 import { useI18n } from '../../contexts/I18nContext'
+
+// CauSium Enterprise Logo SVG
+function CausiumLogo({ variant = 'dark' }: { variant?: 'dark' | 'light' }) {
+  const textColor = variant === 'dark' ? '#0f172a' : '#ffffff'
+  const accentColor = '#0d9488'
+
+  return (
+    <svg
+      width="130"
+      height="30"
+      viewBox="0 0 130 30"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="CauSium"
+    >
+      <g transform="translate(0, 2)">
+        <path
+          d="M4 18C2 18 0.5 16.5 0.5 14.5C0.5 12.8 1.6 11.4 3.1 11C3 10.6 2.95 10.2 2.95 9.75C2.95 7.4 4.85 5.5 7.2 5.5C9.55 5.5 11.45 7.4 11.45 9.75C11.45 10.2 11.4 10.6 11.3 11C12.8 11.4 13.9 12.8 13.9 14.5C13.9 16.5 12.4 18 10.4 18H4Z"
+          fill={accentColor}
+          opacity="0.9"
+        />
+        <rect x="1.5" y="19" width="2" height="6" rx="0.5" fill={accentColor} opacity="0.7" />
+        <rect x="5" y="20" width="1.5" height="5" rx="0.5" fill={accentColor} opacity="0.6" />
+        <rect x="8" y="19" width="2" height="6" rx="0.5" fill={accentColor} opacity="0.7" />
+      </g>
+      <text x="22" y="21" fontFamily="system-ui, -apple-system, sans-serif" fontSize="18" fontWeight="600" fill={textColor}>
+        CauSium
+      </text>
+    </svg>
+  )
+}
 
 export function ResetPasswordPage() {
   const { t } = useI18n()
@@ -67,225 +98,206 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#020202] text-white">
-      <style>{`
-        .login-app-container { isolation: isolate; }
-        .login-tech-grid {
-          background-image:
-            linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-          background-size: 60px 60px;
-          background-position: center;
-          mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 10%, transparent 80%);
-          -webkit-mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 10%, transparent 80%);
-        }
-        .login-beam {
-          position: absolute;
-          width: 1px;
-          background: linear-gradient(to bottom, transparent, rgba(70, 75, 140, 0.4), transparent);
-          box-shadow: 0 0 20px rgba(70, 75, 140, 0.2);
-          animation: loginBeamDrop linear infinite;
-          opacity: 0;
-          will-change: transform, opacity;
-        }
-        .login-beam-purple {
-          background: linear-gradient(to bottom, transparent, rgba(95, 75, 140, 0.4), transparent);
-          box-shadow: 0 0 20px rgba(95, 75, 140, 0.2);
-        }
-        .login-beam-1 { left: 20%; animation-duration: 8s; animation-delay: 1s; height: 180px; }
-        .login-beam-2 { left: 35%; animation-duration: 11s; animation-delay: 4s; height: 260px; }
-        .login-beam-3 { left: 50%; animation-duration: 7s; animation-delay: 0.5s; height: 140px; }
-        .login-beam-4 { left: 68%; animation-duration: 9s; animation-delay: 3s; height: 220px; }
-        .login-beam-5 { left: 85%; animation-duration: 6.5s; animation-delay: 2s; height: 190px; }
-        @keyframes loginBeamDrop {
-          0% { transform: translateY(-20vh); opacity: 0; }
-          20% { opacity: 1; }
-          80% { opacity: 1; }
-          100% { transform: translateY(120vh); opacity: 0; }
-        }
-        .login-glass-card {
-          background: rgba(6, 6, 18, 0.84);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.08), inset 0 1px 0 rgba(255,255,255,0.06);
-        }
-        .login-glass-input {
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          color: white;
-        }
-        .login-glass-input:hover {
-          border-color: rgba(255, 255, 255, 0.26);
-        }
-        .login-glass-input:focus {
-          background: rgba(255, 255, 255, 0.09);
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 1px #8b5cf6, 0 0 18px rgba(139, 92, 246, 0.25);
-        }
-      `}</style>
+    <div className="min-h-screen w-full bg-slate-50">
+      <div className="flex min-h-screen">
+        {/* LEFT COLUMN - Enterprise branding (hidden on mobile) */}
+        <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col justify-center bg-[#0f172a] p-10 xl:p-16 relative overflow-hidden">
+          {/* Background gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-[#0d9488]/10 via-transparent to-transparent" />
 
-      <div className="login-app-container flex min-h-screen flex-col items-center justify-center">
-        <div className="absolute inset-0 -z-20 bg-[#020202]" />
-        <div className="login-tech-grid pointer-events-none absolute inset-0 z-0" />
-        <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="login-beam login-beam-1" />
-          <div className="login-beam login-beam-2 login-beam-purple" />
-          <div className="login-beam login-beam-3" />
-          <div className="login-beam login-beam-4 login-beam-purple" />
-          <div className="login-beam login-beam-5" />
-        </div>
-        <div className="pointer-events-none absolute inset-0 z-0 bg-[#020202]/40" />
+          {/* Grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+              backgroundSize: '60px 60px',
+            }}
+          />
 
-        <div className="relative z-10 flex w-full max-w-lg flex-col items-center px-6">
-          <Link
-            to="/login"
-            className="fixed left-8 top-8 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white group"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            {rp.backToSignIn}
-          </Link>
-
-          <div className="mb-9 w-full text-center">
-            <div
-              className="absolute left-1/2 -z-[1] h-64 w-96 -translate-x-1/2 -translate-y-8 rounded-full"
-              style={{ background: 'radial-gradient(ellipse at center, rgba(2,2,8,0.75) 0%, transparent 72%)' }}
-            />
-            <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/40 px-4 py-2 backdrop-blur-sm">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/[0.08]">
-                <Cpu className="h-4.5 w-4.5 text-white" strokeWidth={1.5} />
-              </span>
-              <span className="text-sm font-semibold uppercase tracking-[0.18em] text-white">CauSium</span>
+          {/* Content */}
+          <div className="relative z-10 max-w-md">
+            {/* Logo */}
+            <div className="mb-10">
+              <CausiumLogo variant="light" />
             </div>
-            <h1 className="text-[25px] font-semibold tracking-tight text-white" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>
-              {rp.title}
+
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-[#0d9488]/15 flex items-center justify-center mb-6">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-3xl xl:text-4xl font-semibold text-white leading-tight mb-6">
+              Crie uma nova
+              <br />
+              <span className="text-teal-400">senha segura</span>.
             </h1>
-            <p
-              className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed tracking-wide text-gray-200"
-              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.95)' }}
-            >
-              {rp.subtitle}
+
+            {/* Subtitle */}
+            <p className="text-slate-300 text-base xl:text-lg leading-relaxed">
+              Use o link seguro enviado para seu e-mail para redefinir sua senha.
             </p>
           </div>
+        </div>
 
-          <div className="login-glass-card w-full rounded-[20px] p-8 sm:p-9">
-            <p className="mb-6 text-[13px] text-gray-300">
-              Use the secure reset link to define a new password for your workspace account.
-            </p>
+        {/* RIGHT COLUMN - Form */}
+        <div className="flex w-full lg:w-1/2 xl:w-[45%] flex-col justify-center px-6 py-12 sm:px-8 lg:px-16 xl:px-20">
+          <div className="w-full max-w-md mx-auto">
+            {/* Mobile logo */}
+            <div className="lg:hidden mb-8 text-center">
+              <CausiumLogo variant="dark" />
+            </div>
 
-          {success ? (
-            <div className="mb-4 rounded-lg border border-emerald-300/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-200">
-              <p className="font-semibold">Password updated successfully.</p>
-              <p className="mt-1">Redirecting to sign in in {redirectCountdown}s...</p>
-              <div className="mt-3">
+            {/* Success state */}
+            {success ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  Password updated successfully.
+                </h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Redirecting to sign in in {redirectCountdown}s...
+                </p>
                 <Link
                   to="/login?reset=success"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-200 transition-colors hover:text-white"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="w-4 h-4" />
                   {rp.backToSignIn}
                 </Link>
               </div>
-            </div>
-          ) : (
-            <>
-              {error && (
-                <div
-                  className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-                    isTokenIssue
-                      ? 'border-amber-300/30 bg-amber-500/10 text-amber-200'
-                      : 'border-red-300/30 bg-red-500/10 text-red-200'
-                  }`}
-                >
-                  <p className="font-medium">
-                    {isTokenIssue ? 'This reset link is invalid or expired.' : 'Could not reset password.'}
+            ) : (
+              <>
+                {/* Header */}
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+                    {rp.title}
+                  </h2>
+                  <p className="text-slate-500 text-sm">
+                    {rp.subtitle}
                   </p>
-                  <p className="mt-1">{error}</p>
-                  {isTokenIssue && (
-                    <Link
-                      to="/forgot-password"
-                      className="mt-2 inline-flex text-sm font-medium text-amber-200 underline-offset-2 hover:underline"
-                    >
-                      Request a new reset link
-                    </Link>
-                  )}
                 </div>
-              )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {!tokenFromUrl && (
-                  <div>
-                    <label className="mb-1.5 block text-[13px] font-medium text-white">{rp.tokenLabel}</label>
-                    <input
-                      type="text"
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      required
-                      placeholder={rp.tokenPlaceholder}
-                      className="login-glass-input w-full rounded-xl px-4 py-3 font-mono text-sm placeholder-gray-400 outline-none transition-all duration-300"
-                    />
+                {/* Error state */}
+                {error && (
+                  <div
+                    className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+                      isTokenIssue
+                        ? 'border-amber-200 bg-amber-50 text-amber-800'
+                        : 'border-red-200 bg-red-50 text-red-700'
+                    }`}
+                  >
+                    <p className="font-medium">
+                      {isTokenIssue ? 'This reset link is invalid or expired.' : 'Could not reset password.'}
+                    </p>
+                    <p className="mt-1">{error}</p>
+                    {isTokenIssue && (
+                      <Link
+                        to="/forgot-password"
+                        className="mt-2 inline-flex text-sm font-medium text-amber-700 underline-offset-2 hover:underline"
+                      >
+                        Request a new reset link
+                      </Link>
+                    )}
                   </div>
                 )}
 
-                <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-white">{rp.newPasswordLabel}</label>
-                  <div className="relative">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Token */}
+                  {!tokenFromUrl && (
+                    <div>
+                      <label htmlFor="token" className="block text-sm font-medium text-slate-700 mb-1.5">
+                        {rp.tokenLabel}
+                      </label>
+                      <input
+                        id="token"
+                        type="text"
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                        required
+                        placeholder={rp.tokenPlaceholder}
+                        className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 font-mono outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                      />
+                    </div>
+                  )}
+
+                  {/* New password */}
+                  <div>
+                    <label htmlFor="new-password" className="block text-sm font-medium text-slate-700 mb-1.5">
+                      {rp.newPasswordLabel}
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="new-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                        minLength={8}
+                        placeholder={rp.newPasswordPlaceholder}
+                        className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-11 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm password */}
+                  <div>
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700 mb-1.5">
+                      {rp.confirmPasswordLabel}
+                    </label>
                     <input
+                      id="confirm-password"
                       type={showPassword ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       autoComplete="new-password"
-                      minLength={8}
-                      placeholder={rp.newPasswordPlaceholder}
-                      className="login-glass-input w-full rounded-xl px-4 py-3 pr-11 text-sm placeholder-gray-400 outline-none transition-all duration-300"
+                      placeholder={rp.confirmPasswordPlaceholder}
+                      className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition-colors hover:text-gray-300"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
                   </div>
+
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={loading || !token.trim()}
+                    className="w-full rounded-lg bg-[#0f172a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#0f172a]/50 disabled:opacity-60"
+                  >
+                    {loading ? rp.submitting : rp.submit}
+                  </button>
+                </form>
+
+                {/* Back to login */}
+                <div className="mt-6 text-center">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    {rp.backToSignIn}
+                  </Link>
                 </div>
-
-                <div>
-                  <label className="mb-1.5 block text-[13px] font-medium text-white">{rp.confirmPasswordLabel}</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    autoComplete="new-password"
-                    placeholder={rp.confirmPasswordPlaceholder}
-                    className="login-glass-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-400 outline-none transition-all duration-300"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || !token.trim()}
-                  className="mt-2 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] disabled:opacity-60"
-                >
-                  {loading ? rp.submitting : rp.submit}
-                </button>
-              </form>
-            </>
-          )}
-
-          <div className="mt-6 text-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-gray-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {rp.backToSignIn}
-            </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
-    </div>
     </div>
   )
 }
