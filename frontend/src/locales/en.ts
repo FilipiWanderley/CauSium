@@ -855,6 +855,18 @@ export interface Translations {
     tagColName: string
     tagColCost: string
     tagColRecords: string
+    // Governance Score
+    governanceScore: string
+    scoreGood: string
+    scoreMedium: string
+    scoreLow: string
+    scoreCritical: string
+    // Top Resources Tab
+    tabTopResources: string
+    colResourceName: string
+    colSubscription: string
+    errorTopResources: string
+    noTopResources: string
   }
   green: {
     title: string
@@ -2300,6 +2312,18 @@ export const en: Translations = {
     tagColName: 'Name',
     tagColCost: 'Spend',
     tagColRecords: 'Records',
+    // Governance Score
+    governanceScore: 'Governance Score',
+    scoreGood: 'Good',
+    scoreMedium: 'Medium',
+    scoreLow: 'Low',
+    scoreCritical: 'Critical',
+    // Top Resources Tab
+    tabTopResources: 'Top Resources',
+    colResourceName: 'Resource Name',
+    colSubscription: 'Subscription',
+    errorTopResources: 'Failed to load top resources.',
+    noTopResources: 'No resources found for the selected period.',
   },
   green: {
     title: 'Sustainability',

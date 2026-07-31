@@ -9,6 +9,7 @@ import {
   type TagComplianceMetrics,
   type UnownedCostRow,
 } from '../../api/gov'
+import { ledgerApi } from '../../api/ledger'
 import { useI18n } from '../../contexts/I18nContext'
 import { usePageTitle } from '../../hooks/usePageTitle'
 import { SectionIntro } from '../../components/Layout/SectionIntro'
@@ -19,6 +20,27 @@ import { UNMAPPED_TEAM_LABEL } from '../../utils/teamDisplay'
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
+
+function getGovernanceScoreColor(score: number): string {
+  if (score >= 76) return 'border-emerald-100'
+  if (score >= 51) return 'border-amber-100'
+  if (score >= 26) return 'border-orange-100'
+  return 'border-red-100'
+}
+
+function getGovernanceScoreLabel(score: number, g: ReturnType<typeof useI18n>['t']['gov']): string {
+  if (score >= 76) return g.scoreGood
+  if (score >= 51) return g.scoreMedium
+  if (score >= 26) return g.scoreLow
+  return g.scoreCritical
+}
+
+function getGovernanceScoreValueClass(score: number): string {
+  if (score >= 76) return 'text-emerald-700'
+  if (score >= 51) return 'text-amber-700'
+  if (score >= 26) return 'text-orange-700'
+  return 'text-red-700'
+}
 
 function ComplianceBadge({ pct }: { pct: number }) {
   const color =
@@ -106,7 +128,7 @@ function SkeletonRows() {
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
 
-type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory' | 'tag-compliance'
+type Tab = 'unowned' | 'compliance' | 'recommendations' | 'inventory' | 'tag-compliance' | 'top-resources'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -123,6 +145,7 @@ export function GovPage() {
     { id: 'recommendations', label: g.tabRecommendations },
     { id: 'inventory',       label: g.tabInventory       },
     { id: 'tag-compliance',  label: g.tabTagCompliance   },
+    { id: 'top-resources',   label: g.tabTopResources    },
   ]
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -188,6 +211,12 @@ export function GovPage() {
     enabled: tab === 'tag-compliance',
   })
 
+  const topResourcesQ = useQuery({
+    queryKey: ['ledger', 'top-resources', days],
+    queryFn: () => ledgerApi.detailedCosts({ days, page: 1, page_size: 20 }).then(r => r.data),
+    enabled: tab === 'top-resources',
+  })
+
   const s = summaryQ.data
   const rs = recSummaryQ.data
   const inv = invSummaryQ.data
@@ -242,6 +271,20 @@ export function GovPage() {
             { label: g.billedResources, value: s ? s.total_resources.toLocaleString() : '—', color: 'border-slate-900 bg-slate-900 text-white', sub: g.resourcesUnit, valueClass: 'text-white', labelClass: 'text-slate-300', subClass: 'text-slate-300' },
             { label: g.unowned, value: s ? s.unowned_resources.toLocaleString() : '—', color: 'border-amber-100', sub: s ? `${s.unowned_pct}%` : g.resourcesUnit },
             { label: g.avgCompliance, value: s ? `${s.avg_compliance_pct}%` : '—', color: s && s.avg_compliance_pct >= 90 ? 'border-emerald-100' : 'border-amber-100', sub: g.complianceUnit },
+            // Governance Score card
+            (() => {
+              const score = s ? 100 - s.unowned_pct : 0
+              const scoreColor = getGovernanceScoreColor(score)
+              return {
+                label: g.governanceScore,
+                value: score.toFixed(0),
+                color: scoreColor,
+                sub: getGovernanceScoreLabel(score, g),
+                valueClass: getGovernanceScoreValueClass(score),
+                labelClass: 'text-gray-400',
+                subClass: 'text-gray-500',
+              }
+            })(),
             { label: g.recommendations, value: rs ? rs.total.toLocaleString() : '—', color: 'border-blue-100', sub: rs && rs.high_impact > 0 ? `${rs.high_impact} ${g.impactHigh.toLowerCase()}` : undefined },
             { label: g.estSavings, value: rs ? formatMoney(rs.total_estimated_savings_usd) : '—', color: 'border-emerald-100', sub: g.organizationWide },
             { label: g.deployedResources, value: inv ? inv.total_resources.toLocaleString() : '—', color: 'border-gray-100', sub: inv ? `${inv.resource_types} ${g.types}` : g.resourcesUnit },
@@ -598,6 +641,47 @@ export function GovPage() {
                 </p>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* ── Top Resources tab ──────────────────────────────────────────────────── */}
+      {tab === 'top-resources' && (
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          {topResourcesQ.isPending ? <SkeletonRows /> :
+           topResourcesQ.isError ? (
+            <div className="p-8 text-center text-sm text-red-500">{g.errorTopResources}</div>
+           ) : (topResourcesQ.data?.items ?? []).length === 0 ? (
+            <EmptyState icon={Server} message={g.noTopResources} />
+           ) : (
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-100 bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.colResourceName}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.colService}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.colSubscription}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{g.colRegion}</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">{g.colCost}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {topResourcesQ.data?.items.map((row, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800 truncate max-w-[200px]">
+                      {row.resource_name || row.resource_id}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{row.service}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs truncate max-w-[150px]">
+                      {row.subscription_id}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{row.region}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      {formatMoney(row.cost_usd)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}
